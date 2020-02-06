@@ -34,14 +34,14 @@ struct DKGKeyInformation {
   std::string group_public_key;
 };
 
-class EntropyGenerationInterface {
+class AeonExecUnit {
 public:
   using MessagePayload     = std::string;
   using Signature          = std::string;
   using Generator          = std::string;
   using CabinetIndex       = uint64_t;
 
-  EntropyGenerationInterface(DKGKeyInformation aeon_keys, Generator generator);
+  AeonExecUnit(DKGKeyInformation aeon_keys, Generator generator);
 
   Signature Sign(MessagePayload const &message);
   bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender);

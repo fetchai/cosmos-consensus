@@ -31,8 +31,8 @@ func TestSign(t *testing.T) {
 	aeon_keys.SetGroup_public_key(group_public_key)
 	aeon_keys.SetPublic_key_shares(public_keys_vec)
 
-	entropy_generator := NewEntropyGenerationInterface(aeon_keys, generator)
-	defer DeleteEntropyGenerationInterface(entropy_generator)
+	entropy_generator := NewAeonExecUnit(aeon_keys, generator)
+	defer DeleteAeonExecUnit(entropy_generator)
 
 	message := "HelloWorld"
 	signature := entropy_generator.Sign(message)
@@ -52,8 +52,8 @@ func TestSign(t *testing.T) {
 		aeon_keys_temp.SetGroup_public_key(group_public_key)
 		aeon_keys_temp.SetPublic_key_shares(public_keys_vec)
 
-		entropy_generator_temp := NewEntropyGenerationInterface(aeon_keys_temp, generator)
-		defer DeleteEntropyGenerationInterface(entropy_generator_temp)
+		entropy_generator_temp := NewAeonExecUnit(aeon_keys_temp, generator)
+		defer DeleteAeonExecUnit(entropy_generator_temp)
 
 		signature_temp := entropy_generator_temp.Sign(message)
 		if !entropy_generator_temp.Verify(message, signature_temp, uint64(i)) {

@@ -1,7 +1,7 @@
 /* beacon.i */
 %module beacon
 %{
-#include "beacon_cpp/libs/include/entropy_generation.hpp"
+#include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
 
 using namespace fetch::crypto;
 %}
@@ -16,4 +16,4 @@ namespace std {
  %template(IntStringMap) map<int, string>;
 }
 
-%include "beacon_cpp/libs/include/entropy_generation.hpp"
+%include "beacon_cpp/libs/include/aeon_exec_unit.hpp"

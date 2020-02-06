@@ -16,7 +16,7 @@
 //
 //------------------------------------------------------------------------------
 
-#include "entropy_generation.hpp"
+#include "aeon_exec_unit.hpp"
 #include "mcl_crypto.hpp"
 
 namespace fetch {
@@ -26,7 +26,7 @@ void InitialiseMcl() {
   mcl::details::MCLInitialiser();
 }
 
-EntropyGenerationInterface::EntropyGenerationInterface(DKGKeyInformation aeon_keys, Generator generator) : aeon_keys_{
+AeonExecUnit::AeonExecUnit(DKGKeyInformation aeon_keys, Generator generator) : aeon_keys_{
         std::move(aeon_keys)}, generator_{generator} {
 }
 
@@ -37,7 +37,7 @@ EntropyGenerationInterface::EntropyGenerationInterface(DKGKeyInformation aeon_ke
  * @param x_i Secret key share
  * @return Signature share
  */
-EntropyGenerationInterface::Signature EntropyGenerationInterface::Sign(MessagePayload const &message) {
+AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) {
   mcl::PrivateKey x_i{aeon_keys_.private_key};
 
   return mcl::Sign(message, x_i).getStr();
@@ -53,7 +53,7 @@ EntropyGenerationInterface::Signature EntropyGenerationInterface::Sign(MessagePa
  * @return
  */
 bool
-EntropyGenerationInterface::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) {
+AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) {
   assert(sender < aeon_keys_.public_key_shares.size());
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.public_key_shares[sender]};
@@ -62,8 +62,8 @@ EntropyGenerationInterface::Verify(MessagePayload const &message, Signature cons
   return mcl::Verify(message, signature, public_key, generator);
 }
 
-EntropyGenerationInterface::Signature
-EntropyGenerationInterface::ComputeGroupSignature(std::map <int, Signature> const &shares) {
+AeonExecUnit::Signature
+AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) {
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
     assert(static_cast<CabinetIndex>(share.first) < aeon_keys_.public_key_shares.size());
@@ -75,7 +75,7 @@ EntropyGenerationInterface::ComputeGroupSignature(std::map <int, Signature> cons
   return group_sig.getStr();
 }
 
-bool EntropyGenerationInterface::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) {
+bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) {
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.group_public_key};
   mcl::Generator generator{generator_};
