@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"encoding/binary"
-	"github.com/pkg/errors"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -10,14 +9,6 @@ import (
 	"github.com/tendermint/tendermint/types"
 	"math/rand"
 	"sort"
-)
-
-//-----------------------------------------------------------------------------
-// Errors
-
-var (
-	ErrInvalidProposalSignature = errors.New("error invalid proposal signature")
-	ErrInvalidProposalPOLRound  = errors.New("error invalid proposal POL round")
 )
 
 //-----------------------------------------------------------------------------
@@ -56,7 +47,9 @@ func NewState(
 }
 
 func (cs *State) SetEntropyChannel(channel <-chan ComputedEntropy) {
-	cs.computedEntropyChannel = channel
+	if cs.computedEntropyChannel == nil {
+		cs.computedEntropyChannel = channel
+	}
 }
 
 // Overrides getProposer in consensus.State and uses entropy to shuffle cabinet
