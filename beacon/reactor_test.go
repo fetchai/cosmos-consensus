@@ -1,6 +1,8 @@
 package beacon
 
 import (
+	"bytes"
+	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"os"
@@ -20,7 +22,6 @@ func TestMain(m *testing.M) {
 
 func startBeaconNet(t *testing.T, entropyGenerators []*EntropyGenerator, n int) (
 	[]*Reactor,
-	[]*EntropyGenerator,
 ) {
 	reactors := make([]*Reactor, n)
 	for i := 0; i < n; i++ {
@@ -36,7 +37,7 @@ func startBeaconNet(t *testing.T, entropyGenerators []*EntropyGenerator, n int) 
 		return s
 	}, p2p.Connect2Switches)
 
-	return reactors, entropyGenerators
+	return reactors
 }
 
 func stopBeaconNet(logger log.Logger, reactors []*Reactor) {
@@ -49,11 +50,11 @@ func stopBeaconNet(logger log.Logger, reactors []*Reactor) {
 }
 
 func TestReactorEntropy(t *testing.T) {
-	entropyGenerators, cleanup := randBeaconNet("beacon_reactor_test")
+	entropyGenerators, _, cleanup := randBeaconNet("beacon_reactor_test", newCounter)
 	defer cleanup()
 	N := len(entropyGenerators)
-	reactors, entropyGenerators := startBeaconNet(t, entropyGenerators, N)
-	defer stopBeaconNet(log.TestingLogger(), reactors)
+	entropyReactors := startBeaconNet(t, entropyGenerators, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
 	// Wait for everyone to generate 3 rounds of entropy
 	for i := 0; i < N; i++ {
@@ -67,3 +68,35 @@ func TestReactorEntropy(t *testing.T) {
 		}
 	}
 }
+
+// Ensure a testnet makes blocks
+func TestShuffledProposer(t *testing.T) {
+	entropyGenerators, css, cleanup := randBeaconNet("beacon_reactor_test", newCounter)
+	defer cleanup()
+	N := len(entropyGenerators)
+
+	entropyReactors := startBeaconNet(t, entropyGenerators, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
+
+	// Wait for everyone to generate 3 rounds of entropy
+	entropyRounds := int64(3)
+	for i := 0; i < N; i++ {
+		for {
+			_, err := entropyGenerators[i].GetEntropy(entropyRounds)
+			if err == nil {
+				break
+			} else {
+				time.Sleep(2*time.Millisecond)
+			}
+		}
+	}
+
+	// Read three rounds of entropy
+	for r := int64(0); r < entropyRounds; r++ {
+		proposerAddress := css[0].getProposer(r + 1, 0).Address
+		for i := 1; i < N; i++ {
+			assert.True(t, bytes.Equal(css[i].getProposer(r + 1, 0).Address, proposerAddress))
+		}
+	}
+}
+

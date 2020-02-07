@@ -930,24 +930,25 @@ func (cs *State) enterPropose(height int64, round int) {
 	}
 	logger.Debug("This node is a validator")
 
-	if cs.isProposer(address) {
+	nextProposer := cs.getProposer(height, round)
+	if bytes.Equal(nextProposer.Address, address) {
 		logger.Info("enterPropose: Our turn to propose",
 			"proposer",
-			cs.Validators.GetProposer().Address,
+			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
 		cs.decideProposal(height, round)
 	} else {
 		logger.Info("enterPropose: Not our turn to propose",
 			"proposer",
-			cs.Validators.GetProposer().Address,
+			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
 	}
 }
 
-func (cs *State) isProposer(address []byte) bool {
-	return bytes.Equal(cs.Validators.GetProposer().Address, address)
+func (cs *State) getProposer(int64, int) *types.Validator {
+	return cs.Validators.GetProposer()
 }
 
 func (cs *State) defaultDecideProposal(height int64, round int) {
@@ -1550,7 +1551,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal) error {
 	}
 
 	// Verify signature
-	if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
+	if !cs.getProposer(proposal.Height, proposal.Round).PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
 		return ErrInvalidProposalSignature
 	}
 

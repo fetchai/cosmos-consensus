@@ -29,7 +29,7 @@ type EntropyGenerator struct {
 	entropyComputed map[int64]Signature
 
 	// Channel for sending off entropy for receiving elsewhere
-	EntropyChannel chan<-ComputedEntropy
+	computedEntropyChannel chan<-ComputedEntropy
 
 	// To be safe, need to store set of validators who can participate in DRB here to avoid
 	// possible problems with validator set changing allowed by Tendermint
@@ -51,7 +51,6 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newA
 		Logger: logger,
 		entropyShares: make(map[int64]map[int]EntropyShare),
 		entropyComputed: make(map[int64]Signature),
-		EntropyChannel: make(chan<-ComputedEntropy, EntropyChannelCapacity),
 		address: newAddress,
 		Validators: validators,
 		stopped: true,
@@ -83,23 +82,37 @@ func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeon_keys DKGKeyInformatio
 	}
 }
 
+func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<-ComputedEntropy) {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
+
+	if entropyGenerator.computedEntropyChannel == nil {
+		entropyGenerator.computedEntropyChannel = entropyChannel
+	}
+}
+
+// Only for demo as always generates entropy from genesis - should be coupled
+// to consensus state
 func (entropyGenerator *EntropyGenerator) Start() error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
-		return fmt.Errorf("no active execution unit")
-	}
-	if err := entropyGenerator.evsw.Start(); err != nil {
-		return err
-	}
+	if entropyGenerator.stopped {
+		if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
+			return fmt.Errorf("no active execution unit")
+		}
+		if err := entropyGenerator.evsw.Start(); err != nil {
+			return err
+		}
 
-	entropyGenerator.stopped = false
-	entropyShare, err := entropyGenerator.sign(1)
-	if err != nil {
-		return err
+		entropyGenerator.stopped = false
+		entropyShare, err := entropyGenerator.sign(GenesisHeight + 1)
+		if err != nil {
+			return err
+		}
+		entropyGenerator.evsw.FireEvent(EventEntropyShare, &entropyShare)
+		return nil
 	}
-	entropyGenerator.evsw.FireEvent(EventEntropyShare, &entropyShare)
 	return nil
 }
 
@@ -107,15 +120,19 @@ func (entropyGenerator *EntropyGenerator) Stop() {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	entropyGenerator.evsw.Stop()
+	if !entropyGenerator.stopped {
+		entropyGenerator.evsw.Stop()
 
-	entropyGenerator.stopped = true
+		entropyGenerator.stopped = true
 
-	// Close channel to notify receiver than no more entropy is being generated
-	close(entropyGenerator.EntropyChannel)
+		// Close channel to notify receiver than no more entropy is being generated
+		if entropyGenerator.computedEntropyChannel != nil {
+			close(entropyGenerator.computedEntropyChannel)
+		}
 
-	// Put this here for now but should not be here
-	defer DeleteAeonExecUnit(entropyGenerator.aeonExecUnit)
+		// Put this here for now but should not be here
+		defer DeleteAeonExecUnit(entropyGenerator.aeonExecUnit)
+	}
 }
 
 func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(index int, share *EntropyShare) error {
@@ -162,9 +179,11 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(index int, share *En
 		entropyGenerator.entropyComputed[share.Height] = []byte(groupSignature)
 
 		// Dispatch entropy to entropy channel
-		entropyGenerator.EntropyChannel <- ComputedEntropy{
-			Height: share.Height,
-			GroupSignature: []byte(groupSignature),
+		if entropyGenerator.computedEntropyChannel != nil {
+			entropyGenerator.computedEntropyChannel <- ComputedEntropy{
+				Height:         share.Height,
+				GroupSignature: []byte(groupSignature),
+			}
 		}
 
 		// Don't delete this yet as need them there for gossiping to peers
