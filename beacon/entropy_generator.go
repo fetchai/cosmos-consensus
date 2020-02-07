@@ -11,6 +11,15 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 )
 
+var (
+	EntropyChannelCapacity = 5
+)
+
+type ComputedEntropy struct {
+	Height int64
+	GroupSignature Signature
+}
+
 type EntropyGenerator struct {
 	Logger  log.Logger
 	proxyMtx     sync.Mutex
@@ -18,6 +27,9 @@ type EntropyGenerator struct {
 	threshold int
 	entropyShares map[int64]map[int]EntropyShare
 	entropyComputed map[int64]Signature
+
+	// Channel for sending off entropy for receiving elsewhere
+	EntropyChannel chan<-ComputedEntropy
 
 	// To be safe, need to store set of validators who can participate in DRB here to avoid
 	// possible problems with validator set changing allowed by Tendermint
@@ -39,6 +51,7 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newA
 		Logger: logger,
 		entropyShares: make(map[int64]map[int]EntropyShare),
 		entropyComputed: make(map[int64]Signature),
+		EntropyChannel: make(chan<-ComputedEntropy, EntropyChannelCapacity),
 		address: newAddress,
 		Validators: validators,
 		stopped: true,
@@ -98,6 +111,9 @@ func (entropyGenerator *EntropyGenerator) Stop() {
 
 	entropyGenerator.stopped = true
 
+	// Close channel to notify receiver than no more entropy is being generated
+	close(entropyGenerator.EntropyChannel)
+
 	// Put this here for now but should not be here
 	defer DeleteAeonExecUnit(entropyGenerator.aeonExecUnit)
 }
@@ -144,6 +160,12 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(index int, share *En
 		}
 		entropyGenerator.Logger.Info("New entropy computed", "height", share.Height)
 		entropyGenerator.entropyComputed[share.Height] = []byte(groupSignature)
+
+		// Dispatch entropy to entropy channel
+		entropyGenerator.EntropyChannel <- ComputedEntropy{
+			Height: share.Height,
+			GroupSignature: []byte(groupSignature),
+		}
 
 		// Don't delete this yet as need them there for gossiping to peers
 		//delete(entropyGenerator.entropyShares, height)

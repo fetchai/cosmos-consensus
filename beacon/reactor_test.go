@@ -1,7 +1,6 @@
 package beacon
 
 import (
-	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"os"
@@ -57,9 +56,14 @@ func TestReactorEntropy(t *testing.T) {
 	defer stopBeaconNet(log.TestingLogger(), reactors)
 
 	// Wait for everyone to generate 3 rounds of entropy
-	time.Sleep(time.Second)
 	for i := 0; i < N; i++ {
-		_, err := entropyGenerators[i].GetEntropy(3)
-		assert.True(t, err == nil)
+		for {
+			_, err := entropyGenerators[i].GetEntropy(3)
+			if err == nil {
+				break
+			} else {
+				time.Sleep(2*time.Millisecond)
+			}
+		}
 	}
 }
