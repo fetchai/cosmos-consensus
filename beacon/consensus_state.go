@@ -5,14 +5,11 @@ import (
 	"github.com/pkg/errors"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
-	cstypes "github.com/tendermint/tendermint/consensus/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	sm "github.com/tendermint/tendermint/state"
+	"github.com/tendermint/tendermint/types"
 	"math/rand"
 	"sort"
-	"time"
-
-	"github.com/tendermint/tendermint/types"
 )
 
 //-----------------------------------------------------------------------------
@@ -24,14 +21,6 @@ var (
 )
 
 //-----------------------------------------------------------------------------
-
-// internally generated messages which may update the state
-type timeoutInfo struct {
-	Duration time.Duration         `json:"duration"`
-	Height   int64                 `json:"height"`
-	Round    int                   `json:"round"`
-	Step     cstypes.RoundStepType `json:"step"`
-}
 
 // interface to the mempool
 type txNotifier interface {
@@ -46,9 +35,6 @@ type evidencePool interface {
 //-----------------------------------------------------------------------------
 
 // State handles execution of the consensus algorithm.
-// It processes votes and proposals, and upon reaching agreement,
-// commits blocks to the chain and executes them against the application.
-// The internal state machine receives input from peers, the internal validator, and from a timer.
 type State struct {
 	consensus.State
 	// For receiving entropy
@@ -88,6 +74,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	}
 }
 
+// Check that rand.Shuffle is same across different platforms
 func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
 	seed, n := binary.Varint(entropy)
 	if n <= 0 {

@@ -69,7 +69,6 @@ func TestReactorEntropy(t *testing.T) {
 	}
 }
 
-// Ensure a testnet makes blocks
 func TestShuffledProposer(t *testing.T) {
 	entropyGenerators, css, cleanup := randBeaconNet("beacon_reactor_test", newCounter)
 	defer cleanup()
