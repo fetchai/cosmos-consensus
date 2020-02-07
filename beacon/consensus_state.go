@@ -59,6 +59,7 @@ func (cs *State) SetEntropyChannel(channel <-chan ComputedEntropy) {
 	cs.computedEntropyChannel = channel
 }
 
+// Overrides getProposer in consensus.State and uses entropy to shuffle cabinet
 func (cs *State) getProposer(height int64, round int) *types.Validator {
 	if cs.computedEntropyChannel == nil {
 		return cs.Validators.GetProposer()
