@@ -175,7 +175,7 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 			if conR.entropyGen != nil {
 				err := conR.entropyGen.ApplyEntropyShare(index, msg.EntropyShare)
 				if err == nil {
-					conR.entropyGen.evsw.FireEvent(types.EventEntropyShare, msg.EntropyShare)
+					conR.entropyGen.evsw.FireEvent(EventEntropyShare, msg.EntropyShare)
 				}
 			}
 		default:
@@ -192,9 +192,9 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 // subscribeToBroadcastEvents subscribes for has entropy share messages
 func (conR *Reactor) subscribeToBroadcastEvents() {
 	const subscriber = "beacon-reactor"
-	conR.entropyGen.evsw.AddListenerForEvent(subscriber, types.EventEntropyShare,
+	conR.entropyGen.evsw.AddListenerForEvent(subscriber, EventEntropyShare,
 		func(data tmevents.EventData) {
-			conR.broadcastHasEntropyShareMessage(data.(*types.EntropyShare))
+			conR.broadcastHasEntropyShareMessage(data.(*EntropyShare))
 		})
 }
 
@@ -203,7 +203,7 @@ func (conR *Reactor) unsubscribeFromBroadcastEvents() {
 	conR.entropyGen.evsw.RemoveListener(subscriber)
 }
 
-func (conR *Reactor) broadcastHasEntropyShareMessage(es *types.EntropyShare) {
+func (conR *Reactor) broadcastHasEntropyShareMessage(es *EntropyShare) {
 	esMsg := &HasEntropyShareMessage{
 		Height: es.Height,
 		SignerAddress: es.SignerAddress,
@@ -298,7 +298,7 @@ func (ps *PeerState) GetLastComputedEntropyHeight() int64 {
 	return ps.lastComputedEntropyHeight
 }
 
-func (ps *PeerState) PickSendEntropyShare(peerEntropyShares map[int]types.EntropyShare, numValidators int, threshold int) bool {
+func (ps *PeerState) PickSendEntropyShare(peerEntropyShares map[int]EntropyShare, numValidators int, threshold int) bool {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -436,7 +436,7 @@ func (m *HasEntropyShareMessage) String() string {
 
 // EntropyShareMessage is for computing DRB
 type EntropyShareMessage struct {
-	*types.EntropyShare
+	*EntropyShare
 }
 
 // ValidateBasic performs basic validation.

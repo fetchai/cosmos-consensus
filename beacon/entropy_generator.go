@@ -11,23 +11,19 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 )
 
-type Signature = []byte
-
-var GenesisHeight = int64(0)
-
 type EntropyGenerator struct {
 	Logger  log.Logger
 	proxyMtx     sync.Mutex
 
 	threshold int
-	entropyShares map[int64]map[int]types.EntropyShare
+	entropyShares map[int64]map[int]EntropyShare
 	entropyComputed map[int64]Signature
 
 	// To be safe, need to store set of validators who can participate in DRB here to avoid
 	// possible problems with validator set changing allowed by Tendermint
-	index int
 	address crypto.Address
 	Validators                  *types.ValidatorSet
+	aeonExecUnit AeonExecUnit
 
 	stopped bool
 	// synchronous pubsub between consensus state and reactor.
@@ -35,27 +31,22 @@ type EntropyGenerator struct {
 	evsw tmevents.EventSwitch
 }
 
-func NewEntropyGenerator(logger log.Logger) *EntropyGenerator {
+func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newAddress crypto.Address) *EntropyGenerator {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
 	es := &EntropyGenerator{
 		Logger: logger,
-		entropyShares: make(map[int64]map[int]types.EntropyShare),
+		entropyShares: make(map[int64]map[int]EntropyShare),
 		entropyComputed: make(map[int64]Signature),
-		index: -1,
-		stopped: false,
+		address: newAddress,
+		Validators: validators,
+		stopped: true,
 		evsw:             tmevents.NewEventSwitch(),
 	}
+
+	es.threshold = es.Validators.Size() / 2 + 1
 	return es
-}
-
-func (entropyGenerator *EntropyGenerator) SetValidatorsAndThreshold(validators *types.ValidatorSet, newThreshold int) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
-	entropyGenerator.Validators = validators
-	entropyGenerator.threshold = newThreshold
 }
 
 func (entropyGenerator *EntropyGenerator) SetGenesisEntropy(genEntropy Signature) {
@@ -69,18 +60,23 @@ func (entropyGenerator *EntropyGenerator) SetGenesisEntropy(genEntropy Signature
 	entropyGenerator.entropyComputed[GenesisHeight] = genEntropy
 }
 
-func (entropyGenerator *EntropyGenerator) SetIndexAndAddress(newIndex int, address crypto.Address) {
+func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeon_keys DKGKeyInformation, generator string) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	entropyGenerator.index = newIndex
-	entropyGenerator.address = address
+	// Only allow updating of aeon keys if generator is stopped
+	if entropyGenerator.stopped {
+		entropyGenerator.aeonExecUnit = NewAeonExecUnit(aeon_keys, generator)
+	}
 }
 
 func (entropyGenerator *EntropyGenerator) Start() error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
+	if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
+		return fmt.Errorf("no active execution unit")
+	}
 	if err := entropyGenerator.evsw.Start(); err != nil {
 		return err
 	}
@@ -90,7 +86,7 @@ func (entropyGenerator *EntropyGenerator) Start() error {
 	if err != nil {
 		return err
 	}
-	entropyGenerator.evsw.FireEvent(types.EventEntropyShare, &entropyShare)
+	entropyGenerator.evsw.FireEvent(EventEntropyShare, &entropyShare)
 	return nil
 }
 
@@ -101,23 +97,34 @@ func (entropyGenerator *EntropyGenerator) Stop() {
 	entropyGenerator.evsw.Stop()
 
 	entropyGenerator.stopped = true
+
+	// Put this here for now but should not be here
+	defer DeleteAeonExecUnit(entropyGenerator.aeonExecUnit)
 }
 
-func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(index int, share *types.EntropyShare) error {
+func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(index int, share *EntropyShare) error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
+	if entropyGenerator.stopped {
+		return fmt.Errorf("entropy generator stopped")
+	}
 	err := entropyGenerator.validInputs(share.Height, index)
 	if  err != nil {
 		return err
 	}
 
-	// TODO: Verification
+	// Verify share
+	message := string(tmhash.Sum(entropyGenerator.entropyComputed[share.Height - 1]))
+	if !entropyGenerator.aeonExecUnit.Verify(message, share.SignatureShare, uint64(index)) {
+		return fmt.Errorf("invalid entropy share received from %v", share.SignerAddress)
+	}
+
 	entropyGenerator.Logger.Info("New entropy share received", "height", share.Height, "validator index", index)
 	if entropyGenerator.entropyShares[share.Height] == nil {
-		entropyGenerator.entropyShares[share.Height] = make(map[int]types.EntropyShare)
+		entropyGenerator.entropyShares[share.Height] = make(map[int]EntropyShare)
 	}
-	newShare := types.EntropyShare{
+	newShare := EntropyShare{
 		Height:         share.Height,
 		SignerAddress:  share.SignerAddress,
 		SignatureShare: share.SignatureShare,
@@ -125,9 +132,19 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(index int, share *ty
 	entropyGenerator.entropyShares[share.Height][index] = newShare
 
 	if len(entropyGenerator.entropyShares[share.Height]) >= entropyGenerator.threshold {
+		signatureShares := NewIntStringMap()
+		defer DeleteIntStringMap(signatureShares)
+
+		for key, share := range entropyGenerator.entropyShares[share.Height] {
+			signatureShares.Set(key, share.SignatureShare)
+		}
+		groupSignature := entropyGenerator.aeonExecUnit.ComputeGroupSignature(signatureShares)
+		if !entropyGenerator.aeonExecUnit.VerifyGroupSignature(message, groupSignature) {
+			return fmt.Errorf("entropy_generator.VerifyGroupSignature == false")
+		}
 		entropyGenerator.Logger.Info("New entropy computed", "height", share.Height)
-		// TODO: Compute group signature
-		entropyGenerator.entropyComputed[share.Height] = []byte("hello")
+		entropyGenerator.entropyComputed[share.Height] = []byte(groupSignature)
+
 		// Don't delete this yet as need them there for gossiping to peers
 		//delete(entropyGenerator.entropyShares, height)
 
@@ -154,7 +171,7 @@ func (entropyGenerator *EntropyGenerator) GetEntropy(height int64) (Signature, e
 	return entropyGenerator.entropyComputed[height], nil
 }
 
-func (entropyGenerator *EntropyGenerator) GetEntropyShares(height int64) map[int]types.EntropyShare {
+func (entropyGenerator *EntropyGenerator) GetEntropyShares(height int64) map[int]EntropyShare {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -168,6 +185,7 @@ func (entropyGenerator *EntropyGenerator) GetThreshold() int {
 
 	return entropyGenerator.threshold
 }
+
 func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) error {
 	if index < 0 {
 		err := fmt.Errorf("invalid index %v", index)
@@ -177,34 +195,41 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 		err := fmt.Errorf("already computed entropy at height %v", height)
 		return err
 	}
-	if entropyGenerator.entropyShares[height][index].SignatureShare != nil {
+	if len(entropyGenerator.entropyShares[height][index].SignatureShare) != 0 {
 		err := fmt.Errorf("already have entropy share at height %v index %v", height, index)
 		return err
 	}
 	return nil
 }
 
-func (entropyGenerator *EntropyGenerator) sign(height int64) (types.EntropyShare, error) {
-	err := entropyGenerator.validInputs(height, entropyGenerator.index)
+func (entropyGenerator *EntropyGenerator) sign(height int64) (EntropyShare, error) {
+	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.address)
+	err := entropyGenerator.validInputs(height, index)
 	if  err!= nil {
-		return types.EntropyShare{}, err
+		return EntropyShare{}, err
 	}
 	if entropyGenerator.entropyComputed[height - 1] == nil {
 		err = fmt.Errorf("sign on block height %v without previous entropy", height)
-		return types.EntropyShare{}, err
+		return EntropyShare{}, err
 	}
 
-	// TODO: Sign and verify own signature
-	signature := tmhash.Sum(entropyGenerator.entropyComputed[height - 1])
+
+	message := string(tmhash.Sum(entropyGenerator.entropyComputed[height - 1]))
+	signature := entropyGenerator.aeonExecUnit.Sign(message)
+	if !entropyGenerator.aeonExecUnit.Verify(message, signature, uint64(index)) {
+		err = fmt.Errorf("sign on block height %v generated invalid signature", height)
+		return EntropyShare{}, err
+	}
+
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[height] == nil {
-		entropyGenerator.entropyShares[height] = make(map[int]types.EntropyShare)
+		entropyGenerator.entropyShares[height] = make(map[int]EntropyShare)
 	}
-	share := types.EntropyShare{
+	share := EntropyShare{
 		Height:         height,
 		SignerAddress:  entropyGenerator.address,
 		SignatureShare: signature,
 	}
-	entropyGenerator.entropyShares[height][entropyGenerator.index] = share
+	entropyGenerator.entropyShares[height][index] = share
 	return share, nil
 }

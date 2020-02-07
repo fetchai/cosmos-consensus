@@ -1,4 +1,4 @@
-package types
+package beacon
 
 import (
 	"errors"
@@ -6,11 +6,18 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 )
 
+const (
+	EventEntropyShare   = "EventEntropyShare"
+)
+
 var (
 	// TODO: Check this is ok with mcl
-	MaxEntropyShareSize = 64
+	MaxEntropyShareSize = 256
 	GenesisHeight = int64(0)
 )
+
+type Signature = []byte
+
 //-----------------------------------------------------------------------------
 
 // PeerRoundState contains the known state of a peer.
@@ -18,7 +25,7 @@ var (
 type EntropyShare struct {
 	Height int64           `json:"height"`
 	SignerAddress  crypto.Address  `json:"signer"`
-	SignatureShare []byte  `json:"signature"`
+	SignatureShare string  `json:"signature"`
 }
 
 // ValidateBasic performs basic validation.
