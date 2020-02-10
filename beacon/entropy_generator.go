@@ -250,7 +250,7 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 func (entropyGenerator *EntropyGenerator) sign(height int64) (EntropyShare, error) {
 	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.address)
 	err := entropyGenerator.validInputs(height, index)
-	if  err!= nil {
+	if  err != nil || !entropyGenerator.aeonExecUnit.CanSign() {
 		return EntropyShare{}, err
 	}
 	if entropyGenerator.entropyComputed[height - 1] == nil {

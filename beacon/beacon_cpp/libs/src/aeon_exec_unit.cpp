@@ -83,5 +83,9 @@ bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature
   return mcl::Verify(message, signature, public_key, generator);
 }
 
+bool AeonExecUnit::CanSign() const {
+    return !aeon_keys_.private_key.empty();
+}
+
 }  // namespace crypto
 }  // namespace fetch

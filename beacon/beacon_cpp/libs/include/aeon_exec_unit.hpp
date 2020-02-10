@@ -48,6 +48,8 @@ public:
   Signature ComputeGroupSignature(std::map <int, Signature> const &signature_shares);
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature);
 
+  bool CanSign() const;
+
 private:
   DKGKeyInformation aeon_keys_;
   Generator generator_;
