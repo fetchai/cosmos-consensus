@@ -20,6 +20,10 @@ type ComputedEntropy struct {
 	GroupSignature Signature
 }
 
+func (ce *ComputedEntropy) IsEmpty() bool{
+	return ce.GroupSignature == nil
+}
+
 type EntropyGenerator struct {
 	Logger  log.Logger
 	proxyMtx     sync.Mutex

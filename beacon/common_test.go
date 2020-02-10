@@ -3,21 +3,15 @@ package beacon
 import (
 	"fmt"
 	"github.com/go-kit/kit/log/term"
-	abcicli "github.com/tendermint/tendermint/abci/client"
-	"github.com/tendermint/tendermint/abci/example/counter"
-	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
-	mempl "github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	dbm "github.com/tendermint/tm-db"
 	"os"
 	"sort"
-	"sync"
 )
 
 const (
@@ -75,14 +69,13 @@ func setCrypto() (generator string, groupPublicKey string, publicKeysVector Stri
 	return generator, groupPublicKey, publicKeysVector, privateKeysVector
 }
 
-func randBeaconNet(testName string, appFunc func() abci.Application, configOpts ...func(*cfg.Config)) ([]*EntropyGenerator, []*State, cleanupFunc) {
+func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*EntropyGenerator, cleanupFunc) {
 	nValidators := 4
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 	logger := beaconLogger()
 
 	entropyGenerators := make([]*EntropyGenerator, nValidators)
 	configRootDirs := make([]string, 0, nValidators)
-	css := make([]*State, nValidators)
 	entropyChannels := make([]chan ComputedEntropy, nValidators)
 
 	generator, groupPublicKey, publicKeysVector, privateKeysVector := setCrypto()
@@ -111,17 +104,12 @@ func randBeaconNet(testName string, appFunc func() abci.Application, configOpts 
 		entropyGenerators[i].SetGenesisEntropy([]byte("Fetch.ai Genesis Entropy"))
 		entropyGenerators[i].SetAeonKeys(aeonKeysTemp, generator)
 		entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
-
-		app := appFunc()
-		css[i] = newStateWithConfigAndBlockStore(thisConfig, state, privVals[i], app, stateDB)
-		css[i].SetLogger(logger.With("validator", i, "module", "consensus"))
-		css[i].SetEntropyChannel(entropyChannels[i])
 	}
 
 	defer DeleteStringVector(privateKeysVector)
 	defer DeleteStringVector(publicKeysVector)
 
-	return entropyGenerators, css, func() {
+	return entropyGenerators, func() {
 		for _, dir := range configRootDirs {
 			os.RemoveAll(dir)
 		}
@@ -149,51 +137,4 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 		ChainID:     config.ChainID(),
 		Validators:  validators,
 	}, privValidators
-}
-
-//-------------------------------------------------------------------------------
-// state
-
-func newStateWithConfigAndBlockStore(
-	thisConfig *cfg.Config,
-	state sm.State,
-	pv types.PrivValidator,
-	app abci.Application,
-	blockDB dbm.DB,
-) *State {
-	// Get BlockStore
-	blockStore := store.NewBlockStore(blockDB)
-
-	// one for mempool, one for consensus
-	mtx := new(sync.Mutex)
-	proxyAppConnMem := abcicli.NewLocalClient(mtx, app)
-	proxyAppConnCon := abcicli.NewLocalClient(mtx, app)
-
-	// Make Mempool
-	mempool := mempl.NewCListMempool(thisConfig.Mempool, proxyAppConnMem, 0)
-	mempool.SetLogger(log.TestingLogger().With("module", "mempool"))
-	if thisConfig.Consensus.WaitForTxs() {
-		mempool.EnableTxsAvailable()
-	}
-
-	// mock the evidence pool
-	evpool := sm.MockEvidencePool{}
-
-	// Make State
-	stateDB := blockDB
-	sm.SaveState(stateDB, state) //for save height 1's validators info
-	blockExec := sm.NewBlockExecutor(stateDB, log.TestingLogger(), proxyAppConnCon, mempool, evpool)
-	cs := NewState(thisConfig.Consensus, state, blockExec, blockStore, mempool, evpool)
-	cs.SetLogger(log.TestingLogger().With("module", "consensus"))
-	cs.SetPrivValidator(pv)
-
-	eventBus := types.NewEventBus()
-	eventBus.SetLogger(log.TestingLogger().With("module", "events"))
-	eventBus.Start()
-	cs.SetEventBus(eventBus)
-	return cs
-}
-
-func newCounter() abci.Application {
-	return counter.NewApplication(true)
 }

@@ -3,6 +3,7 @@ package consensus
 import (
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/beacon"
 	"os"
 	"path"
 	"runtime"
@@ -515,6 +516,51 @@ func TestReactorWithTimeoutCommit(t *testing.T) {
 	timeoutWaitGroup(t, N-1, func(j int) {
 		<-blocksSubs[j].Out()
 	}, css)
+}
+
+func TestReactorBeaconProposerSelection(t *testing.T) {
+	nPeers := 7
+	nVals := 4
+	css, _, _, cleanup := randConsensusNetWithPeers(
+		nVals,
+		nPeers,
+		"consensus_beacon_proposer_test",
+		newMockTickerFunc(true),
+		newPersistentKVStoreWithPath)
+
+	defer cleanup()
+	logger := log.TestingLogger()
+
+	// Create entropy channels and put channels into each state
+	computedEntropyChannels := make([]chan beacon.ComputedEntropy, nPeers)
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] = make(chan beacon.ComputedEntropy, beacon.EntropyChannelCapacity)
+		css[e].SetEntropyChannel(computedEntropyChannels[e])
+		computedEntropyChannels[e] <- beacon.ComputedEntropy{Height:1, GroupSignature: []byte{0,0,0,0,1,2,3,4},}
+		computedEntropyChannels[e] <- beacon.ComputedEntropy{Height:2, GroupSignature: []byte{0,0,0,0,5,6,7,8},}
+		computedEntropyChannels[e] <- beacon.ComputedEntropy{Height:3, GroupSignature: []byte{1,2,3,4,5,6,7,8},}
+		computedEntropyChannels[e] <- beacon.ComputedEntropy{Height:3, GroupSignature: []byte{5,6,7,8,5,6,7,8},}
+	}
+
+	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, nPeers)
+	defer stopConsensusNet(logger, reactors, eventBuses)
+
+	// map of active validators
+	activeVals := make(map[string]struct{})
+	for i := 0; i < nVals; i++ {
+		addr := css[i].privValidator.GetPubKey().Address()
+		activeVals[string(addr)] = struct{}{}
+	}
+
+	// wait till everyone makes block 1
+	timeoutWaitGroup(t, nPeers, func(j int) {
+		<-blocksSubs[j].Out()
+	}, css)
+
+	// wait till everyone makes block 2
+	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
+	// wait till everyone makes block 3
+	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
 }
 
 func waitForAndValidateBlock(

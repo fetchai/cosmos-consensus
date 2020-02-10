@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/beacon"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	"testing"
 	"time"
 
@@ -26,6 +28,7 @@ x * TestProposerSelection2 - round robin ordering, round 2++
 x * TestEnterProposeNoValidator - timeout into prevote round
 x * TestEnterPropose - finish propose without timing out (we have the proposal)
 x * TestBadProposal - 2 vals, bad proposal (bad block state hash), should prevote and precommit nil
+x * TestBeaconProposerSelection
 FullRoundSuite
 x * TestFullRound1 - 1 val, full successful round
 x * TestFullRoundNil - 1 val, full round of nil
@@ -224,6 +227,51 @@ func TestStateBadProposal(t *testing.T) {
 	ensurePrecommit(voteCh, height, round)
 	validatePrecommit(t, cs1, round, -1, vss[0], nil, nil)
 	signAddVotes(cs1, types.PrecommitType, propBlock.Hash(), propBlock.MakePartSet(partSize).Header(), vs2)
+}
+
+func TestStateBeaconProposerSelection(t *testing.T) {
+	cs1, _ := randState(4)
+
+	computedEntropyChannel := make(chan beacon.ComputedEntropy, beacon.EntropyChannelCapacity)
+	cs1.SetEntropyChannel(computedEntropyChannel)
+
+	computedEntropyChannel <- beacon.ComputedEntropy{Height:1, GroupSignature: []byte{0,0,0,0,1,2,3,4},}
+	computedEntropyChannel <- beacon.ComputedEntropy{Height:2, GroupSignature: []byte{0,0,0,0,5,6,7,8},}
+
+	// Check validators for height 1
+	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})
+	shuffledCabinet := cs1.shuffledCabinet(entropy)
+	shuffledCabinetTest := cs1.shuffledCabinet(entropy)
+	for a := 0; a < 4; a++ {
+		assert.True(t, bytes.Equal(shuffledCabinet[a].Address, shuffledCabinetTest[a].Address))
+		assert.True(t, shuffledCabinet[a].PubKey.Equals(shuffledCabinetTest[a].PubKey))
+		assert.True(t, shuffledCabinet[a].VotingPower == shuffledCabinetTest[a].VotingPower)
+		assert.True(t, shuffledCabinet[a].ProposerPriority == shuffledCabinetTest[a].ProposerPriority)
+	}
+
+	for i := 0; i < 4; i++ {
+		prop := cs1.getProposer(1, i)
+		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet[i].Address))
+	}
+
+	// Reset entropy
+	cs1.lastEntropy = beacon.ComputedEntropy{}
+
+	// Check validators for height 2
+	entropy2 := tmhash.Sum([]byte{0,0,0,0,5,6,7,8})
+	shuffledCabinet2 := cs1.shuffledCabinet(entropy2)
+	for i := 0; i < 4; i++ {
+		prop := cs1.getProposer(2, i)
+		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet2[i].Address))
+	}
+
+	// Check shuffled cabinets are different
+	for j := 0; j < 4; j++ {
+		assert.True(t, bytes.Equal(shuffledCabinet[j].Address, shuffledCabinetTest[j].Address))
+		assert.True(t, shuffledCabinet[j].PubKey.Equals(shuffledCabinetTest[j].PubKey))
+		assert.True(t, shuffledCabinet[j].VotingPower == shuffledCabinetTest[j].VotingPower)
+		assert.True(t, shuffledCabinet[j].ProposerPriority == shuffledCabinetTest[j].ProposerPriority)
+	}
 }
 
 //----------------------------------------------------------------------------------------------------

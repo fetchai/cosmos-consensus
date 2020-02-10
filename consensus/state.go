@@ -2,7 +2,11 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"github.com/tendermint/tendermint/beacon"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	"math/rand"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -134,6 +138,10 @@ type State struct {
 
 	// for reporting metrics
 	metrics *Metrics
+
+	// Last entropy and channel for receiving entropy
+	lastEntropy            beacon.ComputedEntropy
+	computedEntropyChannel <-chan beacon.ComputedEntropy
 }
 
 // StateOption sets an optional parameter on the State.
@@ -195,6 +203,13 @@ func (cs *State) SetLogger(l log.Logger) {
 func (cs *State) SetEventBus(b *types.EventBus) {
 	cs.eventBus = b
 	cs.blockExec.SetEventBus(b)
+}
+
+// SetEntropyChannel sets channel along which to receive entropy
+func (cs *State) SetEntropyChannel(channel <-chan beacon.ComputedEntropy) {
+	if cs.computedEntropyChannel == nil {
+		cs.computedEntropyChannel = channel
+	}
 }
 
 // StateMetrics sets the metrics.
@@ -947,8 +962,40 @@ func (cs *State) enterPropose(height int64, round int) {
 	}
 }
 
-func (cs *State) getProposer(int64, int) *types.Validator {
-	return cs.Validators.GetProposer()
+func (cs *State) getProposer(height int64, round int) *types.Validator {
+	if cs.computedEntropyChannel == nil {
+		return cs.Validators.GetProposer()
+	} else {
+		// If first round of new block height then reset entropy
+		if cs.lastEntropy.IsEmpty() {
+			cs.lastEntropy = <-cs.computedEntropyChannel
+		}
+		if cs.lastEntropy.Height != height {
+			cs.Logger.Error("Invalid entropy", "fetch height", cs.lastEntropy.Height, "state height", height)
+			return nil
+		} else {
+			entropy := tmhash.Sum(cs.lastEntropy.GroupSignature)
+			return cs.shuffledCabinet(entropy)[round]
+		}
+	}
+}
+
+// Check that rand.Shuffle is same across different platforms
+func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
+	seed, n := binary.Varint(entropy)
+	if n <= 0 {
+		cs.Logger.Error("Entropy buffer of incorrect size")
+		return nil
+	}
+	rand.Seed(seed)
+
+	// Sort validators
+	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
+
+	rand.Shuffle(len(sortedValidators), func(i, j int) {
+		sortedValidators.Swap(i, j)
+	})
+	return sortedValidators
 }
 
 func (cs *State) defaultDecideProposal(height int64, round int) {
@@ -1449,6 +1496,9 @@ func (cs *State) finalizeCommit(height int64) {
 
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
+
+	// Reset entropy
+	cs.lastEntropy = beacon.ComputedEntropy{}
 
 	fail.Fail() // XXX
 
