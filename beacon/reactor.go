@@ -78,7 +78,6 @@ func (conR *Reactor) OnStop() {
 
 // GetChannels implements Reactor
 func (conR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
-	// TODO optimize
 	return []*p2p.ChannelDescriptor{
 		{
 			ID:                  StateChannel,
@@ -171,9 +170,8 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	case EntropyChannel:
 		switch msg := msg.(type) {
 		case *EntropyShareMessage:
-			index, _ := conR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
 			if conR.entropyGen != nil {
-				err := conR.entropyGen.ApplyEntropyShare(index, msg.EntropyShare)
+				err := conR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
 				if err == nil {
 					conR.entropyGen.evsw.FireEvent(EventEntropyShare, msg.EntropyShare)
 				}

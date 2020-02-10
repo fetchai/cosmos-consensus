@@ -19,13 +19,31 @@ var (
 type Signature = []byte
 
 //-----------------------------------------------------------------------------
+// Wrappers for signing entropy message
 
-// PeerRoundState contains the known state of a peer.
-// NOTE: Read-only when returned by PeerState.GetRoundState().
+type CanonicalEntropyShare struct {
+	Height         int64
+	SignerAddress  crypto.Address
+	SignatureShare string
+	ChainID   string
+}
+
+func CanonicalizeEntropyShare(chainID string, entropy *EntropyShare) CanonicalEntropyShare {
+	return CanonicalEntropyShare{
+		Height:    entropy.Height,
+		SignerAddress: entropy.SignerAddress,
+		SignatureShare: entropy.SignatureShare,
+		ChainID:   chainID,
+	}
+}
+
+//-----------------------------------------------------------------------------
+
 type EntropyShare struct {
-	Height int64           `json:"height"`
+	Height         int64           `json:"height"`
 	SignerAddress  crypto.Address  `json:"signer"`
-	SignatureShare string  `json:"signature"`
+	SignatureShare string          `json:"entropy_signature"`
+	Signature      []byte          `json:"signature"`
 }
 
 // ValidateBasic performs basic validation.
@@ -89,4 +107,13 @@ func (entropy *EntropyShare) MarshalTo(data []byte) (int, error) {
 // Unmarshal deserializes from amino encoded form.
 func (entropy *EntropyShare) Unmarshal(bs []byte) error {
 	return cdc.UnmarshalBinaryBare(bs, entropy)
+}
+
+// For signing with private key
+func (entropy *EntropyShare) SignBytes(chainID string) []byte {
+	bz, err := cdc.MarshalBinaryLengthPrefixed(CanonicalizeEntropyShare(chainID, entropy))
+	if err != nil {
+		panic(err)
+	}
+	return bz
 }
