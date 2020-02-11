@@ -80,13 +80,13 @@ func (entropyGenerator *EntropyGenerator) SetGenesisEntropy(genEntropy Signature
 	entropyGenerator.entropyComputed[GenesisHeight] = genEntropy
 }
 
-func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeon_keys DKGKeyInformation, generator string) {
+func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
 	// Only allow updating of aeon keys if generator is stopped
 	if entropyGenerator.stopped {
-		entropyGenerator.aeonExecUnit = NewAeonExecUnit(aeon_keys, generator)
+		entropyGenerator.aeonExecUnit = aeonKeys
 	}
 }
 

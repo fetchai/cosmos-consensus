@@ -18,6 +18,7 @@
 
 #include "aeon_exec_unit.hpp"
 #include "mcl_crypto.hpp"
+#include <fstream>
 
 namespace fetch {
 namespace crypto {
@@ -26,8 +27,25 @@ void InitialiseMcl() {
   mcl::details::MCLInitialiser();
 }
 
-AeonExecUnit::AeonExecUnit(DKGKeyInformation aeon_keys, Generator generator) : aeon_keys_{
-        std::move(aeon_keys)}, generator_{generator} {
+
+AeonExecUnit::AeonExecUnit(std::string const &filename) {
+   std::string line;
+   std::ifstream myfile (filename);
+   if (myfile.is_open())
+   {
+      // Ignore first line which contains description of ordering
+      getline(myfile, line);
+
+      getline(myfile, generator_);
+      getline(myfile, aeon_keys_.group_public_key);
+      getline(myfile, aeon_keys_.private_key);
+
+      while (getline(myfile, line))
+      {
+        aeon_keys_.public_key_shares.push_back(line);
+      }
+      myfile.close();
+    }
 }
 
 /**
