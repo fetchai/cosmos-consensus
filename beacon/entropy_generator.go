@@ -70,16 +70,15 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newP
 	return es
 }
 
-// TODO: Make this SetLastComputedEntropy to allow for restarting from crash
-func (entropyGenerator *EntropyGenerator) SetGenesisEntropy(genEntropy Signature) {
+func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy ComputedEntropy) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	if entropyGenerator.entropyComputed[GenesisHeight] != nil {
-		entropyGenerator.Logger.Error("Attempt to reset genesis entropy")
+	if entropyGenerator.entropyComputed[entropy.Height] != nil {
+		entropyGenerator.Logger.Error("Attempt to reset existing entropy")
 		return
 	}
-	entropyGenerator.entropyComputed[GenesisHeight] = genEntropy
+	entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
 }
 
 func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
