@@ -1,3 +1,30 @@
+# Changes
+
+See beacon directory and consensus/state.go
+
+Get mcl submodule 
+```bash
+git submodule init
+git subdmodule update
+```
+
+Build c++ library:
+```bash
+cd beacon/beacon_cpp
+rm -Rf build
+mkdir build
+cd build
+cmake ..
+make
+cp lib/libmcl.a libs/libmcl.a
+```
+
+Now build and run tests from beacon directory
+```bash
+go clean -cache
+go test
+```
+
 # Tendermint
 
 ![banner](docs/tendermint-core-image.jpg)
