@@ -56,8 +56,11 @@ AeonExecUnit::AeonExecUnit(std::string const &filename) {
  * @return Signature share
  */
 AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) {
+  if (!CanSign()) {
+     assert(CanSign());
+     return Signature{};
+  }
   mcl::PrivateKey x_i{aeon_keys_.private_key};
-
   return mcl::Sign(message, x_i).getStr();
 }
 
