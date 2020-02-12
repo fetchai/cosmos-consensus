@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/tendermint/tendermint/beacon"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"math/rand"
 	"reflect"
@@ -140,8 +139,8 @@ type State struct {
 	metrics *Metrics
 
 	// Last entropy and channel for receiving entropy
-	lastEntropy            beacon.ComputedEntropy
-	computedEntropyChannel <-chan beacon.ComputedEntropy
+	newEntropy             types.ComputedEntropy
+	computedEntropyChannel <-chan types.ComputedEntropy
 }
 
 // StateOption sets an optional parameter on the State.
@@ -206,7 +205,7 @@ func (cs *State) SetEventBus(b *types.EventBus) {
 }
 
 // SetEntropyChannel sets channel along which to receive entropy
-func (cs *State) SetEntropyChannel(channel <-chan beacon.ComputedEntropy) {
+func (cs *State) SetEntropyChannel(channel <-chan types.ComputedEntropy) {
 	if cs.computedEntropyChannel == nil {
 		cs.computedEntropyChannel = channel
 	}
@@ -967,14 +966,14 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 		return cs.Validators.GetProposer()
 	} else {
 		// If first round of new block height then reset entropy
-		if cs.lastEntropy.IsEmpty() {
-			cs.lastEntropy = <-cs.computedEntropyChannel
+		if cs.newEntropy.IsEmpty() {
+			cs.newEntropy = <-cs.computedEntropyChannel
 		}
-		if cs.lastEntropy.Height != height {
-			cs.Logger.Error("Invalid entropy", "fetch height", cs.lastEntropy.Height, "state height", height)
+		if cs.newEntropy.Height != height {
+			cs.Logger.Error("Invalid entropy", "fetch height", cs.newEntropy.Height, "state height", height)
 			return nil
 		} else {
-			entropy := tmhash.Sum(cs.lastEntropy.GroupSignature)
+			entropy := tmhash.Sum(cs.newEntropy.GroupSignature)
 			return cs.shuffledCabinet(entropy)[round]
 		}
 	}
@@ -1009,6 +1008,11 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
 		block, blockParts = cs.createProposalBlock()
+		// Add entropy and reset blockParts
+		if cs.computedEntropyChannel != nil {
+			block.Header.Entropy = cs.newEntropy.GroupSignature
+			blockParts = block.MakePartSet(types.BlockPartSizeBytes)
+		}
 		if block == nil { // on error
 			return
 		}
@@ -1123,6 +1127,14 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 		logger.Info("enterPrevote: ProposalBlock is nil")
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
+	}
+
+	// Check block entropy
+	if cs.computedEntropyChannel != nil {
+		if !bytes.Equal(cs.ProposalBlock.Header.Entropy, cs.newEntropy.GroupSignature) {
+			logger.Error("enterPrevote: ProposalBlock has invalid entropy")
+			return
+		}
 	}
 
 	// Validate proposal block
@@ -1498,7 +1510,7 @@ func (cs *State) finalizeCommit(height int64) {
 	cs.updateToState(stateCopy)
 
 	// Reset entropy
-	cs.lastEntropy = beacon.ComputedEntropy{}
+	cs.newEntropy = types.ComputedEntropy{}
 
 	fail.Fail() // XXX
 

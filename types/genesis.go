@@ -42,6 +42,7 @@ type GenesisDoc struct {
 	Validators      []GenesisValidator `json:"validators,omitempty"`
 	AppHash         tmbytes.HexBytes   `json:"app_hash"`
 	AppState        json.RawMessage    `json:"app_state,omitempty"`
+	Entropy         ThresholdSignature `json:"entropy"`
 }
 
 // SaveAs is a utility method for saving GenensisDoc as a JSON file.
@@ -94,6 +95,13 @@ func (genDoc *GenesisDoc) ValidateAndComplete() error {
 	if genDoc.GenesisTime.IsZero() {
 		genDoc.GenesisTime = tmtime.Now()
 	}
+
+ 	// TODO(JMW): Make entropy required in genesis
+ 	/*
+	if genDoc.Entropy == nil {
+		return errors.Errorf("genesis entropy empty")
+	}
+	*/
 
 	return nil
 }

@@ -16,25 +16,16 @@ var (
 	EntropyChannelCapacity = 5
 )
 
-type ComputedEntropy struct {
-	Height int64
-	GroupSignature Signature
-}
-
-func (ce *ComputedEntropy) IsEmpty() bool{
-	return ce.GroupSignature == nil
-}
-
 type EntropyGenerator struct {
 	Logger  log.Logger
 	proxyMtx     sync.Mutex
 
 	threshold int
-	entropyShares map[int64]map[int]EntropyShare
-	entropyComputed map[int64]Signature
+	entropyShares map[int64]map[int]types.EntropyShare
+	entropyComputed map[int64]types.ThresholdSignature
 
 	// Channel for sending off entropy for receiving elsewhere
-	computedEntropyChannel chan<-ComputedEntropy
+	computedEntropyChannel chan<- types.ComputedEntropy
 
 	// To be safe, need to store set of validators who can participate in DRB here to avoid
 	// possible problems with validator set changing allowed by Tendermint
@@ -57,8 +48,8 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newP
 	}
 	es := &EntropyGenerator{
 		Logger: logger,
-		entropyShares: make(map[int64]map[int]EntropyShare),
-		entropyComputed: make(map[int64]Signature),
+		entropyShares: make(map[int64]map[int]types.EntropyShare),
+		entropyComputed: make(map[int64]types.ThresholdSignature),
 		privKey: newPrivKey,
 		Validators: validators,
 		stopped: true,
@@ -70,7 +61,7 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newP
 	return es
 }
 
-func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy ComputedEntropy) {
+func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.ComputedEntropy) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -91,7 +82,7 @@ func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
 	}
 }
 
-func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<-ComputedEntropy) {
+func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<- types.ComputedEntropy) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -129,7 +120,7 @@ func (entropyGenerator *EntropyGenerator) Start() error {
 		if err != nil {
 			return err
 		}
-		entropyGenerator.evsw.FireEvent(EventEntropyShare, &entropyShare)
+		entropyGenerator.evsw.FireEvent(types.EventEntropyShare, &entropyShare)
 		return nil
 	}
 	return nil
@@ -154,7 +145,7 @@ func (entropyGenerator *EntropyGenerator) Stop() {
 	}
 }
 
-func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *EntropyShare) error {
+func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.EntropyShare) error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -181,9 +172,9 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *EntropyShare)
 
 	entropyGenerator.Logger.Info("New entropy share received", "height", share.Height, "validator index", index)
 	if entropyGenerator.entropyShares[share.Height] == nil {
-		entropyGenerator.entropyShares[share.Height] = make(map[int]EntropyShare)
+		entropyGenerator.entropyShares[share.Height] = make(map[int]types.EntropyShare)
 	}
-	newShare := EntropyShare{
+	newShare := types.EntropyShare{
 		Height:         share.Height,
 		SignerAddress:  share.SignerAddress,
 		SignatureShare: share.SignatureShare,
@@ -206,7 +197,7 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *EntropyShare)
 
 		// Dispatch entropy to entropy channel
 		if entropyGenerator.computedEntropyChannel != nil {
-			entropyGenerator.computedEntropyChannel <- ComputedEntropy{
+			entropyGenerator.computedEntropyChannel <- types.ComputedEntropy{
 				Height:         share.Height,
 				GroupSignature: []byte(groupSignature),
 			}
@@ -223,7 +214,7 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *EntropyShare)
 	return nil
 }
 
-func (entropyGenerator *EntropyGenerator) GetEntropy(height int64) (Signature, error) {
+func (entropyGenerator *EntropyGenerator) GetEntropy(height int64) (types.ThresholdSignature, error) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -236,7 +227,7 @@ func (entropyGenerator *EntropyGenerator) GetEntropy(height int64) (Signature, e
 	return entropyGenerator.entropyComputed[height], nil
 }
 
-func (entropyGenerator *EntropyGenerator) GetEntropyShares(height int64) map[int]EntropyShare {
+func (entropyGenerator *EntropyGenerator) GetEntropyShares(height int64) map[int]types.EntropyShare {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -264,28 +255,28 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 	return nil
 }
 
-func (entropyGenerator *EntropyGenerator) sign(height int64) (EntropyShare, error) {
+func (entropyGenerator *EntropyGenerator) sign(height int64) (types.EntropyShare, error) {
 	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.privKey.PubKey().Address())
 	err := entropyGenerator.validInputs(height + 1, index)
 	if  err != nil || !entropyGenerator.aeonExecUnit.CanSign() {
-		return EntropyShare{}, err
+		return types.EntropyShare{}, err
 	}
 	if entropyGenerator.entropyComputed[height] == nil {
-		return EntropyShare{}, fmt.Errorf("sign on block height %v without previous entropy", height)
+		return types.EntropyShare{}, fmt.Errorf("sign on block height %v without previous entropy", height)
 	}
 
 
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[height]))
 	signature := entropyGenerator.aeonExecUnit.Sign(message)
 	if !entropyGenerator.aeonExecUnit.Verify(message, signature, uint64(index)) {
-		return EntropyShare{}, fmt.Errorf("sign on block height %v generated invalid signature", height)
+		return types.EntropyShare{}, fmt.Errorf("sign on block height %v generated invalid signature", height)
 	}
 
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[height + 1] == nil {
-		entropyGenerator.entropyShares[height + 1] = make(map[int]EntropyShare)
+		entropyGenerator.entropyShares[height + 1] = make(map[int]types.EntropyShare)
 	}
-	share := EntropyShare{
+	share := types.EntropyShare{
 		Height:         height + 1,
 		SignerAddress:  entropyGenerator.privKey.PubKey().Address(),
 		SignatureShare: signature,
@@ -293,7 +284,7 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) (EntropyShare, erro
 	// Sign message
 	share.Signature, err = entropyGenerator.privKey.Sign(share.SignBytes(entropyGenerator.chainID))
 	if err != nil {
-		return EntropyShare{}, nil
+		return types.EntropyShare{}, nil
 	}
 	entropyGenerator.entropyShares[height + 1][index] = share
 	return share, nil

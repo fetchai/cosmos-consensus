@@ -173,7 +173,7 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 			if conR.entropyGen != nil {
 				err := conR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
 				if err == nil {
-					conR.entropyGen.evsw.FireEvent(EventEntropyShare, msg.EntropyShare)
+					conR.entropyGen.evsw.FireEvent(types.EventEntropyShare, msg.EntropyShare)
 				}
 			}
 		default:
@@ -190,9 +190,9 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 // subscribeToBroadcastEvents subscribes for has entropy share messages
 func (conR *Reactor) subscribeToBroadcastEvents() {
 	const subscriber = "beacon-reactor"
-	conR.entropyGen.evsw.AddListenerForEvent(subscriber, EventEntropyShare,
+	conR.entropyGen.evsw.AddListenerForEvent(subscriber, types.EventEntropyShare,
 		func(data tmevents.EventData) {
-			conR.broadcastHasEntropyShareMessage(data.(*EntropyShare))
+			conR.broadcastHasEntropyShareMessage(data.(*types.EntropyShare))
 		})
 }
 
@@ -201,7 +201,7 @@ func (conR *Reactor) unsubscribeFromBroadcastEvents() {
 	conR.entropyGen.evsw.RemoveListener(subscriber)
 }
 
-func (conR *Reactor) broadcastHasEntropyShareMessage(es *EntropyShare) {
+func (conR *Reactor) broadcastHasEntropyShareMessage(es *types.EntropyShare) {
 	esMsg := &HasEntropyShareMessage{
 		Height: es.Height,
 		SignerAddress: es.SignerAddress,
@@ -296,7 +296,7 @@ func (ps *PeerState) GetLastComputedEntropyHeight() int64 {
 	return ps.lastComputedEntropyHeight
 }
 
-func (ps *PeerState) PickSendEntropyShare(peerEntropyShares map[int]EntropyShare, numValidators int, threshold int) bool {
+func (ps *PeerState) PickSendEntropyShare(peerEntropyShares map[int]types.EntropyShare, numValidators int, threshold int) bool {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -412,7 +412,7 @@ type HasEntropyShareMessage struct {
 
 // ValidateBasic performs basic validation.
 func (m *HasEntropyShareMessage) ValidateBasic() error {
-	if m.Height < GenesisHeight + 1{
+	if m.Height < types.GenesisHeight+ 1{
 		return errors.New("invalid Height")
 	}
 
@@ -434,7 +434,7 @@ func (m *HasEntropyShareMessage) String() string {
 
 // EntropyShareMessage is for computing DRB
 type EntropyShareMessage struct {
-	*EntropyShare
+	*types.EntropyShare
 }
 
 // ValidateBasic performs basic validation.

@@ -1,4 +1,4 @@
-package beacon
+package types
 
 import (
 	"errors"
@@ -16,7 +16,16 @@ var (
 	GenesisHeight = int64(0)
 )
 
-type Signature = []byte
+type ThresholdSignature = []byte
+
+type ComputedEntropy struct {
+	Height         int64
+	GroupSignature ThresholdSignature
+}
+
+func (ce *ComputedEntropy) IsEmpty() bool{
+	return ce.GroupSignature == nil
+}
 
 //-----------------------------------------------------------------------------
 // Wrappers for signing entropy message

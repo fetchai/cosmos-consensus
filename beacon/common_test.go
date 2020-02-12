@@ -66,7 +66,7 @@ func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*Entropy
 
 	entropyGenerators := make([]*EntropyGenerator, nValidators)
 	configRootDirs := make([]string, 0, nValidators)
-	entropyChannels := make([]chan ComputedEntropy, nValidators)
+	entropyChannels := make([]chan types.ComputedEntropy, nValidators)
 
 	aeonExecUnits := setCrypto(nValidators)
 
@@ -82,10 +82,10 @@ func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*Entropy
 		index, _ := state.Validators.GetByAddress(privVals[i].PubKey().Address())
 
 		// Initialise entropy channel
-		entropyChannels[i] = make(chan ComputedEntropy, EntropyChannelCapacity)
+		entropyChannels[i] = make(chan types.ComputedEntropy, EntropyChannelCapacity)
 
 		entropyGenerators[i] = NewEntropyGenerator(logger, state.Validators, privVals[i], state.ChainID)
-		entropyGenerators[i].SetLastComputedEntropy(ComputedEntropy{GenesisHeight, []byte("Fetch.ai Test Genesis Entropy")})
+		entropyGenerators[i].SetLastComputedEntropy(types.ComputedEntropy{Height: types.GenesisHeight, GroupSignature: state.LastComputedEntropy})
 		entropyGenerators[i].SetAeonKeys(aeonExecUnits[index])
 		entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
 	}
@@ -127,5 +127,6 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 		GenesisTime: tmtime.Now(),
 		ChainID:     config.ChainID(),
 		Validators:  validators,
+		Entropy: []byte("Fetch.ai Test Genesis Entropy"),
 	}, privKeys
 }
