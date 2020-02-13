@@ -100,13 +100,18 @@ func (entropyGenerator *EntropyGenerator) Start() error {
 		if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
 			return fmt.Errorf("no active execution unit")
 		}
+
+		// Mark entropy generator as not stopped to allow receiving of messages
+		// even if signing fails
 		if err := entropyGenerator.evsw.Start(); err != nil {
 			return err
 		}
-
 		entropyGenerator.stopped = false
 
 		// Find last computed entropy height
+		if len(entropyGenerator.entropyComputed) == 0 {
+			return fmt.Errorf("no previous entropy to sign")
+		}
 		entropyHeights := make([]int64, 0, len(entropyGenerator.entropyComputed))
 		for height := range entropyGenerator.entropyComputed {
 			entropyHeights = append(entropyHeights, height)
@@ -132,16 +137,7 @@ func (entropyGenerator *EntropyGenerator) Stop() {
 
 	if !entropyGenerator.stopped {
 		entropyGenerator.evsw.Stop()
-
 		entropyGenerator.stopped = true
-
-		// Close channel to notify receiver than no more entropy is being generated
-		if entropyGenerator.computedEntropyChannel != nil {
-			close(entropyGenerator.computedEntropyChannel)
-		}
-
-		// Put this here for now but should not be here
-		defer DeleteAeonExecUnit(entropyGenerator.aeonExecUnit)
 	}
 }
 

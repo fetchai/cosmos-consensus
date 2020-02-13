@@ -94,6 +94,9 @@ func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*Entropy
 		for _, dir := range configRootDirs {
 			os.RemoveAll(dir)
 		}
+		for j := 0; j < nValidators; j++ {
+			close(entropyChannels[j])
+		}
 	}
 }
 
