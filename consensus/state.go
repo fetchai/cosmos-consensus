@@ -966,17 +966,24 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 		return cs.Validators.GetProposer()
 	} else {
 		// If first round of new block height then reset entropy
-		if cs.newEntropy.IsEmpty() {
-			cs.newEntropy = <-cs.computedEntropyChannel
-		}
-		if cs.newEntropy.Height != height {
-			cs.Logger.Error("Invalid entropy", "fetch height", cs.newEntropy.Height, "state height", height)
+		newEntropy := cs.getNewEntropy()
+		if newEntropy.Height != height {
+			cs.Logger.Error("Invalid entropy", "fetch height", newEntropy.Height, "state height", height)
 			return nil
 		} else {
-			entropy := tmhash.Sum(cs.newEntropy.GroupSignature)
+			entropy := tmhash.Sum(newEntropy.GroupSignature)
 			return cs.shuffledCabinet(entropy)[round]
 		}
 	}
+}
+
+// Allows entropy to be received from any stage it is required, which is necessary for
+// catch up via WAL. Entropy is reset to empty at start and after every committed block.
+func (cs *State) getNewEntropy() types.ComputedEntropy {
+	if cs.newEntropy.IsEmpty() {
+		cs.newEntropy = <-cs.computedEntropyChannel
+	}
+	return cs.newEntropy
 }
 
 // Check that rand.Shuffle is same across different platforms
@@ -1010,7 +1017,7 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
 		if cs.computedEntropyChannel != nil {
-			block.Header.Entropy = cs.newEntropy.GroupSignature
+			block.Header.Entropy = cs.getNewEntropy().GroupSignature
 			blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		}
 		if block == nil { // on error
@@ -1131,7 +1138,7 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 
 	// Check block entropy
 	if cs.computedEntropyChannel != nil {
-		if !bytes.Equal(cs.ProposalBlock.Header.Entropy, cs.newEntropy.GroupSignature) {
+		if !bytes.Equal(cs.ProposalBlock.Header.Entropy, cs.getNewEntropy().GroupSignature) {
 			logger.Error("enterPrevote: ProposalBlock has invalid entropy")
 			return
 		}
@@ -1509,7 +1516,7 @@ func (cs *State) finalizeCommit(height int64) {
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
 
-	// Reset entropy
+	// Reset entropy. Important that this is only done here!
 	cs.newEntropy = types.ComputedEntropy{}
 
 	fail.Fail() // XXX
