@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"github.com/go-kit/kit/log/term"
 	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	dbm "github.com/tendermint/tm-db"
 	"os"
+	"sort"
 	"strconv"
 )
 
@@ -79,7 +77,7 @@ func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*Entropy
 			opt(thisConfig)
 		}
 
-		index, _ := state.Validators.GetByAddress(privVals[i].PubKey().Address())
+		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
 
 		// Initialise entropy channel
 		entropyChannels[i] = make(chan types.ComputedEntropy, EntropyChannelCapacity)
@@ -103,33 +101,23 @@ func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*Entropy
 //-------------------------------------------------------------------------------
 // genesis
 
-func randValidator(randPower bool, minPower int64) (*types.Validator, crypto.PrivKey){
-		newPrivKey := ed25519.GenPrivKey()
-		votePower := minPower
-		if randPower {
-			votePower += int64(tmrand.Uint32())
-		}
-		pubKey := newPrivKey.PubKey()
-		val := types.NewValidator(pubKey, votePower)
-		return val, newPrivKey
-}
-
-func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.GenesisDoc, []crypto.PrivKey) {
+func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.GenesisDoc, []types.PrivValidator) {
 	validators := make([]types.GenesisValidator, numValidators)
-	privKeys := make([]crypto.PrivKey, numValidators)
+	privValidators := make([]types.PrivValidator, numValidators)
 	for i := 0; i < numValidators; i++ {
-		val, privKey := randValidator(randPower, minPower)
+		val, privVal := types.RandValidator(randPower, minPower)
 		validators[i] = types.GenesisValidator{
 			PubKey: val.PubKey,
 			Power:  val.VotingPower,
 		}
-		privKeys[i] = privKey
+		privValidators[i] = privVal
 	}
+	sort.Sort(types.PrivValidatorsByAddress(privValidators))
 
 	return &types.GenesisDoc{
 		GenesisTime: tmtime.Now(),
 		ChainID:     config.ChainID(),
 		Validators:  validators,
 		Entropy: []byte("Fetch.ai Test Genesis Entropy"),
-	}, privKeys
+	}, privValidators
 }

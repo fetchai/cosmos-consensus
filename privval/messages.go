@@ -17,6 +17,8 @@ func RegisterRemoteSignerMsg(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&SignedVoteResponse{}, "tendermint/remotesigner/SignedVoteResponse", nil)
 	cdc.RegisterConcrete(&SignProposalRequest{}, "tendermint/remotesigner/SignProposalRequest", nil)
 	cdc.RegisterConcrete(&SignedProposalResponse{}, "tendermint/remotesigner/SignedProposalResponse", nil)
+	cdc.RegisterConcrete(&SignEntropyRequest{}, "tendermint/remotesigner/SignEntropyRequest", nil)
+	cdc.RegisterConcrete(&SignedEntropyResponse{}, "tendermint/remotesigner/SignedEntropyResponse", nil)
 
 	cdc.RegisterConcrete(&PingRequest{}, "tendermint/remotesigner/PingRequest", nil)
 	cdc.RegisterConcrete(&PingResponse{}, "tendermint/remotesigner/PingResponse", nil)
@@ -52,6 +54,17 @@ type SignProposalRequest struct {
 // SignedProposalResponse is response containing a signed proposal or an error
 type SignedProposalResponse struct {
 	Proposal *types.Proposal
+	Error    *RemoteSignerError
+}
+
+// SignEntropyRequest is a request to sign a entropy
+type SignEntropyRequest struct {
+	Entropy *types.EntropyShare
+}
+
+// SignedEntropyResponse is response containing a signed entropy or an error
+type SignedEntropyResponse struct {
+	Entropy *types.EntropyShare
 	Error    *RemoteSignerError
 }
 

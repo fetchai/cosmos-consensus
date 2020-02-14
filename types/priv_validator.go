@@ -17,6 +17,7 @@ type PrivValidator interface {
 
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
+	SignEntropy(chainID string, share *EntropyShare) error
 }
 
 //----------------------------------------
@@ -95,6 +96,16 @@ func (pv *MockPV) SignProposal(chainID string, proposal *Proposal) error {
 	return nil
 }
 
+func (pv *MockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
+	signBytes := entropy.SignBytes(chainID)
+	sig, err := pv.privKey.Sign(signBytes)
+	if err != nil {
+		return err
+	}
+	entropy.Signature = sig
+	return nil
+}
+
 // String returns a string representation of the MockPV.
 func (pv *MockPV) String() string {
 	addr := pv.GetPubKey().Address()
@@ -120,6 +131,10 @@ func (pv *erroringMockPV) SignVote(chainID string, vote *Vote) error {
 
 // Implements PrivValidator.
 func (pv *erroringMockPV) SignProposal(chainID string, proposal *Proposal) error {
+	return ErroringMockPVErr
+}
+
+func (pv *erroringMockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
 	return ErroringMockPVErr
 }
 

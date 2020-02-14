@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"fmt"
-	"github.com/tendermint/tendermint/crypto"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/types"
 	"sort"
@@ -29,9 +28,9 @@ type EntropyGenerator struct {
 
 	// To be safe, need to store set of validators who can participate in DRB here to avoid
 	// possible problems with validator set changing allowed by Tendermint
-	privKey  crypto.PrivKey
-	Validators                  *types.ValidatorSet
-	aeonExecUnit AeonExecUnit
+	privValidator  types.PrivValidator
+	Validators     *types.ValidatorSet
+	aeonExecUnit   AeonExecUnit
 
 	stopped bool
 	// synchronous pubsub between consensus state and reactor.
@@ -42,7 +41,7 @@ type EntropyGenerator struct {
 	chainID string
 }
 
-func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newPrivKey crypto.PrivKey, newChainID string) *EntropyGenerator {
+func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newPrivValidator types.PrivValidator, newChainID string) *EntropyGenerator {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -50,7 +49,7 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newP
 		Logger: logger,
 		entropyShares: make(map[int64]map[int]types.EntropyShare),
 		entropyComputed: make(map[int64]types.ThresholdSignature),
-		privKey: newPrivKey,
+		privValidator: newPrivValidator,
 		Validators: validators,
 		stopped: true,
 		evsw:             tmevents.NewEventSwitch(),
@@ -252,7 +251,7 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 }
 
 func (entropyGenerator *EntropyGenerator) sign(height int64) (types.EntropyShare, error) {
-	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.privKey.PubKey().Address())
+	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.privValidator.GetPubKey().Address())
 	err := entropyGenerator.validInputs(height + 1, index)
 	if  err != nil || !entropyGenerator.aeonExecUnit.CanSign() {
 		return types.EntropyShare{}, err
@@ -274,13 +273,13 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) (types.EntropyShare
 	}
 	share := types.EntropyShare{
 		Height:         height + 1,
-		SignerAddress:  entropyGenerator.privKey.PubKey().Address(),
+		SignerAddress:  entropyGenerator.privValidator.GetPubKey().Address(),
 		SignatureShare: signature,
 	}
 	// Sign message
-	share.Signature, err = entropyGenerator.privKey.Sign(share.SignBytes(entropyGenerator.chainID))
+	err = entropyGenerator.privValidator.SignEntropy(entropyGenerator.chainID, &share)
 	if err != nil {
-		return types.EntropyShare{}, nil
+		return types.EntropyShare{}, err
 	}
 	entropyGenerator.entropyShares[height + 1][index] = share
 	return share, nil
