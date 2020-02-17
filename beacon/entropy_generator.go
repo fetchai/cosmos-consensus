@@ -258,6 +258,7 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 		return
 	}
 	entropyGenerator.entropyShares[height + 1][index] = share
+	entropyGenerator.evsw.FireEvent(types.EventEntropyShare, &share)
 }
 
 func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
@@ -276,8 +277,6 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() {
 		entropyGenerator.lastComputedEntropyHeight++
 		return
 	}
-	// TODO: Remove evsw
-	//entropyGenerator.evsw.FireEvent(types.EventEntropyShare, share)
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[height - 1]))
 		signatureShares := NewIntStringMap()
