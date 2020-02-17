@@ -553,7 +553,7 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
-func createBeaconReactor(aeonFile string, state sm.State, privValidator types.PrivValidator, beaconLogger log.Logger) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
+func createBeaconReactor(aeonFile string, state sm.State, privValidator types.PrivValidator, beaconLogger log.Logger, fastSync bool) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
 	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
 	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
@@ -562,7 +562,7 @@ func createBeaconReactor(aeonFile string, state sm.State, privValidator types.Pr
 	entropyGenerator.SetAeonKeys(aeonKeys)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
 
-	reactor := beacon.NewReactor(entropyGenerator)
+	reactor := beacon.NewReactor(entropyGenerator, fastSync)
 	reactor.SetLogger(beaconLogger)
 
 	return entropyChannel, entropyGenerator, reactor
@@ -703,7 +703,7 @@ func NewNode(config *cfg.Config,
 		if index != 0 {
 			return nil, errors.Wrap(err, "invalid validator index")
 		}
-		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, logger)
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, logger, fastSync)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
 	}

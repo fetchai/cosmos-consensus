@@ -1,8 +1,8 @@
 # Changes
 
-See beacon directory and consensus/state.go
+See beacon directory and consensus/state.go for main changes
 
-Get mcl submodule 
+Get mcl submodule
 ```bash
 git submodule init
 git subdmodule update
@@ -19,9 +19,8 @@ make
 cp lib/libmcl.a libs/libmcl.a
 ```
 
-Now build and run tests from beacon directory
+Build and run tests in beacon, consensus and node directory with
 ```bash
-go clean -cache
 go test
 ```
 

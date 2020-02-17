@@ -3,6 +3,7 @@ package beacon
 import (
 	"fmt"
 	tmevents "github.com/tendermint/tendermint/libs/events"
+	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 	"sort"
 	"sync"
@@ -17,7 +18,8 @@ var (
 )
 
 type EntropyGenerator struct {
-	Logger  log.Logger
+	service.BaseService
+
 	proxyMtx     sync.Mutex
 
 	threshold int
@@ -34,7 +36,6 @@ type EntropyGenerator struct {
 	Validators     *types.ValidatorSet
 	aeonExecUnit   AeonExecUnit
 
-	stopped bool
 	// synchronous pubsub between consensus state and reactor.
 	// state only emits EventNewRoundStep and EventVote
 	evsw tmevents.EventSwitch
@@ -48,17 +49,17 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newP
 		logger = log.NewNopLogger()
 	}
 	es := &EntropyGenerator{
-		Logger: logger,
 		entropyShares: make(map[int64]map[int]types.EntropyShare),
 		entropyComputed: make(map[int64]types.ThresholdSignature),
 		privValidator: newPrivValidator,
 		Validators: validators,
-		stopped: true,
 		evsw:             tmevents.NewEventSwitch(),
 		chainID: newChainID,
 	}
+	es.Logger = logger
 
 	es.threshold = es.Validators.Size() / 2 + 1
+	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
 	return es
 }
 
@@ -77,10 +78,7 @@ func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	// Only allow updating of aeon keys if generator is stopped
-	if entropyGenerator.stopped {
-		entropyGenerator.aeonExecUnit = aeonKeys
-	}
+	entropyGenerator.aeonExecUnit = aeonKeys
 }
 
 func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<- types.ComputedEntropy) {
@@ -92,60 +90,55 @@ func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChann
 	}
 }
 
+// SetLogger implements Service.
+func (entropyGenerator *EntropyGenerator) SetLogger(l log.Logger) {
+	entropyGenerator.BaseService.Logger = l
+}
+
 // Generates entropy from the last computed entropy height
-func (entropyGenerator *EntropyGenerator) Start() error {
+func (entropyGenerator *EntropyGenerator) OnStart() error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	if entropyGenerator.stopped {
-		if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
+	if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
 			return fmt.Errorf("no active execution unit")
 		}
 
-		// Mark entropy generator as not stopped to allow receiving of messages
-		// even if signing fails
-		if err := entropyGenerator.evsw.Start(); err != nil {
+	// Mark entropy generator as not stopped to allow receiving of messages
+	// even if signing fails
+	if err := entropyGenerator.evsw.Start(); err != nil {
 			return err
 		}
-		entropyGenerator.stopped = false
 
-		// Find last computed entropy height
-		if len(entropyGenerator.entropyComputed) == 0 {
+	// Find last computed entropy height
+	if len(entropyGenerator.entropyComputed) == 0 {
 			return fmt.Errorf("no previous entropy to sign")
 		}
-		entropyHeights := make([]int64, 0, len(entropyGenerator.entropyComputed))
-		for height := range entropyGenerator.entropyComputed {
-			entropyHeights = append(entropyHeights, height)
-		}
-		sort.Slice(entropyHeights, func(i int, j int ) bool {
-			return entropyHeights[i] < entropyHeights[j]
-		})
-		entropyGenerator.lastComputedEntropyHeight = entropyHeights[len(entropyGenerator.entropyComputed) - 1]
-		entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
-		// Start go routine for computing threshold signature
-		go entropyGenerator.computeEntropyRoutine()
-		return nil
+	entropyHeights := make([]int64, 0, len(entropyGenerator.entropyComputed))
+	for height := range entropyGenerator.entropyComputed {
+		entropyHeights = append(entropyHeights, height)
 	}
+	sort.Slice(entropyHeights, func(i int, j int ) bool {
+		return entropyHeights[i] < entropyHeights[j]
+	})
+	entropyGenerator.lastComputedEntropyHeight = entropyHeights[len(entropyGenerator.entropyComputed) - 1]
+	entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
+	// Start go routine for computing threshold signature
+	go entropyGenerator.computeEntropyRoutine()
 	return nil
 }
 
-func (entropyGenerator *EntropyGenerator) Stop() {
+func (entropyGenerator *EntropyGenerator) OnStop() {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	if !entropyGenerator.stopped {
-		entropyGenerator.evsw.Stop()
-		entropyGenerator.stopped = true
-	}
+	entropyGenerator.evsw.Stop()
 }
 
 func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.EntropyShare) error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	if entropyGenerator.stopped {
-		return fmt.Errorf("entropy generator stopped")
-	}
 	index, validator := entropyGenerator.Validators.GetByAddress(share.SignerAddress)
 	err := entropyGenerator.validInputs(share.Height, index)
 	if  err != nil {
@@ -306,8 +299,6 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() {
 		//delete(entropyGenerator.entropyShares, height)
 
 		// Continue onto the next random value
-		if !entropyGenerator.stopped {
-			entropyGenerator.sign(height)
-		}
+		entropyGenerator.sign(height)
 	}
 }

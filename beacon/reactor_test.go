@@ -25,7 +25,7 @@ func startBeaconNet(t *testing.T, entropyGenerators []*EntropyGenerator, n int) 
 	for i := 0; i < n; i++ {
 
 		// Set up entropy generator
-		reactors[i] = NewReactor(entropyGenerators[i])
+		reactors[i] = NewReactor(entropyGenerators[i], false)
 		reactors[i].SetLogger(entropyGenerators[i].Logger)
 	}
 	// make connected switches and start all reactors

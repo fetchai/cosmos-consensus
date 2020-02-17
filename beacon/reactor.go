@@ -9,6 +9,7 @@ import (
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
+	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 	"reflect"
 	"sync"
@@ -42,9 +43,10 @@ type ReactorOption func(*Reactor)
 
 // NewReactor returns a new Reactor with the given
 // entropyGenerator.
-func NewReactor(entropyGenerator *EntropyGenerator, options ...ReactorOption) *Reactor {
+func NewReactor(entropyGenerator *EntropyGenerator, fastSync bool, options ...ReactorOption) *Reactor {
 	conR := &Reactor{
 		entropyGen:     entropyGenerator,
+		fastSync: fastSync,
 	}
 	conR.BaseReactor = *p2p.NewBaseReactor("Reactor", conR)
 
@@ -57,14 +59,13 @@ func NewReactor(entropyGenerator *EntropyGenerator, options ...ReactorOption) *R
 
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
-func (conR *Reactor) OnStart() error {
-	conR.Logger.Info("Reactor ")
+func (beaconR *Reactor) OnStart() error {
+	beaconR.Logger.Info("Reactor ")
 
-	conR.subscribeToBroadcastEvents()
+	beaconR.subscribeToBroadcastEvents()
 
-	err := conR.entropyGen.Start()
-	if err != nil {
-		return err
+	if !beaconR.fastSync {
+		return beaconR.entropyGen.Start()
 	}
 
 	return nil
@@ -72,13 +73,35 @@ func (conR *Reactor) OnStart() error {
 
 // OnStop implements BaseService by unsubscribing from events and stopping
 // state.
-func (conR *Reactor) OnStop() {
-	conR.unsubscribeFromBroadcastEvents()
-	conR.entropyGen.Stop()
+func (beaconR *Reactor) OnStop() {
+	beaconR.unsubscribeFromBroadcastEvents()
+	beaconR.entropyGen.Stop()
+}
+
+// Switch from fast sync, when no entropy is generated, to consensus mode by resetting the
+// last computed entropy
+func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
+	beaconR.Logger.Info("SwitchToConsensus")
+	beaconR.entropyGen.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
+
+	beaconR.mtx.Lock()
+	beaconR.fastSync = false
+	beaconR.mtx.Unlock()
+
+	err := beaconR.entropyGen.Start()
+	if err != nil {
+		panic(fmt.Sprintf(`Failed to start entropy generator: %v
+
+conS:
+%+v
+
+conR:
+%+v`, err, beaconR.entropyGen, beaconR))
+	}
 }
 
 // GetChannels implements Reactor
-func (conR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
+func (beaconR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
 	return []*p2p.ChannelDescriptor{
 		{
 			ID:                  StateChannel,
@@ -96,16 +119,16 @@ func (conR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
 }
 
 // InitPeer implements Reactor by creating a state for the peer.
-func (conR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
-	peerState := NewPeerState(peer).SetLogger(conR.Logger)
+func (beaconR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
+	peerState := NewPeerState(peer).SetLogger(beaconR.Logger)
 	peer.Set(types.PeerStateKey, peerState)
 	return peer
 }
 
 // AddPeer implements Reactor by spawning multiple gossiping goroutines for the
 // peer.
-func (conR *Reactor) AddPeer(peer p2p.Peer) {
-	if !conR.IsRunning() {
+func (beaconR *Reactor) AddPeer(peer p2p.Peer) {
+	if !beaconR.IsRunning() {
 		return
 	}
 
@@ -114,12 +137,12 @@ func (conR *Reactor) AddPeer(peer p2p.Peer) {
 		panic(fmt.Sprintf("peer %v has no state", peer))
 	}
 	// Begin routines for this peer.
-	go conR.gossipEntropySharesRoutine(peer, peerState)
+	go beaconR.gossipEntropySharesRoutine(peer, peerState)
 }
 
 // RemovePeer is a noop.
-func (conR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
-	if !conR.IsRunning() {
+func (beaconR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
+	if !beaconR.IsRunning() {
 		return
 	}
 	// TODO
@@ -131,26 +154,26 @@ func (conR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 }
 
 // Receive implements Reactor and processes either state or entropy share messages
-func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
-	if !conR.IsRunning() {
-		conR.Logger.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
+func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+	if !beaconR.IsRunning() {
+		beaconR.Logger.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
 		return
 	}
 
 	msg, err := decodeMsg(msgBytes)
 	if err != nil {
-		conR.Logger.Error("Error decoding message", "src", src, "chId", chID, "msg", msg, "err", err, "bytes", msgBytes)
-		conR.Switch.StopPeerForError(src, err)
+		beaconR.Logger.Error("Error decoding message", "src", src, "chId", chID, "msg", msg, "err", err, "bytes", msgBytes)
+		beaconR.Switch.StopPeerForError(src, err)
 		return
 	}
 
 	if err = msg.ValidateBasic(); err != nil {
-		conR.Logger.Error("Peer sent us invalid msg", "peer", src, "msg", msg, "err", err)
-		conR.Switch.StopPeerForError(src, err)
+		beaconR.Logger.Error("Peer sent us invalid msg", "peer", src, "msg", msg, "err", err)
+		beaconR.Switch.StopPeerForError(src, err)
 		return
 	}
 
-	conR.Logger.Debug("Receive", "src", src, "chId", chID, "msg", msg)
+	beaconR.Logger.Debug("Receive", "src", src, "chId", chID, "msg", msg)
 
 	// Get peer states
 	ps, ok := src.Get(types.PeerStateKey).(*PeerState)
@@ -162,68 +185,68 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	case StateChannel:
 		switch msg := msg.(type) {
 		case *HasEntropyShareMessage:
-			index, _ := conR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
-			ps.HasEntropyShare(msg.Height, index, conR.entropyGen.Validators.Size())
+			index, _ := beaconR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
+			ps.HasEntropyShare(msg.Height, index, beaconR.entropyGen.Validators.Size())
 		default:
-			conR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
+			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
 
 	case EntropyChannel:
 		switch msg := msg.(type) {
 		case *EntropyShareMessage:
-			if conR.entropyGen != nil {
-				conR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
+			if beaconR.entropyGen != nil {
+				beaconR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
 			}
 		default:
-			conR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
+			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
 
 	default:
-		conR.Logger.Error(fmt.Sprintf("Unknown chId %X", chID))
+		beaconR.Logger.Error(fmt.Sprintf("Unknown chId %X", chID))
 	}
 }
 
 //--------------------------------------
 
 // subscribeToBroadcastEvents subscribes for has entropy share messages
-func (conR *Reactor) subscribeToBroadcastEvents() {
+func (beaconR *Reactor) subscribeToBroadcastEvents() {
 	const subscriber = "beacon-reactor"
-	conR.entropyGen.evsw.AddListenerForEvent(subscriber, types.EventEntropyShare,
+	beaconR.entropyGen.evsw.AddListenerForEvent(subscriber, types.EventEntropyShare,
 		func(data tmevents.EventData) {
-			conR.broadcastHasEntropyShareMessage(data.(*types.EntropyShare))
+			beaconR.broadcastHasEntropyShareMessage(data.(*types.EntropyShare))
 		})
 }
 
-func (conR *Reactor) unsubscribeFromBroadcastEvents() {
+func (beaconR *Reactor) unsubscribeFromBroadcastEvents() {
 	const subscriber = "beacon-reactor"
-	conR.entropyGen.evsw.RemoveListener(subscriber)
+	beaconR.entropyGen.evsw.RemoveListener(subscriber)
 }
 
-func (conR *Reactor) broadcastHasEntropyShareMessage(es *types.EntropyShare) {
+func (beaconR *Reactor) broadcastHasEntropyShareMessage(es *types.EntropyShare) {
 	esMsg := &HasEntropyShareMessage{
 		Height: es.Height,
 		SignerAddress: es.SignerAddress,
 	}
-	conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(esMsg))
+	beaconR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(esMsg))
 }
 
-func (conR *Reactor) gossipEntropySharesRoutine(peer p2p.Peer, ps *PeerState) {
-	logger := conR.Logger.With("peer", peer)
+func (beaconR *Reactor) gossipEntropySharesRoutine(peer p2p.Peer, ps *PeerState) {
+	logger := beaconR.Logger.With("peer", peer)
 
 OUTER_LOOP:
 	for {
 		// Manage disconnects from self or peer.
-		if !peer.IsRunning() || !conR.IsRunning() {
+		if !peer.IsRunning() || !beaconR.IsRunning() {
 			logger.Info("Stopping gossipEntropySharesRoutine for peer")
 			return
 		}
 
-		if conR.entropyGen != nil {
+		if beaconR.entropyGen != nil {
 			peerLastEntropyHeight := ps.GetLastComputedEntropyHeight()
 			if ps.PickSendEntropyShare(
-				conR.entropyGen.GetEntropyShares(peerLastEntropyHeight+1),
-				conR.entropyGen.Validators.Size(),
-				conR.entropyGen.GetThreshold()) {
+				beaconR.entropyGen.GetEntropyShares(peerLastEntropyHeight+1),
+				beaconR.entropyGen.Validators.Size(),
+				beaconR.entropyGen.GetThreshold()) {
 				continue OUTER_LOOP
 			}
 		}
@@ -236,15 +259,15 @@ OUTER_LOOP:
 // String returns a string representation of the Reactor.
 // NOTE: For now, it is just a hard-coded string to avoid accessing unprotected shared variables.
 // TODO: improve!
-func (conR *Reactor) String() string {
+func (beaconR *Reactor) String() string {
 	// better not to access shared variables
 	return "EntropyReactor" // conR.StringIndented("")
 }
 
 // StringIndented returns an indented string representation of the Reactor
-func (conR *Reactor) StringIndented(indent string) string {
+func (beaconR *Reactor) StringIndented(indent string) string {
 	s := "BeaconReactor{\n"
-	for _, peer := range conR.Switch.Peers().List() {
+	for _, peer := range beaconR.Switch.Peers().List() {
 		ps, ok := peer.Get(types.PeerStateKey).(*PeerState)
 		if !ok {
 			panic(fmt.Sprintf("Peer %v has no state", peer))
