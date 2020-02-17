@@ -51,7 +51,7 @@ func setCrypto(nValidators int) []AeonExecUnit {
 
 	aeonExecUnits := make([]AeonExecUnit, nValidators)
 	for i := 0; i < nValidators; i++ {
-		aeonExecUnits[i] = NewAeonExecUnit("/home/jenny/tendermint/beacon/test_keys/" + strconv.Itoa(int(i)) + ".txt")
+		aeonExecUnits[i] = NewAeonExecUnit("beacon/test_keys/" + strconv.Itoa(int(i)) + ".txt")
 	}
 
 	return aeonExecUnits
@@ -118,6 +118,6 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 		GenesisTime: tmtime.Now(),
 		ChainID:     config.ChainID(),
 		Validators:  validators,
-		Entropy: []byte("Fetch.ai Test Genesis Entropy"),
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	}, privValidators
 }

@@ -72,6 +72,78 @@ func TestNodeStartStop(t *testing.T) {
 	}
 }
 
+func TestEntropyNodeStartStop(t *testing.T) {
+	config := cfg.ResetTestRoot("node_node_test")
+	defer os.RemoveAll(config.RootDir)
+
+	// create & start node
+	// Generate node PrivKey
+	logger := log.TestingLogger()
+	aeonKeysFile := "beacon/test_keys/single_validator.txt"
+	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
+	require.NoError(t, err)
+
+	// Convert old PrivValidator if it exists.
+	oldPrivVal := config.OldPrivValidatorFile()
+	newPrivValKey := config.PrivValidatorKeyFile()
+	newPrivValState := config.PrivValidatorStateFile()
+	if _, err := os.Stat(oldPrivVal); !os.IsNotExist(err) {
+		oldPV, err := privval.LoadOldFilePV(oldPrivVal)
+		require.NoError(t, err)
+		logger.Info("Upgrading PrivValidator file",
+			"old", oldPrivVal,
+			"newKey", newPrivValKey,
+			"newState", newPrivValState,
+		)
+		oldPV.Upgrade(newPrivValKey, newPrivValState)
+	}
+
+	n, err := NewNode(config,
+		privval.LoadOrGenFilePV(newPrivValKey, newPrivValState),
+		nodeKey,
+		proxy.DefaultClientCreator(config.ProxyApp, config.ABCI, config.DBDir()),
+		DefaultGenesisDocProviderFunc(config),
+		DefaultDBProvider,
+		DefaultMetricsProvider(config.Instrumentation),
+		aeonKeysFile,
+		logger,
+	)
+	require.NoError(t, err)
+	err = n.Start()
+	require.NoError(t, err)
+
+	t.Logf("Started node %v", n.sw.NodeInfo())
+
+	// wait for the node to produce a block
+	blocksSub, err := n.EventBus().Subscribe(context.Background(), "node_entropy_test", types.EventQueryNewBlock)
+	require.NoError(t, err)
+	select {
+	case <-blocksSub.Out():
+	case <-blocksSub.Cancelled():
+		t.Fatal("blocksSub was cancelled")
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for the node to produce a block")
+	}
+
+	// stop the node
+	go func() {
+		n.Stop()
+	}()
+
+	select {
+	case <-n.Quit():
+	case <-time.After(5 * time.Second):
+		pid := os.Getpid()
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			panic(err)
+		}
+		err = p.Signal(syscall.SIGABRT)
+		fmt.Println(err)
+		t.Fatal("timed out waiting for shutdown")
+	}
+}
+
 func TestSplitAndTrimEmpty(t *testing.T) {
 	testCases := []struct {
 		s        string
@@ -307,6 +379,7 @@ func TestNodeNewNodeCustomReactors(t *testing.T) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
+		"",
 		log.TestingLogger(),
 		CustomReactors(map[string]p2p.Reactor{"FOO": cr, "BLOCKCHAIN": customBlockchainReactor}),
 	)

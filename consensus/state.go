@@ -945,6 +945,10 @@ func (cs *State) enterPropose(height int64, round int) {
 	logger.Debug("This node is a validator")
 
 	nextProposer := cs.getProposer(height, round)
+	if nextProposer == nil {
+		panic("No next validator!")
+		return
+	}
 	if bytes.Equal(nextProposer.Address, address) {
 		logger.Info("enterPropose: Our turn to propose",
 			"proposer",
@@ -965,6 +969,10 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	if cs.computedEntropyChannel == nil {
 		return cs.Validators.GetProposer()
 	} else {
+		if round >= cs.Validators.Size() {
+			panic(fmt.Sprintf("getProposer(%v/%v), round greater than validator size %v", height, round, cs.Validators.Size()))
+			return nil
+		}
 		// If first round of new block height then reset entropy
 		newEntropy := cs.getNewEntropy()
 		if newEntropy.Height != height {

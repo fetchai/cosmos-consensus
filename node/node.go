@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/beacon"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -116,6 +117,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
+		"",
 		logger,
 	)
 }
@@ -200,6 +202,8 @@ type Node struct {
 	txIndexer        txindex.TxIndexer
 	indexerService   *txindex.IndexerService
 	prometheusSrv    *http.Server
+	entropyGenerator *beacon.EntropyGenerator
+	beaconReactor    *beacon.Reactor             // reactor for signature shares
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -549,6 +553,21 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
+func createBeaconReactor(aeonFile string, state sm.State, privValidator types.PrivValidator, beaconLogger log.Logger) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
+	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
+	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+
+	entropyGenerator := beacon.NewEntropyGenerator(beaconLogger, state.Validators, privValidator, state.ChainID)
+	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
+	entropyGenerator.SetAeonKeys(aeonKeys)
+	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
+
+	reactor := beacon.NewReactor(entropyGenerator)
+	reactor.SetLogger(beaconLogger)
+
+	return entropyChannel, entropyGenerator, reactor
+}
+
 // NewNode returns a new, ready to go, Tendermint Node.
 func NewNode(config *cfg.Config,
 	privValidator types.PrivValidator,
@@ -557,6 +576,7 @@ func NewNode(config *cfg.Config,
 	genesisDocProvider GenesisDocProvider,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
+	aeonKeysFile string,
 	logger log.Logger,
 	options ...Option) (*Node, error) {
 
@@ -673,6 +693,21 @@ func NewNode(config *cfg.Config,
 		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
 	)
 
+	// Make BeaconReactor
+	var beaconReactor *beacon.Reactor
+	var entropyChannel chan types.ComputedEntropy
+	var entropyGenerator *beacon.EntropyGenerator
+	if len(aeonKeysFile) != 0 {
+		beacon.InitialiseMcl()
+		index, _ := state.Validators.GetByAddress(privValidator.GetPubKey().Address())
+		if index != 0 {
+			return nil, errors.Wrap(err, "invalid validator index")
+		}
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, logger)
+		consensusState.SetEntropyChannel(entropyChannel)
+		sw.AddReactor("BEACON", beaconReactor)
+	}
+
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add peers from persistent_peers field")
@@ -735,6 +770,8 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
+		entropyGenerator: entropyGenerator,
+		beaconReactor:    beaconReactor,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -1023,6 +1060,11 @@ func (n *Node) Mempool() mempl.Mempool {
 // PEXReactor returns the Node's PEXReactor. It returns nil if PEX is disabled.
 func (n *Node) PEXReactor() *pex.Reactor {
 	return n.pexReactor
+}
+
+// BeaconReactor returns the Node's beacon reactor
+func (n *Node) BeaconReactor() *beacon.Reactor {
+	return n.beaconReactor
 }
 
 // EvidencePool returns the Node's EvidencePool.

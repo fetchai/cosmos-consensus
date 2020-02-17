@@ -738,7 +738,7 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 		GenesisTime: tmtime.Now(),
 		ChainID:     config.ChainID(),
 		Validators:  validators,
-		Entropy: []byte("Fetch.ai Test Genesis Entropy"),
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	}, privValidators
 }
 

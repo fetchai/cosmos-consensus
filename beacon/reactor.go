@@ -22,6 +22,7 @@ const (
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
 	PeerGossipSleepDuration = 100 * time.Millisecond
+	ComputeEntropySleepDuration = 100 * time.Millisecond
 )
 
 //-----------------------------------------------------------------------------
@@ -171,10 +172,7 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		switch msg := msg.(type) {
 		case *EntropyShareMessage:
 			if conR.entropyGen != nil {
-				err := conR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
-				if err == nil {
-					conR.entropyGen.evsw.FireEvent(types.EventEntropyShare, msg.EntropyShare)
-				}
+				conR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
 			}
 		default:
 			conR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
@@ -296,27 +294,27 @@ func (ps *PeerState) GetLastComputedEntropyHeight() int64 {
 	return ps.lastComputedEntropyHeight
 }
 
-func (ps *PeerState) PickSendEntropyShare(peerEntropyShares map[int]types.EntropyShare, numValidators int, threshold int) bool {
+func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropyShare, numValidators int, threshold int) bool {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	if peerEntropyShares == nil {
+	if entropyShares == nil {
 		return false
 	}
-	if len(peerEntropyShares) == 0 {
+	if len(entropyShares) == 0 {
 		return false
 	}
 
-	entropyShares := ps.entropyShares[ps.lastComputedEntropyHeight + 1]
+	peerEntropyShares := ps.entropyShares[ps.lastComputedEntropyHeight + 1]
 	count := 0
 	for i := 0; i < numValidators; i++ {
-		if entropyShares.GetIndex(i) {
+		if peerEntropyShares.GetIndex(i) {
 			count++
 		}
 	}
 
-	for key, value := range peerEntropyShares {
-		if !entropyShares.GetIndex(key) {
+	for key, value := range entropyShares {
+		if !peerEntropyShares.GetIndex(key) {
 			msg := &EntropyShareMessage{&value}
 			ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
 			ps.hasEntropyShare(ps.lastComputedEntropyHeight + 1, key, numValidators)
