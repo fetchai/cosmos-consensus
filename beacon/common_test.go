@@ -51,7 +51,7 @@ func setCrypto(nValidators int) []AeonExecUnit {
 
 	aeonExecUnits := make([]AeonExecUnit, nValidators)
 	for i := 0; i < nValidators; i++ {
-		aeonExecUnits[i] = NewAeonExecUnit("beacon/test_keys/" + strconv.Itoa(int(i)) + ".txt")
+		aeonExecUnits[i] = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(i)) + ".txt")
 	}
 
 	return aeonExecUnits

@@ -10,7 +10,7 @@ func TestCryptoSign(t *testing.T) {
 	InitialiseMcl()
 	cabinetSize := uint64(4)
 
-	directory := "beacon/test_keys/"
+	directory := "test_keys/"
 	aeonExecUnit := NewAeonExecUnit(directory + "0.txt")
 	defer DeleteAeonExecUnit(aeonExecUnit)
 

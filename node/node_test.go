@@ -79,7 +79,7 @@ func TestEntropyNodeStartStop(t *testing.T) {
 	// create & start node
 	// Generate node PrivKey
 	logger := log.TestingLogger()
-	aeonKeysFile := "beacon/test_keys/single_validator.txt"
+	aeonKeysFile := "test_key/single_validator.txt"
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	require.NoError(t, err)
 
@@ -412,6 +412,7 @@ func state(nVals int, height int64) (sm.State, dbm.DB) {
 		ChainID:    "test-chain",
 		Validators: vals,
 		AppHash:    nil,
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	})
 
 	// save validators to db for 2 heights
