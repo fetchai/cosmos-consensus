@@ -39,3 +39,10 @@ func TestCryptoSign(t *testing.T) {
 	groupSignature := aeonExecUnit.ComputeGroupSignature(signatureShares)
 	assert.True(t, aeonExecUnit.VerifyGroupSignature(message, groupSignature))
 }
+
+func TestCryptoNonValidator(t *testing.T) {
+	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
+	defer DeleteAeonExecUnit(aeonExecUnit)
+
+	assert.False(t, aeonExecUnit.CanSign())
+}
