@@ -39,6 +39,8 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
+	defaultEntropyKeyName = "entropy_key.txt"
+
 	defaultNodeKeyName  = "node_key.json"
 	defaultAddrBookName = "addrbook.json"
 
@@ -46,6 +48,7 @@ var (
 	defaultGenesisJSONPath  = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
 	defaultPrivValKeyPath   = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
 	defaultPrivValStatePath = filepath.Join(defaultDataDir, defaultPrivValStateName)
+	defaultEntropyKeyPath   = filepath.Join(defaultConfigDir, defaultEntropyKeyName)
 
 	defaultNodeKeyPath  = filepath.Join(defaultConfigDir, defaultNodeKeyName)
 	defaultAddrBookPath = filepath.Join(defaultConfigDir, defaultAddrBookName)
@@ -200,6 +203,9 @@ type BaseConfig struct { //nolint: maligned
 	// connections from an external PrivValidator process
 	PrivValidatorListenAddr string `mapstructure:"priv_validator_laddr"`
 
+	// Path to the txt file containing the dkg output for entropy generation
+	EntropyKey string `mapstructure:"entropy_key_file"`
+
 	// A JSON file containing the private key to use for p2p authenticated encryption
 	NodeKey string `mapstructure:"node_key_file"`
 
@@ -220,6 +226,7 @@ func DefaultBaseConfig() BaseConfig {
 		Genesis:            defaultGenesisJSONPath,
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
+		EntropyKey:			defaultEntropyKeyPath,
 		NodeKey:            defaultNodeKeyPath,
 		Moniker:            defaultMoniker,
 		ProxyApp:           "tcp://127.0.0.1:26658",
@@ -261,6 +268,11 @@ func (cfg BaseConfig) PrivValidatorKeyFile() string {
 // PrivValidatorFile returns the full path to the priv_validator_state.json file
 func (cfg BaseConfig) PrivValidatorStateFile() string {
 	return rootify(cfg.PrivValidatorState, cfg.RootDir)
+}
+
+// EntropyKeyFile returns the full path to the entropy_key.txt file
+func (cfg BaseConfig) EntropyKeyFile() string {
+	return rootify(cfg.EntropyKey, cfg.RootDir)
 }
 
 // OldPrivValidatorFile returns the full path of the priv_validator.json from pre v0.28.0.

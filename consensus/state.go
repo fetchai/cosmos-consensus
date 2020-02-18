@@ -994,7 +994,7 @@ func (cs *State) getNewEntropy() types.ComputedEntropy {
 	return cs.newEntropy
 }
 
-// Check that rand.Shuffle is same across different platforms
+// TODO: Check that rand.Shuffle is same across different platforms
 func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
 	seed, n := binary.Varint(entropy)
 	if n <= 0 {
