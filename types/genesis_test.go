@@ -72,6 +72,7 @@ func TestGenesisGood(t *testing.T) {
 	baseGenDoc := &GenesisDoc{
 		ChainID:    "abc",
 		Validators: []GenesisValidator{{pubkey.Address(), pubkey, 10, "myval"}},
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	}
 	genDocBytes, err = cdc.MarshalJSON(baseGenDoc)
 	assert.NoError(t, err, "error marshalling genDoc")
@@ -150,5 +151,6 @@ func randomGenesisDoc() *GenesisDoc {
 		ChainID:         "abc",
 		Validators:      []GenesisValidator{{pubkey.Address(), pubkey, 10, "myval"}},
 		ConsensusParams: DefaultConsensusParams(),
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	}
 }

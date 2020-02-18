@@ -172,6 +172,7 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 		ConsensusParams: types.DefaultConsensusParams(),
 		GenesisTime:     tmtime.Now(),
 		Validators:      genVals,
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	}
 
 	// Write genesis file.
