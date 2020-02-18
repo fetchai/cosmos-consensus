@@ -1,9 +1,10 @@
 package beacon
 
 import (
-	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCryptoSign(t *testing.T) {

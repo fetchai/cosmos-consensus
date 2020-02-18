@@ -2,7 +2,12 @@ package beacon
 
 import (
 	"fmt"
+	"os"
+	"sort"
+	"strconv"
+
 	"github.com/go-kit/kit/log/term"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
@@ -10,9 +15,6 @@ import (
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	dbm "github.com/tendermint/tm-db"
-	"os"
-	"sort"
-	"strconv"
 )
 
 const (

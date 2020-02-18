@@ -2,15 +2,15 @@ package beacon
 
 import (
 	"fmt"
-	tmevents "github.com/tendermint/tendermint/libs/events"
-	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/types"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/types"
 )
 
 var (

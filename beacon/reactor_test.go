@@ -1,11 +1,12 @@
 package beacon
 
 import (
-	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/p2p"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/p2p"
 )
 
 func TestMain(m *testing.M) {

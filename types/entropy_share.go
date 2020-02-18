@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
+
 	"github.com/tendermint/tendermint/crypto"
 )
 

@@ -2,7 +2,12 @@ package beacon
 
 import (
 	"fmt"
+	"reflect"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
+
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/bits"
@@ -11,9 +16,6 @@ import (
 	"github.com/tendermint/tendermint/p2p"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
-	"reflect"
-	"sync"
-	"time"
 )
 
 const (
