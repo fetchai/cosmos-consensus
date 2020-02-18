@@ -8,7 +8,7 @@ git submodule init
 git subdmodule update
 ```
 
-Build c++ library:
+Build C++ library:
 ```bash
 cd beacon/beacon_cpp
 rm -Rf build
@@ -23,6 +23,19 @@ Build and run tests in beacon, consensus and node directory with
 ```bash
 go test
 ```
+
+To create a single node, which also generates entropy, run the following from the root directory
+```bash
+CGO_ENABLED=1 go build -o build/tendermint ./cmd/tendermint/
+cd build
+./tendermint init
+```
+This creates genesis and validator information. To provide the entropy generation key file and start the node
+```bash
+cp ../node/test_key/single_validator.txt ~/.tendermint/config/entropy_key.txt
+./tendermint node --proxy_app=kvstore
+```
+The logs should show the node executing blocks, which contain the entropy in hex format, as well as committing state.
 
 # Tendermint
 
