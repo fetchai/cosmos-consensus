@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/p2p/mock"
 )
 
 func TestMain(m *testing.M) {
@@ -19,9 +21,7 @@ func TestMain(m *testing.M) {
 //----------------------------------------------
 // in-process testnets
 
-func startBeaconNet(t *testing.T, entropyGenerators []*EntropyGenerator, n int) (
-	[]*Reactor,
-) {
+func startBeaconNet(t *testing.T, entropyGenerators []*EntropyGenerator, n int) []*Reactor {
 	reactors := make([]*Reactor, n)
 	for i := 0; i < n; i++ {
 
@@ -49,9 +49,9 @@ func stopBeaconNet(logger log.Logger, reactors []*Reactor) {
 }
 
 func TestReactorEntropy(t *testing.T) {
-	entropyGenerators, cleanup := randBeaconNet("beacon_reactor_test")
+	N := 4
+	entropyGenerators, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
-	N := len(entropyGenerators)
 	entropyReactors := startBeaconNet(t, entropyGenerators, N)
 	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
@@ -62,9 +62,51 @@ func TestReactorEntropy(t *testing.T) {
 			if err == nil {
 				break
 			} else {
-				time.Sleep(2*time.Millisecond)
+				time.Sleep(2 * time.Millisecond)
 			}
 		}
 	}
 }
 
+func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
+	entropyGenerators, cleanup := randBeaconNet(1, "beacon_reactor_test")
+	defer cleanup()
+	N := len(entropyGenerators)
+	entropyReactors := startBeaconNet(t, entropyGenerators, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
+
+	var (
+		reactor = entropyReactors[0]
+		peer    = mock.NewPeer(nil)
+		msg     = cdc.MustMarshalBinaryBare(&HasEntropyShareMessage{Height: 1, SignerAddress: entropyGenerators[0].privValidator.GetPubKey().Address()})
+	)
+
+	reactor.InitPeer(peer)
+
+	// simulate switch calling Receive before AddPeer
+	assert.NotPanics(t, func() {
+		reactor.Receive(StateChannel, peer, msg)
+		reactor.AddPeer(peer)
+	})
+}
+
+func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
+	entropyGenerators, cleanup := randBeaconNet(1, "beacon_reactor_test")
+	defer cleanup()
+	N := len(entropyGenerators)
+	entropyReactors := startBeaconNet(t, entropyGenerators, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
+
+	var (
+		reactor = entropyReactors[0]
+		peer    = mock.NewPeer(nil)
+		msg     = cdc.MustMarshalBinaryBare(&HasEntropyShareMessage{Height: 1, SignerAddress: entropyGenerators[0].privValidator.GetPubKey().Address()})
+	)
+
+	// we should call InitPeer here
+
+	// simulate switch calling Receive before AddPeer
+	assert.Panics(t, func() {
+		reactor.Receive(StateChannel, peer, msg)
+	})
+}

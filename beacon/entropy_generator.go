@@ -20,11 +20,11 @@ var (
 type EntropyGenerator struct {
 	service.BaseService
 
-	proxyMtx     sync.Mutex
+	proxyMtx sync.Mutex
 
-	threshold int
-	entropyShares map[int64]map[int]types.EntropyShare
-	entropyComputed map[int64]types.ThresholdSignature
+	threshold                 int
+	entropyShares             map[int64]map[int]types.EntropyShare
+	entropyComputed           map[int64]types.ThresholdSignature
 	lastComputedEntropyHeight int64
 
 	// Channel for sending off entropy for receiving elsewhere
@@ -32,9 +32,9 @@ type EntropyGenerator struct {
 
 	// To be safe, need to store set of validators who can participate in DRB here to avoid
 	// possible problems with validator set changing allowed by Tendermint
-	privValidator  types.PrivValidator
-	Validators     *types.ValidatorSet
-	aeonExecUnit   AeonExecUnit
+	privValidator types.PrivValidator
+	Validators    *types.ValidatorSet
+	aeonExecUnit  AeonExecUnit
 
 	// synchronous pubsub between consensus state and reactor.
 	// state only emits EventNewRoundStep and EventVote
@@ -49,16 +49,16 @@ func NewEntropyGenerator(logger log.Logger, validators *types.ValidatorSet, newP
 		logger = log.NewNopLogger()
 	}
 	es := &EntropyGenerator{
-		entropyShares: make(map[int64]map[int]types.EntropyShare),
+		entropyShares:   make(map[int64]map[int]types.EntropyShare),
 		entropyComputed: make(map[int64]types.ThresholdSignature),
-		privValidator: newPrivValidator,
-		Validators: validators,
-		evsw:             tmevents.NewEventSwitch(),
-		chainID: newChainID,
+		privValidator:   newPrivValidator,
+		Validators:      validators,
+		evsw:            tmevents.NewEventSwitch(),
+		chainID:         newChainID,
 	}
 	es.Logger = logger
 
-	es.threshold = es.Validators.Size() / 2 + 1
+	es.threshold = es.Validators.Size()/2 + 1
 	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
 	return es
 }
@@ -101,27 +101,27 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 	defer entropyGenerator.proxyMtx.Unlock()
 
 	if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
-			return fmt.Errorf("no active execution unit")
-		}
+		return fmt.Errorf("no active execution unit")
+	}
 
 	// Mark entropy generator as not stopped to allow receiving of messages
 	// even if signing fails
 	if err := entropyGenerator.evsw.Start(); err != nil {
-			return err
-		}
+		return err
+	}
 
 	// Find last computed entropy height
 	if len(entropyGenerator.entropyComputed) == 0 {
-			return fmt.Errorf("no previous entropy to sign")
-		}
+		return fmt.Errorf("no previous entropy to sign")
+	}
 	entropyHeights := make([]int64, 0, len(entropyGenerator.entropyComputed))
 	for height := range entropyGenerator.entropyComputed {
 		entropyHeights = append(entropyHeights, height)
 	}
-	sort.Slice(entropyHeights, func(i int, j int ) bool {
+	sort.Slice(entropyHeights, func(i int, j int) bool {
 		return entropyHeights[i] < entropyHeights[j]
 	})
-	entropyGenerator.lastComputedEntropyHeight = entropyHeights[len(entropyGenerator.entropyComputed) - 1]
+	entropyGenerator.lastComputedEntropyHeight = entropyHeights[len(entropyGenerator.entropyComputed)-1]
 	entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
 	// Start go routine for computing threshold signature
 	go entropyGenerator.computeEntropyRoutine()
@@ -139,9 +139,10 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.Entropy
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
+	entropyGenerator.Logger.Info("ApplyEntropyShare", "height", share.Height, "from", share.SignerAddress)
 	index, validator := entropyGenerator.Validators.GetByAddress(share.SignerAddress)
 	err := entropyGenerator.validInputs(share.Height, index)
-	if  err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -152,7 +153,7 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.Entropy
 	}
 
 	// Verify share
-	message := string(tmhash.Sum(entropyGenerator.entropyComputed[share.Height - 1]))
+	message := string(tmhash.Sum(entropyGenerator.entropyComputed[share.Height-1]))
 	if !entropyGenerator.aeonExecUnit.Verify(message, share.SignatureShare, uint64(index)) {
 		return fmt.Errorf("invalid entropy share received from %v", share.SignerAddress)
 	}
@@ -213,8 +214,8 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 
 func (entropyGenerator *EntropyGenerator) sign(height int64) {
 	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.privValidator.GetPubKey().Address())
-	err := entropyGenerator.validInputs(height + 1, index)
-	if  err != nil {
+	err := entropyGenerator.validInputs(height+1, index)
+	if err != nil {
 		entropyGenerator.Logger.Error(err.Error())
 		return
 	}
@@ -227,7 +228,6 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 		return
 	}
 
-
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[height]))
 	signature := entropyGenerator.aeonExecUnit.Sign(message)
 	if !entropyGenerator.aeonExecUnit.Verify(message, signature, uint64(index)) {
@@ -236,8 +236,8 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 	}
 
 	// Insert own signature into entropy shares
-	if entropyGenerator.entropyShares[height + 1] == nil {
-		entropyGenerator.entropyShares[height + 1] = make(map[int]types.EntropyShare)
+	if entropyGenerator.entropyShares[height+1] == nil {
+		entropyGenerator.entropyShares[height+1] = make(map[int]types.EntropyShare)
 	}
 	share := types.EntropyShare{
 		Height:         height + 1,
@@ -250,7 +250,7 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 		entropyGenerator.Logger.Error(err.Error())
 		return
 	}
-	entropyGenerator.entropyShares[height + 1][index] = share
+	entropyGenerator.entropyShares[height+1][index] = share
 	entropyGenerator.evsw.FireEvent(types.EventEntropyShare, &share)
 }
 
@@ -271,7 +271,7 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() {
 		return
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.threshold {
-		message := string(tmhash.Sum(entropyGenerator.entropyComputed[height - 1]))
+		message := string(tmhash.Sum(entropyGenerator.entropyComputed[height-1]))
 		signatureShares := NewIntStringMap()
 		defer DeleteIntStringMap(signatureShares)
 

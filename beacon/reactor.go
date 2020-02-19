@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	StateChannel      = byte(0x80)
-	EntropyChannel     = byte(0x81)
+	StateChannel   = byte(0x80)
+	EntropyChannel = byte(0x81)
 
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
-	PeerGossipSleepDuration = 100 * time.Millisecond
+	PeerGossipSleepDuration     = 100 * time.Millisecond
 	ComputeEntropySleepDuration = 100 * time.Millisecond
 )
 
@@ -47,8 +47,8 @@ type ReactorOption func(*Reactor)
 // entropyGenerator.
 func NewReactor(entropyGenerator *EntropyGenerator, fastSync bool, options ...ReactorOption) *Reactor {
 	conR := &Reactor{
-		entropyGen:     entropyGenerator,
-		fastSync: fastSync,
+		entropyGen: entropyGenerator,
+		fastSync:   fastSync,
 	}
 	conR.BaseReactor = *p2p.NewBaseReactor("Reactor", conR)
 
@@ -122,19 +122,20 @@ func (beaconR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
 
 // InitPeer implements Reactor by creating a state for the peer.
 func (beaconR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
+	beaconR.Logger.Info("InitPeer", "peer", peer)
 	peerState := NewPeerState(peer).SetLogger(beaconR.Logger)
-	peer.Set(types.PeerStateKey, peerState)
+	peer.Set(types.BeaconPeerStateKey, peerState)
 	return peer
 }
 
 // AddPeer implements Reactor by spawning multiple gossiping goroutines for the
 // peer.
 func (beaconR *Reactor) AddPeer(peer p2p.Peer) {
+	beaconR.Logger.Info("AddPeer", "peer", peer)
 	if !beaconR.IsRunning() {
 		return
 	}
-
-	peerState, ok := peer.Get(types.PeerStateKey).(*PeerState)
+	peerState, ok := peer.Get(types.BeaconPeerStateKey).(*PeerState)
 	if !ok {
 		panic(fmt.Sprintf("peer %v has no state", peer))
 	}
@@ -148,7 +149,7 @@ func (beaconR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 		return
 	}
 	// TODO
-	// ps, ok := peer.Get(PeerStateKey).(*PeerState)
+	// ps, ok := peer.Get(BeaconPeerStateKey).(*PeerState)
 	// if !ok {
 	// 	panic(fmt.Sprintf("Peer %v has no state", peer))
 	// }
@@ -175,10 +176,10 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		return
 	}
 
-	beaconR.Logger.Debug("Receive", "src", src, "chId", chID, "msg", msg)
+	beaconR.Logger.Info("Receive", "src", src, "chId", chID, "msg", msg)
 
 	// Get peer states
-	ps, ok := src.Get(types.PeerStateKey).(*PeerState)
+	ps, ok := src.Get(types.BeaconPeerStateKey).(*PeerState)
 	if !ok {
 		panic(fmt.Sprintf("Peer %v has no state", src))
 	}
@@ -226,7 +227,7 @@ func (beaconR *Reactor) unsubscribeFromBroadcastEvents() {
 
 func (beaconR *Reactor) broadcastHasEntropyShareMessage(es *types.EntropyShare) {
 	esMsg := &HasEntropyShareMessage{
-		Height: es.Height,
+		Height:        es.Height,
 		SignerAddress: es.SignerAddress,
 	}
 	beaconR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(esMsg))
@@ -249,6 +250,7 @@ OUTER_LOOP:
 				beaconR.entropyGen.GetEntropyShares(peerLastEntropyHeight+1),
 				beaconR.entropyGen.Validators.Size(),
 				beaconR.entropyGen.GetThreshold()) {
+				logger.Info("PickSendEntropyShare successful", "height", peerLastEntropyHeight+1)
 				continue OUTER_LOOP
 			}
 		}
@@ -270,7 +272,7 @@ func (beaconR *Reactor) String() string {
 func (beaconR *Reactor) StringIndented(indent string) string {
 	s := "BeaconReactor{\n"
 	for _, peer := range beaconR.Switch.Peers().List() {
-		ps, ok := peer.Get(types.PeerStateKey).(*PeerState)
+		ps, ok := peer.Get(types.BeaconPeerStateKey).(*PeerState)
 		if !ok {
 			panic(fmt.Sprintf("Peer %v has no state", peer))
 		}
@@ -288,19 +290,19 @@ type PeerState struct {
 	peer   p2p.Peer
 	logger log.Logger
 
-	mtx   sync.Mutex             // NOTE: Modify below using setters, never directly.
+	mtx sync.Mutex // NOTE: Modify below using setters, never directly.
 
 	// Keep track of entropy shares for each block height
-	entropyShares map[int64]*bits.BitArray
+	entropyShares             map[int64]*bits.BitArray
 	lastComputedEntropyHeight int64
 }
 
 // NewPeerState returns a new PeerState for the given Peer
 func NewPeerState(peer p2p.Peer) *PeerState {
 	return &PeerState{
-		peer:   peer,
-		logger: log.NewNopLogger(),
-		entropyShares: make(map[int64]*bits.BitArray),
+		peer:                      peer,
+		logger:                    log.NewNopLogger(),
+		entropyShares:             make(map[int64]*bits.BitArray),
 		lastComputedEntropyHeight: 0,
 	}
 }
@@ -330,7 +332,7 @@ func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropySha
 		return false
 	}
 
-	peerEntropyShares := ps.entropyShares[ps.lastComputedEntropyHeight + 1]
+	peerEntropyShares := ps.entropyShares[ps.lastComputedEntropyHeight+1]
 	count := 0
 	for i := 0; i < numValidators; i++ {
 		if peerEntropyShares.GetIndex(i) {
@@ -342,8 +344,8 @@ func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropySha
 		if !peerEntropyShares.GetIndex(key) {
 			msg := &EntropyShareMessage{&value}
 			ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
-			ps.hasEntropyShare(ps.lastComputedEntropyHeight + 1, key, numValidators)
-			if count + 1 >= threshold {
+			ps.hasEntropyShare(ps.lastComputedEntropyHeight+1, key, numValidators)
+			if count+1 >= threshold {
 				ps.entropyComputed(ps.lastComputedEntropyHeight + 1)
 			}
 			return true
@@ -427,15 +429,15 @@ func decodeMsg(bz []byte) (msg Message, err error) {
 
 //-------------------------------------
 
-// EntropyShareMessage is for computing DRB
+// HasEntropyShareMessage is for computing DRB
 type HasEntropyShareMessage struct {
-	Height int64
+	Height        int64
 	SignerAddress crypto.Address
 }
 
 // ValidateBasic performs basic validation.
 func (m *HasEntropyShareMessage) ValidateBasic() error {
-	if m.Height < types.GenesisHeight+ 1{
+	if m.Height < types.GenesisHeight+1 {
 		return errors.New("invalid Height")
 	}
 

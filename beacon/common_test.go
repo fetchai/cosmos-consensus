@@ -59,16 +59,22 @@ func setCrypto(nValidators int) []AeonExecUnit {
 	return aeonExecUnits
 }
 
-func randBeaconNet(testName string, configOpts ...func(*cfg.Config)) ([]*EntropyGenerator, cleanupFunc) {
-	nValidators := 4
-	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
+func randBeaconNet(nValidators int, testName string, configOpts ...func(*cfg.Config)) ([]*EntropyGenerator, cleanupFunc) {
 	logger := beaconLogger()
-
 	entropyGenerators := make([]*EntropyGenerator, nValidators)
 	configRootDirs := make([]string, 0, nValidators)
 	entropyChannels := make([]chan types.ComputedEntropy, nValidators)
+	aeonExecUnits := make([]AeonExecUnit, nValidators)
 
-	aeonExecUnits := setCrypto(nValidators)
+	if nValidators == 4 {
+		aeonExecUnits = setCrypto(nValidators)
+	} else if nValidators == 1 {
+		InitialiseMcl()
+		aeonExecUnits[0] = NewAeonExecUnit("test_keys/single_validator.txt")
+	} else {
+		panic(fmt.Errorf("Invalid number of validators"))
+	}
+	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 
 	for i := 0; i < nValidators; i++ {
 		stateDB := dbm.NewMemDB() // each state needs its own db
@@ -120,6 +126,6 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 		GenesisTime: tmtime.Now(),
 		ChainID:     config.ChainID(),
 		Validators:  validators,
-		Entropy: "Fetch.ai Test Genesis Entropy",
+		Entropy:     "Fetch.ai Test Genesis Entropy",
 	}, privValidators
 }
