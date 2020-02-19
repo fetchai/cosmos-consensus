@@ -114,9 +114,9 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 	// entropy key
 	aeonKeysFile := config.EntropyKeyFile()
 	if tmos.FileExists(aeonKeysFile) {
-		logger.Info("Found entropy key file", aeonKeysFile, "found")
+		logger.Info("Found entropy key file", "path", aeonKeysFile)
 	} else {
-		logger.Info("No entropy key file", aeonKeysFile, "found")
+		logger.Info("No entropy key file", "path", aeonKeysFile)
 		aeonKeysFile = ""
 	}
 
@@ -709,10 +709,6 @@ func NewNode(config *cfg.Config,
 	var entropyGenerator *beacon.EntropyGenerator
 	if len(aeonKeysFile) != 0 {
 		beacon.InitialiseMcl()
-		index, _ := state.Validators.GetByAddress(privValidator.GetPubKey().Address())
-		if index != 0 {
-			return nil, errors.Wrap(err, "invalid validator index")
-		}
 		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, logger, fastSync)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
