@@ -122,7 +122,7 @@ func (beaconR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
 
 // InitPeer implements Reactor by creating a state for the peer.
 func (beaconR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
-	beaconR.Logger.Info("InitPeer", "peer", peer)
+	beaconR.Logger.Debug("InitPeer", "peer", peer)
 	peerState := NewPeerState(peer).SetLogger(beaconR.Logger)
 	peer.Set(types.BeaconPeerStateKey, peerState)
 	return peer
@@ -131,7 +131,7 @@ func (beaconR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
 // AddPeer implements Reactor by spawning multiple gossiping goroutines for the
 // peer.
 func (beaconR *Reactor) AddPeer(peer p2p.Peer) {
-	beaconR.Logger.Info("AddPeer", "peer", peer)
+	beaconR.Logger.Debug("AddPeer", "peer", peer)
 	if !beaconR.IsRunning() {
 		return
 	}
@@ -176,7 +176,7 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		return
 	}
 
-	beaconR.Logger.Info("Receive", "src", src, "chId", chID, "msg", msg)
+	beaconR.Logger.Debug("Receive", "src", src, "chId", chID, "msg", msg)
 
 	// Get peer states
 	ps, ok := src.Get(types.BeaconPeerStateKey).(*PeerState)
@@ -250,7 +250,7 @@ OUTER_LOOP:
 				beaconR.entropyGen.GetEntropyShares(peerLastEntropyHeight+1),
 				beaconR.entropyGen.Validators.Size(),
 				beaconR.entropyGen.GetThreshold()) {
-				logger.Info("PickSendEntropyShare successful", "height", peerLastEntropyHeight+1)
+				logger.Debug("PickSendEntropyShare successful", "height", peerLastEntropyHeight+1)
 				continue OUTER_LOOP
 			}
 		}

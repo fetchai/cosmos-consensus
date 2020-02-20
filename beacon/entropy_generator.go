@@ -139,7 +139,7 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.Entropy
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	entropyGenerator.Logger.Info("ApplyEntropyShare", "height", share.Height, "from", share.SignerAddress)
+	entropyGenerator.Logger.Debug("ApplyEntropyShare", "height", share.Height, "from", share.SignerAddress)
 	index, validator := entropyGenerator.Validators.GetByAddress(share.SignerAddress)
 	err := entropyGenerator.validInputs(share.Height, index)
 	if err != nil {
