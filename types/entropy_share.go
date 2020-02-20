@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	EventEntropyShare   = "EventEntropyShare"
+	EventEntropyShare = "EventEntropyShare"
 )
 
 var (
 	// TODO: Check this is ok with mcl
 	MaxEntropyShareSize = 256
-	GenesisHeight = int64(0)
+	GenesisHeight       = int64(0)
 )
 
 type ThresholdSignature = []byte
@@ -24,7 +24,7 @@ type ComputedEntropy struct {
 	GroupSignature ThresholdSignature
 }
 
-func (ce *ComputedEntropy) IsEmpty() bool{
+func (ce *ComputedEntropy) IsEmpty() bool {
 	return ce.GroupSignature == nil
 }
 
@@ -35,30 +35,30 @@ type CanonicalEntropyShare struct {
 	Height         int64
 	SignerAddress  crypto.Address
 	SignatureShare string
-	ChainID   string
+	ChainID        string
 }
 
 func CanonicalizeEntropyShare(chainID string, entropy *EntropyShare) CanonicalEntropyShare {
 	return CanonicalEntropyShare{
-		Height:    entropy.Height,
-		SignerAddress: entropy.SignerAddress,
+		Height:         entropy.Height,
+		SignerAddress:  entropy.SignerAddress,
 		SignatureShare: entropy.SignatureShare,
-		ChainID:   chainID,
+		ChainID:        chainID,
 	}
 }
 
 //-----------------------------------------------------------------------------
 
 type EntropyShare struct {
-	Height         int64           `json:"height"`
-	SignerAddress  crypto.Address  `json:"signer"`
-	SignatureShare string          `json:"entropy_signature"`
-	Signature      []byte          `json:"signature"`
+	Height         int64          `json:"height"`
+	SignerAddress  crypto.Address `json:"signer"`
+	SignatureShare string         `json:"entropy_signature"`
+	Signature      []byte         `json:"signature"`
 }
 
 // ValidateBasic performs basic validation.
 func (entropy *EntropyShare) ValidateBasic() error {
-	if entropy.Height < GenesisHeight + 1{
+	if entropy.Height < GenesisHeight+1 {
 		return errors.New("invalid Height")
 	}
 
@@ -89,6 +89,15 @@ func (entropy EntropyShare) StringIndented(indent string) string {
 %s}`,
 		indent, entropy.Height, entropy.SignerAddress, entropy.SignatureShare,
 		indent)
+}
+
+func (entropy EntropyShare) Copy() EntropyShare {
+	return EntropyShare{
+		Height:         entropy.Height,
+		SignerAddress:  entropy.SignerAddress,
+		SignatureShare: entropy.SignatureShare,
+		Signature:      entropy.Signature,
+	}
 }
 
 //-----------------------------------------------------------

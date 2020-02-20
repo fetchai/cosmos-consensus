@@ -188,8 +188,12 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	case StateChannel:
 		switch msg := msg.(type) {
 		case *HasEntropyShareMessage:
-			index, _ := beaconR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
-			ps.HasEntropyShare(msg.Height, index, beaconR.entropyGen.Validators.Size())
+			if beaconR.entropyGen != nil {
+				index, _ := beaconR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
+				ps.HasEntropyShare(msg.Height, index, beaconR.entropyGen.Validators.Size())
+			} else {
+				panic(fmt.Sprintf("BeaconReactor has no EntropyGenerator"))
+			}
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -199,6 +203,8 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		case *EntropyShareMessage:
 			if beaconR.entropyGen != nil {
 				beaconR.entropyGen.ApplyEntropyShare(msg.EntropyShare)
+			} else {
+				panic(fmt.Sprintf("BeaconReactor has no EntropyGenerator"))
 			}
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
@@ -248,8 +254,7 @@ OUTER_LOOP:
 			peerLastEntropyHeight := ps.GetLastComputedEntropyHeight()
 			if ps.PickSendEntropyShare(
 				beaconR.entropyGen.GetEntropyShares(peerLastEntropyHeight+1),
-				beaconR.entropyGen.Validators.Size(),
-				beaconR.entropyGen.GetThreshold()) {
+				beaconR.entropyGen.Validators.Size()) {
 				logger.Debug("PickSendEntropyShare successful", "height", peerLastEntropyHeight+1)
 				continue OUTER_LOOP
 			}
@@ -321,7 +326,7 @@ func (ps *PeerState) GetLastComputedEntropyHeight() int64 {
 	return ps.lastComputedEntropyHeight
 }
 
-func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropyShare, numValidators int, threshold int) bool {
+func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropyShare, numValidators int) bool {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -333,21 +338,12 @@ func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropySha
 	}
 
 	peerEntropyShares := ps.entropyShares[ps.lastComputedEntropyHeight+1]
-	count := 0
-	for i := 0; i < numValidators; i++ {
-		if peerEntropyShares.GetIndex(i) {
-			count++
-		}
-	}
 
 	for key, value := range entropyShares {
 		if !peerEntropyShares.GetIndex(key) {
 			msg := &EntropyShareMessage{&value}
 			ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
 			ps.hasEntropyShare(ps.lastComputedEntropyHeight+1, key, numValidators)
-			if count+1 >= threshold {
-				ps.entropyComputed(ps.lastComputedEntropyHeight + 1)
-			}
 			return true
 		}
 	}
@@ -372,6 +368,18 @@ func (ps *PeerState) hasEntropyShare(height int64, index int, numValidators int)
 	}
 
 	ps.entropyShares[height].SetIndex(index, true)
+
+	// Check if peer has received enough to compute entropy
+	count := 0
+	for i := 0; i < numValidators; i++ {
+		if ps.entropyShares[height].GetIndex(i) {
+			count++
+		}
+	}
+	threshold := numValidators/2 + 1
+	if count >= threshold {
+		ps.entropyComputed(height)
+	}
 }
 
 func (ps *PeerState) entropyComputed(height int64) {

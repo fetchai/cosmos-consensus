@@ -213,7 +213,7 @@ type Node struct {
 	indexerService   *txindex.IndexerService
 	prometheusSrv    *http.Server
 	entropyGenerator *beacon.EntropyGenerator
-	beaconReactor    *beacon.Reactor             // reactor for signature shares
+	beaconReactor    *beacon.Reactor // reactor for signature shares
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -567,7 +567,8 @@ func createBeaconReactor(aeonFile string, state sm.State, privValidator types.Pr
 	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
 	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
-	entropyGenerator := beacon.NewEntropyGenerator(beaconLogger, state.Validators, privValidator, state.ChainID)
+	entropyGenerator := beacon.NewEntropyGenerator(state.Validators, privValidator, state.ChainID)
+	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
 	entropyGenerator.SetAeonKeys(aeonKeys)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
@@ -707,9 +708,10 @@ func NewNode(config *cfg.Config,
 	var beaconReactor *beacon.Reactor
 	var entropyChannel chan types.ComputedEntropy
 	var entropyGenerator *beacon.EntropyGenerator
+	beaconLogger := logger.With("module", "beacon")
 	if len(aeonKeysFile) != 0 {
 		beacon.InitialiseMcl()
-		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, logger, fastSync)
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
 	}
@@ -1167,6 +1169,10 @@ func makeNodeInfo(
 
 	if config.P2P.PexReactor {
 		nodeInfo.Channels = append(nodeInfo.Channels, pex.PexChannel)
+	}
+	if len(config.BaseConfig.EntropyKey) != 0 {
+		nodeInfo.Channels = append(nodeInfo.Channels, beacon.StateChannel)
+		nodeInfo.Channels = append(nodeInfo.Channels, beacon.EntropyChannel)
 	}
 
 	lAddr := config.P2P.ExternalAddress
