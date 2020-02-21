@@ -44,6 +44,9 @@ type EntropyGenerator struct {
 // NewEntropyGenerator creates new entropy generator with validator information
 func NewEntropyGenerator(
 	validators *types.ValidatorSet, newPrivValidator types.PrivValidator, newChainID string) *EntropyGenerator {
+	if validators == nil {
+		panic(fmt.Sprintf("NewEntropyGenerator with nil validator set"))
+	}
 	es := &EntropyGenerator{
 		entropyShares:             make(map[int64]map[int]types.EntropyShare),
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
@@ -52,6 +55,7 @@ func NewEntropyGenerator(
 		Validators:                validators,
 		chainID:                   newChainID,
 	}
+
 	es.threshold = es.Validators.Size()/2 + 1
 	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
 	return es
@@ -101,13 +105,14 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	if entropyGenerator.aeonExecUnit.Swigcptr() == 0 {
-		return fmt.Errorf("no active execution unit")
+	if entropyGenerator.aeonExecUnit == nil {
+		panic(fmt.Errorf("OnStart with no active execution unit"))
 	}
 
 	if entropyGenerator.lastComputedEntropyHeight < types.GenesisHeight {
-		panic(fmt.Sprintf("OnStart called without setting last computed entropy"))
+		panic(fmt.Sprintf("OnStart without setting last computed entropy"))
 	}
+
 	entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
 	// Start go routine for computing threshold signature
 	go entropyGenerator.computeEntropyRoutine()
@@ -176,14 +181,21 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 }
 
 func (entropyGenerator *EntropyGenerator) sign(height int64) {
+	if !entropyGenerator.aeonExecUnit.CanSign() {
+		entropyGenerator.Logger.Debug("node can not sign entropy - no dkg private key")
+		return
+	}
+	// Node which can sign on entropy should also be a validator
+	if entropyGenerator.privValidator == nil {
+		panic(fmt.Sprintf("entropy generator with invalid privValidator"))
+	}
 	index, _ := entropyGenerator.Validators.GetByAddress(entropyGenerator.privValidator.GetPubKey().Address())
 	err := entropyGenerator.validInputs(height+1, index)
 	if err != nil {
+		if index < 0 {
+			panic(fmt.Sprintf("entropy generator with invalid privValidator"))
+		}
 		entropyGenerator.Logger.Debug(err.Error())
-		return
-	}
-	if !entropyGenerator.aeonExecUnit.CanSign() {
-		entropyGenerator.Logger.Error("node can not sign entropy - no dkg private key")
 		return
 	}
 
