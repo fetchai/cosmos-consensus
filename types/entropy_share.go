@@ -7,10 +7,6 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 )
 
-const (
-	EventEntropyShare = "EventEntropyShare"
-)
-
 var (
 	// TODO: Check this is ok with mcl
 	MaxEntropyShareSize = 256

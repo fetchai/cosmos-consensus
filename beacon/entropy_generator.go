@@ -2,21 +2,22 @@ package beacon
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
 
 var (
+	// EntropyChannelCapacity is number of ComputedEntropy that channel can hold
 	EntropyChannelCapacity = 3
 )
 
+// EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
+// and entropy for dispatching along channel
 type EntropyGenerator struct {
 	service.BaseService
 
@@ -36,29 +37,27 @@ type EntropyGenerator struct {
 	Validators    *types.ValidatorSet
 	aeonExecUnit  AeonExecUnit
 
-	// synchronous pubsub between consensus state and reactor.
-	// state only emits EventNewRoundStep and EventVote
-	evsw tmevents.EventSwitch
-
 	// For signing entropy messages
 	chainID string
 }
 
+// NewEntropyGenerator creates new entropy generator with validator information
 func NewEntropyGenerator(
 	validators *types.ValidatorSet, newPrivValidator types.PrivValidator, newChainID string) *EntropyGenerator {
 	es := &EntropyGenerator{
-		entropyShares:   make(map[int64]map[int]types.EntropyShare),
-		entropyComputed: make(map[int64]types.ThresholdSignature),
-		privValidator:   newPrivValidator,
-		Validators:      validators,
-		evsw:            tmevents.NewEventSwitch(),
-		chainID:         newChainID,
+		entropyShares:             make(map[int64]map[int]types.EntropyShare),
+		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
+		entropyComputed:           make(map[int64]types.ThresholdSignature),
+		privValidator:             newPrivValidator,
+		Validators:                validators,
+		chainID:                   newChainID,
 	}
 	es.threshold = es.Validators.Size()/2 + 1
 	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
 	return es
 }
 
+// SetLastComputedEntropy sets the most recent entropy from catchup
 func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.ComputedEntropy) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
@@ -68,8 +67,13 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.C
 		return
 	}
 	entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
+	// If new entropy is more recent that our last computed entropy then update
+	if entropy.Height > entropyGenerator.lastComputedEntropyHeight {
+		entropyGenerator.lastComputedEntropyHeight = entropy.Height
+	}
 }
 
+// SetAeonKeys sets the DKG keys for computing DRB
 func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
@@ -77,6 +81,7 @@ func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
 	entropyGenerator.aeonExecUnit = aeonKeys
 }
 
+// SetComputedEntropyChannel sets the channel along which entropy should be dispatched
 func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<- types.ComputedEntropy) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
@@ -91,7 +96,7 @@ func (entropyGenerator *EntropyGenerator) SetLogger(l log.Logger) {
 	entropyGenerator.BaseService.Logger = l
 }
 
-// Generates entropy from the last computed entropy height
+// OnStart generates entropy from the last computed entropy height
 func (entropyGenerator *EntropyGenerator) OnStart() error {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
@@ -100,38 +105,21 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 		return fmt.Errorf("no active execution unit")
 	}
 
-	// Mark entropy generator as not stopped to allow receiving of messages
-	// even if signing fails
-	if err := entropyGenerator.evsw.Start(); err != nil {
-		return err
+	if entropyGenerator.lastComputedEntropyHeight < types.GenesisHeight {
+		panic(fmt.Sprintf("OnStart called without setting last computed entropy"))
 	}
-
-	// Find last computed entropy height
-	if len(entropyGenerator.entropyComputed) == 0 {
-		return fmt.Errorf("no previous entropy to sign")
-	}
-	entropyHeights := make([]int64, 0, len(entropyGenerator.entropyComputed))
-	for height := range entropyGenerator.entropyComputed {
-		entropyHeights = append(entropyHeights, height)
-	}
-	sort.Slice(entropyHeights, func(i int, j int) bool {
-		return entropyHeights[i] < entropyHeights[j]
-	})
-	entropyGenerator.lastComputedEntropyHeight = entropyHeights[len(entropyGenerator.entropyComputed)-1]
 	entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
 	// Start go routine for computing threshold signature
 	go entropyGenerator.computeEntropyRoutine()
 	return nil
 }
 
+// OnStop is noop
 func (entropyGenerator *EntropyGenerator) OnStop() {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
-	entropyGenerator.evsw.Stop()
 }
 
-func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.EntropyShare) {
+// ApplyEntropyShare processes entropy share from reactor
+func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.EntropyShare) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
@@ -166,7 +154,8 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.Entropy
 	return
 }
 
-func (entropyGenerator *EntropyGenerator) GetEntropyShares(height int64) map[int]types.EntropyShare {
+// GetEntropyShares gets entropy shares at a particular height
+func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int]types.EntropyShare {
 	return entropyGenerator.entropyShares[height]
 }
 
@@ -174,10 +163,10 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 	if index < 0 {
 		return fmt.Errorf("invalid index %v", index)
 	}
-	if entropyGenerator.entropyComputed[height] != nil {
+	if height <= entropyGenerator.lastComputedEntropyHeight {
 		return fmt.Errorf("already computed entropy at height %v", height)
 	}
-	if entropyGenerator.entropyComputed[height-1] == nil {
+	if height > entropyGenerator.lastComputedEntropyHeight+1 {
 		return fmt.Errorf("missing previous entropy at height %v", height-1)
 	}
 	if len(entropyGenerator.entropyShares[height][index].SignatureShare) != 0 {
@@ -195,10 +184,6 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 	}
 	if !entropyGenerator.aeonExecUnit.CanSign() {
 		entropyGenerator.Logger.Error("node can not sign entropy - no dkg private key")
-		return
-	}
-	if entropyGenerator.entropyComputed[height] == nil {
-		entropyGenerator.Logger.Error("sign block entropy without previous entropy", "height", height)
 		return
 	}
 
@@ -227,7 +212,6 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 		return
 	}
 	entropyGenerator.entropyShares[height+1][index] = share
-	entropyGenerator.evsw.FireEvent(types.EventEntropyShare, &share)
 }
 
 func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
