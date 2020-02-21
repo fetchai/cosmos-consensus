@@ -24,7 +24,7 @@ const (
 
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
-	PeerGossipSleepDuration     = 100 * time.Millisecond
+	PeerGossipSleepDuration     = 200 * time.Millisecond
 	ComputeEntropySleepDuration = 100 * time.Millisecond
 )
 
@@ -251,12 +251,11 @@ OUTER_LOOP:
 		}
 
 		if beaconR.entropyGen != nil {
-			peerLastEntropyHeight := ps.GetLastComputedEntropyHeight()
-			if ps.PickSendEntropyShare(
-				beaconR.entropyGen.GetEntropyShares(peerLastEntropyHeight+1),
+			nextEntropyHeight := ps.GetLastComputedEntropyHeight() + 1
+			if ps.PickSendEntropyShare(nextEntropyHeight,
+				beaconR.entropyGen.GetEntropyShares(nextEntropyHeight),
 				beaconR.entropyGen.Validators.Size()) {
-				logger.Debug("PickSendEntropyShare successful", "height", peerLastEntropyHeight+1)
-				continue OUTER_LOOP
+				logger.Debug("PickSendEntropyShare successful", "height", nextEntropyHeight)
 			}
 		}
 
@@ -326,7 +325,7 @@ func (ps *PeerState) GetLastComputedEntropyHeight() int64 {
 	return ps.lastComputedEntropyHeight
 }
 
-func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropyShare, numValidators int) bool {
+func (ps *PeerState) PickSendEntropyShare(nextEntropyHeight int64, entropyShares map[int]types.EntropyShare, numValidators int) bool {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -336,14 +335,18 @@ func (ps *PeerState) PickSendEntropyShare(entropyShares map[int]types.EntropySha
 	if len(entropyShares) == 0 {
 		return false
 	}
+	if ps.lastComputedEntropyHeight+1 != nextEntropyHeight {
+		ps.logger.Error("PickSendEntropyShare height mismatch", "peer height", ps.lastComputedEntropyHeight, "working height", nextEntropyHeight)
+		return false
+	}
 
-	peerEntropyShares := ps.entropyShares[ps.lastComputedEntropyHeight+1]
+	peerEntropyShares := ps.entropyShares[nextEntropyHeight]
 
 	for key, value := range entropyShares {
 		if !peerEntropyShares.GetIndex(key) {
 			msg := &EntropyShareMessage{&value}
 			ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
-			ps.hasEntropyShare(ps.lastComputedEntropyHeight+1, key, numValidators)
+			ps.hasEntropyShare(nextEntropyHeight, key, numValidators)
 			return true
 		}
 	}

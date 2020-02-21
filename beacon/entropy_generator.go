@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	EntropyChannelCapacity = 5
+	EntropyChannelCapacity = 3
 )
 
 type EntropyGenerator struct {
@@ -166,32 +166,8 @@ func (entropyGenerator *EntropyGenerator) ApplyEntropyShare(share *types.Entropy
 	return
 }
 
-func (entropyGenerator *EntropyGenerator) GetEntropy(height int64) (types.ThresholdSignature, error) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
-	if height < 0 {
-		return nil, fmt.Errorf("negative height %v", height)
-	}
-	if entropyGenerator.entropyComputed[height] == nil {
-		return nil, fmt.Errorf("entropy at height %v not yet computed", height)
-	}
-	return entropyGenerator.entropyComputed[height], nil
-}
-
 func (entropyGenerator *EntropyGenerator) GetEntropyShares(height int64) map[int]types.EntropyShare {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
-	entropySharesCopy := entropyGenerator.entropyShares[height]
-	return entropySharesCopy
-}
-
-func (entropyGenerator *EntropyGenerator) GetThreshold() int {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
-	return entropyGenerator.threshold
+	return entropyGenerator.entropyShares[height]
 }
 
 func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) error {
@@ -256,19 +232,35 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 
 func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 	for {
-		entropyGenerator.receivedEntropyShare()
+		entropyGenerator.proxyMtx.Lock()
+		haveNewEntropy := entropyGenerator.receivedEntropyShare()
+		entropyGenerator.proxyMtx.Unlock()
+
+		if haveNewEntropy {
+			// Need to unlock before dispatching to entropy channel otherwise deadlocks
+			if entropyGenerator.computedEntropyChannel != nil {
+				entropyGenerator.computedEntropyChannel <- types.ComputedEntropy{
+					Height:         entropyGenerator.lastComputedEntropyHeight,
+					GroupSignature: entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight],
+				}
+			}
+
+			// Continue onto the next random value
+			entropyGenerator.proxyMtx.Lock()
+			entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
+			entropyGenerator.proxyMtx.Unlock()
+		}
 		time.Sleep(ComputeEntropySleepDuration)
 	}
 }
 
-func (entropyGenerator *EntropyGenerator) receivedEntropyShare() {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+func (entropyGenerator *EntropyGenerator) receivedEntropyShare() bool {
+
 	height := entropyGenerator.lastComputedEntropyHeight + 1
 	if entropyGenerator.entropyComputed[height] != nil {
 		entropyGenerator.Logger.Error("lastComputedEntropyHeight not updated!")
 		entropyGenerator.lastComputedEntropyHeight++
-		return
+		return false
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[height-1]))
@@ -281,24 +273,16 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() {
 		groupSignature := entropyGenerator.aeonExecUnit.ComputeGroupSignature(signatureShares)
 		if !entropyGenerator.aeonExecUnit.VerifyGroupSignature(message, groupSignature) {
 			entropyGenerator.Logger.Error("entropy_generator.VerifyGroupSignature == false")
-			return
+			return false
 		}
 		entropyGenerator.Logger.Info("New entropy computed", "height", height)
 		entropyGenerator.entropyComputed[height] = []byte(groupSignature)
 		entropyGenerator.lastComputedEntropyHeight++
 
-		// Dispatch entropy to entropy channel
-		if entropyGenerator.computedEntropyChannel != nil {
-			entropyGenerator.computedEntropyChannel <- types.ComputedEntropy{
-				Height:         height,
-				GroupSignature: []byte(groupSignature),
-			}
-		}
-
 		// Don't delete this yet as need them there for gossiping to peers
 		//delete(entropyGenerator.entropyShares, height)
 
-		// Continue onto the next random value
-		entropyGenerator.sign(height)
+		return true
 	}
+	return false
 }

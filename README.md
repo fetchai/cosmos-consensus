@@ -37,6 +37,36 @@ cp ../node/test_key/single_validator.txt ~/.tendermint/config/entropy_key.txt
 ```
 The logs should show the node executing blocks, which contain the entropy in hex format, as well as committing state.
 
+For creating testnet with 4 validator nodes run
+```bash
+mkdir mytestnet
+./../beacon/beacon_cpp/build/apps/TrustedDealer 4 3 0 mytestnet/
+./tendermint testnet
+```
+This will create the required tendermint files for each node, as well as a file containing their individual outputs from the DKG.
+
+Second, determine the IDs for each node by running. We will denote the IDs as ID0, ID1, ID2, ID3.
+```bash
+./tendermint show_node_id --home mytestnet/node0
+./tendermint show_node_id --home mytestnet/node1
+./tendermint show_node_id --home mytestnet/node2
+./tendermint show_node_id --home mytestnet/node3
+```
+
+Now, assign each node two unique port numbers, denoted by P and Q, for listening to incoming peer connections and rpcs. Start each node in a separate terminal
+using 
+```bash
+./tendermint node --home mytestnet/node0 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P0" --rpc.laddr="tcp://127.0.0.1:Q0" --p2p.persistent_peers="ID1@127.0.0.1:P1,ID2@127.0.0.1:P2,ID3@127.0.0.1:P3" 
+
+./tendermint node --home mytestnet/node1 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P1" --rpc.laddr="tcp://127.0.0.1:Q1" --p2p.persistent_peers="ID0@127.0.0.1:P0,ID2@127.0.0.1:P2,ID3@127.0.0.1:P3" 
+
+./tendermint node --home mytestnet/node2 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P2" --rpc.laddr="tcp://127.0.0.1:Q2" --p2p.persistent_peers="ID0@127.0.0.1:P0,ID1@127.0.0.1:P1,ID3@127.0.0.1:P3" 
+
+./tendermint node --home mytestnet/node3 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P3" --rpc.laddr="tcp://127.0.0.1:Q3" --p2p.persistent_peers="ID0@127.0.0.1:P0,ID1@127.0.0.1:P1,ID2@127.0.0.1:P2" 
+```
+After starting the third node blocks should start to be executed.
+
+
 # Tendermint
 
 ![banner](docs/tendermint-core-image.jpg)

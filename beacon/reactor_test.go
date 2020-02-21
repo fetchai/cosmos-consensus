@@ -58,8 +58,7 @@ func TestReactorEntropy(t *testing.T) {
 	// Wait for everyone to generate 3 rounds of entropy
 	for i := 0; i < N; i++ {
 		for {
-			_, err := entropyGenerators[i].GetEntropy(3)
-			if err == nil {
+			if entropyGenerators[i].entropyComputed[3] != nil {
 				break
 			} else {
 				time.Sleep(2 * time.Millisecond)
