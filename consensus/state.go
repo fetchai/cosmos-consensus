@@ -980,7 +980,9 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 			return nil
 		} else {
 			entropy := tmhash.Sum(newEntropy.GroupSignature)
-			return cs.shuffledCabinet(entropy)[round]
+			proposer := cs.shuffledCabinet(entropy)[round]
+			cs.Logger.Debug("getProposer with entropy", "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+			return proposer
 		}
 	}
 }

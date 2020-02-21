@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tendermint/tendermint/beacon"
-	"github.com/tendermint/tendermint/crypto/tmhash"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/beacon"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -235,8 +236,8 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 	computedEntropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 	cs1.SetEntropyChannel(computedEntropyChannel)
 
-	computedEntropyChannel <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0,0,0,0,1,2,3,4},}
-	computedEntropyChannel <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0,0,0,0,5,6,7,8},}
+	computedEntropyChannel <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0, 0, 0, 0, 1, 2, 3, 4}}
+	computedEntropyChannel <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0, 0, 0, 0, 5, 6, 7, 8}}
 
 	// Check validators for height 1
 	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})
@@ -249,20 +250,27 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 		assert.True(t, shuffledCabinet[a].ProposerPriority == shuffledCabinetTest[a].ProposerPriority)
 	}
 
+	countEqual := 0
 	for i := 0; i < 4; i++ {
 		prop := cs1.getProposer(1, i)
 		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet[i].Address))
+		if bytes.Equal(prop.Address, cs1.Validators.GetProposer().Address) {
+			countEqual++
+		}
 	}
 
 	// Reset entropy
 	cs1.newEntropy = types.ComputedEntropy{}
 
 	// Check validators for height 2
-	entropy2 := tmhash.Sum([]byte{0,0,0,0,5,6,7,8})
+	entropy2 := tmhash.Sum([]byte{0, 0, 0, 0, 5, 6, 7, 8})
 	shuffledCabinet2 := cs1.shuffledCabinet(entropy2)
 	for i := 0; i < 4; i++ {
 		prop := cs1.getProposer(2, i)
 		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet2[i].Address))
+		if bytes.Equal(prop.Address, cs1.Validators.GetProposer().Address) {
+			countEqual++
+		}
 	}
 
 	// Check shuffled cabinets are different
@@ -272,6 +280,9 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 		assert.True(t, shuffledCabinet[j].VotingPower == shuffledCabinetTest[j].VotingPower)
 		assert.True(t, shuffledCabinet[j].ProposerPriority == shuffledCabinetTest[j].ProposerPriority)
 	}
+
+	// Check that validators are computed using entropy
+	assert.True(t, countEqual != 8)
 }
 
 //----------------------------------------------------------------------------------------------------
