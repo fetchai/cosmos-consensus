@@ -166,7 +166,7 @@ func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int
 
 func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) error {
 	if index < 0 {
-		return fmt.Errorf("invalid index %v", index)
+		return fmt.Errorf("invalid validator index %v", index)
 	}
 	if height <= entropyGenerator.lastComputedEntropyHeight {
 		return fmt.Errorf("already computed entropy at height %v", height)
