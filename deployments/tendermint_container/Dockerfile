@@ -33,17 +33,18 @@ FROM debian:buster
 
 WORKDIR /tendermint
 
-# # Copy over binaries from the build-env
+# Copy over binaries from the build-env
 COPY --from=build-env /tendermint-src/build/tendermint /usr/bin/tendermint
+COPY --from=build-env /tendermint-src/beacon/beacon_cpp/build/apps/TrustedDealer /usr/bin/TrustedDealer
 
-# COPY run-node.sh /usr/bin/run-node.sh
 
-# WORKDIR /genesis_data
-# COPY ./genesis_data/ .
+COPY ./deployments/tendermint_container/run-node.sh /usr/bin/run-node.sh
 
-# EXPOSE 26656
-# EXPOSE 26657
-# EXPOSE 26658
-# STOPSIGNAL SIGTERM
+WORKDIR /tm_data
+COPY ./deployments/tendermint_container/tm_data/ .
 
+EXPOSE 26656
+EXPOSE 26657
+EXPOSE 26658
+STOPSIGNAL SIGTERM
 
