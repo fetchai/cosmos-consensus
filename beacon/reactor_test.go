@@ -77,7 +77,7 @@ func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
 	var (
 		reactor = entropyReactors[0]
 		peer    = mock.NewPeer(nil)
-		msg     = cdc.MustMarshalBinaryBare(&HasComputedEntropy{Height: 1})
+		msg     = cdc.MustMarshalBinaryBare(&NewComputedEntropyMessage{Height: 1})
 	)
 
 	reactor.InitPeer(peer)
@@ -99,7 +99,7 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 	var (
 		reactor = entropyReactors[0]
 		peer    = mock.NewPeer(nil)
-		msg     = cdc.MustMarshalBinaryBare(&HasComputedEntropy{Height: 1})
+		msg     = cdc.MustMarshalBinaryBare(&NewComputedEntropyMessage{Height: 1})
 	)
 
 	// we should call InitPeer here

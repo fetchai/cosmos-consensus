@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
@@ -37,6 +38,10 @@ type EntropyGenerator struct {
 	Validators    *types.ValidatorSet
 	aeonExecUnit  AeonExecUnit
 
+	// synchronous pubsub between entropy generator and reactor.
+	// entropy generator only emits new computed entropy height
+	evsw tmevents.EventSwitch
+
 	// For signing entropy messages
 	chainID string
 }
@@ -53,6 +58,7 @@ func NewEntropyGenerator(
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
 		privValidator:             newPrivValidator,
 		Validators:                validators,
+		evsw:                      tmevents.NewEventSwitch(),
 		chainID:                   newChainID,
 	}
 
@@ -113,14 +119,27 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 		panic(fmt.Sprintf("OnStart without setting last computed entropy"))
 	}
 
+	if err := entropyGenerator.evsw.Start(); err != nil {
+		return err
+	}
+
+	// Notify peers of starting entropy
+	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
+
+	// Sign entropy
 	entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
+
 	// Start go routine for computing threshold signature
 	go entropyGenerator.computeEntropyRoutine()
 	return nil
 }
 
-// OnStop is noop
+// OnStop stops event switch
 func (entropyGenerator *EntropyGenerator) OnStop() {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
+
+	entropyGenerator.evsw.Stop()
 }
 
 // ApplyEntropyShare processes entropy share from reactor
@@ -277,6 +296,9 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() bool {
 
 		// Don't delete this yet as need them there for gossiping to peers
 		//delete(entropyGenerator.entropyShares, height)
+
+		// Notify peers of of new entropy height
+		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 
 		return true
 	}

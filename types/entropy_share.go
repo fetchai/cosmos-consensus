@@ -7,6 +7,11 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 )
 
+// For event switch in entropy generator
+const (
+	EventComputedEntropy = "EventComputedEntropy"
+)
+
 var (
 	// TODO: Check this is ok with mcl
 	MaxEntropyShareSize = 256
