@@ -53,6 +53,8 @@ public:
 private:
   DKGKeyInformation aeon_keys_;
   Generator generator_;
+
+  void CheckKeys() const;
 };
 
 }  // namespace crypto

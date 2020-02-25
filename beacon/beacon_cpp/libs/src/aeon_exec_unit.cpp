@@ -45,7 +45,28 @@ AeonExecUnit::AeonExecUnit(std::string const &filename) {
         aeon_keys_.public_key_shares.push_back(line);
       }
       myfile.close();
+
+      CheckKeys();
+    } else {
+      // AeonExecUnit can not open file
+      assert(false);
     }
+}
+
+/**
+ * Check strings from file are correct for initialising the corresponding 
+ * mcl type
+ * 
+ * @return Whether check succeeded or failed
+ */
+void AeonExecUnit::CheckKeys() const {
+  if (CanSign()) {
+    mcl::PrivateKey temp_private_key{aeon_keys_.private_key};
+  }
+  mcl::PublicKey temp_group_key{aeon_keys_.group_public_key};
+  for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
+     mcl::PublicKey temp_key_share{aeon_keys_.public_key_shares[i]};
+  }
 }
 
 /**
