@@ -968,23 +968,21 @@ func (cs *State) enterPropose(height int64, round int) {
 func (cs *State) getProposer(height int64, round int) *types.Validator {
 	if cs.computedEntropyChannel == nil {
 		return cs.Validators.GetProposer()
-	} else {
-		if round >= cs.Validators.Size() {
-			panic(fmt.Sprintf("getProposer(%v/%v), round greater than validator size %v", height, round, cs.Validators.Size()))
-			return nil
-		}
-		// If first round of new block height then reset entropy
-		newEntropy := cs.getNewEntropy()
-		if newEntropy.Height != height {
-			cs.Logger.Error("Invalid entropy", "fetch height", newEntropy.Height, "state height", height)
-			return nil
-		} else {
-			entropy := tmhash.Sum(newEntropy.GroupSignature)
-			proposer := cs.shuffledCabinet(entropy)[round]
-			cs.Logger.Debug("getProposer with entropy", "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
-			return proposer
-		}
 	}
+	if round >= cs.Validators.Size() {
+		panic(fmt.Sprintf("getProposer(%v/%v), round greater than validator size %v", height, round, cs.Validators.Size()))
+	}
+
+	// If first round of new block height then reset entropy
+	newEntropy := cs.getNewEntropy()
+	if newEntropy.Height != height {
+		cs.Logger.Error("Invalid entropy", "fetch height", newEntropy.Height, "state height", height)
+		return nil
+	}
+	entropy := tmhash.Sum(newEntropy.GroupSignature)
+	proposer := cs.shuffledCabinet(entropy)[round]
+	cs.Logger.Debug("getProposer with entropy", "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	return proposer
 }
 
 // Allows entropy to be received from any stage it is required, which is necessary for
