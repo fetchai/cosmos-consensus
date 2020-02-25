@@ -998,11 +998,12 @@ func (cs *State) getNewEntropy() types.ComputedEntropy {
 
 // TODO: Check that rand.Shuffle is same across different platforms
 func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
-	seed, n := binary.Varint(entropy)
-	if n <= 0 {
-		cs.Logger.Error("Entropy buffer of incorrect size")
+	if len(entropy) < 8 {
+		cs.Logger.Error("Entropy byte array too small for int64 for random seed", "size", len(entropy))
 		return nil
 	}
+	seed := int64(binary.BigEndian.Uint64(entropy))
+
 	rand.Seed(seed)
 
 	// Sort validators
