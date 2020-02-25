@@ -1,0 +1,12 @@
+apiVersion: skaffold/v1beta13
+kind: Config
+build:
+  artifacts:
+  local: {}
+profiles:
+- name: tendermint-drb-sandbox
+  deploy:
+    kubectl:
+      manifests:
+        - "k8s/config/*"
+        - "k8s/tendermint_drb/*"
