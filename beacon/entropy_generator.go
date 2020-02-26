@@ -73,7 +73,7 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.C
 	defer entropyGenerator.proxyMtx.Unlock()
 
 	if entropyGenerator.entropyComputed[entropy.Height] != nil {
-		entropyGenerator.Logger.Error("Attempt to reset existing entropy")
+		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", entropy.Height)
 		return
 	}
 	entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
@@ -120,12 +120,14 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 	}
 
 	if err := entropyGenerator.evsw.Start(); err != nil {
+		entropyGenerator.Logger.Error("EntropyGenerator failed to start event switch")
 		return err
 	}
 
 	// Notify peers of starting entropy
 	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 
+	entropyGenerator.Logger.Info("EntropyGenerator start", "height", entropyGenerator.lastComputedEntropyHeight)
 	// Sign entropy
 	entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
 
