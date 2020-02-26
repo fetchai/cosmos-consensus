@@ -86,9 +86,7 @@ func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	beaconR.Logger.Info("SwitchToConsensus")
 	beaconR.entropyGen.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
 
-	beaconR.mtx.Lock()
 	beaconR.fastSync = false
-	beaconR.mtx.Unlock()
 
 	err := beaconR.entropyGen.Start()
 	if err != nil {
