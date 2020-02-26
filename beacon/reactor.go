@@ -24,13 +24,13 @@ const (
 
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
-	// PeerGossipSleepDuration sleep time in gossip routine
-	PeerGossipSleepDuration = 200 * time.Millisecond
-	// ComputeEntropySleepDuration sleep time in between checking if group signature
-	// can be computed. Note PeerGossipSleepDuration must be greater than
-	// ComputeEntropySleepDuration so that peer does not send entropy for next height
+	// peerGossipSleepDuration sleep time in gossip routine
+	peerGossipSleepDuration = 200 * time.Millisecond
+	// computeEntropySleepDuration sleep time in between checking if group signature
+	// can be computed. Note peerGossipSleepDuration must be greater than
+	// computeEntropySleepDuration so that peer does not send entropy for next height
 	// before the current height has been computed
-	ComputeEntropySleepDuration = 100 * time.Millisecond
+	computeEntropySleepDuration = 100 * time.Millisecond
 )
 
 //-----------------------------------------------------------------------------
@@ -245,7 +245,7 @@ OUTER_LOOP:
 			beaconR.entropyGen.getEntropyShares(nextEntropyHeight),
 			beaconR.entropyGen.Validators.Size())
 
-		time.Sleep(PeerGossipSleepDuration)
+		time.Sleep(peerGossipSleepDuration)
 		continue OUTER_LOOP
 	}
 }

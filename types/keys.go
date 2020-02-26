@@ -1,7 +1,7 @@
 package types
 
 // UNSTABLE
-var (
-	PeerStateKey = "ConsensusReactor.peerState"
+const (
+	PeerStateKey       = "ConsensusReactor.peerState"
 	BeaconPeerStateKey = "BeaconReactor.peerState"
 )

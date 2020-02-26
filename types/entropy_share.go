@@ -10,11 +10,8 @@ import (
 // For event switch in entropy generator
 const (
 	EventComputedEntropy = "EventComputedEntropy"
-)
-
-var (
 	// TODO: Check this is ok with mcl
-	MaxEntropyShareSize = 256
+	maxEntropyShareSize = 256
 	GenesisHeight       = int64(0)
 )
 
@@ -26,7 +23,7 @@ type ComputedEntropy struct {
 }
 
 func (ce *ComputedEntropy) IsEmpty() bool {
-	return ce.GroupSignature == nil
+	return ce.GroupSignature == nil || len(ce.GroupSignature) == 0
 }
 
 //-----------------------------------------------------------------------------
@@ -72,8 +69,8 @@ func (entropy *EntropyShare) ValidateBasic() error {
 	if len(entropy.SignatureShare) == 0 {
 		return errors.New("signature is missing")
 	}
-	if len(entropy.SignatureShare) > MaxEntropyShareSize {
-		return fmt.Errorf("signature is too big (max: %d)", MaxEntropyShareSize)
+	if len(entropy.SignatureShare) > maxEntropyShareSize {
+		return fmt.Errorf("signature is too big (max: %d)", maxEntropyShareSize)
 	}
 	return nil
 }
@@ -103,12 +100,6 @@ func (entropy EntropyShare) Copy() EntropyShare {
 
 //-----------------------------------------------------------
 // These methods are for Protobuf Compatibility
-
-// Size returns the size of the amino encoding, in bytes.
-func (entropy *EntropyShare) Size() int {
-	bs, _ := entropy.Marshal()
-	return len(bs)
-}
 
 // Marshal returns the amino encoding.
 func (entropy *EntropyShare) Marshal() ([]byte, error) {

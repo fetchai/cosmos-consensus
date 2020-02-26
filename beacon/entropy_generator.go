@@ -108,9 +108,6 @@ func (entropyGenerator *EntropyGenerator) SetLogger(l log.Logger) {
 
 // OnStart generates entropy from the last computed entropy height
 func (entropyGenerator *EntropyGenerator) OnStart() error {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
 	if entropyGenerator.aeonExecUnit == nil {
 		panic(fmt.Errorf("OnStart with no active execution unit"))
 	}
@@ -138,9 +135,6 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 
 // OnStop stops event switch
 func (entropyGenerator *EntropyGenerator) OnStop() {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
-
 	entropyGenerator.evsw.Stop()
 }
 
@@ -182,6 +176,8 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 // GetEntropyShares gets entropy shares at a particular height
 func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int]types.EntropyShare {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
 	return entropyGenerator.entropyShares[height]
 }
 
@@ -267,7 +263,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
 			entropyGenerator.proxyMtx.Unlock()
 		}
-		time.Sleep(ComputeEntropySleepDuration)
+		time.Sleep(computeEntropySleepDuration)
 	}
 }
 
