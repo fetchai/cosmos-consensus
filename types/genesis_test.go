@@ -47,6 +47,14 @@ func TestGenesisBad(t *testing.T) {
 				`},"power":"10","name":""}` +
 				`]}`,
 		),
+		// missing entropy
+		[]byte(
+			`{"chain_id": "mychain", "validators": [` +
+				`{"pub_key":{` +
+				`"type":"tendermint/PubKeyEd25519","value":"AT/+aaL1eB0477Mud9JMm8Sh8BIvOYlPGC9KkIUmFaE="` +
+				`},"power":"10","name":""}` +
+				`]}`,
+		),
 	}
 
 	for _, testCase := range testCases {
@@ -62,7 +70,7 @@ func TestGenesisGood(t *testing.T) {
 			`{"pub_key":{` +
 			`"type":"tendermint/PubKeyEd25519","value":"AT/+aaL1eB0477Mud9JMm8Sh8BIvOYlPGC9KkIUmFaE="` +
 			`},"power":"10","name":""}` +
-			`],"app_hash":"","app_state":{"account_owner": "Bob"}}`,
+			`],"app_hash":"","app_state":{"account_owner": "Bob"}, "entropy":"Fetch.ai Test Genesis Entropy"}`,
 	)
 	_, err := GenesisDocFromJSON(genDocBytes)
 	assert.NoError(t, err, "expected no error for good genDoc json")
@@ -72,7 +80,7 @@ func TestGenesisGood(t *testing.T) {
 	baseGenDoc := &GenesisDoc{
 		ChainID:    "abc",
 		Validators: []GenesisValidator{{pubkey.Address(), pubkey, 10, "myval"}},
-		Entropy: "Fetch.ai Test Genesis Entropy",
+		Entropy:    "Fetch.ai Test Genesis Entropy",
 	}
 	genDocBytes, err = cdc.MarshalJSON(baseGenDoc)
 	assert.NoError(t, err, "error marshalling genDoc")
@@ -100,10 +108,10 @@ func TestGenesisGood(t *testing.T) {
 
 	// Genesis doc from raw json
 	missingValidatorsTestCases := [][]byte{
-		[]byte(`{"chain_id":"mychain"}`),                   // missing validators
-		[]byte(`{"chain_id":"mychain","validators":[]}`),   // missing validators
-		[]byte(`{"chain_id":"mychain","validators":null}`), // nil validator
-		[]byte(`{"chain_id":"mychain"}`),                   // missing validators
+		[]byte(`{"chain_id":"mychain", "entropy":"Fetch.ai Test Genesis Entropy"}`),                   // missing validators
+		[]byte(`{"chain_id":"mychain", "entropy":"Fetch.ai Test Genesis Entropy","validators":[]}`),   // missing validators
+		[]byte(`{"chain_id":"mychain", "entropy":"Fetch.ai Test Genesis Entropy","validators":null}`), // nil validator
+		[]byte(`{"chain_id":"mychain", "entropy":"Fetch.ai Test Genesis Entropy"}`),                   // missing validators
 	}
 
 	for _, tc := range missingValidatorsTestCases {
@@ -151,6 +159,6 @@ func randomGenesisDoc() *GenesisDoc {
 		ChainID:         "abc",
 		Validators:      []GenesisValidator{{pubkey.Address(), pubkey, 10, "myval"}},
 		ConsensusParams: DefaultConsensusParams(),
-		Entropy: "Fetch.ai Test Genesis Entropy",
+		Entropy:         "Fetch.ai Test Genesis Entropy",
 	}
 }
