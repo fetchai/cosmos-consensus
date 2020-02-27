@@ -8,7 +8,6 @@ import (
 )
 
 func TestCryptoSign(t *testing.T) {
-	InitialiseMcl()
 	cabinetSize := uint64(4)
 
 	directory := "test_keys/"

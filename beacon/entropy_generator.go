@@ -12,6 +12,11 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+const (
+	// History length of entropy to keep in number of blocks
+	entropyHistoryLength = 10
+)
+
 var (
 	// EntropyChannelCapacity is number of ComputedEntropy that channel can hold
 	EntropyChannelCapacity = 3
@@ -242,6 +247,9 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			entropyGenerator.proxyMtx.Lock()
 			entropyGenerator.sign(entropyGenerator.lastComputedEntropyHeight)
 			entropyGenerator.proxyMtx.Unlock()
+
+			// Clean out old entropy shares and computed entropy
+			entropyGenerator.flushOldEntropy()
 		}
 		time.Sleep(computeEntropySleepDuration)
 	}
@@ -272,13 +280,23 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() bool {
 		entropyGenerator.entropyComputed[height] = []byte(groupSignature)
 		entropyGenerator.lastComputedEntropyHeight++
 
-		// Don't delete this yet as need them there for gossiping to peers
-		//delete(entropyGenerator.entropyShares, height)
-
 		// Notify peers of of new entropy height
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 
 		return true
 	}
 	return false
+}
+
+func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
+
+	deleteHeight := entropyGenerator.lastComputedEntropyHeight - entropyHistoryLength
+	if deleteHeight >= 0 {
+		// Clean entropy shares
+		delete(entropyGenerator.entropyShares, deleteHeight)
+		// Clean computed entropy
+		delete(entropyGenerator.entropyComputed, deleteHeight)
+	}
 }

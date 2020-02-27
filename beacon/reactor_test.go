@@ -12,6 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	InitialiseMcl()
 	config = ResetConfig("beacon_reactor_test")
 	code := m.Run()
 	os.RemoveAll(config.RootDir)
