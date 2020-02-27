@@ -234,7 +234,7 @@ OUTER_LOOP:
 	for {
 		// Manage disconnects from self or peer.
 		if !peer.IsRunning() || !beaconR.IsRunning() {
-			logger.Info("Stopping gossipEntropySharesRoutine for peer")
+			logger.Info("Stopping gossipEntropySharesRoutine for peer", "beacon running", beaconR.IsRunning(), "peer running", peer.IsRunning())
 			return
 		}
 
@@ -326,30 +326,37 @@ func (ps *PeerState) setLastComputedEntropyHeight(height int64) {
 
 // pickSendEntropyShare picks entropy share to send to peer and returns whether successful
 func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares map[int]types.EntropyShare, numValidators int) {
+	if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
+		msg := &EntropyShareMessage{value}
+		ps.logger.Debug("Sending entropy share message", "ps", ps, "entropy share", value)
+		if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
+			ps.hasEntropyShare(nextEntropyHeight, key, numValidators)
+		}
+	}
+}
+
+func (ps *PeerState) pickEntropyShare(nextEntropyHeight int64, entropyShares map[int]types.EntropyShare) (int, *types.EntropyShare, bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
 	if entropyShares == nil {
-		return
+		return 0, nil, false
 	}
 	if len(entropyShares) == 0 {
-		return
+		return 0, nil, false
 	}
 	if ps.lastComputedEntropyHeight+1 != nextEntropyHeight {
 		ps.logger.Debug("PickSendEntropyShare height mismatch", "peer height", ps.lastComputedEntropyHeight, "working height", nextEntropyHeight)
-		return
+		return 0, nil, false
 	}
-
 	peerEntropyShares := ps.entropyShares[nextEntropyHeight]
 
 	for key, value := range entropyShares {
 		if !peerEntropyShares.GetIndex(key) {
-			msg := &EntropyShareMessage{&value}
-			ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
-			ps.hasEntropyShareInternal(nextEntropyHeight, key, numValidators)
-			return
+			return key, &value, true
 		}
 	}
+	return 0, nil, false
 }
 
 // hasEntropyShare marks the peer as having a entropy share at given height from a particular validator index
@@ -357,10 +364,6 @@ func (ps *PeerState) hasEntropyShare(height int64, index int, numValidators int)
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	ps.hasEntropyShareInternal(height, index, numValidators)
-}
-
-func (ps *PeerState) hasEntropyShareInternal(height int64, index int, numValidators int) {
 	if index < 0 {
 		return
 	}
