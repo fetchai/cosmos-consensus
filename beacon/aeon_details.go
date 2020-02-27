@@ -6,6 +6,7 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+// aeonDetails stores entropy generation details for each aeon
 type aeonDetails struct {
 	privValidator types.PrivValidator
 	validators    *types.ValidatorSet
@@ -13,6 +14,7 @@ type aeonDetails struct {
 	aeonExecUnit  AeonExecUnit
 }
 
+// NewAeonDetails creates new aeonDetails, checking validity of inputs
 func NewAeonDetails(
 	validators *types.ValidatorSet, newPrivValidator types.PrivValidator, aeonKeys AeonExecUnit) *aeonDetails {
 	if validators == nil {

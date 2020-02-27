@@ -71,7 +71,7 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.C
 	}
 }
 
-// SetAeonKeys sets the DKG keys for computing DRB
+// SetAeonDetails sets the DKG keys for computing DRB
 func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
