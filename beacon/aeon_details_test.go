@@ -1,6 +1,5 @@
 package beacon
 
-<<<<<<< HEAD
 import (
 	"testing"
 
@@ -8,15 +7,11 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-=======
-/*
->>>>>>> entropy
 func TestNewAeonDetails(t *testing.T) {
 	InitialiseMcl()
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 	aeonNonSigning := NewAeonExecUnit("test_keys/non_validator.txt")
-<<<<<<< HEAD
 	assert.False(t, aeonNonSigning.CanSign())
 	aeonSigning := NewAeonExecUnit("test_keys/0.txt")
 	assert.True(t, aeonSigning.CanSign())
@@ -24,13 +19,6 @@ func TestNewAeonDetails(t *testing.T) {
 	// Panic with no validator set
 	assert.Panics(t, func() {
 		NewAeonDetails(nil, privVals[0], aeonSigning)
-=======
-	aeonSigning := NewAeonExecUnit("test_keys/0.txt")
-
-	// Panic with no validator set
-	assert.Panics(t, func() {
-		NewAeonDetails(nil, privVals[0], aeonExecUnit)
->>>>>>> entropy
 	})
 
 	// Panic with no aeon execution unit
@@ -45,7 +33,6 @@ func TestNewAeonDetails(t *testing.T) {
 
 	// Panic if can sign and not in validators
 	_, privVal := types.RandValidator(false, 30)
-<<<<<<< HEAD
 	assert.Panics(t, func() {
 		NewAeonDetails(state.Validators, privVal, aeonSigning)
 	})
@@ -60,8 +47,6 @@ func TestNewAeonDetails(t *testing.T) {
 			break
 		}
 	}
-=======
->>>>>>> entropy
 
 	// Does not panic if priv validator is invalid if can not sign
 	var newAeon *aeonDetails
@@ -69,7 +54,6 @@ func TestNewAeonDetails(t *testing.T) {
 		newAeon = NewAeonDetails(state.Validators, nil, aeonNonSigning)
 	})
 	assert.True(t, newAeon.threshold == nValidators/2+1)
-<<<<<<< HEAD
 
 	// Does not panic for all valid inputs
 	// Does not panic if priv validator is invalid if can not sign
@@ -83,7 +67,3 @@ func TestNewAeonDetails(t *testing.T) {
 		}
 	}
 }
-=======
-}
-*/
->>>>>>> entropy
