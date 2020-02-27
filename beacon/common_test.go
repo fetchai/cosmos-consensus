@@ -90,10 +90,11 @@ func randBeaconNet(nValidators int, testName string, configOpts ...func(*cfg.Con
 		// Initialise entropy channel
 		entropyChannels[i] = make(chan types.ComputedEntropy, EntropyChannelCapacity)
 
-		entropyGenerators[i] = NewEntropyGenerator(state.Validators, privVals[i], state.ChainID)
+		aeonDetails := NewAeonDetails(state.Validators, privVals[i], aeonExecUnits[index])
+		entropyGenerators[i] = NewEntropyGenerator(state.ChainID)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(types.ComputedEntropy{Height: types.GenesisHeight, GroupSignature: state.LastComputedEntropy})
-		entropyGenerators[i].SetAeonKeys(aeonExecUnits[index])
+		entropyGenerators[i].SetAeonDetails(aeonDetails)
 		entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
 	}
 

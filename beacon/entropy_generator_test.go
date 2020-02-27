@@ -16,22 +16,25 @@ import (
 func TestNewEntropyGenerator(t *testing.T) {
 	InitialiseMcl()
 	nValidators := 4
-	state, privVals := groupTestSetup(nValidators)
+	state, _ := groupTestSetup(nValidators)
 
-	// Panic with no validator set
+	newGen := NewEntropyGenerator("TestChain")
+
+	// Panic OnStart() as no aeonDetails or previous entropy set
 	assert.Panics(t, func() {
-		NewEntropyGenerator(nil, privVals[0], "TestChain")
+		newGen.OnStart()
 	})
 
-	// Does not panic if priv validator is invalid
-	var newGen *EntropyGenerator
+	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
+	aeonDetails := NewAeonDetails(state.Validators, nil, aeonExecUnit)
+	newGen.SetAeonDetails(aeonDetails)
+	// Panic OnStart() as previous entropy set
+	assert.Panics(t, func() {
+		newGen.OnStart()
+	})
+	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
+	// Should not panic OnStart()
 	assert.NotPanics(t, func() {
-		newGen = NewEntropyGenerator(state.Validators, nil, "TestChain")
-	})
-	assert.True(t, newGen.threshold == nValidators/2+1)
-
-	// Panic OnStart() as no aeon execution unit or previous entropy set
-	assert.Panics(t, func() {
 		newGen.OnStart()
 	})
 }
@@ -87,27 +90,6 @@ func TestEntropyGeneratorSign(t *testing.T) {
 	t.Run("sign valid repeated", func(t *testing.T) {
 		newGen.sign(2)
 		assert.True(t, len(newGen.entropyShares[3]) == 1)
-	})
-	t.Run("sign validator and dkg key index mismatch", func(t *testing.T) {
-		indexWrong := (index + 1) % nValidators
-		newGen = testEntropyGen(state.Validators, privVals[0], indexWrong)
-		newGen.sign(0)
-		assert.True(t, len(newGen.entropyShares[1]) == 0)
-	})
-
-	t.Run("nil priv validator with valid DKG keys", func(t *testing.T) {
-		newGen = testEntropyGen(state.Validators, nil, index)
-		assert.Panics(t, func() {
-			newGen.sign(0)
-		})
-	})
-
-	t.Run("not in validator set with DKG keys", func(t *testing.T) {
-		_, randVal := types.RandValidator(false, 30)
-		newGen = testEntropyGen(state.Validators, randVal, index)
-		assert.Panics(t, func() {
-			newGen.sign(0)
-		})
 	})
 }
 
@@ -208,14 +190,15 @@ func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 }
 
 func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator, index int) *EntropyGenerator {
-	newGen := NewEntropyGenerator(validators, privVal, "TestChain")
+	newGen := NewEntropyGenerator("TestChain")
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
 	if index >= 0 {
 		aeonExecUnit = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(index)) + ".txt")
 	}
-	newGen.SetAeonKeys(aeonExecUnit)
+	aeonDetails := NewAeonDetails(validators, privVal, aeonExecUnit)
+	newGen.SetAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
 	return newGen
 }

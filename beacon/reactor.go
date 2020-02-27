@@ -191,8 +191,8 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	case EntropyChannel:
 		switch msg := msg.(type) {
 		case *EntropyShareMessage:
-			index, _ := beaconR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
-			ps.hasEntropyShare(msg.EntropyShare.Height, index, beaconR.entropyGen.Validators.Size())
+			index, _ := beaconR.entropyGen.aeonDet.validators.GetByAddress(msg.SignerAddress)
+			ps.hasEntropyShare(msg.EntropyShare.Height, index, beaconR.entropyGen.aeonDet.validators.Size())
 			beaconR.entropyGen.applyEntropyShare(msg.EntropyShare)
 
 		default:
@@ -243,7 +243,7 @@ OUTER_LOOP:
 		nextEntropyHeight := ps.getLastComputedEntropyHeight() + 1
 		ps.pickSendEntropyShare(nextEntropyHeight,
 			beaconR.entropyGen.getEntropyShares(nextEntropyHeight),
-			beaconR.entropyGen.Validators.Size())
+			beaconR.entropyGen.aeonDet.validators.Size())
 
 		time.Sleep(peerGossipSleepDuration)
 		continue OUTER_LOOP

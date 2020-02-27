@@ -567,10 +567,11 @@ func createBeaconReactor(aeonFile string, state sm.State, privValidator types.Pr
 	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
 	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
-	entropyGenerator := beacon.NewEntropyGenerator(state.Validators, privValidator, state.ChainID)
+	aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
-	entropyGenerator.SetAeonKeys(aeonKeys)
+	entropyGenerator.SetAeonDetails(aeonDetails)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
 
 	reactor := beacon.NewReactor(entropyGenerator, fastSync)
@@ -711,6 +712,7 @@ func NewNode(config *cfg.Config,
 	beaconLogger := logger.With("module", "beacon")
 	if len(aeonKeysFile) != 0 {
 		beacon.InitialiseMcl()
+
 		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
