@@ -14,7 +14,6 @@ import (
 )
 
 func TestNewEntropyGenerator(t *testing.T) {
-	InitialiseMcl()
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 
@@ -30,9 +29,9 @@ func TestNewEntropyGenerator(t *testing.T) {
 	})
 	assert.True(t, newGen.threshold == nValidators/2+1)
 
-	// Panic OnStart() as no aeon execution unit or previous entropy set
+	// Panic Start() as no aeon execution unit or previous entropy set
 	assert.Panics(t, func() {
-		newGen.OnStart()
+		newGen.Start()
 	})
 }
 
@@ -44,7 +43,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 
 	// Does not panic if can not sign
 	assert.NotPanics(t, func() {
-		newGen.OnStart()
+		newGen.Start()
 	})
 
 	assert.True(t, newGen.entropyComputed[1] == nil)

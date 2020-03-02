@@ -25,12 +25,12 @@ const (
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
 
 	// peerGossipSleepDuration sleep time in gossip routine
-	peerGossipSleepDuration = 200 * time.Millisecond
+	peerGossipSleepDuration = 100 * time.Millisecond
 	// computeEntropySleepDuration sleep time in between checking if group signature
 	// can be computed. Note peerGossipSleepDuration must be greater than
 	// computeEntropySleepDuration so that peer does not send entropy for next height
 	// before the current height has been computed
-	computeEntropySleepDuration = 100 * time.Millisecond
+	computeEntropySleepDuration = 50 * time.Millisecond
 )
 
 //-----------------------------------------------------------------------------
@@ -324,13 +324,17 @@ func (ps *PeerState) setLastComputedEntropyHeight(height int64) {
 	}
 }
 
-// pickSendEntropyShare picks entropy share to send to peer and returns whether successful
+// pickSendEntropyShare sends all entropy shares that peer needs
 func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares map[int]types.EntropyShare, numValidators int) {
-	if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
-		msg := &EntropyShareMessage{value}
-		ps.logger.Debug("Sending entropy share message", "ps", ps, "entropy share", value)
-		if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
-			ps.hasEntropyShare(nextEntropyHeight, key, numValidators)
+	for {
+		if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
+			msg := &EntropyShareMessage{value}
+			ps.logger.Debug("Sending entropy share message", "ps", ps, "entropy share", value)
+			if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
+				ps.hasEntropyShare(nextEntropyHeight, key, numValidators)
+			}
+		} else {
+			return
 		}
 	}
 }

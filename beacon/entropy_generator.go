@@ -245,6 +245,16 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 
 func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 	for {
+
+		// Close channel and exit go routine if entropy generator is not running
+		if !entropyGenerator.IsRunning() {
+			entropyGenerator.Logger.Info("computedEntropyRoutine exitting")
+			if entropyGenerator.computedEntropyChannel != nil {
+				close(entropyGenerator.computedEntropyChannel)
+			}
+			return
+		}
+
 		entropyGenerator.proxyMtx.Lock()
 		haveNewEntropy := entropyGenerator.receivedEntropyShare()
 		entropyGenerator.proxyMtx.Unlock()

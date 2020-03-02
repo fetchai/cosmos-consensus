@@ -989,7 +989,11 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 // catch up via WAL. Entropy is reset to empty at start and after every committed block.
 func (cs *State) getNewEntropy() types.ComputedEntropy {
 	if cs.newEntropy.IsEmpty() {
-		cs.newEntropy = <-cs.computedEntropyChannel
+		newEntropy := <-cs.computedEntropyChannel
+		if newEntropy.IsEmpty() {
+			cs.Logger.Error("getNewEntropy: entropy channel is closed", "height", cs.state.LastBlockHeight+1)
+		}
+		cs.newEntropy = newEntropy
 	}
 	return cs.newEntropy
 }
