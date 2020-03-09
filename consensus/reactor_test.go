@@ -543,7 +543,7 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 		computedEntropyChannels[e] = make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 		css[e].SetEntropyChannel(computedEntropyChannels[e])
 
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: groupSignature1,}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: groupSignature1}
 	}
 
 	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, nPeers)
@@ -570,7 +570,7 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 
 	// Send entropy for next block
 	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: groupSignature2,}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: groupSignature2}
 	}
 
 	// wait till everyone makes block 2
@@ -580,8 +580,10 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 		assert.True(t, css[l].state.LastBlockHeight == 2)
 		assert.True(t, bytes.Equal(css[l].state.LastComputedEntropy, groupSignature2))
 	}
+	// Add extra entropy and close channels
 	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: groupSignature3,}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: groupSignature3}
+		close(computedEntropyChannels[e])
 	}
 }
 
@@ -618,10 +620,10 @@ func TestReactorDelayedBeaconProposerSelection(t *testing.T) {
 
 	// Entropy arrives in channel delayed
 	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0,0,0,0,1,2,3,4},}
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0,0,0,0,5,6,7,8},}
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: []byte{1,2,3,4,5,6,7,8},}
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 4, GroupSignature: []byte{5,6,7,8,5,6,7,8},}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0, 0, 0, 0, 1, 2, 3, 4}}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0, 0, 0, 0, 5, 6, 7, 8}}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: []byte{1, 2, 3, 4, 5, 6, 7, 8}}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 4, GroupSignature: []byte{5, 6, 7, 8, 5, 6, 7, 8}}
 	}
 
 	// wait till everyone makes block 1
@@ -633,6 +635,11 @@ func TestReactorDelayedBeaconProposerSelection(t *testing.T) {
 	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
 	// wait till everyone makes block 3
 	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
+
+	// Close channels
+	for e := 0; e < nPeers; e++ {
+		close(computedEntropyChannels[e])
+	}
 }
 
 func waitForAndValidateBlock(

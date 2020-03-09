@@ -103,12 +103,12 @@ vagrant_test:
 ### go tests
 test:
 	@echo "--> Running go test"
-	@go test -p 1 $(PACKAGES)
+	@go test -p 1 -timeout 1m $(PACKAGES)
 .PHONY: test
 
 test_race:
 	@echo "--> Running go test --race"
-	@go test -p 1 -v -race $(PACKAGES)
+	@go test -p 1 -v -timeout 1m -race $(PACKAGES)
 .PHONY: test_race
 
 # uses https://github.com/sasha-s/go-deadlock/ to detect potential deadlocks
