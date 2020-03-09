@@ -100,15 +100,27 @@ vagrant_test:
 	vagrant ssh -c 'make test_integrations'
 .PHONY: vagrant_test
 
+build_cpp:
+	cd beacon/beacon_cpp && \
+	rm -rf build && mkdir build && \
+	cd build && \
+	cmake .. && \
+	make && \
+	cp lib/libmcl.a libs/libmcl.a && \
+	cd ..
+.PHONY: build_cpp
+
 ### go tests
 test:
+	make build_cpp
 	@echo "--> Running go test"
-	@go test -p 1 $(PACKAGES)
+	@go test -p 1 -timeout 1m $(PACKAGES)
 .PHONY: test
 
 test_race:
+	make build_cpp
 	@echo "--> Running go test --race"
-	@go test -p 1 -v -race $(PACKAGES)
+	@go test -p 1 -v -timeout 1m -race $(PACKAGES)
 .PHONY: test_race
 
 # uses https://github.com/sasha-s/go-deadlock/ to detect potential deadlocks
