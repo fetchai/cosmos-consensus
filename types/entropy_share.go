@@ -75,12 +75,12 @@ func (entropy *EntropyShare) ValidateBasic() error {
 	return nil
 }
 
-// String returns a string representation of the PeerRoundState
+// String returns a string representation of EntropyShare
 func (entropy EntropyShare) String() string {
 	return entropy.StringIndented("")
 }
 
-// StringIndented returns a string representation of the PeerRoundState
+// StringIndented returns a string representation of the EntropyShare
 func (entropy EntropyShare) StringIndented(indent string) string {
 	return fmt.Sprintf(`EntropySignatureShare{
 %s  %v/%v/%v
