@@ -140,7 +140,10 @@ func (b *Block) ValidateBasic() error {
 			crypto.AddressSize, len(b.ProposerAddress))
 	}
 
-	// TODO(JMW): Do some basic check on group signature
+	if len(b.Entropy) == 0 || len(b.Entropy) > MaxThresholdSignatureSize {
+		return fmt.Errorf("expected len(Header.Entropy) to be max %d, got %d",
+			MaxThresholdSignatureSize, len(b.Entropy))
+	}
 
 	return nil
 }
