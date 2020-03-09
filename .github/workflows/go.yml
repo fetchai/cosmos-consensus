@@ -21,9 +21,14 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
-      with:
-        submodules: 'recursive'
-
+      
+    - uses: actions/checkout@v2
+    - name: Checkout submodules
+      shell: bash
+      run: |
+        git submodules init
+        git submodules update
+      
     - name: Get dependencies
       run: |
         go get -v -t -d ./...
@@ -33,6 +38,7 @@ jobs:
         fi
 
     - name: Build c++ library
+      shell: bash
       run: |
         cd beacon/beacon_cpp
         rm -Rf build
