@@ -291,7 +291,7 @@ func NewPeerState(peer p2p.Peer) *PeerState {
 		peer:                      peer,
 		logger:                    log.NewNopLogger(),
 		entropyShares:             make(map[int64]*bits.BitArray),
-		lastComputedEntropyHeight: 0,
+		lastComputedEntropyHeight: types.GenesisHeight,
 	}
 }
 
