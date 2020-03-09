@@ -37,18 +37,6 @@ jobs:
             dep ensure
         fi
 
-    - name: Build c++ library
-      shell: bash
-      run: |
-        cd beacon/beacon_cpp
-        rm -Rf build
-        mkdir build
-        cd build
-        cmake ..
-        make
-        cp lib/libmcl.a libs/libmcl.a
-        cd ..
-
     - name: Run Unit tests.
       run: make test
       
