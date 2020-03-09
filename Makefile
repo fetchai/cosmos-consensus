@@ -1,4 +1,4 @@
-// Exclude go package inside mcl
+# Exclude go package inside mcl
 PACKAGES=$(shell find . -name "*_test.go" -not -path "./vendor/*" -not -path "./beacon/beacon_cpp/*" | xargs -I {} dirname {}  | uniq)
 OUTPUT?=build/tendermint
 
