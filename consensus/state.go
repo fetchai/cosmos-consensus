@@ -945,10 +945,6 @@ func (cs *State) enterPropose(height int64, round int) {
 	logger.Debug("This node is a validator")
 
 	nextProposer := cs.getProposer(height, round)
-	if nextProposer == nil {
-		panic("No next validator!")
-		return
-	}
 	if bytes.Equal(nextProposer.Address, address) {
 		logger.Info("enterPropose: Our turn to propose",
 			"proposer",
@@ -976,12 +972,11 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	// If first round of new block height then reset entropy
 	newEntropy := cs.getNewEntropy()
 	if newEntropy.Height != height {
-		cs.Logger.Error("Invalid entropy", "fetch height", newEntropy.Height, "state height", height)
-		return nil
+		panic(fmt.Sprintf("getProposer(%v/%v), invalid entropy height %v", height, round, newEntropy.Height))
 	}
 	entropy := tmhash.Sum(newEntropy.GroupSignature)
 	proposer := cs.shuffledCabinet(entropy)[round]
-	cs.Logger.Debug("getProposer with entropy", "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
 	return proposer
 }
 
@@ -990,8 +985,8 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 func (cs *State) getNewEntropy() types.ComputedEntropy {
 	if cs.newEntropy.IsEmpty() {
 		newEntropy := <-cs.computedEntropyChannel
-		if newEntropy.IsEmpty() {
-			cs.Logger.Error("getNewEntropy: entropy channel is closed", "height", cs.state.LastBlockHeight+1)
+		if err := newEntropy.ValidateBasic(); err != nil {
+			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
 		}
 		cs.newEntropy = newEntropy
 	}

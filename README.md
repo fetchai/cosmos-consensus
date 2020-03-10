@@ -7,8 +7,13 @@ Get mcl submodule
 git submodule init
 git subdmodule update
 ```
+To run all tests:
+```bash
+make test
+```
 
-Build C++ library:
+
+To create a single node, which also generates entropy, first build the c++ library:
 ```bash
 cd beacon/beacon_cpp
 rm -Rf build
@@ -18,13 +23,7 @@ cmake ..
 make
 cp lib/libmcl.a libs/libmcl.a
 ```
-
-Build and run tests in beacon, consensus and node directory with
-```bash
-go test
-```
-
-To create a single node, which also generates entropy, run the following from the root directory
+Then run the following from the root directory
 ```bash
 CGO_ENABLED=1 go build -o build/tendermint ./cmd/tendermint/
 cd build
