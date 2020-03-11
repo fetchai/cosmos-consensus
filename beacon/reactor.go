@@ -43,16 +43,20 @@ type Reactor struct {
 
 	mtx      sync.RWMutex
 	fastSync bool
+
+	// Access blockchain through RPC for catching up peers
+	blockStore sm.BlockStoreRPC
 }
 
 // NewReactor returns a new Reactor with the given entropyGenerator.
-func NewReactor(entropyGenerator *EntropyGenerator, fastSync bool) *Reactor {
+func NewReactor(entropyGenerator *EntropyGenerator, fastSync bool, blockStore sm.BlockStoreRPC) *Reactor {
 	if entropyGenerator == nil {
 		panic(fmt.Sprintf("NewReactor with nil entropy generator"))
 	}
 	BeaconR := &Reactor{
 		entropyGen: entropyGenerator,
 		fastSync:   fastSync,
+		blockStore: blockStore,
 	}
 
 	BeaconR.BaseReactor = *p2p.NewBaseReactor("Reactor", BeaconR)
@@ -78,6 +82,11 @@ func (beaconR *Reactor) OnStart() error {
 func (beaconR *Reactor) OnStop() {
 	beaconR.unsubscribeFromBroadcastEvents()
 	beaconR.entropyGen.Stop()
+	// Check for not fast sync ensures that compute entropy routine in entropy
+	// generator was started and we wait until the routine has exited
+	if !beaconR.getFastSync() {
+		beaconR.entropyGen.wait()
+	}
 }
 
 // SwitchToConsensus from fast sync, when no entropy is generated, to consensus mode by resetting the
@@ -86,7 +95,9 @@ func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	beaconR.Logger.Info("SwitchToConsensus")
 	beaconR.entropyGen.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
 
+	beaconR.mtx.Lock()
 	beaconR.fastSync = false
+	beaconR.mtx.Unlock()
 
 	err := beaconR.entropyGen.Start()
 	if err != nil {
@@ -116,6 +127,13 @@ func (beaconR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
 			RecvMessageCapacity: maxMsgSize,
 		},
 	}
+}
+
+// getFastSync returns whether the reactor is in fast-sync mode.
+func (beaconR *Reactor) getFastSync() bool {
+	beaconR.mtx.RLock()
+	defer beaconR.mtx.RUnlock()
+	return beaconR.fastSync
 }
 
 // InitPeer implements Reactor by creating a state for the peer.
@@ -180,19 +198,24 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	switch chID {
 	case StateChannel:
 		switch msg := msg.(type) {
-		case *NewComputedEntropyMessage:
+		case *NewEntropyHeightMessage:
 			ps.setLastComputedEntropyHeight(msg.Height)
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
 
 	case EntropyChannel:
+		if beaconR.getFastSync() {
+			beaconR.Logger.Info("Ignoring message received during fastSync", "msg", msg)
+			return
+		}
 		switch msg := msg.(type) {
 		case *EntropyShareMessage:
 			index, _ := beaconR.entropyGen.Validators.GetByAddress(msg.SignerAddress)
 			ps.hasEntropyShare(msg.EntropyShare.Height, index, beaconR.entropyGen.Validators.Size())
 			beaconR.entropyGen.applyEntropyShare(msg.EntropyShare)
-
+		case *ComputedEntropyMessage:
+			beaconR.entropyGen.applyComputedEntropy(msg.ComputedEntropy)
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -207,7 +230,7 @@ func (beaconR *Reactor) subscribeToBroadcastEvents() {
 	const subscriber = "beacon-reactor"
 	beaconR.entropyGen.evsw.AddListenerForEvent(subscriber, types.EventComputedEntropy,
 		func(data tmevents.EventData) {
-			beaconR.broadcastNewComputedEntropyMessage(data.(int64))
+			beaconR.broadcastNewEntropyHeightMessage(data.(int64))
 		})
 }
 
@@ -216,8 +239,8 @@ func (beaconR *Reactor) unsubscribeFromBroadcastEvents() {
 	beaconR.entropyGen.evsw.RemoveListener(subscriber)
 }
 
-func (beaconR *Reactor) broadcastNewComputedEntropyMessage(height int64) {
-	esMsg := &NewComputedEntropyMessage{
+func (beaconR *Reactor) broadcastNewEntropyHeightMessage(height int64) {
+	esMsg := &NewEntropyHeightMessage{
 		Height: height,
 	}
 	beaconR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(esMsg))
@@ -227,8 +250,10 @@ func (beaconR *Reactor) broadcastNewComputedEntropyMessage(height int64) {
 
 func (beaconR *Reactor) gossipEntropySharesRoutine(peer p2p.Peer, ps *PeerState) {
 	logger := beaconR.Logger.With("peer", peer)
-	// Send peer most recent computed entropy
-	peer.Send(StateChannel, cdc.MustMarshalBinaryBare(&NewComputedEntropyMessage{Height: beaconR.entropyGen.lastComputedEntropyHeight}))
+	// Send peer most recent computed entropy if not fast syncing
+	if !beaconR.getFastSync() {
+		peer.Send(StateChannel, cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: beaconR.entropyGen.getLastComputedEntropyHeight()}))
+	}
 
 OUTER_LOOP:
 	for {
@@ -239,10 +264,22 @@ OUTER_LOOP:
 		}
 
 		nextEntropyHeight := ps.getLastComputedEntropyHeight() + 1
+		// Use block chain for entropy that has been included in block
+		if nextEntropyHeight < beaconR.entropyGen.getLastComputedEntropyHeight() {
+			block := beaconR.blockStore.LoadBlockMeta(nextEntropyHeight)
+			if block != nil {
+				// Send peer entropy from block store
+				beaconR.Logger.Info("gossipEntropySharesRoutine send computed entropy", "ps", ps, "height", nextEntropyHeight)
+				ce := types.ComputedEntropy{Height: nextEntropyHeight, GroupSignature: block.Header.Entropy}
+				msg := &ComputedEntropyMessage{&ce}
+				ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
+				time.Sleep(peerGossipSleepDuration)
+				continue OUTER_LOOP
+			}
+		}
 		ps.pickSendEntropyShare(nextEntropyHeight,
 			beaconR.entropyGen.getEntropyShares(nextEntropyHeight),
 			beaconR.entropyGen.Validators.Size())
-
 		time.Sleep(peerGossipSleepDuration)
 		continue OUTER_LOOP
 	}
@@ -329,8 +366,8 @@ func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares
 	for {
 		if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
 			msg := &EntropyShareMessage{value}
-			ps.logger.Debug("Sending entropy share message", "ps", ps, "entropy share", value)
 			if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
+				ps.logger.Debug("pickSendEntropyShare succeeded", "ps", ps, "height", value.Height, "share index", key)
 				ps.hasEntropyShare(nextEntropyHeight, key, numValidators)
 			}
 		} else {
@@ -417,8 +454,9 @@ type Message interface {
 // RegisterMessages registers entropy share message
 func RegisterMessages(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Message)(nil), nil)
-	cdc.RegisterConcrete(&NewComputedEntropyMessage{}, "tendermint/NewComputedEntropy", nil)
+	cdc.RegisterConcrete(&NewEntropyHeightMessage{}, "tendermint/NewEntropyHeight", nil)
 	cdc.RegisterConcrete(&EntropyShareMessage{}, "tendermint/EntropyShare", nil)
+	cdc.RegisterConcrete(&ComputedEntropyMessage{}, "tendermint/ComputedEntropy", nil)
 }
 
 func decodeMsg(bz []byte) (msg Message, err error) {
@@ -431,13 +469,13 @@ func decodeMsg(bz []byte) (msg Message, err error) {
 
 //-------------------------------------
 
-// NewComputedEntropyMessage contains last entropy height computed
-type NewComputedEntropyMessage struct {
+// NewEntropyHeightMessage contains last entropy height computed
+type NewEntropyHeightMessage struct {
 	Height int64
 }
 
 // ValidateBasic performs basic validation.
-func (m *NewComputedEntropyMessage) ValidateBasic() error {
+func (m *NewEntropyHeightMessage) ValidateBasic() error {
 	if m.Height < types.GenesisHeight {
 		return errors.New("invalid Height")
 	}
@@ -446,7 +484,7 @@ func (m *NewComputedEntropyMessage) ValidateBasic() error {
 }
 
 // String returns a string representation.
-func (m *NewComputedEntropyMessage) String() string {
+func (m *NewEntropyHeightMessage) String() string {
 	return fmt.Sprintf("[HESM %v]", m.Height)
 }
 
@@ -468,3 +506,18 @@ func (m *EntropyShareMessage) String() string {
 }
 
 //-------------------------------------
+
+// ComputedEntropyMessage is for catching up peers
+type ComputedEntropyMessage struct {
+	*types.ComputedEntropy
+}
+
+// ValidateBasic performs basic validation.
+func (m *ComputedEntropyMessage) ValidateBasic() error {
+	return m.ComputedEntropy.ValidateBasic()
+}
+
+// String returns a string representation.
+func (m *ComputedEntropyMessage) String() string {
+	return fmt.Sprintf("[ComputedEntropy %v]", m.ComputedEntropy)
+}

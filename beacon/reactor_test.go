@@ -47,7 +47,7 @@ func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*E
 			fastSync = true
 		}
 
-		reactors[i] = NewReactor(entropyGenerators[i], fastSync)
+		reactors[i] = NewReactor(entropyGenerators[i], fastSync, blockStores[i])
 		reactors[i].SetLogger(entropyGenerators[i].Logger)
 
 		if css != nil {
@@ -130,7 +130,7 @@ func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
 	var (
 		reactor = entropyReactors[0]
 		peer    = mock.NewPeer(nil)
-		msg     = cdc.MustMarshalBinaryBare(&NewComputedEntropyMessage{Height: 1})
+		msg     = cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: 1})
 	)
 
 	reactor.InitPeer(peer)
@@ -152,7 +152,7 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 	var (
 		reactor = entropyReactors[0]
 		peer    = mock.NewPeer(nil)
-		msg     = cdc.MustMarshalBinaryBare(&NewComputedEntropyMessage{Height: 1})
+		msg     = cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: 1})
 	)
 
 	// we should call InitPeer here
@@ -199,7 +199,7 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 			}
 		}
 		return true
-	}, 7*time.Second, 100*time.Millisecond)
+	}, time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
 
 	// Manually delete old entropy shares for these reactors
 	for i := 0; i < N; i++ {
@@ -210,7 +210,7 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 				assert.True(t, entropyGenerators[i].entropyComputed[round] == nil)
 			}
 		}
-		if i != NStart {
+		if i != NStart && NStart < N {
 			// Check that peer state from stopped node is at 0
 			stoppedID := entropyReactors[NStart].Switch.NodeInfo().ID()
 			peerState, ok := entropyReactors[i].Switch.Peers().Get(stoppedID).Get("BeaconReactor.peerState").(*PeerState)
@@ -219,12 +219,18 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 		}
 	}
 
-	// Check that peer state from stopped node is at 0
-
 	// Now start remaining reactor and wait for it to catch up
-	s := css[NStart].GetState()
-	consensusReactors[NStart].SwitchToConsensus(s, 0)
-	assert.Eventually(t, func() bool {
-		return entropyGenerators[NStart].entropyComputed[entropyRounds-1] != nil
-	}, 3*time.Second, 100*time.Millisecond)
+	if NStart < N {
+		s := css[NStart].GetState()
+		entropyReactors[NStart].SwitchToConsensus(s)
+		// set entropy channel to nil since we haven't started consensus reactor
+		entropyReactors[NStart].entropyGen.computedEntropyChannel = nil
+		assert.Eventually(t, func() bool {
+			return entropyGenerators[NStart].entropyComputed[entropyRounds-1] != nil
+		}, time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
+		// Wait for computeEntropyRoutine to recognise the change
+		assert.Eventually(t, func() bool {
+			return entropyGenerators[NStart].getLastComputedEntropyHeight() >= entropyRounds-1
+		}, 2*computeEntropySleepDuration, 10*time.Millisecond)
+	}
 }

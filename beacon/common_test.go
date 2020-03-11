@@ -103,6 +103,7 @@ func newStateWithConfigAndBlockStore(
 
 func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus bool) (css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, cleanup cleanupFunc) {
 	entropyGenerators = make([]*EntropyGenerator, nValidators)
+	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
 	configRootDirs := make([]string, 0, nValidators)
 	aeonExecUnits := make([]AeonExecUnit, nValidators)
@@ -119,7 +120,6 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 
 	if withConsensus {
 		css = make([]*consensus.State, nValidators)
-		blockStores = make([]*store.BlockStore, nValidators)
 	}
 
 	for i := 0; i < nValidators; i++ {
@@ -129,6 +129,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		configRootDirs = append(configRootDirs, thisConfig.RootDir)
 
 		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
+		blockStores[i] = store.NewBlockStore(stateDB)
 
 		// Initialise entropy channel
 		entropyChannels[i] = make(chan types.ComputedEntropy, EntropyChannelCapacity)
@@ -142,7 +143,6 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 
 		if withConsensus {
 			ensureDir(filepath.Dir(thisConfig.Consensus.WalFile()), 0700) // dir for wal
-			blockStores[i] = store.NewBlockStore(stateDB)
 			css[i] = newStateWithConfigAndBlockStore(thisConfig, state, privVals[i], stateDB)
 			css[i].SetLogger(logger.With("validator", i, "module", "consensus"))
 			css[i].SetEntropyChannel(entropyChannels[i])

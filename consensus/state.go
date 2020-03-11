@@ -976,7 +976,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	}
 	entropy := tmhash.Sum(newEntropy.GroupSignature)
 	proposer := cs.shuffledCabinet(entropy)[round]
-	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropy", newEntropy.GroupSignature, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
 	return proposer
 }
 
@@ -1000,15 +1000,16 @@ func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
 		return nil
 	}
 	seed := int64(binary.BigEndian.Uint64(entropy))
+	source := rand.NewSource(seed)
+	random := rand.New(source)
 
-	rand.Seed(seed)
-
-	// Sort validators
+	// Shuffle validators
 	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
-
-	rand.Shuffle(len(sortedValidators), func(i, j int) {
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
+	random.Shuffle(len(sortedValidators), func(i, j int) {
 		sortedValidators.Swap(i, j)
 	})
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
 	return sortedValidators
 }
 
