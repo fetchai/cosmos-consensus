@@ -46,7 +46,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		newGen.Start()
 	})
 
-	assert.True(t, newGen.entropyComputed[1] == nil)
+	assert.True(t, newGen.getLastComputedEntropyHeight() == 0)
 
 	// Give it entropy shares
 	for i := 0; i < 3; i++ {
@@ -59,7 +59,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		newGen.applyEntropyShare(&share)
 	}
 
-	assert.Eventually(t, func() bool { return newGen.entropyComputed[1] != nil }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func TestEntropyGeneratorSign(t *testing.T) {
@@ -212,14 +212,12 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		entropy := types.ComputedEntropy{Height: 0, GroupSignature: []byte("Fake signature")}
 
 		newGen.applyComputedEntropy(&entropy)
-		assert.True(t, len(newGen.entropyComputed[2]) == 0)
 		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
 	})
 	t.Run("applyEntropy height far ahead", func(t *testing.T) {
 		entropy := types.ComputedEntropy{Height: 3, GroupSignature: []byte("Fake signature")}
 
 		newGen.applyComputedEntropy(&entropy)
-		assert.True(t, len(newGen.entropyComputed[3]) == 0)
 		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
 	})
 	t.Run("applyEntropy invalid entropy", func(t *testing.T) {
@@ -232,7 +230,6 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		entropyWrong := types.ComputedEntropy{Height: 2, GroupSignature: []byte(share.SignatureShare)}
 
 		newGen.applyComputedEntropy(&entropyWrong)
-		assert.True(t, len(newGen.entropyComputed[3]) == 0)
 		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
 	})
 	t.Run("applyEntropy correct", func(t *testing.T) {
@@ -251,12 +248,11 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 			otherGen.applyEntropyShare(&share)
 		}
 
-		assert.Eventually(t, func() bool { return otherGen.entropyComputed[2] != nil }, time.Second, 10*time.Millisecond)
+		assert.Eventually(t, func() bool { return otherGen.getLastComputedEntropyHeight() >= 2 }, time.Second, 10*time.Millisecond)
 
 		entropyRight := types.ComputedEntropy{Height: 2, GroupSignature: otherGen.entropyComputed[2]}
 
 		newGen.applyComputedEntropy(&entropyRight)
-		assert.True(t, len(newGen.entropyComputed[2]) != 0)
 		assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() >= 2 }, 2*computeEntropySleepDuration, 25*time.Millisecond)
 	})
 }

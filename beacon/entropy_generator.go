@@ -230,7 +230,11 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int]types.EntropyShare {
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
-	return entropyGenerator.entropyShares[height]
+	sharesCopy := make(map[int]types.EntropyShare)
+	for key, share := range entropyGenerator.entropyShares[height] {
+		sharesCopy[key] = share.Copy()
+	}
+	return sharesCopy
 }
 
 func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) error {
