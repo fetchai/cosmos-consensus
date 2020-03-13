@@ -18,22 +18,27 @@ include tests.mk
 ###############################################################################
 
 build:
-	CGO_ENABLED=0 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
+	make build_cpp
+	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
 .PHONY: build
 
-build_c:
+build_cleveldb:
+	make build_cpp
 	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" -o $(OUTPUT) ./cmd/tendermint/
 .PHONY: build_c
 
 build_race:
+	make build_cpp
 	CGO_ENABLED=1 go build -race $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint
 .PHONY: build_race
 
 install:
-	CGO_ENABLED=0 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
+	make build_cpp
+	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint/
 .PHONY: install
 
-install_c:
+install_cleveldb:
+	make build_cpp
 	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" ./cmd/tendermint
 .PHONY: install_c
 
