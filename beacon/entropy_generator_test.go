@@ -199,6 +199,68 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	})
 }
 
+func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
+	nValidators := 3
+	state, privVals := groupTestSetup(nValidators)
+
+	// Set up non-validator
+	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+	newGen.Start()
+
+	t.Run("applyEntropy old height", func(t *testing.T) {
+		entropy := types.ComputedEntropy{Height: 0, GroupSignature: []byte("Fake signature")}
+
+		newGen.applyComputedEntropy(&entropy)
+		assert.True(t, len(newGen.entropyComputed[2]) == 0)
+		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
+	})
+	t.Run("applyEntropy height far ahead", func(t *testing.T) {
+		entropy := types.ComputedEntropy{Height: 3, GroupSignature: []byte("Fake signature")}
+
+		newGen.applyComputedEntropy(&entropy)
+		assert.True(t, len(newGen.entropyComputed[3]) == 0)
+		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
+	})
+	t.Run("applyEntropy invalid entropy", func(t *testing.T) {
+		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+
+		otherGen.sign(1)
+		share := otherGen.entropyShares[2][index]
+		entropyWrong := types.ComputedEntropy{Height: 2, GroupSignature: []byte(share.SignatureShare)}
+
+		newGen.applyComputedEntropy(&entropyWrong)
+		assert.True(t, len(newGen.entropyComputed[3]) == 0)
+		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
+	})
+	t.Run("applyEntropy correct", func(t *testing.T) {
+		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+		otherGen.Start()
+
+		for _, val := range privVals {
+			tempIndex, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
+			tempGen := testEntropyGen(state.Validators, val, tempIndex)
+			tempGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+
+			tempGen.sign(1)
+			share := tempGen.entropyShares[2][tempIndex]
+			otherGen.applyEntropyShare(&share)
+		}
+
+		assert.Eventually(t, func() bool { return otherGen.entropyComputed[2] != nil }, time.Second, 10*time.Millisecond)
+
+		entropyRight := types.ComputedEntropy{Height: 2, GroupSignature: otherGen.entropyComputed[2]}
+
+		newGen.applyComputedEntropy(&entropyRight)
+		assert.True(t, len(newGen.entropyComputed[2]) != 0)
+		assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() >= 2 }, 2*computeEntropySleepDuration, 25*time.Millisecond)
+	})
+}
+
 func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
