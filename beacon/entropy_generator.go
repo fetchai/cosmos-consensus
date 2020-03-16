@@ -44,6 +44,11 @@ type EntropyGenerator struct {
 
 	// For signing entropy messages
 	chainID string
+
+	// closed when shutting down to unblock send to full channel
+	quit chan struct{}
+	// closed when we finish shutting down
+	done chan struct{}
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
@@ -60,6 +65,8 @@ func NewEntropyGenerator(
 		Validators:                validators,
 		evsw:                      tmevents.NewEventSwitch(),
 		chainID:                   newChainID,
+		quit:                      make(chan struct{}),
+		done:                      make(chan struct{}),
 	}
 
 	es.threshold = es.Validators.Size()/2 + 1
@@ -136,6 +143,44 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 // OnStop stops event switch
 func (entropyGenerator *EntropyGenerator) OnStop() {
 	entropyGenerator.evsw.Stop()
+	close(entropyGenerator.quit)
+}
+
+// Wait waits for the computeEntropyRoutine to return.
+func (entropyGenerator *EntropyGenerator) wait() {
+	// Try to stop gracefully by waiting for routine to return
+	t := time.NewTimer(2 * computeEntropySleepDuration)
+	select {
+	case <-t.C:
+		panic(fmt.Errorf("wait timeout - deadlock in closing channel"))
+	case <-entropyGenerator.done:
+	}
+}
+
+func (entropyGenerator *EntropyGenerator) getLastComputedEntropyHeight() int64 {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
+
+	return entropyGenerator.lastComputedEntropyHeight
+}
+
+// ApplyComputedEntropy processes completed entropy from peer
+func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.ComputedEntropy) {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
+
+	entropyGenerator.Logger.Debug("applyComputedEntropy", "height", entropy.Height)
+
+	// Only process if corresponds to next entropy
+	if entropyGenerator.entropyComputed[entropy.Height] == nil && entropy.Height == entropyGenerator.lastComputedEntropyHeight+1 {
+		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
+		if entropyGenerator.aeonExecUnit.VerifyGroupSignature(message, string(entropy.GroupSignature)) {
+			entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
+		} else {
+			entropyGenerator.Logger.Error("received invalid computed entropy")
+		}
+	}
+	//TODO: Should down rate peers which send irrelevant computed entropy or invalid entropy
 }
 
 // ApplyEntropyShare processes entropy share from reactor
@@ -143,11 +188,11 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	entropyGenerator.proxyMtx.Lock()
 	defer entropyGenerator.proxyMtx.Unlock()
 
-	entropyGenerator.Logger.Debug("ApplyEntropyShare", "height", share.Height, "from", share.SignerAddress)
+	entropyGenerator.Logger.Debug("applyEntropyShare", "height", share.Height, "from", share.SignerAddress)
 	index, validator := entropyGenerator.Validators.GetByAddress(share.SignerAddress)
 	err := entropyGenerator.validInputs(share.Height, index)
 	if err != nil {
-		entropyGenerator.Logger.Debug(err.Error())
+		entropyGenerator.Logger.Debug("applyEntropyShare invalid share", "error", err.Error())
 		return
 	}
 
@@ -244,14 +289,19 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 }
 
 func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
+	onExit := func(entropyGenerator *EntropyGenerator) {
+		entropyGenerator.Logger.Info("computedEntropyRoutine exitting")
+		if entropyGenerator.computedEntropyChannel != nil {
+			close(entropyGenerator.computedEntropyChannel)
+		}
+		close(entropyGenerator.done)
+	}
+
 	for {
 
 		// Close channel and exit go routine if entropy generator is not running
 		if !entropyGenerator.IsRunning() {
-			entropyGenerator.Logger.Info("computedEntropyRoutine exitting")
-			if entropyGenerator.computedEntropyChannel != nil {
-				close(entropyGenerator.computedEntropyChannel)
-			}
+			onExit(entropyGenerator)
 			return
 		}
 
@@ -261,11 +311,20 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 
 		if haveNewEntropy {
 			// Need to unlock before dispatching to entropy channel otherwise deadlocks
+			// Note: safe to access lastComputeEntropyHeight without lock here as it is only
+			// modified within this go routine.
+			// Select is present to allow closing of channel on stopping if stuck on send
 			if entropyGenerator.computedEntropyChannel != nil {
-				entropyGenerator.computedEntropyChannel <- types.ComputedEntropy{
+				select {
+				case entropyGenerator.computedEntropyChannel <- types.ComputedEntropy{
 					Height:         entropyGenerator.lastComputedEntropyHeight,
 					GroupSignature: entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight],
+				}:
+				case <-entropyGenerator.quit:
+					onExit(entropyGenerator)
+					return
 				}
+
 			}
 
 			// Continue onto the next random value
@@ -281,9 +340,13 @@ func (entropyGenerator *EntropyGenerator) receivedEntropyShare() bool {
 
 	height := entropyGenerator.lastComputedEntropyHeight + 1
 	if entropyGenerator.entropyComputed[height] != nil {
-		entropyGenerator.Logger.Error("lastComputedEntropyHeight not updated!")
+		entropyGenerator.Logger.Info("New entropy computed", "height", height)
 		entropyGenerator.lastComputedEntropyHeight++
-		return false
+
+		// Notify peers of of new entropy height
+		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
+
+		return true
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[height-1]))

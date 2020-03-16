@@ -16,6 +16,8 @@ const (
 
 type ThresholdSignature = []byte
 
+//-----------------------------------------------------------------------------
+
 type ComputedEntropy struct {
 	Height         int64
 	GroupSignature ThresholdSignature
@@ -23,6 +25,36 @@ type ComputedEntropy struct {
 
 func (ce *ComputedEntropy) IsEmpty() bool {
 	return ce.GroupSignature == nil || len(ce.GroupSignature) == 0
+}
+
+// ValidateBasic performs basic validation.
+func (ce *ComputedEntropy) ValidateBasic() error {
+	if ce.Height <= GenesisHeight {
+		return fmt.Errorf("invalid Height")
+	}
+
+	if ce.IsEmpty() || len(ce.GroupSignature) > MaxThresholdSignatureSize {
+		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
+			MaxThresholdSignatureSize,
+			len(ce.GroupSignature),
+		)
+	}
+
+	return nil
+}
+
+// String returns a string representation of the PeerRoundState
+func (ce *ComputedEntropy) String() string {
+	return ce.StringIndented("")
+}
+
+// StringIndented returns a string representation of the PeerRoundState
+func (ce *ComputedEntropy) StringIndented(indent string) string {
+	return fmt.Sprintf(`ComputedEntropy{
+%s  %v/%v
+%s}`,
+		indent, ce.Height, ce.GroupSignature,
+		indent)
 }
 
 //-----------------------------------------------------------------------------

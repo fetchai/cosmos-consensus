@@ -563,7 +563,12 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
-func createBeaconReactor(aeonFile string, state sm.State, privValidator types.PrivValidator, beaconLogger log.Logger, fastSync bool) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
+func createBeaconReactor(
+	aeonFile string,
+	state sm.State,
+	privValidator types.PrivValidator,
+	beaconLogger log.Logger, fastSync bool,
+	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
 	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
 	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
@@ -573,7 +578,7 @@ func createBeaconReactor(aeonFile string, state sm.State, privValidator types.Pr
 	entropyGenerator.SetAeonKeys(aeonKeys)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
 
-	reactor := beacon.NewReactor(entropyGenerator, fastSync)
+	reactor := beacon.NewReactor(entropyGenerator, fastSync, blockStore)
 	reactor.SetLogger(beaconLogger)
 
 	return entropyChannel, entropyGenerator, reactor
@@ -711,7 +716,7 @@ func NewNode(config *cfg.Config,
 	beaconLogger := logger.With("module", "beacon")
 	if len(aeonKeysFile) != 0 {
 		beacon.InitialiseMcl()
-		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync)
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync, blockStore)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
 	}

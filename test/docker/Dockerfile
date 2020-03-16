@@ -6,7 +6,7 @@ RUN echo 'deb http://httpredir.debian.org/debian testing main non-free contrib' 
 # Grab deps (jq, hexdump, xxd, killall)
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
-  jq bsdmainutils vim-common psmisc netcat curl
+  jq bsdmainutils vim-common psmisc netcat curl cmake swig
 
 # Setup tendermint repo
 ENV REPO $GOPATH/src/github.com/tendermint/tendermint
@@ -27,12 +27,17 @@ RUN make install_abci
 # install Tendermint
 RUN make install
 
+ENV TEST_OUTPUT test/p2p/data
+
+RUN mkdir $TEST_OUTPUT
+RUN ./beacon/beacon_cpp/build/apps/TrustedDealer 4 3 0 $TEST_OUTPUT/
+
 RUN tendermint testnet \
         --config $REPO/test/docker/config-template.toml \
         --node-dir-prefix="mach" \
         --v=4 \
         --populate-persistent-peers=false \
-        --o=$REPO/test/p2p/data
+        --o=$REPO/$TEST_OUTPUT
 
 # Now copy in the code
 # NOTE: this will overwrite whatever is in vendor/
