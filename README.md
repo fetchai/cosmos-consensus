@@ -1,5 +1,6 @@
 # Tendermint
 
+
 ![banner](docs/tendermint-core-image.jpg)
 
 [Byzantine-Fault Tolerant](https://en.wikipedia.org/wiki/Byzantine_fault_tolerance)
