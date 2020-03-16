@@ -34,7 +34,7 @@ struct MCLInitialiser
 {
   MCLInitialiser()
   {
-    bool a{true};
+    bool a = true;
     a = was_initialised.exchange(a);
     if (!a)
     {
@@ -53,7 +53,7 @@ public:
 
   explicit PrivateKey(std::string const &pk) {
     clear();
-    bool set{false};
+    bool set = false;
     setStr(&set, pk.data());
     assert(set);
   }
@@ -72,7 +72,7 @@ public:
 
   explicit Signature(std::string const sig) {
     clear();
-    bool set{false};
+    bool set = false;
     setStr(&set, sig.data());
     assert(set);
   }
@@ -98,7 +98,7 @@ public:
 
   explicit PublicKey(std::string const &public_key) {
     clear();
-    bool set{false};
+    bool set = false;
     setStr(&set, public_key.data());
     assert(set);
   }
