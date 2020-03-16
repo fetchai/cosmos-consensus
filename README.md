@@ -1,6 +1,6 @@
 # Changes
 
-See beacon directory and consensus/state.go for main changes
+See beacon directory and consensus/state.go for main changes. Install swig c++ go interface.
 
 Get mcl submodule
 ```bash
