@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 //----------------------------------------------
 // in-process testnets
 
-func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, n int, n_start int) (
+func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, n int, nStart int) (
 	consensusReactors []*consensus.Reactor,
 	reactors []*Reactor,
 	eventBuses []*types.EventBus,
@@ -76,7 +76,7 @@ func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*E
 	}, p2p.Connect2Switches)
 
 	if css != nil {
-		for i := 0; i < n_start; i++ {
+		for i := 0; i < nStart; i++ {
 			s := css[i].GetState()
 			consensusReactors[i].SwitchToConsensus(s, 0)
 		}
