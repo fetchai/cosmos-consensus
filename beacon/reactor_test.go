@@ -178,7 +178,7 @@ func TestReactorWithConsensus(t *testing.T) {
 			}
 		}
 		return true
-	}, 3*time.Second, 100*time.Millisecond)
+	}, 5*time.Second, 100*time.Millisecond)
 }
 func TestReactorCatchupWithBlocks(t *testing.T) {
 	N := 4
@@ -199,7 +199,7 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 			}
 		}
 		return true
-	}, time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
+	}, 2*time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
 
 	// Manually delete old entropy shares for these reactors
 	for i := 0; i < N; i++ {
