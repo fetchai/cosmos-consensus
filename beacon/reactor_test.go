@@ -169,14 +169,11 @@ func TestReactorWithConsensus(t *testing.T) {
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
 	// Wait for everyone to generate 3 blocks
-	assert.Eventually(t, func() bool {
-		for i := 0; i < N; i++ {
-			if blockStores[i].LoadBlock(3) == nil {
-				return false
-			}
+	for i := 0; i < N; i++ {
+		for blockStores[i].LoadBlock(3) == nil {
+			time.Sleep(100 * time.Millisecond)
 		}
-		return true
-	}, 5*time.Second, 100*time.Millisecond)
+	}
 }
 func TestReactorCatchupWithBlocks(t *testing.T) {
 	N := 4
