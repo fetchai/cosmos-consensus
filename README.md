@@ -1,31 +1,26 @@
 # Changes
 
-See beacon directory and consensus/state.go for main changes. Swig will need to be installed for the c++ to go interface.
+See beacon directory and consensus/state.go for main changes. 
 
-Get mcl submodule
-```bash
-git submodule init
-git subdmodule update
+Install dependencies:
+```bash 
+git clone https://github.com/herumi/mcl
+cd mcl
+make install
 ```
+You will also need swig and GMP for the go-c++ interface and mcl. On Ubuntu
+```bash
+sudo apt-get libgmp-dev swig
+```
+
 To run all tests:
 ```bash
 make test
 ```
 
-
-To create a single node, which also generates entropy, first build the c++ library:
+To create a single node, which also generates entropy, run the following from the root directory
 ```bash
-cd beacon/beacon_cpp
-rm -Rf build
-mkdir build
-cd build
-cmake ..
-make
-cp lib/libmcl.a libs/libmcl.a
-```
-Then run the following from the root directory
-```bash
-CGO_ENABLED=1 go build -o build/tendermint ./cmd/tendermint/
+make build
 cd build
 ./tendermint init
 ```
@@ -36,10 +31,20 @@ cp ../node/test_key/single_validator.txt ~/.tendermint/config/entropy_key.txt
 ```
 The logs should show the node executing blocks, which contain the entropy in hex format, as well as committing state.
 
-For creating testnet with 4 validator nodes run
+For creating testnet with 4 validator nodes first build the trusted dealer executable
+```bash
+cd beacon/beacon_cpp && \
+	rm -Rf build && \
+	mkdir build && \
+	cd build && \
+	cmake ../.. && \ 
+	make TrustedDealer && \ 
+	cd ../..
+```
+Now run
 ```bash
 mkdir mytestnet
-./../beacon/beacon_cpp/build/apps/TrustedDealer 4 3 0 mytestnet/
+./../beacon/beacon_cpp/build/TrustedDealer 4 3 0 mytestnet/
 ./tendermint testnet
 ```
 This will create the required tendermint files for each node, as well as a file containing their individual outputs from the DKG.

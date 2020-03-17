@@ -1,17 +1,10 @@
-Build c++ library:
+To build the trusted dealer:
 ```bash
-cd beacon_cpp
-rm -Rf build
-mkdir build
-cd build
-cmake ..
-make
-cp lib/libmcl.a libs/libmcl.a
+cd beacon/beacon_cpp && \
+	rm -Rf build && \
+	mkdir build && \
+	cd build && \
+	cmake ../.. && \ 
+	make TrustedDealer && \ 
+	cd ../..
 ```
-
-Now build and run tests from beacon directory
-```bash
-go clean -cache
-go test
-```
-

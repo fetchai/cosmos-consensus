@@ -99,11 +99,10 @@ vagrant_test:
 	vagrant up
 	vagrant ssh -c 'make test_integrations'
 .PHONY: vagrant_test
-
 ### go tests
 test:
 	@echo "--> Running go test"
-	@go test -p 1 -v -timeout 1m $(PACKAGES)
+	@go test -p 1 -timeout 1m $(PACKAGES)
 .PHONY: test
 
 test_race:

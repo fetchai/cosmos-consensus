@@ -6,7 +6,13 @@ RUN echo 'deb http://httpredir.debian.org/debian testing main non-free contrib' 
 # Grab deps (jq, hexdump, xxd, killall)
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
-  jq bsdmainutils vim-common psmisc netcat curl cmake swig
+  jq bsdmainutils vim-common psmisc netcat curl cmake swig libgmp-dev
+
+# Install mcl
+RUN git clone --depth 1 https://github.com/herumi/mcl.git  && \
+  cd mcl && \ 
+  make install && \ 
+  ldconfig
 
 # Setup tendermint repo
 ENV REPO $GOPATH/src/github.com/tendermint/tendermint
@@ -29,8 +35,16 @@ RUN make install
 
 ENV TEST_OUTPUT test/p2p/data
 
+# Generate dkg keys
+RUN cd beacon/beacon_cpp && \
+	rm -Rf build && \
+	mkdir build && \
+	cd build && \
+	cmake ../.. && \ 
+	make TrustedDealer && \ 
+	cd ../..
 RUN mkdir $TEST_OUTPUT
-RUN ./beacon/beacon_cpp/build/apps/TrustedDealer 4 3 0 $TEST_OUTPUT/
+RUN ./beacon/beacon_cpp/build/TrustedDealer 4 3 0 $TEST_OUTPUT/
 
 RUN tendermint testnet \
         --config $REPO/test/docker/config-template.toml \
