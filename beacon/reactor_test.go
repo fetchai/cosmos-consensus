@@ -162,6 +162,9 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 }
 
 func TestReactorWithConsensus(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testing in short mode")
+	}
 	N := 4
 	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", true)
 	defer cleanup()
