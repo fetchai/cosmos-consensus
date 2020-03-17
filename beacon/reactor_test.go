@@ -155,8 +155,6 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 		msg     = cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: 1})
 	)
 
-	// we should call InitPeer here
-
 	// simulate switch calling Receive before AddPeer
 	assert.Panics(t, func() {
 		reactor.Receive(StateChannel, peer, msg)
