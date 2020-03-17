@@ -1,6 +1,7 @@
 package beacon
 
 /*
-#cgo LDFLAGS: -Lbeacon_cpp/build/libs -lCryptoMcl -lmcl
+#cgo LDFLAGS: -lmcl -lgmp
+#cgo CXXFLAGS: -fPIC -g -O2 -std=c++11
 */
 import "C"
