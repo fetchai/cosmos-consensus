@@ -188,16 +188,13 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, NStart)
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
-	// Wait for reactors that started to generate 11 rounds of entropy
+	// Wait for reactors that started to generate 5 rounds of entropy
 	entropyRounds := int64(5)
-	assert.Eventually(t, func() bool {
-		for i := 0; i < NStart; i++ {
-			if entropyGenerators[i].getLastComputedEntropyHeight() < entropyRounds-1 {
-				return false
-			}
+	for i := 0; i < NStart; i++ {
+		for entropyGenerators[i].getLastComputedEntropyHeight() < entropyRounds-1 {
+			time.Sleep(100 * time.Millisecond)
 		}
-		return true
-	}, 2*time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
+	}
 
 	// Manually delete old entropy shares for these reactors
 	for i := 0; i < N; i++ {
@@ -225,8 +222,8 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 		// set entropy channel to nil since we haven't started consensus reactor
 		entropyReactors[NStart].entropyGen.computedEntropyChannel = nil
 		entropyReactors[NStart].SwitchToConsensus(s)
-		assert.Eventually(t, func() bool {
-			return entropyGenerators[NStart].getLastComputedEntropyHeight() >= entropyRounds-1
-		}, time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
+		for entropyGenerators[NStart].getLastComputedEntropyHeight() < entropyRounds-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }
