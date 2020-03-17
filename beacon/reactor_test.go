@@ -202,9 +202,9 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 	// Manually delete old entropy shares for these reactors
 	for i := 0; i < N; i++ {
 		for round := int64(0); round < entropyRounds; round++ {
-			entropyGenerators[i].proxyMtx.Lock()
+			entropyGenerators[i].mtx.Lock()
 			delete(entropyGenerators[i].entropyShares, round)
-			entropyGenerators[i].proxyMtx.Unlock()
+			entropyGenerators[i].mtx.Unlock()
 		}
 		if i == NStart {
 			// Check that no entropy has been computed for stopped reactor
