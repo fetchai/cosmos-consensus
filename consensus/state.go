@@ -965,8 +965,10 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	if cs.computedEntropyChannel == nil {
 		return cs.Validators.GetProposer()
 	}
+	index := round
 	if round >= cs.Validators.Size() {
-		panic(fmt.Sprintf("getProposer(%v/%v), round greater than validator size %v", height, round, cs.Validators.Size()))
+		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round",  round, "validator size", cs.Validators.Size())
+		index = round % cs.Validators.Size()
 	}
 
 	// If first round of new block height then reset entropy
@@ -975,8 +977,8 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 		panic(fmt.Sprintf("getProposer(%v/%v), invalid entropy height %v", height, round, newEntropy.Height))
 	}
 	entropy := tmhash.Sum(newEntropy.GroupSignature)
-	proposer := cs.shuffledCabinet(entropy)[round]
-	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropy", newEntropy.GroupSignature, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	proposer := cs.shuffledCabinet(entropy)[index]
+	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
 	return proposer
 }
 
