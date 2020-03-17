@@ -15,19 +15,22 @@ jobs:
         go-version: 1.13
       id: go
     
-    - name: Install swig
+    - name: Install swig and gmp
       shell: bash
-      run: sudo apt-get install -y swig
+      run: sudo apt-get install -y swig libgmp-dev
+
+    - name: Install mcl
+      shell: bash
+      run: |
+        git clone --depth 1 https://github.com/herumi/mcl.git  && \
+        cd mcl && \ 
+        make install && \ 
+        ldconfig
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       
     - uses: actions/checkout@v2
-    - name: Checkout submodules
-      shell: bash
-      run: |
-        git submodule init
-        git submodule update
       
     - name: Get dependencies
       run: |
