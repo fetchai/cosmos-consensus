@@ -164,6 +164,13 @@ func (entropyGenerator *EntropyGenerator) getLastComputedEntropyHeight() int64 {
 	return entropyGenerator.lastComputedEntropyHeight
 }
 
+func (entropyGenerator *EntropyGenerator) getComputedEntropy(height int64) types.ThresholdSignature {
+	entropyGenerator.proxyMtx.Lock()
+	defer entropyGenerator.proxyMtx.Unlock()
+
+	return entropyGenerator.entropyComputed[height]
+}
+
 // ApplyComputedEntropy processes completed entropy from peer
 func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.ComputedEntropy) {
 	entropyGenerator.proxyMtx.Lock()

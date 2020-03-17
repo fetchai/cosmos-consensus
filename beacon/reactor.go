@@ -269,13 +269,16 @@ OUTER_LOOP:
 			block := beaconR.blockStore.LoadBlockMeta(nextEntropyHeight)
 			if block != nil {
 				// Send peer entropy from block store
-				beaconR.Logger.Info("gossipEntropySharesRoutine send computed entropy", "ps", ps, "height", nextEntropyHeight)
-				ce := types.ComputedEntropy{Height: nextEntropyHeight, GroupSignature: block.Header.Entropy}
-				msg := &ComputedEntropyMessage{&ce}
-				ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
+				ps.sendEntropy(nextEntropyHeight, block.Header.Entropy)
 				time.Sleep(peerGossipSleepDuration)
 				continue OUTER_LOOP
 			}
+		}
+		entropy := beaconR.entropyGen.getComputedEntropy(nextEntropyHeight)
+		if entropy != nil {
+			ps.sendEntropy(nextEntropyHeight, entropy)
+			time.Sleep(peerGossipSleepDuration)
+			continue OUTER_LOOP
 		}
 		ps.pickSendEntropyShare(nextEntropyHeight,
 			beaconR.entropyGen.getEntropyShares(nextEntropyHeight),
@@ -359,6 +362,14 @@ func (ps *PeerState) setLastComputedEntropyHeight(height int64) {
 	} else {
 		ps.logger.Debug("SetLastComputedEntropyHeight resetting to past", "peerCurrentHeight", ps.lastComputedEntropyHeight, "resetHeight", height)
 	}
+}
+
+func (ps *PeerState) sendEntropy(nextEntropyHeight int64, entropy types.ThresholdSignature) {
+	// Send peer entropy from block store
+	ps.logger.Info("sendEntropy", "ps", ps, "height", nextEntropyHeight)
+	ce := types.ComputedEntropy{Height: nextEntropyHeight, GroupSignature: entropy}
+	msg := &ComputedEntropyMessage{&ce}
+	ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
 }
 
 // pickSendEntropyShare sends all entropy shares that peer needs
