@@ -189,7 +189,7 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
 	// Wait for reactors that started to generate 11 rounds of entropy
-	entropyRounds := int64(11)
+	entropyRounds := int64(5)
 	assert.Eventually(t, func() bool {
 		for i := 0; i < NStart; i++ {
 			if entropyGenerators[i].getLastComputedEntropyHeight() < entropyRounds-1 {

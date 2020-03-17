@@ -22,7 +22,7 @@ var (
 type EntropyGenerator struct {
 	service.BaseService
 
-	proxyMtx sync.RWMutex
+	mtx sync.RWMutex
 
 	threshold                 int
 	entropyShares             map[int64]map[int]types.EntropyShare
@@ -76,8 +76,8 @@ func NewEntropyGenerator(
 
 // SetLastComputedEntropy sets the most recent entropy from catchup
 func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.ComputedEntropy) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	if entropyGenerator.entropyComputed[entropy.Height] != nil {
 		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", entropy.Height)
@@ -92,16 +92,16 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.C
 
 // SetAeonKeys sets the DKG keys for computing DRB
 func (entropyGenerator *EntropyGenerator) SetAeonKeys(aeonKeys AeonExecUnit) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	entropyGenerator.aeonExecUnit = aeonKeys
 }
 
 // SetComputedEntropyChannel sets the channel along which entropy should be dispatched
 func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<- types.ComputedEntropy) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	if entropyGenerator.computedEntropyChannel == nil {
 		entropyGenerator.computedEntropyChannel = entropyChannel
@@ -158,23 +158,23 @@ func (entropyGenerator *EntropyGenerator) wait() {
 }
 
 func (entropyGenerator *EntropyGenerator) getLastComputedEntropyHeight() int64 {
-	entropyGenerator.proxyMtx.RLock()
-	defer entropyGenerator.proxyMtx.RUnlock()
+	entropyGenerator.mtx.RLock()
+	defer entropyGenerator.mtx.RUnlock()
 
 	return entropyGenerator.lastComputedEntropyHeight
 }
 
 func (entropyGenerator *EntropyGenerator) getComputedEntropy(height int64) types.ThresholdSignature {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.RLock()
+	defer entropyGenerator.mtx.RUnlock()
 
 	return entropyGenerator.entropyComputed[height]
 }
 
 // ApplyComputedEntropy processes completed entropy from peer
 func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.ComputedEntropy) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	entropyGenerator.Logger.Debug("applyComputedEntropy", "height", entropy.Height)
 
@@ -192,8 +192,8 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.Co
 
 // ApplyEntropyShare processes entropy share from reactor
 func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.EntropyShare) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	entropyGenerator.Logger.Debug("applyEntropyShare", "height", share.Height, "from", share.SignerAddress)
 	index, validator := entropyGenerator.Validators.GetByAddress(share.SignerAddress)
@@ -228,8 +228,8 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 // GetEntropyShares gets entropy shares at a particular height
 func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int]types.EntropyShare {
-	entropyGenerator.proxyMtx.RLock()
-	defer entropyGenerator.proxyMtx.RUnlock()
+	entropyGenerator.mtx.RLock()
+	defer entropyGenerator.mtx.RUnlock()
 	sharesCopy := make(map[int]types.EntropyShare)
 	for key, share := range entropyGenerator.entropyShares[height] {
 		sharesCopy[key] = share.Copy()
@@ -254,8 +254,8 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 }
 
 func (entropyGenerator *EntropyGenerator) sign(height int64) {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	if !entropyGenerator.aeonExecUnit.CanSign() {
 		entropyGenerator.Logger.Debug("node can not sign entropy - no dkg private key")
@@ -347,8 +347,8 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 }
 
 func (entropyGenerator *EntropyGenerator) receivedEntropyShare() bool {
-	entropyGenerator.proxyMtx.Lock()
-	defer entropyGenerator.proxyMtx.Unlock()
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
 
 	height := entropyGenerator.lastComputedEntropyHeight + 1
 	if entropyGenerator.entropyComputed[height] != nil {
