@@ -102,11 +102,7 @@ vagrant_test:
 ### go tests
 test:
 	@echo "--> Running go test"
-<<<<<<< HEAD
-	@go test -p 1 -timeout 1m $(PACKAGES)
-=======
 	@go test -short -p 1 -timeout 1m $(PACKAGES)
->>>>>>> entropy
 .PHONY: test
 
 test_race:
