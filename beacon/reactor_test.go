@@ -112,7 +112,7 @@ func TestReactorEntropy(t *testing.T) {
 	// Wait for everyone to generate 3 rounds of entropy
 	assert.Eventually(t, func() bool {
 		for i := 0; i < N; i++ {
-			if entropyGenerators[i].entropyComputed[3] != nil {
+			if entropyGenerators[i].getLastComputedEntropyHeight() < 3 {
 				return false
 			}
 		}
@@ -162,6 +162,9 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 }
 
 func TestReactorWithConsensus(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testing in short mode")
+	}
 	N := 4
 	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", true)
 	defer cleanup()
@@ -169,16 +172,16 @@ func TestReactorWithConsensus(t *testing.T) {
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
 	// Wait for everyone to generate 3 blocks
-	assert.Eventually(t, func() bool {
-		for i := 0; i < N; i++ {
-			if blockStores[i].LoadBlock(3) == nil {
-				return false
-			}
+	for i := 0; i < N; i++ {
+		for blockStores[i].LoadBlock(3) == nil {
+			time.Sleep(100 * time.Millisecond)
 		}
-		return true
-	}, 5*time.Second, 100*time.Millisecond)
+	}
 }
 func TestReactorCatchupWithBlocks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testing in short mode")
+	}
 	N := 4
 	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", true)
 	defer cleanup()
@@ -188,25 +191,24 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, NStart)
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
-	// Wait for reactors that started to generate 11 rounds of entropy
-	entropyRounds := int64(11)
-	assert.Eventually(t, func() bool {
-		for i := 0; i < NStart; i++ {
-			if entropyGenerators[i].entropyComputed[entropyRounds-1] == nil {
-				return false
-			}
+	// Wait for reactors that started to generate 5 rounds of entropy
+	entropyRounds := int64(5)
+	for i := 0; i < NStart; i++ {
+		for entropyGenerators[i].getLastComputedEntropyHeight() < entropyRounds-1 {
+			time.Sleep(100 * time.Millisecond)
 		}
-		return true
-	}, 2*time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
+	}
 
 	// Manually delete old entropy shares for these reactors
 	for i := 0; i < N; i++ {
 		for round := int64(0); round < entropyRounds; round++ {
+			entropyGenerators[i].mtx.Lock()
 			delete(entropyGenerators[i].entropyShares, round)
-			if i == NStart && round > 0 {
-				// Check that no entropy has been computed for stopped reactor
-				assert.True(t, entropyGenerators[i].entropyComputed[round] == nil)
-			}
+			entropyGenerators[i].mtx.Unlock()
+		}
+		if i == NStart {
+			// Check that no entropy has been computed for stopped reactor
+			assert.True(t, entropyGenerators[i].getLastComputedEntropyHeight() == 0)
 		}
 		if i != NStart && NStart < N {
 			// Check that peer state from stopped node is at 0
@@ -220,15 +222,11 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 	// Now start remaining reactor and wait for it to catch up
 	if NStart < N {
 		s := css[NStart].GetState()
-		entropyReactors[NStart].SwitchToConsensus(s)
 		// set entropy channel to nil since we haven't started consensus reactor
 		entropyReactors[NStart].entropyGen.computedEntropyChannel = nil
-		assert.Eventually(t, func() bool {
-			return entropyGenerators[NStart].entropyComputed[entropyRounds-1] != nil
-		}, time.Duration(entropyRounds)*time.Second, 500*time.Millisecond)
-		// Wait for computeEntropyRoutine to recognise the change
-		assert.Eventually(t, func() bool {
-			return entropyGenerators[NStart].getLastComputedEntropyHeight() >= entropyRounds-1
-		}, 2*computeEntropySleepDuration, 10*time.Millisecond)
+		entropyReactors[NStart].SwitchToConsensus(s)
+		for entropyGenerators[NStart].getLastComputedEntropyHeight() < entropyRounds-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }
