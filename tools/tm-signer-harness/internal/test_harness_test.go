@@ -66,7 +66,8 @@ const (
 		"name": ""
 		}
 	],
-	"app_hash": ""
+	"app_hash": "",
+	"entropy" : "Fetch.ai Test Genesis Entropy"
 }`
 
 	defaultConnDeadline = 100

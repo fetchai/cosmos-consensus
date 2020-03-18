@@ -118,6 +118,7 @@ func makeState(nVals, height int) (sm.State, dbm.DB, map[string]types.PrivValida
 		ChainID:    chainID,
 		Validators: vals,
 		AppHash:    nil,
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	})
 
 	stateDB := dbm.NewMemDB()
@@ -241,6 +242,7 @@ func randomGenesisDoc() *types.GenesisDoc {
 			},
 		},
 		ConsensusParams: types.DefaultConsensusParams(),
+		Entropy: "Fetch.ai Test Genesis Entropy",
 	}
 }
 

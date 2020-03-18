@@ -1,0 +1,4 @@
+
+[submodule "beacon/beacon_cpp/3rd/mcl"]
+	path = beacon/beacon_cpp/3rd/mcl
+	url = https://github.com/herumi/mcl

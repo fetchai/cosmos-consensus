@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -17,11 +18,12 @@ import (
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/beacon"
 	cfg "github.com/tendermint/tendermint/config"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/bits"
-	"github.com/tendermint/tendermint/libs/bytes"
+	lbytes "github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
@@ -57,7 +59,7 @@ func startConsensusNet(t *testing.T, css []*State, n int) (
 		require.NoError(t, err)
 		blocksSubs = append(blocksSubs, blocksSub)
 
-		if css[i].state.LastBlockHeight == 0 { //simulate handle initChain in handshake
+		if css[i].GetLastHeight() == 0 { //simulate handle initChain in handshake
 			sm.SaveState(css[i].blockExec.DB(), css[i].state)
 		}
 	}
@@ -517,6 +519,84 @@ func TestReactorWithTimeoutCommit(t *testing.T) {
 	}, css)
 }
 
+func TestReactorBeaconProposerSelection(t *testing.T) {
+	nPeers := 7
+	nVals := 4
+	css, _, _, cleanup := randConsensusNetWithPeers(
+		nVals,
+		nPeers,
+		"consensus_beacon_proposer_test",
+		newMockTickerFunc(true),
+		newPersistentKVStoreWithPath)
+
+	defer cleanup()
+	logger := log.TestingLogger()
+
+	// Use real group signatures values
+	groupSignature1 := []byte("1 7873313386698848475756573850531392715840520935144546097835260902988625459552 12787205745550821930733732970390215325105641782607642423456482935759264033467")
+	groupSignature2 := []byte("1 15951697609459622597105744223230358849504782220568786641015454867872032611472 14353137842603717917051885735071660967693206175132541278910890240006048177856")
+	groupSignature3 := []byte("1 13811122001628782012171469714772422121658900189053977501472214774144709280711 14045330214060098761995214471840213571524556401331556929977416023497482371798")
+
+	// Create entropy channels and put channels into each state
+	computedEntropyChannels := make([]chan types.ComputedEntropy, nPeers)
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] = make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+		css[e].SetEntropyChannel(computedEntropyChannels[e])
+	}
+
+	// Start reactors while entropy channel is empty
+	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, nPeers)
+	defer stopConsensusNet(logger, reactors, eventBuses)
+
+	// map of active validators
+	activeVals := make(map[string]struct{})
+	for i := 0; i < nVals; i++ {
+		addr := css[i].privValidator.GetPubKey().Address()
+		activeVals[string(addr)] = struct{}{}
+	}
+
+	// Send entropy for first block
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: groupSignature1}
+	}
+
+	// wait till everyone makes block 1
+	timeoutWaitGroup(t, nPeers, func(j int) {
+		<-blocksSubs[j].Out()
+	}, css)
+	// Sleep so that everyone gets a chance to update their state with the new block
+	time.Sleep(10 * time.Millisecond)
+
+	// Send entropy for next block
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: groupSignature2}
+	}
+
+	// Test that entropy in updated state
+	for k := 0; k < nPeers; k++ {
+		css[k].mtx.Lock()
+		assert.True(t, css[k].state.LastBlockHeight == 1)
+		assert.True(t, bytes.Equal(css[k].state.LastComputedEntropy, groupSignature1))
+		css[k].mtx.Unlock()
+	}
+
+	// Add extra entropy and close channels
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: groupSignature3}
+		close(computedEntropyChannels[e])
+	}
+
+	// wait till everyone makes block 2
+	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
+	time.Sleep(10 * time.Millisecond)
+	for l := 0; l < nPeers; l++ {
+		css[l].mtx.Lock()
+		assert.True(t, css[l].state.LastBlockHeight == 2)
+		assert.True(t, bytes.Equal(css[l].state.LastComputedEntropy, groupSignature2))
+		css[l].mtx.Unlock()
+	}
+}
+
 func waitForAndValidateBlock(
 	t *testing.T,
 	n int,
@@ -851,10 +931,10 @@ func TestVoteSetMaj23MessageValidateBasic(t *testing.T) {
 
 	validBlockID := types.BlockID{}
 	invalidBlockID := types.BlockID{
-		Hash: bytes.HexBytes{},
+		Hash: lbytes.HexBytes{},
 		PartsHeader: types.PartSetHeader{
 			Total: -1,
-			Hash:  bytes.HexBytes{},
+			Hash:  lbytes.HexBytes{},
 		},
 	}
 
@@ -899,10 +979,10 @@ func TestVoteSetBitsMessageValidateBasic(t *testing.T) {
 		{func(msg *VoteSetBitsMessage) { msg.Type = 0x03 }, "invalid Type"},
 		{func(msg *VoteSetBitsMessage) {
 			msg.BlockID = types.BlockID{
-				Hash: bytes.HexBytes{},
+				Hash: lbytes.HexBytes{},
 				PartsHeader: types.PartSetHeader{
 					Total: -1,
-					Hash:  bytes.HexBytes{},
+					Hash:  lbytes.HexBytes{},
 				},
 			}
 		}, "wrong BlockID: wrong PartsHeader: negative Total"},
