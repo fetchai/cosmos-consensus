@@ -21,9 +21,9 @@ jobs:
 
     - name: Install mcl
       run: |
-        git clone --depth 1 https://github.com/herumi/mcl && /
-        cd mcl && /
-        make install && /
+        git clone --depth 1 https://github.com/herumi/mcl
+        cd mcl 
+        make install
         ldconfig 
 
     - name: Check out code into the Go module directory
