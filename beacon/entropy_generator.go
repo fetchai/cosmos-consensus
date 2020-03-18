@@ -174,7 +174,7 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.Co
 	// Only process if corresponds to next entropy
 	if entropyGenerator.entropyComputed[entropy.Height] == nil && entropy.Height == entropyGenerator.lastComputedEntropyHeight+1 {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-		if entropyGenerator.aeonExecUnit.VerifyGroupSignature(message, string(entropy.GroupSignature)) {
+		if entropyGenerator.aeonDet.aeonExecUnit.VerifyGroupSignature(message, string(entropy.GroupSignature)) {
 			entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
 		} else {
 			entropyGenerator.Logger.Error("received invalid computed entropy")
