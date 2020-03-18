@@ -23,7 +23,7 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/herumi/mcl
         cd mcl 
-        make install
+        sudo make install
         ldconfig 
 
     - name: Check out code into the Go module directory
