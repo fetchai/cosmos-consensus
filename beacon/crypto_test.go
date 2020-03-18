@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tendermint/tendermint/types"
 )
 
 func TestCryptoSign(t *testing.T) {
@@ -31,11 +32,13 @@ func TestCryptoSign(t *testing.T) {
 
 		assert.True(t, aeonExecUnitTemp.CanSign())
 		signatureTemp := aeonExecUnitTemp.Sign(message)
+		assert.True(t, len([]byte(signatureTemp)) <= types.MaxEntropyShareSize)
 		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i))
 
 		signatureShares.Set(int(i), signatureTemp)
 	}
 	groupSignature := aeonExecUnit.ComputeGroupSignature(signatureShares)
+	assert.True(t, len([]byte(groupSignature)) <= types.MaxThresholdSignatureSize)
 	assert.True(t, aeonExecUnit.VerifyGroupSignature(message, groupSignature))
 }
 

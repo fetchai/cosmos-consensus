@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <map>
 #include <vector>
+#include <string>
 
 namespace fetch {
 namespace crypto {

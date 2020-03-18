@@ -945,10 +945,6 @@ func (cs *State) enterPropose(height int64, round int) {
 	logger.Debug("This node is a validator")
 
 	nextProposer := cs.getProposer(height, round)
-	if nextProposer == nil {
-		panic("No next validator!")
-		return
-	}
 	if bytes.Equal(nextProposer.Address, address) {
 		logger.Info("enterPropose: Our turn to propose",
 			"proposer",
@@ -969,19 +965,20 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	if cs.computedEntropyChannel == nil {
 		return cs.Validators.GetProposer()
 	}
+	index := round
 	if round >= cs.Validators.Size() {
-		panic(fmt.Sprintf("getProposer(%v/%v), round greater than validator size %v", height, round, cs.Validators.Size()))
+		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round",  round, "validator size", cs.Validators.Size())
+		index = round % cs.Validators.Size()
 	}
 
 	// If first round of new block height then reset entropy
 	newEntropy := cs.getNewEntropy()
 	if newEntropy.Height != height {
-		cs.Logger.Error("Invalid entropy", "fetch height", newEntropy.Height, "state height", height)
-		return nil
+		panic(fmt.Sprintf("getProposer(%v/%v), invalid entropy height %v", height, round, newEntropy.Height))
 	}
 	entropy := tmhash.Sum(newEntropy.GroupSignature)
-	proposer := cs.shuffledCabinet(entropy)[round]
-	cs.Logger.Debug("getProposer with entropy", "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	proposer := cs.shuffledCabinet(entropy)[index]
+	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
 	return proposer
 }
 
@@ -989,7 +986,11 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 // catch up via WAL. Entropy is reset to empty at start and after every committed block.
 func (cs *State) getNewEntropy() types.ComputedEntropy {
 	if cs.newEntropy.IsEmpty() {
-		cs.newEntropy = <-cs.computedEntropyChannel
+		newEntropy := <-cs.computedEntropyChannel
+		if err := newEntropy.ValidateBasic(); err != nil {
+			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
+		}
+		cs.newEntropy = newEntropy
 	}
 	return cs.newEntropy
 }
@@ -1001,15 +1002,16 @@ func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
 		return nil
 	}
 	seed := int64(binary.BigEndian.Uint64(entropy))
+	source := rand.NewSource(seed)
+	random := rand.New(source)
 
-	rand.Seed(seed)
-
-	// Sort validators
+	// Shuffle validators
 	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
-
-	rand.Shuffle(len(sortedValidators), func(i, j int) {
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
+	random.Shuffle(len(sortedValidators), func(i, j int) {
 		sortedValidators.Swap(i, j)
 	})
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
 	return sortedValidators
 }
 

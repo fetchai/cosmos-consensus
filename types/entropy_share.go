@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/tendermint/tendermint/crypto"
@@ -9,13 +8,15 @@ import (
 
 // For event switch in entropy generator
 const (
-	EventComputedEntropy = "EventComputedEntropy"
-	// TODO: Check this is ok with mcl
-	maxEntropyShareSize = 256
-	GenesisHeight       = int64(0)
+	EventComputedEntropy      = "EventComputedEntropy"
+	MaxEntropyShareSize       = 256
+	MaxThresholdSignatureSize = 256
+	GenesisHeight             = int64(0)
 )
 
 type ThresholdSignature = []byte
+
+//-----------------------------------------------------------------------------
 
 type ComputedEntropy struct {
 	Height         int64
@@ -24,6 +25,36 @@ type ComputedEntropy struct {
 
 func (ce *ComputedEntropy) IsEmpty() bool {
 	return ce.GroupSignature == nil || len(ce.GroupSignature) == 0
+}
+
+// ValidateBasic performs basic validation.
+func (ce *ComputedEntropy) ValidateBasic() error {
+	if ce.Height <= GenesisHeight {
+		return fmt.Errorf("invalid Height")
+	}
+
+	if ce.IsEmpty() || len(ce.GroupSignature) > MaxThresholdSignatureSize {
+		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
+			MaxThresholdSignatureSize,
+			len(ce.GroupSignature),
+		)
+	}
+
+	return nil
+}
+
+// String returns a string representation of the PeerRoundState
+func (ce *ComputedEntropy) String() string {
+	return ce.StringIndented("")
+}
+
+// StringIndented returns a string representation of the PeerRoundState
+func (ce *ComputedEntropy) StringIndented(indent string) string {
+	return fmt.Sprintf(`ComputedEntropy{
+%s  %v/%v
+%s}`,
+		indent, ce.Height, ce.GroupSignature,
+		indent)
 }
 
 //-----------------------------------------------------------------------------
@@ -57,7 +88,7 @@ type EntropyShare struct {
 // ValidateBasic performs basic validation.
 func (entropy *EntropyShare) ValidateBasic() error {
 	if entropy.Height < GenesisHeight+1 {
-		return errors.New("invalid Height")
+		return fmt.Errorf("invalid Height")
 	}
 
 	if len(entropy.SignerAddress) != crypto.AddressSize {
@@ -66,26 +97,32 @@ func (entropy *EntropyShare) ValidateBasic() error {
 			len(entropy.SignerAddress),
 		)
 	}
-	if len(entropy.SignatureShare) == 0 {
-		return errors.New("signature is missing")
+	if len(entropy.SignatureShare) == 0 || len(entropy.SignatureShare) > MaxEntropyShareSize {
+		return fmt.Errorf("expected SignatureShare size be max %d bytes, got %d bytes",
+			MaxEntropyShareSize,
+			len(entropy.SignatureShare),
+		)
 	}
-	if len(entropy.SignatureShare) > maxEntropyShareSize {
-		return fmt.Errorf("signature is too big (max: %d)", maxEntropyShareSize)
+	if len(entropy.Signature) == 0 || len(entropy.Signature) > MaxThresholdSignatureSize {
+		return fmt.Errorf("expected Signature size be max %d bytes, got %d bytes",
+			MaxThresholdSignatureSize,
+			len(entropy.Signature),
+		)
 	}
 	return nil
 }
 
-// String returns a string representation of the PeerRoundState
+// String returns a string representation of EntropyShare
 func (entropy EntropyShare) String() string {
 	return entropy.StringIndented("")
 }
 
-// StringIndented returns a string representation of the PeerRoundState
+// StringIndented returns a string representation of the EntropyShare
 func (entropy EntropyShare) StringIndented(indent string) string {
 	return fmt.Sprintf(`EntropySignatureShare{
-%s  %v/%v/%v
+%s  %v/%v/%v%v
 %s}`,
-		indent, entropy.Height, entropy.SignerAddress, entropy.SignatureShare,
+		indent, entropy.Height, entropy.SignerAddress, entropy.SignatureShare, entropy.Signature,
 		indent)
 }
 

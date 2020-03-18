@@ -59,7 +59,7 @@ func startConsensusNet(t *testing.T, css []*State, n int) (
 		require.NoError(t, err)
 		blocksSubs = append(blocksSubs, blocksSub)
 
-		if css[i].state.LastBlockHeight == 0 { //simulate handle initChain in handshake
+		if css[i].GetLastHeight() == 0 { //simulate handle initChain in handshake
 			sm.SaveState(css[i].blockExec.DB(), css[i].state)
 		}
 	}
@@ -542,10 +542,9 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 	for e := 0; e < nPeers; e++ {
 		computedEntropyChannels[e] = make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 		css[e].SetEntropyChannel(computedEntropyChannels[e])
-
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: groupSignature1,}
 	}
 
+	// Start reactors while entropy channel is empty
 	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, nPeers)
 	defer stopConsensusNet(logger, reactors, eventBuses)
 
@@ -554,6 +553,11 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 	for i := 0; i < nVals; i++ {
 		addr := css[i].privValidator.GetPubKey().Address()
 		activeVals[string(addr)] = struct{}{}
+	}
+
+	// Send entropy for first block
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: groupSignature1}
 	}
 
 	// wait till everyone makes block 1
@@ -562,77 +566,35 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 	}, css)
 	// Sleep so that everyone gets a chance to update their state with the new block
 	time.Sleep(10 * time.Millisecond)
-	// Test that entropy in updated state
-	for k := 0; k < nPeers; k++ {
-		assert.True(t, css[k].state.LastBlockHeight == 1)
-		assert.True(t, bytes.Equal(css[k].state.LastComputedEntropy, groupSignature1))
-	}
 
 	// Send entropy for next block
 	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: groupSignature2,}
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: groupSignature2}
+	}
+
+	// Test that entropy in updated state
+	for k := 0; k < nPeers; k++ {
+		css[k].mtx.Lock()
+		assert.True(t, css[k].state.LastBlockHeight == 1)
+		assert.True(t, bytes.Equal(css[k].state.LastComputedEntropy, groupSignature1))
+		css[k].mtx.Unlock()
+	}
+
+	// Add extra entropy and close channels
+	for e := 0; e < nPeers; e++ {
+		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: groupSignature3}
+		close(computedEntropyChannels[e])
 	}
 
 	// wait till everyone makes block 2
 	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
 	time.Sleep(10 * time.Millisecond)
 	for l := 0; l < nPeers; l++ {
+		css[l].mtx.Lock()
 		assert.True(t, css[l].state.LastBlockHeight == 2)
 		assert.True(t, bytes.Equal(css[l].state.LastComputedEntropy, groupSignature2))
+		css[l].mtx.Unlock()
 	}
-	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: groupSignature3,}
-	}
-}
-
-func TestReactorDelayedBeaconProposerSelection(t *testing.T) {
-	nPeers := 7
-	nVals := 4
-	css, _, _, cleanup := randConsensusNetWithPeers(
-		nVals,
-		nPeers,
-		"consensus_delayed_beacon_proposer_test",
-		newMockTickerFunc(true),
-		newPersistentKVStoreWithPath)
-
-	defer cleanup()
-	logger := log.TestingLogger()
-
-	// Create entropy channels and put channels into each state
-	computedEntropyChannels := make([]chan types.ComputedEntropy, nPeers)
-	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] = make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
-		css[e].SetEntropyChannel(computedEntropyChannels[e])
-	}
-
-	// Start reactors and calls state.getProposer while entropy channel is empty
-	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, nPeers)
-	defer stopConsensusNet(logger, reactors, eventBuses)
-
-	// map of active validators
-	activeVals := make(map[string]struct{})
-	for i := 0; i < nVals; i++ {
-		addr := css[i].privValidator.GetPubKey().Address()
-		activeVals[string(addr)] = struct{}{}
-	}
-
-	// Entropy arrives in channel delayed
-	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0,0,0,0,1,2,3,4},}
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0,0,0,0,5,6,7,8},}
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 3, GroupSignature: []byte{1,2,3,4,5,6,7,8},}
-		computedEntropyChannels[e] <- types.ComputedEntropy{Height: 4, GroupSignature: []byte{5,6,7,8,5,6,7,8},}
-	}
-
-	// wait till everyone makes block 1
-	timeoutWaitGroup(t, nPeers, func(j int) {
-		<-blocksSubs[j].Out()
-	}, css)
-
-	// wait till everyone makes block 2
-	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
-	// wait till everyone makes block 3
-	waitForAndValidateBlock(t, nPeers, activeVals, blocksSubs, css)
 }
 
 func waitForAndValidateBlock(
