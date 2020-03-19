@@ -129,5 +129,19 @@ bool AeonExecUnit::CanSign() const {
     return !aeon_keys_.private_key.empty();
 }
 
+bool AeonExecUnit::CheckIndex(uint64_t index) const {
+  if (index >= aeon_keys_.public_key_shares.size()) {
+    return false;
+  }
+  mcl::PrivateKey private_key{aeon_keys_.private_key};
+  mcl::PublicKey public_key{aeon_keys_.public_key_shares[index]};
+  mcl::Generator generator{generator_};
+
+  mcl::PublicKey check_public_key{generator, private_key};
+
+  return check_public_key == public_key;
+}
+
+
 }  // namespace crypto
 }  // namespace fetch
