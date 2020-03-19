@@ -32,7 +32,11 @@ func NewAeonDetails(
 			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators"))
 		}
 		if !aeonKeys.CheckIndex(uint64(index)) {
-			panic(fmt.Errorf("aeonDetails has DKG keys not matching validator index"))
+			i := 0
+			for !aeonKeys.CheckIndex(uint64(i)) && i < validators.Size() {
+				i++
+			}
+			panic(fmt.Errorf("aeonDetails has DKG keys index %v not matching validator index %v", i, index))
 		}
 	}
 	ad := &aeonDetails{
