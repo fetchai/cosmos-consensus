@@ -50,6 +50,7 @@ public:
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature);
 
   bool CanSign() const;
+  bool CheckIndex(uint64_t index) const;
 
 private:
   DKGKeyInformation aeon_keys_;
