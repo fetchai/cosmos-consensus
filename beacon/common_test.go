@@ -3,7 +3,6 @@ package beacon
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
@@ -101,7 +100,7 @@ func newStateWithConfigAndBlockStore(
 	return cs
 }
 
-func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus bool) (css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, cleanup cleanupFunc) {
+func randBeaconNet(nValidators int, testName string) (entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, cleanup cleanupFunc) {
 	entropyGenerators = make([]*EntropyGenerator, nValidators)
 	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
@@ -117,10 +116,6 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		panic(fmt.Errorf("Invalid number of validators"))
 	}
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
-
-	if withConsensus {
-		css = make([]*consensus.State, nValidators)
-	}
 
 	for i := 0; i < nValidators; i++ {
 		stateDB := dbm.NewMemDB() // each state needs its own db
@@ -140,15 +135,8 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		entropyGenerators[i].SetLastComputedEntropy(types.ComputedEntropy{Height: types.GenesisHeight, GroupSignature: state.LastComputedEntropy})
 		entropyGenerators[i].SetAeonDetails(aeonDetails)
 		entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
-
-		if withConsensus {
-			ensureDir(filepath.Dir(thisConfig.Consensus.WalFile()), 0700) // dir for wal
-			css[i] = newStateWithConfigAndBlockStore(thisConfig, state, privVals[i], stateDB)
-			css[i].SetLogger(logger.With("validator", i, "module", "consensus"))
-			css[i].SetEntropyChannel(entropyChannels[i])
-		}
 	}
-	return css, entropyGenerators, blockStores, func() {
+	return entropyGenerators, blockStores, func() {
 		for _, dir := range configRootDirs {
 			os.RemoveAll(dir)
 		}

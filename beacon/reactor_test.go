@@ -1,14 +1,11 @@
 package beacon
 
 import (
-	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/mock"
@@ -28,71 +25,28 @@ func TestMain(m *testing.M) {
 //----------------------------------------------
 // in-process testnets
 
-func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, n int, nStart int) (
-	consensusReactors []*consensus.Reactor,
-	reactors []*Reactor,
-	eventBuses []*types.EventBus,
-) {
-	reactors = make([]*Reactor, n)
-	blocksSubs := make([]types.Subscription, 0)
-
-	if css != nil {
-		consensusReactors = make([]*consensus.Reactor, n)
-		eventBuses = make([]*types.EventBus, n)
-	}
+func startBeaconNet(t *testing.T, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, n int, nStart int) []*Reactor {
+	reactors := make([]*Reactor, n)
 
 	for i := 0; i < n; i++ {
 		fastSync := false
-		if css != nil || i >= nStart {
+		if i >= nStart {
 			fastSync = true
 		}
 		reactors[i] = NewReactor(entropyGenerators[i], fastSync, blockStores[i])
 		reactors[i].SetLogger(entropyGenerators[i].Logger)
-
-		if css != nil {
-			consensusReactors[i] = consensus.NewReactor(css[i], true) // so we dont start the consensus states
-			consensusReactors[i].SetLogger(css[i].Logger)
-
-			// eventBus is already started with the cs
-			eventBuses[i] = types.NewEventBus()
-			eventBuses[i].SetLogger(log.TestingLogger().With("module", "events"))
-			eventBuses[i].Start()
-			css[i].SetEventBus(eventBuses[i])
-			consensusReactors[i].SetEventBus(eventBuses[i])
-
-			blocksSub, err := eventBuses[i].Subscribe(context.Background(), testSubscriber, types.EventQueryNewBlock)
-			require.NoError(t, err)
-			blocksSubs = append(blocksSubs, blocksSub)
-		}
 	}
 	// make connected switches and start all reactors
 	p2p.MakeConnectedSwitches(config.P2P, n, func(i int, s *p2p.Switch) *p2p.Switch {
 		s.AddReactor("BEACON", reactors[i])
-		if css != nil {
-			s.AddReactor("CONSENSUS", consensusReactors[i])
-		}
 		return s
 	}, p2p.Connect2Switches)
 
-	if css != nil {
-		for i := 0; i < nStart; i++ {
-			s := css[i].GetState()
-			consensusReactors[i].SwitchToConsensus(s, 0)
-		}
-	}
-
-	return consensusReactors, reactors, eventBuses
+	return reactors
 }
 
-func stopBeaconNet(logger log.Logger, consensusReactors []*consensus.Reactor, eventBuses []*types.EventBus, reactors []*Reactor) {
+func stopBeaconNet(logger log.Logger, reactors []*Reactor) {
 	logger.Info("stopBeaconNet", "n", len(reactors))
-
-	if eventBuses != nil {
-		for i, b := range eventBuses {
-			logger.Info("stopConsensusNet: Stopping eventBus", "i", i)
-			b.Stop()
-		}
-	}
 
 	for i, r := range reactors {
 		logger.Info("stopBeaconNet: Stopping Switch", "i", i)
@@ -103,10 +57,10 @@ func stopBeaconNet(logger log.Logger, consensusReactors []*consensus.Reactor, ev
 
 func TestReactorEntropy(t *testing.T) {
 	N := 4
-	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", false)
+	entropyGenerators, blockStores, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
-	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
-	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
+	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
 	// Wait for everyone to generate 3 rounds of entropy
 	assert.Eventually(t, func() bool {
@@ -120,11 +74,11 @@ func TestReactorEntropy(t *testing.T) {
 }
 
 func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
-	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(1, "beacon_reactor_test", false)
+	entropyGenerators, blockStores, cleanup := randBeaconNet(1, "beacon_reactor_test")
 	defer cleanup()
 	N := len(entropyGenerators)
-	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
-	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
+	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
 	var (
 		reactor = entropyReactors[0]
@@ -142,11 +96,11 @@ func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
 }
 
 func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
-	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(1, "beacon_reactor_test", false)
+	entropyGenerators, blockStores, cleanup := randBeaconNet(1, "beacon_reactor_test")
 	defer cleanup()
 	N := len(entropyGenerators)
-	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
-	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
+	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, N)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
 	var (
 		reactor = entropyReactors[0]
@@ -162,13 +116,13 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 
 func TestReactorCatchupWithComputedEntropy(t *testing.T) {
 	N := 4
-	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", false)
+	entropyGenerators, blockStores, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
 
 	// Start all beacon reactors except one
 	NStart := N - 1
-	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, NStart)
-	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
+	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, NStart)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
 	// Wait for reactors that started to generate 5 rounds of entropy
 	entropyRounds := int64(5)
@@ -200,7 +154,6 @@ func TestReactorCatchupWithComputedEntropy(t *testing.T) {
 
 	// Now start remaining reactor and wait for it to catch up
 	if NStart < N {
-
 		s := sm.State{
 			LastBlockHeight:     types.GenesisHeight,
 			LastComputedEntropy: entropyGenerators[NStart].getComputedEntropy(types.GenesisHeight),
@@ -216,13 +169,13 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 		t.Skip("skipping testing in short mode")
 	}
 	N := 4
-	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", true)
+	entropyGenerators, blockStores, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
 
 	// Start all beacon reactors except one
 	NStart := N - 1
-	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, NStart)
-	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
+	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, NStart)
+	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
 
 	// Wait for reactors that started to generate 5 rounds of entropy
 	entropyRounds := int64(5)
@@ -237,6 +190,7 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 		for round := int64(0); round < entropyRounds; round++ {
 			entropyGenerators[i].mtx.Lock()
 			delete(entropyGenerators[i].entropyShares, round)
+			delete(entropyGenerators[i].entropyComputed, round)
 			entropyGenerators[i].mtx.Unlock()
 		}
 		if i == NStart {
@@ -254,12 +208,36 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 
 	// Now start remaining reactor and wait for it to catch up
 	if NStart < N {
-		s := css[NStart].GetState()
-		// set entropy channel to nil since we haven't started consensus reactor
-		entropyReactors[NStart].entropyGen.computedEntropyChannel = nil
+		s := sm.State{
+			LastBlockHeight:     types.GenesisHeight,
+			LastComputedEntropy: entropyGenerators[NStart].getComputedEntropy(types.GenesisHeight),
+		}
 		entropyReactors[NStart].SwitchToConsensus(s)
 		for entropyGenerators[NStart].getLastComputedEntropyHeight() < entropyRounds-1 {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+}
+
+// make a Commit with a single vote containing just the height and a timestamp
+func makeTestCommit(height int64, timestamp time.Time) *types.Commit {
+	commitSigs := []types.CommitSig{{
+		BlockIDFlag:      types.BlockIDFlagCommit,
+		ValidatorAddress: []byte("ValidatorAddress"),
+		Timestamp:        timestamp,
+		Signature:        []byte("Signature"),
+	}}
+	return types.NewCommit(height, 0, types.BlockID{}, commitSigs)
+}
+
+func makeTxs(height int64) (txs []types.Tx) {
+	for i := 0; i < 10; i++ {
+		txs = append(txs, types.Tx([]byte{byte(height), byte(i)}))
+	}
+	return txs
+}
+
+func makeBlock(height int64, state sm.State, lastCommit *types.Commit) *types.Block {
+	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, nil, state.Validators.GetProposer().Address)
+	return block
 }
