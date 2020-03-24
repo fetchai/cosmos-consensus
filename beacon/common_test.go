@@ -100,13 +100,12 @@ func newStateWithConfigAndBlockStore(
 	return cs
 }
 
-func randBeaconNet(nValidators int, testName string) (entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, cleanup cleanupFunc) {
+func randBeaconNet(nValidators int, testName string) (entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, state sm.State, cleanup cleanupFunc) {
 	entropyGenerators = make([]*EntropyGenerator, nValidators)
 	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
 	configRootDirs := make([]string, 0, nValidators)
 	aeonExecUnits := make([]AeonExecUnit, nValidators)
-	entropyChannels := make([]chan types.ComputedEntropy, nValidators)
 
 	if nValidators == 4 {
 		aeonExecUnits = setCrypto(nValidators)
@@ -117,6 +116,11 @@ func randBeaconNet(nValidators int, testName string) (entropyGenerators []*Entro
 	}
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 
+	state, err := sm.MakeGenesisState(genDoc)
+	if err != nil {
+		panic(fmt.Errorf("Can not make state from genesis"))
+	}
+
 	for i := 0; i < nValidators; i++ {
 		stateDB := dbm.NewMemDB() // each state needs its own db
 		state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
@@ -126,17 +130,13 @@ func randBeaconNet(nValidators int, testName string) (entropyGenerators []*Entro
 		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 
-		// Initialise entropy channel
-		entropyChannels[i] = make(chan types.ComputedEntropy, EntropyChannelCapacity)
-
 		aeonDetails := NewAeonDetails(state.Validators, privVals[i], aeonExecUnits[index])
 		entropyGenerators[i] = NewEntropyGenerator(state.ChainID)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(types.ComputedEntropy{Height: types.GenesisHeight, GroupSignature: state.LastComputedEntropy})
 		entropyGenerators[i].SetAeonDetails(aeonDetails)
-		entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
 	}
-	return entropyGenerators, blockStores, func() {
+	return entropyGenerators, blockStores, state, func() {
 		for _, dir := range configRootDirs {
 			os.RemoveAll(dir)
 		}

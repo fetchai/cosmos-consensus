@@ -12,6 +12,7 @@ import (
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
+	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 func TestMain(m *testing.M) {
@@ -57,7 +58,7 @@ func stopBeaconNet(logger log.Logger, reactors []*Reactor) {
 
 func TestReactorEntropy(t *testing.T) {
 	N := 4
-	entropyGenerators, blockStores, cleanup := randBeaconNet(N, "beacon_reactor_test")
+	entropyGenerators, blockStores, _, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
 	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, N)
 	defer stopBeaconNet(log.TestingLogger(), entropyReactors)
@@ -74,7 +75,7 @@ func TestReactorEntropy(t *testing.T) {
 }
 
 func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
-	entropyGenerators, blockStores, cleanup := randBeaconNet(1, "beacon_reactor_test")
+	entropyGenerators, blockStores, _, cleanup := randBeaconNet(1, "beacon_reactor_test")
 	defer cleanup()
 	N := len(entropyGenerators)
 	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, N)
@@ -96,7 +97,7 @@ func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
 }
 
 func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
-	entropyGenerators, blockStores, cleanup := randBeaconNet(1, "beacon_reactor_test")
+	entropyGenerators, blockStores, _, cleanup := randBeaconNet(1, "beacon_reactor_test")
 	defer cleanup()
 	N := len(entropyGenerators)
 	entropyReactors := startBeaconNet(t, entropyGenerators, blockStores, N, N)
@@ -116,7 +117,7 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 
 func TestReactorCatchupWithComputedEntropy(t *testing.T) {
 	N := 4
-	entropyGenerators, blockStores, cleanup := randBeaconNet(N, "beacon_reactor_test")
+	entropyGenerators, blockStores, _, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
 
 	// Start all beacon reactors except one
@@ -165,11 +166,8 @@ func TestReactorCatchupWithComputedEntropy(t *testing.T) {
 	}
 }
 func TestReactorCatchupWithBlocks(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping testing in short mode")
-	}
 	N := 4
-	entropyGenerators, blockStores, cleanup := randBeaconNet(N, "beacon_reactor_test")
+	entropyGenerators, blockStores, state, cleanup := randBeaconNet(N, "beacon_reactor_test")
 	defer cleanup()
 
 	// Start all beacon reactors except one
@@ -185,24 +183,24 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 		}
 	}
 
-	// Manually delete old entropy shares for these reactors
-	for i := 0; i < N; i++ {
+	// Make blocks and save
+	blocks := make([]*types.Block, entropyRounds)
+	for i := int64(1); i < entropyRounds; i++ {
+		state.LastBlockHeight = i
+		blocks[i] = makeBlock(i, state, new(types.Commit))
+		blocks[i].Entropy = entropyGenerators[0].getComputedEntropy(i)
+	}
+
+	// Manually delete old entropy shares for these reactors and add blocks to stores
+	for i := 0; i < NStart; i++ {
 		for round := int64(0); round < entropyRounds; round++ {
 			entropyGenerators[i].mtx.Lock()
 			delete(entropyGenerators[i].entropyShares, round)
 			delete(entropyGenerators[i].entropyComputed, round)
 			entropyGenerators[i].mtx.Unlock()
-		}
-		if i == NStart {
-			// Check that no entropy has been computed for stopped reactor
-			assert.True(t, entropyGenerators[i].getLastComputedEntropyHeight() == 0)
-		}
-		if i != NStart && NStart < N {
-			// Check that peer state from stopped node is at 0
-			stoppedID := entropyReactors[NStart].Switch.NodeInfo().ID()
-			peerState, ok := entropyReactors[i].Switch.Peers().Get(stoppedID).Get("BeaconReactor.peerState").(*PeerState)
-			assert.True(t, ok)
-			assert.True(t, peerState.getLastComputedEntropyHeight() == types.GenesisHeight)
+			if round > 0 {
+				blockStores[i].SaveBlock(blocks[round], blocks[round].MakePartSet(2), makeTestCommit(round, tmtime.Now()))
+			}
 		}
 	}
 

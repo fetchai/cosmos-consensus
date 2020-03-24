@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"bytes"
 	"strconv"
 	"testing"
 	"time"
@@ -42,7 +43,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 
-	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen := testEntropyGen(state.Validators, nil, -2)
 
 	// Does not panic if can not sign
 	assert.NotPanics(t, func() {
@@ -97,7 +98,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	state, privVals := groupTestSetup(nValidators)
 
 	// Set up non-validator
-	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen := testEntropyGen(state.Validators, nil, -2)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
 
 	t.Run("applyShare non-validator", func(t *testing.T) {
@@ -183,14 +184,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 
 func TestEntropyGeneratorFlush(t *testing.T) {
 	state, privVal := groupTestSetup(1)
-
-	newGen := NewEntropyGenerator("TestChain")
-	newGen.SetLogger(log.TestingLogger())
-
-	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
-	aeonDetails := NewAeonDetails(state.Validators, privVal[0], aeonExecUnit)
-	newGen.SetAeonDetails(aeonDetails)
-	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
+	newGen := testEntropyGen(state.Validators, privVal[0], -1)
 	newGen.Start()
 
 	assert.Eventually(t, func() bool { return newGen.entropyComputed[21] != nil }, 3*time.Second, 500*time.Millisecond)
@@ -203,7 +197,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 	state, privVals := groupTestSetup(nValidators)
 
 	// Set up non-validator
-	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen := testEntropyGen(state.Validators, nil, -2)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
 	newGen.Start()
 
@@ -256,6 +250,42 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 	})
 }
 
+func TestEntropyGeneratorWithChannel(t *testing.T) {
+	state, privVal := groupTestSetup(1)
+	entropyChannel := make(chan types.ComputedEntropy, EntropyChannelCapacity)
+	newGen := testEntropyGen(state.Validators, privVal[0], -1)
+	newGen.SetComputedEntropyChannel(entropyChannel)
+	newGen.Start()
+
+	assert.Eventually(t, func() bool { return newGen.getComputedEntropy(EntropyChannelCapacity) != nil }, 3*time.Second, 500*time.Millisecond)
+	for i := int64(0); i < EntropyChannelCapacity; i++ {
+		computedEntropy := <-entropyChannel
+		assert.True(t, bytes.Equal(newGen.getComputedEntropy(i+1), computedEntropy.GroupSignature))
+	}
+}
+
+func TestEntropyGeneratorStop(t *testing.T) {
+	state, privVal := groupTestSetup(1)
+	entropyChannel := make(chan types.ComputedEntropy, EntropyChannelCapacity)
+	newGen := testEntropyGen(state.Validators, privVal[0], -1)
+	newGen.SetComputedEntropyChannel(entropyChannel)
+
+	// Fill entropy channel
+	for i := int64(0); i < EntropyChannelCapacity; i++ {
+		entropyChannel <- types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")}
+	}
+	newGen.Start()
+
+	// Wait until entropy channel is over filled
+	assert.Eventually(t, func() bool { return newGen.getComputedEntropy(1) != nil }, 1*time.Second, 100*time.Millisecond)
+	time.Sleep(2 * computeEntropySleepDuration)
+
+	// Check Stop does not hang or panic
+	assert.NotPanics(t, func() {
+		newGen.Stop()
+	})
+}
+
 func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
@@ -268,7 +298,9 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
-	if index >= 0 {
+	if index == -1 {
+		aeonExecUnit = NewAeonExecUnit("test_keys/single_validator.txt")
+	} else if index >= 0 {
 		aeonExecUnit = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(index)) + ".txt")
 	}
 	aeonDetails := NewAeonDetails(validators, privVal, aeonExecUnit)
