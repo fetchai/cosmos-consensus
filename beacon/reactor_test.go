@@ -12,6 +12,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/mock"
+	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 )
@@ -41,12 +42,10 @@ func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*E
 	}
 
 	for i := 0; i < n; i++ {
-		// Set up entropy generator
 		fastSync := false
-		if css != nil {
+		if css != nil || i >= nStart {
 			fastSync = true
 		}
-
 		reactors[i] = NewReactor(entropyGenerators[i], fastSync, blockStores[i])
 		reactors[i].SetLogger(entropyGenerators[i].Logger)
 
@@ -161,19 +160,53 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 	})
 }
 
-func TestReactorWithConsensus(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping testing in short mode")
-	}
+func TestReactorCatchupWithComputedEntropy(t *testing.T) {
 	N := 4
-	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", true)
+	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", false)
 	defer cleanup()
-	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
+
+	// Start all beacon reactors except one
+	NStart := N - 1
+	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, NStart)
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
-	// Wait for everyone to generate 3 blocks
+	// Wait for reactors that started to generate 5 rounds of entropy
+	entropyRounds := int64(5)
+	for i := 0; i < NStart; i++ {
+		for entropyGenerators[i].getLastComputedEntropyHeight() < entropyRounds-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	// Manually delete old entropy shares for these reactors
 	for i := 0; i < N; i++ {
-		for blockStores[i].LoadBlock(3) == nil {
+		for round := int64(0); round < entropyRounds; round++ {
+			entropyGenerators[i].mtx.Lock()
+			delete(entropyGenerators[i].entropyShares, round)
+			entropyGenerators[i].mtx.Unlock()
+		}
+		if i == NStart {
+			// Check that no entropy has been computed for stopped reactor
+			assert.True(t, entropyGenerators[i].getLastComputedEntropyHeight() == types.GenesisHeight)
+		}
+		if i != NStart && NStart < N {
+			// Check that peer state from stopped node is at 0
+			stoppedID := entropyReactors[NStart].Switch.NodeInfo().ID()
+			peerState, ok := entropyReactors[i].Switch.Peers().Get(stoppedID).Get("BeaconReactor.peerState").(*PeerState)
+			assert.True(t, ok)
+			assert.True(t, peerState.getLastComputedEntropyHeight() == types.GenesisHeight)
+		}
+	}
+
+	// Now start remaining reactor and wait for it to catch up
+	if NStart < N {
+
+		s := sm.State{
+			LastBlockHeight:     types.GenesisHeight,
+			LastComputedEntropy: entropyGenerators[NStart].getComputedEntropy(types.GenesisHeight),
+		}
+		entropyReactors[NStart].SwitchToConsensus(s)
+		for entropyGenerators[NStart].getLastComputedEntropyHeight() < entropyRounds-1 {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
