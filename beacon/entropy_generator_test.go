@@ -187,7 +187,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen := testEntropyGen(state.Validators, privVal[0], -1)
 	newGen.Start()
 
-	assert.Eventually(t, func() bool { return newGen.entropyComputed[21] != nil }, 3*time.Second, 500*time.Millisecond)
+	assert.Eventually(t, func() bool { return newGen.getComputedEntropy(21) != nil }, 3*time.Second, 500*time.Millisecond)
 	assert.True(t, len(newGen.entropyShares) <= entropyHistoryLength+1)
 	assert.True(t, len(newGen.entropyComputed) <= entropyHistoryLength+1)
 }
