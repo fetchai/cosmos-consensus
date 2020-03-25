@@ -583,6 +583,8 @@ func (cs *State) updateToState(state sm.State) {
 	cs.LastCommit = lastPrecommits
 	cs.LastValidators = state.LastValidators
 	cs.TriggeredTimeoutPrecommit = false
+	// Reset entropy. Important that this is only done here!
+	cs.newEntropy = types.ComputedEntropy{}
 
 	cs.state = state
 
@@ -967,7 +969,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	}
 	index := round
 	if round >= cs.Validators.Size() {
-		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round",  round, "validator size", cs.Validators.Size())
+		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round", round, "validator size", cs.Validators.Size())
 		index = round % cs.Validators.Size()
 	}
 
@@ -1526,9 +1528,6 @@ func (cs *State) finalizeCommit(height int64) {
 
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
-
-	// Reset entropy. Important that this is only done here!
-	cs.newEntropy = types.ComputedEntropy{}
 
 	fail.Fail() // XXX
 
