@@ -989,6 +989,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 func (cs *State) getNewEntropy() types.ComputedEntropy {
 	if cs.newEntropy.IsEmpty() {
 		newEntropy := <-cs.computedEntropyChannel
+		cs.Logger.Info("getNewEntropy(H:%d)", newEntropy.Height)
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
 		}

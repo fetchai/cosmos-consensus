@@ -312,10 +312,11 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			// modified within this go routine.
 			// Select is present to allow closing of channel on stopping if stuck on send
 			if entropyGenerator.computedEntropyChannel != nil {
+				entropyGenerator.Logger.Info("computedEntropyRoutine(H:%d): dispatch entropy to channel", entropyGenerator.getLastComputedEntropyHeight())
 				select {
 				case entropyGenerator.computedEntropyChannel <- types.ComputedEntropy{
-					Height:         entropyGenerator.lastComputedEntropyHeight,
-					GroupSignature: entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight],
+					Height:         entropyGenerator.getLastComputedEntropyHeight(),
+					GroupSignature: entropyGenerator.getComputedEntropy(entropyGenerator.getLastComputedEntropyHeight()),
 				}:
 				case <-entropyGenerator.quit:
 					onExit(entropyGenerator)
