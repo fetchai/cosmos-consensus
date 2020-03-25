@@ -193,9 +193,9 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
 	newGen.Start()
 
-	assert.Eventually(t, func() bool { return newGen.entropyComputed[21] != nil }, 3*time.Second, 500*time.Millisecond)
-	assert.True(t, len(newGen.entropyShares) <= entropyHistoryLength+1)
-	assert.True(t, len(newGen.entropyComputed) <= entropyHistoryLength+1)
+	assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() > entropyHistoryLength }, 3*time.Second, 500*time.Millisecond)
+	assert.True(t, len(newGen.getEntropyShares(0)) == 0)
+	assert.True(t, newGen.getComputedEntropy(0) == nil)
 }
 
 func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
