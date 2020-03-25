@@ -19,7 +19,7 @@ const (
 
 var (
 	// EntropyChannelCapacity is number of ComputedEntropy that channel can hold
-	EntropyChannelCapacity = 3
+	EntropyChannelCapacity = int64(3)
 )
 
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
@@ -142,7 +142,7 @@ func (entropyGenerator *EntropyGenerator) OnStop() {
 // Wait waits for the computeEntropyRoutine to return.
 func (entropyGenerator *EntropyGenerator) wait() {
 	// Try to stop gracefully by waiting for routine to return
-	t := time.NewTimer(2 * computeEntropySleepDuration)
+	t := time.NewTimer(3 * computeEntropySleepDuration)
 	select {
 	case <-t.C:
 		panic(fmt.Errorf("wait timeout - deadlock in closing channel"))
