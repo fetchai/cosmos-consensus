@@ -46,6 +46,8 @@ struct MCLInitialiser
 };
 }  // namespace details
 
+using CabinetIndex = uint32_t;
+
 class PrivateKey : public bn::Fr {
 public:
   PrivateKey() {
@@ -56,7 +58,7 @@ public:
     FromString(pk);
   }
 
-  explicit PrivateKey(uint32_t value) {
+  explicit PrivateKey(CabinetIndex value) {
     clear();
     bn::Fr::add(*this, *this, value);
   }
@@ -138,7 +140,7 @@ public:
 
 Signature Sign(std::string const &message, PrivateKey x_i);
 bool Verify(std::string const &message, Signature const &sign, PublicKey const &public_key, Generator const &G);
-Signature LagrangeInterpolation(std::unordered_map < uint64_t, Signature >
+Signature LagrangeInterpolation(std::unordered_map < CabinetIndex, Signature >
 const &shares);
 
 struct DkgKeyInformation
@@ -149,7 +151,7 @@ struct DkgKeyInformation
   std::string              generator;
 };
 
-DkgKeyInformation TrustedDealerGenerateKeys(uint32_t cabinet_size, uint32_t threshold);
+DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold);
 
 /**
  * Helper functions for computations used in the DKG
@@ -162,7 +164,7 @@ DkgKeyInformation TrustedDealerGenerateKeys(uint32_t cabinet_size, uint32_t thre
  * @param i Number of columns
  */
 template <typename T>
-void Init(std::vector<std::unique_ptr<T>> &data, uint32_t i)
+void Init(std::vector<std::unique_ptr<T>> &data, CabinetIndex i)
 {
   data.resize(i);
   for (auto &data_i : data)
@@ -181,7 +183,7 @@ void Init(std::vector<std::unique_ptr<T>> &data, uint32_t i)
  * @param j Number of columns
  */
 template <typename T>
-void Init(std::vector<std::vector<std::unique_ptr<T>>> &data, uint32_t i, uint32_t j)
+void Init(std::vector<std::vector<std::unique_ptr<T>>> &data, CabinetIndex i, CabinetIndex j)
 {
   data.resize(i);
   for (auto &data_i : data)
@@ -203,10 +205,10 @@ PublicKey ComputeLHS(PublicKey &tmpG, Generator const &G, Generator const &H,
                      PrivateKey const &share1, PrivateKey const &share2);
 PublicKey ComputeLHS(Generator const &G, Generator const &H, PrivateKey const &share1,
                      PrivateKey const &share2);
-void      UpdateRHS(uint32_t rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input);
-PublicKey ComputeRHS(uint32_t rank, std::vector<std::unique_ptr<PublicKey>> const &input);
+void      UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input);
+PublicKey ComputeRHS(CabinetIndex rank, std::vector<std::unique_ptr<PublicKey>> const &input);
 void      ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
-                        std::vector<PrivateKey> const &b_i, uint32_t index);
+                        std::vector<PrivateKey> const &b_i, CabinetIndex index);
 std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
                                            std::vector<PrivateKey> const &b);
 

@@ -40,7 +40,7 @@ public:
   using MessagePayload     = std::string;
   using Signature          = std::string;
   using Generator          = std::string;
-  using CabinetIndex       = uint64_t;
+  using CabinetIndex       = uint32_t;
 
   AeonExecUnit(std::string const &filename);
 
@@ -50,7 +50,7 @@ public:
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature);
 
   bool CanSign() const;
-  bool CheckIndex(uint64_t index) const;
+  bool CheckIndex(CabinetIndex index) const;
 
 private:
   DKGKeyInformation aeon_keys_;

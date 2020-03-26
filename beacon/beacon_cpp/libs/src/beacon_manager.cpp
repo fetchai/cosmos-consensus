@@ -50,22 +50,22 @@ public:
 
   BeaconManager::PrivateKey const &GetZeroFr()
   {
-    std::lock_guard<std::mutex> lock(mutex_);
     EnsureInitialised();
+    std::lock_guard<std::mutex> lock(mutex_);
     return params_->zeroFr_;
   }
 
   BeaconManager::Generator const &GetGroupG()
   {
-    std::lock_guard<std::mutex> lock(mutex_);
     EnsureInitialised();
+    std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_g_;
   }
 
   BeaconManager::Generator const &GetGroupH()
   {
-    std::lock_guard<std::mutex> lock(mutex_);
     EnsureInitialised();
+    std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_h_;
   }
 
@@ -90,8 +90,7 @@ CurveParameters curve_params_{};
 
 constexpr char const *LOGGING_NAME = "BeaconManager";
 
-BeaconManager::BeaconManager(Address address)
-  : address_{std::move(address)}
+BeaconManager::BeaconManager()
 {
   curve_params_.EnsureInitialised();
 }
@@ -102,19 +101,19 @@ void BeaconManager::GenerateCoefficients()
 {
   std::vector<PrivateKey> a_i(polynomial_degree_ + 1, GetZeroFr());
   std::vector<PrivateKey> b_i(polynomial_degree_ + 1, GetZeroFr());
-  for (uint32_t k = 0; k <= polynomial_degree_; k++)
+  for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
     a_i[k].setRand();
     b_i[k].setRand();
   }
 
-  for (uint32_t k = 0; k <= polynomial_degree_; k++)
+  for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
     *C_ik[cabinet_index_][k] =
         crypto::mcl::ComputeLHS(*g__a_i[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
   }
 
-  for (uint32_t l = 0; l < cabinet_size_; l++)
+  for (CabinetIndex l = 0; l < cabinet_size_; l++)
   {
     crypto::mcl::ComputeShares(*s_ij[cabinet_index_][l], *sprime_ij[cabinet_index_][l], a_i, b_i, l);
   }
@@ -123,7 +122,7 @@ void BeaconManager::GenerateCoefficients()
 std::vector<BeaconManager::Coefficient> BeaconManager::GetCoefficients()
 {
   std::vector<Coefficient> coefficients;
-  for (uint32_t k = 0; k <= polynomial_degree_; k++)
+  for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
     coefficients.emplace_back(C_ik[cabinet_index_][k]->ToString());
   }
@@ -131,40 +130,35 @@ std::vector<BeaconManager::Coefficient> BeaconManager::GetCoefficients()
 }
 
 std::pair<BeaconManager::Share, BeaconManager::Share> BeaconManager::GetOwnShares(
-    Address const &receiver)
+    CabinetIndex const &receiver_index)
 {
-  CabinetIndex receiver_index = identity_to_index_[receiver];
-  PrivateKey   sij            = *s_ij[cabinet_index_][receiver_index];
-  PrivateKey   sprimeij       = *sprime_ij[cabinet_index_][receiver_index];
-
-  std::pair<Share, Share> shares_j{sij.ToString(), sprimeij.ToString()};
+  std::pair<Share, Share> shares_j{s_ij[cabinet_index_][receiver_index]->ToString(), sprime_ij[cabinet_index_][receiver_index]->ToString()};
   return shares_j;
 }
 
 std::pair<BeaconManager::Share, BeaconManager::Share> BeaconManager::GetReceivedShares(
-    Address const &owner)
+    CabinetIndex const &owner)
 {
-  std::pair<Share, Share> shares_j{s_ij[identity_to_index_[owner]][cabinet_index_]->ToString(),
-                                   sprime_ij[identity_to_index_[owner]][cabinet_index_]->ToString()};
+  std::pair<Share, Share> shares_j{s_ij[owner][cabinet_index_]->ToString(),
+                                   sprime_ij[owner][cabinet_index_]->ToString()};
   return shares_j;
 }
 
-void BeaconManager::AddCoefficients(Address const &           from,
+void BeaconManager::AddCoefficients(CabinetIndex const &           from,
                                     std::vector<Coefficient> const &coefficients)
 {
   if (coefficients.size() == polynomial_degree_ + 1)
   {
-    for (uint32_t i = 0; i <= polynomial_degree_; ++i)
+    for (CabinetIndex i = 0; i <= polynomial_degree_; ++i)
     {
-      C_ik[identity_to_index_[from]][i]->FromString(coefficients[i]);
+      C_ik[from][i]->FromString(coefficients[i]);
     }
     return;
   }
 }
 
-void BeaconManager::AddShares(Address const &from, std::pair<Share, Share> const &shares)
+void BeaconManager::AddShares(CabinetIndex const &from_index, std::pair<Share, Share> const &shares)
 {
-  CabinetIndex from_index               = identity_to_index_[from];
   s_ij[from_index][cabinet_index_]->FromString(shares.first);
   sprime_ij[from_index][cabinet_index_]->FromString(shares.second);
 }
@@ -175,13 +169,10 @@ void BeaconManager::AddShares(Address const &from, std::pair<Share, Share> const
  *
  * @return Set of muddle addresses of nodes we complain against
  */
-std::set<BeaconManager::Address> BeaconManager::ComputeComplaints(
-    std::set<Address> const &coeff_received)
+void BeaconManager::ComputeComplaints(std::vector<CabinetIndex> const &coeff_received, std::vector<CabinetIndex> &complaints)
 {
-  std::set<Address> complaints_local;
-  for (auto &cab : coeff_received)
+  for (auto &i : coeff_received)
   {
-    CabinetIndex i = identity_to_index_[cab];
     if (i != cabinet_index_)
     {
       PublicKey rhs;
@@ -191,18 +182,15 @@ std::set<BeaconManager::Address> BeaconManager::ComputeComplaints(
       rhs = crypto::mcl::ComputeRHS(cabinet_index_, C_ik[i]);
       if (lhs != rhs || lhs.isZero())
       {
-        complaints_local.insert(cab);
+        complaints.push_back(i);
       }
     }
   }
-  return complaints_local;
 }
 
-bool BeaconManager::VerifyComplaintAnswer(Address const &from, ComplaintAnswer const &answer)
+bool BeaconManager::VerifyComplaintAnswer(CabinetIndex const &from_index, ComplaintAnswer const &answer)
 {
-  CabinetIndex from_index = identity_to_index_[from];
-  assert(identity_to_index_.find(answer.first) != identity_to_index_.end());
-  CabinetIndex reporter_index = identity_to_index_[answer.first];
+  CabinetIndex reporter_index = answer.first;
   // Verify shares received
   PrivateKey s{answer.second.first};
   PrivateKey sprime{answer.second.second};
@@ -224,6 +212,10 @@ bool BeaconManager::VerifyComplaintAnswer(Address const &from, ComplaintAnswer c
   return true;
 }
 
+void BeaconManager::SetQual(std::vector<CabinetIndex> qual) {
+  qual_ = std::move(qual);
+}
+
 /**
  * If in qual a member computes individual share of the secret key and further computes and
  * broadcasts qual coefficients
@@ -231,9 +223,8 @@ bool BeaconManager::VerifyComplaintAnswer(Address const &from, ComplaintAnswer c
 void BeaconManager::ComputeSecretShare()
 {
    PrivateKey secret_share_temp;
-  for (auto const &iq : qual_)
+  for (auto const &iq_index : qual_)
   {
-    CabinetIndex iq_index = identity_to_index_[iq];
     bn::Fr::add(secret_share_temp, secret_share_temp, *s_ij[iq_index][cabinet_index_]);
   }
   secret_share_ = secret_share_temp.ToString();
@@ -250,13 +241,12 @@ std::vector<BeaconManager::Coefficient> BeaconManager::GetQualCoefficients()
   return coefficients;
 }
 
-void BeaconManager::AddQualCoefficients(Address const &           from,
+void BeaconManager::AddQualCoefficients(CabinetIndex const &           from_index,
                                         std::vector<Coefficient> const &coefficients)
 {
-  CabinetIndex from_index = identity_to_index_[from];
   if (coefficients.size() == polynomial_degree_ + 1)
   {
-    for (uint32_t i = 0; i <= polynomial_degree_; ++i)
+    for (CabinetIndex i = 0; i <= polynomial_degree_; ++i)
     {
       A_ik[from_index][i]->FromString(coefficients[i]);
     }
@@ -270,17 +260,15 @@ void BeaconManager::AddQualCoefficients(Address const &           from,
  *
  * @return Map of address and pair of secret shares for each qual member we wish to complain against
  */
-BeaconManager::SharesExposedMap BeaconManager::ComputeQualComplaints(
-    std::set<Address> const &coeff_received)
+BeaconManager::SharesExposedMap BeaconManager::ComputeQualComplaints(std::vector<CabinetIndex> const &coeff_received)
 {
   SharesExposedMap qual_complaints;
 
-  for (auto const &miner : qual_)
+  for (auto const &i : qual_)
   {
-    CabinetIndex i = identity_to_index_[miner];
     if (i != cabinet_index_)
     {
-      if (coeff_received.find(miner) != coeff_received.end())
+      if (std::find(coeff_received.begin(), coeff_received.end(), i) != coeff_received.end())
       {
         PublicKey rhs;
         PublicKey lhs;
@@ -288,23 +276,22 @@ BeaconManager::SharesExposedMap BeaconManager::ComputeQualComplaints(
         rhs = crypto::mcl::ComputeRHS(cabinet_index_, A_ik[i]);
         if (lhs != rhs || rhs.isZero())
         {
-          qual_complaints.insert({miner, {s_ij[i][cabinet_index_]->ToString(), sprime_ij[i][cabinet_index_]->ToString()}});
+          qual_complaints.insert({i, {s_ij[i][cabinet_index_]->ToString(), sprime_ij[i][cabinet_index_]->ToString()}});
         }
       }
       else
       {
-        qual_complaints.insert({miner, {s_ij[i][cabinet_index_]->ToString(), sprime_ij[i][cabinet_index_]->ToString()}});
+        qual_complaints.insert({i, {s_ij[i][cabinet_index_]->ToString(), sprime_ij[i][cabinet_index_]->ToString()}});
       }
     }
   }
   return qual_complaints;
 }
 
-BeaconManager::Address BeaconManager::VerifyQualComplaint(Address const &  from,
+BeaconManager::CabinetIndex BeaconManager::VerifyQualComplaint(CabinetIndex const &  from_index,
                                                                 ComplaintAnswer const &answer)
 {
-  CabinetIndex from_index   = identity_to_index_[from];
-  CabinetIndex victim_index = identity_to_index_[answer.first];
+  CabinetIndex victim_index = answer.first;
 
   PublicKey  lhs;
   PublicKey  rhs;
@@ -314,7 +301,7 @@ BeaconManager::Address BeaconManager::VerifyQualComplaint(Address const &  from,
   rhs    = crypto::mcl::ComputeRHS(from_index, C_ik[victim_index]);
   if (lhs != rhs || lhs.isZero())
   {
-    return from;
+    return from_index;
   }
 
   bn::G2::mul(lhs, GetGroupG(), s);  // G^s
@@ -324,7 +311,7 @@ BeaconManager::Address BeaconManager::VerifyQualComplaint(Address const &  from,
    return answer.first;
   }
 
-  return from;
+  return from_index;
 }
 
 /**
@@ -334,25 +321,21 @@ void BeaconManager::ComputePublicKeys()
 {
   PublicKey public_key_temp;  
   // For all parties in $QUAL$, set $y_i = A_{i0}
-  for (auto const &iq : qual_)
+  for (auto const &it : qual_)
   {
-    CabinetIndex it = identity_to_index_[iq];
     *y_i[it]         = *A_ik[it][0];
   }
   // Compute public key $y = \prod_{i \in QUAL} y_i \bmod p$
-  for (auto const &iq : qual_)
+  for (auto const &it : qual_)
   {
-    CabinetIndex it = identity_to_index_[iq];
     bn::G2::add(public_key_temp, public_key_temp, *y_i[it]);
   }
   // Compute public_key_shares_ $v_j = \prod_{i \in QUAL} \prod_{k=0}^t (A_{ik})^{j^k} \bmod
   // p$
-  for (auto const &jq : qual_)
+  for (auto const &jt : qual_)
   {
-    CabinetIndex jt = identity_to_index_[jq];
-    for (auto const &iq : qual_)
+    for (auto const &it : qual_)
     {
-      CabinetIndex it = identity_to_index_[iq];
       bn::G2::add(*public_key_shares_[jt], *public_key_shares_[jt], *A_ik[it][0]);
       crypto::mcl::UpdateRHS(jt, *public_key_shares_[jt], A_ik[it]);
     }
@@ -360,21 +343,19 @@ void BeaconManager::ComputePublicKeys()
   public_key_ = public_key_temp.ToString();
 }
 
-void BeaconManager::AddReconstructionShare(Address const &address)
+void BeaconManager::AddReconstructionShare(CabinetIndex const &index)
 {
-  CabinetIndex index = identity_to_index_[address];
-  if (reconstruction_shares.find(address) == reconstruction_shares.end())
+  if (reconstruction_shares.find(index) == reconstruction_shares.end())
   {
-    mcl::Init(reconstruction_shares[address].second, cabinet_size_);
+    mcl::Init(reconstruction_shares[index].second, cabinet_size_);
   }
-  reconstruction_shares.at(address).first.insert(cabinet_index_);
-  *reconstruction_shares.at(address).second[cabinet_index_] = *s_ij[index][cabinet_index_];
+  reconstruction_shares.at(index).first.insert(cabinet_index_);
+  *reconstruction_shares.at(index).second[cabinet_index_] = *s_ij[index][cabinet_index_];
 }
 
-void BeaconManager::AddReconstructionShare(Address const &                  from,
-                                           std::pair<Address, Share> const &share)
+void BeaconManager::AddReconstructionShare(CabinetIndex const &                 from_index,
+                                           std::pair<CabinetIndex, Share> const &share)
 {
-  CabinetIndex from_index = identity_to_index_[from];
   if (reconstruction_shares.find(share.first) == reconstruction_shares.end())
   {
     mcl::Init(reconstruction_shares[share.first].second, cabinet_size_);
@@ -388,15 +369,15 @@ void BeaconManager::AddReconstructionShare(Address const &                  from
   *reconstruction_shares.at(share.first).second[from_index] = s;
 }
 
-void BeaconManager::VerifyReconstructionShare(Address const &from, ExposedShare const &share)
+void BeaconManager::VerifyReconstructionShare(CabinetIndex const &from, ExposedShare const &share)
 {
-  CabinetIndex victim_index = identity_to_index_[share.first];
+  CabinetIndex victim_index = share.first;
   PublicKey    lhs;
   PublicKey    rhs;
   PrivateKey   s{share.second.first};
   PrivateKey   sprime{share.second.second};
   lhs    = crypto::mcl::ComputeLHS(GetGroupG(), GetGroupH(), s, sprime);
-  rhs    = crypto::mcl::ComputeRHS(identity_to_index_[from], C_ik[victim_index]);
+  rhs    = crypto::mcl::ComputeRHS(from, C_ik[victim_index]);
 
   if (lhs == rhs && !lhs.isZero())
   {
@@ -413,13 +394,13 @@ void BeaconManager::VerifyReconstructionShare(Address const &from, ExposedShare 
 bool BeaconManager::RunReconstruction()
 {
   std::vector<std::vector<PrivateKey>>a_ik;
-  a_ik.resize(static_cast<uint32_t>(cabinet_size_));
-  a_ik.resize(static_cast<uint32_t>(polynomial_degree_ + 1));
+  a_ik.resize(static_cast<CabinetIndex>(cabinet_size_));
+  a_ik.resize(static_cast<CabinetIndex>(polynomial_degree_ + 1));
   for (auto const &in : reconstruction_shares)
   {
-    CabinetIndex            victim_index = identity_to_index_[in.first];
+    CabinetIndex            victim_index = in.first;
     std::set<CabinetIndex>  parties{in.second.first};
-    if (in.first == address_)
+    if (in.first == cabinet_index_)
     {
       // Do not run reconstruction for myself
       continue;
@@ -445,34 +426,17 @@ bool BeaconManager::RunReconstruction()
   return true;
 }
 
-void BeaconManager::SetQual(std::set<Address> qual)
-{
-  qual_ = std::move(qual);
-}
-
 /**
  * @brief resets the class back to a state where a new cabinet is set up.
  * @param cabinet_size is the size of the cabinet.
  * @param threshold is the threshold to be able to generate a signature.
  */
-void BeaconManager::NewCabinet(std::set<Address> const &cabinet, uint32_t threshold)
+void BeaconManager::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index)
 {
   assert(threshold > 0);
-  auto cabinet_size{static_cast<uint32_t>(cabinet.size())};
   cabinet_size_      = cabinet_size;
   polynomial_degree_ = threshold - 1;
-
-  // Ordering of identities determines the index of each node
-  CabinetIndex index = 0;
-  for (auto const &cab : cabinet)
-  {
-    if (cab == address_)
-    {
-      cabinet_index_ = index;
-    }
-    identity_to_index_.insert({cab, index});
-    ++index;
-  }
+  cabinet_index_ = index;
 
   Reset();
 }
@@ -481,8 +445,7 @@ void BeaconManager::Reset()
 {
   secret_share_ = {};
   public_key_ = {};
-  public_key_shares_.clear();
-  public_key_shares_.resize(cabinet_size_);
+  crypto::mcl::Init(public_key_shares_, cabinet_size_);
   crypto::mcl::Init(y_i, cabinet_size_);
   crypto::mcl::Init(s_ij, cabinet_size_, cabinet_size_);
   crypto::mcl::Init(sprime_ij, cabinet_size_, cabinet_size_);
@@ -495,30 +458,24 @@ void BeaconManager::Reset()
   reconstruction_shares.clear();
 }
 
-bool BeaconManager::InQual(Address const &address) const
+bool BeaconManager::InQual(CabinetIndex const &index) const
 {
-  return qual_.find(address) != qual_.end();
+  return std::find(qual_.begin(), qual_.end(), index) != qual_.end();
 }
 
-std::set<BeaconManager::Address> const &BeaconManager::qual() const
+std::vector<BeaconManager::CabinetIndex> const &BeaconManager::qual() const
 {
   return qual_;
 }
 
-uint32_t BeaconManager::polynomial_degree() const
-{
-  return polynomial_degree_;
-}
-
-BeaconManager::CabinetIndex BeaconManager::cabinet_index() const
+BeaconManager:: CabinetIndex BeaconManager::cabinet_index() const 
 {
   return cabinet_index_;
 }
 
-BeaconManager::CabinetIndex BeaconManager::cabinet_index(Address const &address) const
+BeaconManager::CabinetIndex BeaconManager::polynomial_degree() const
 {
-  assert(identity_to_index_.find(address) != identity_to_index_.end());
-  return identity_to_index_.at(address);
+  return polynomial_degree_;
 }
 
 std::string BeaconManager::group_public_key() const

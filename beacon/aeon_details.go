@@ -31,7 +31,7 @@ func NewAeonDetails(
 		if index < 0 {
 			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators"))
 		}
-		if !aeonKeys.CheckIndex(uint64(index)) {
+		if !aeonKeys.CheckIndex(uint(index)) {
 			panic(fmt.Errorf("aeonDetails has DKG keys not matching validator index"))
 		}
 	}

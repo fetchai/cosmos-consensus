@@ -36,7 +36,7 @@ bool Verify(std::string const &message, Signature const &sign, PublicKey const &
  * @param shares Unordered map of indices and their corresponding signature shares
  * @return Group signature
  */
-Signature LagrangeInterpolation(std::unordered_map < uint64_t, Signature >
+Signature LagrangeInterpolation(std::unordered_map < CabinetIndex, Signature >
 const &shares) {
 assert(!shares.empty());
 if (shares.size()== 1) {
@@ -63,7 +63,7 @@ res +=t;
 return res;
 }
 
-DkgKeyInformation TrustedDealerGenerateKeys(uint32_t cabinet_size, uint32_t threshold)
+DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold)
 {
   DkgKeyInformation output;
   output.generator = "Fetch.ai Generator G";
@@ -73,7 +73,7 @@ DkgKeyInformation TrustedDealerGenerateKeys(uint32_t cabinet_size, uint32_t thre
   // Construct polynomial of degree threshold - 1
   std::vector<PrivateKey> vec_a;
   vec_a.resize(threshold);
-  for (uint32_t ii = 0; ii < threshold; ++ii)
+  for (CabinetIndex ii = 0; ii < threshold; ++ii)
   {
     vec_a[ii].setRand();
   }
@@ -85,14 +85,14 @@ DkgKeyInformation TrustedDealerGenerateKeys(uint32_t cabinet_size, uint32_t thre
   output.group_public_key = group_public_key.getStr();
 
   // Generate cabinet public keys from their private key contributions
-  for (uint32_t i = 0; i < cabinet_size; ++i)
+  for (CabinetIndex i = 0; i < cabinet_size; ++i)
   {
     PrivateKey pow;
     PrivateKey tmpF;
     PrivateKey private_key;
     // Private key is polynomial evaluated at index i
     private_key = vec_a[0];
-    for (uint32_t k = 1; k < vec_a.size(); k++)
+    for (CabinetIndex k = 1; k < vec_a.size(); k++)
     {
       bn::Fr::pow(pow, i + 1, k);        // adjust index in computation
       bn::Fr::mul(tmpF, pow, vec_a[k]);  // j^k * a_i[k]
@@ -148,12 +148,12 @@ PublicKey ComputeLHS(Generator const &G, Generator const &H, PrivateKey const &s
   return ComputeLHS(tmpG, G, H, share1, share2);
 }
 
-void UpdateRHS(uint32_t rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input)
+void UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input)
 {
   PrivateKey tmpF{1};
   PublicKey  tmpG;
   assert(!input.empty());
-  for (uint32_t k = 1; k < input.size(); k++)
+  for (CabinetIndex k = 1; k < input.size(); k++)
   {
     bn::Fr::pow(tmpF, rank + 1, k);  // adjust rank in computation
     bn::G2::mul(tmpG, *input[k], tmpF);
@@ -161,7 +161,7 @@ void UpdateRHS(uint32_t rank, PublicKey &rhsG, std::vector<std::unique_ptr<Publi
   }
 }
 
-PublicKey ComputeRHS(uint32_t rank, std::vector<std::unique_ptr<PublicKey>> const &input)
+PublicKey ComputeRHS(CabinetIndex rank, std::vector<std::unique_ptr<PublicKey>> const &input)
 {
   PrivateKey tmpF;
   PublicKey  tmpG, rhsG;
@@ -183,14 +183,14 @@ PublicKey ComputeRHS(uint32_t rank, std::vector<std::unique_ptr<PublicKey>> cons
  * @param index The point at which you evaluate the polynomial
  */
 void ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
-                   std::vector<PrivateKey> const &b_i, uint32_t index)
+                   std::vector<PrivateKey> const &b_i, CabinetIndex index)
 {
   PrivateKey pow, tmpF;
   assert(a_i.size() == b_i.size());
   assert(!a_i.empty());
   s_i      = a_i[0];
   sprime_i = b_i[0];
-  for (uint32_t k = 1; k < a_i.size(); k++)
+  for (CabinetIndex k = 1; k < a_i.size(); k++)
   {
     bn::Fr::pow(pow, index + 1, k);  // adjust index in computation
     bn::Fr::mul(tmpF, pow, b_i[k]);  // j^k * b_i[k]
