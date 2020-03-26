@@ -105,6 +105,12 @@ func ToRequestCheckTx(req RequestCheckTx) *Request {
 	}
 }
 
+func ToRequestBlockValidation(req RequestBlockValidation) *Request {
+	return &Request{
+		Value: &Request_BlockValidation{&req},
+	}
+}
+
 func ToRequestCommit() *Request {
 	return &Request{
 		Value: &Request_Commit{&RequestCommit{}},

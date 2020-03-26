@@ -178,6 +178,15 @@ func (cli *grpcClient) CheckTxAsync(params types.RequestCheckTx) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_CheckTx{CheckTx: res}})
 }
 
+func (cli *grpcClient) ValidateBlockAsync(params types.RequestBlockValidation) *ReqRes {
+	req := types.ToRequestBlockValidation(params)
+	res, err := cli.client.ValidateBlock(context.Background(), req.GetBlockValidation(), grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_BlockValidation{BlockValidation: res}})
+}
+
 func (cli *grpcClient) QueryAsync(params types.RequestQuery) *ReqRes {
 	req := types.ToRequestQuery(params)
 	res, err := cli.client.Query(context.Background(), req.GetQuery(), grpc.WaitForReady(true))
@@ -278,6 +287,11 @@ func (cli *grpcClient) DeliverTxSync(params types.RequestDeliverTx) (*types.Resp
 func (cli *grpcClient) CheckTxSync(params types.RequestCheckTx) (*types.ResponseCheckTx, error) {
 	reqres := cli.CheckTxAsync(params)
 	return reqres.Response.GetCheckTx(), cli.Error()
+}
+
+func (cli *grpcClient) ValidateBlockSync(params types.RequestBlockValidation) (*types.ResponseBlockValidation, error) {
+	reqres := cli.ValidateBlockAsync(params)
+	return reqres.Response.GetBlockValidation(), cli.Error()
 }
 
 func (cli *grpcClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {

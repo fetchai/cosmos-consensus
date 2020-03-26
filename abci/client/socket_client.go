@@ -337,6 +337,12 @@ func (cli *socketClient) EndBlockSync(req types.RequestEndBlock) (*types.Respons
 	return reqres.Response.GetEndBlock(), cli.Error()
 }
 
+func (cli *socketClient) ValidateBlockSync(req types.RequestBlockValidation) (*types.ResponseBlockValidation, error) {
+	reqres := cli.queueRequest(types.ToRequestBlockValidation(req))
+	cli.FlushSync()
+	return reqres.Response.GetBlockValidation(), cli.Error()
+}
+
 //----------------------------------------
 
 func (cli *socketClient) queueRequest(req *types.Request) *ReqRes {
@@ -401,6 +407,8 @@ func resMatchesReq(req *types.Request, res *types.Response) (ok bool) {
 		_, ok = res.Value.(*types.Response_BeginBlock)
 	case *types.Request_EndBlock:
 		_, ok = res.Value.(*types.Response_EndBlock)
+	case *types.Request_BlockValidation:
+		_, ok = res.Value.(*types.Response_BlockValidation)
 	}
 	return ok
 }

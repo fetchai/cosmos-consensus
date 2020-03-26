@@ -192,6 +192,14 @@ func (app *localClient) DeliverTxSync(req types.RequestDeliverTx) (*types.Respon
 	return &res, nil
 }
 
+func (app *localClient) ValidateBlockSync(req types.RequestBlockValidation) (*types.ResponseBlockValidation, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.ValidateBlock(req)
+	return &res, nil
+}
+
 func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCheckTx, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
