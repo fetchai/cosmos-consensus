@@ -2,6 +2,7 @@
 %module beacon
 %{
 #include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
+#include "beacon_cpp/libs/include/beacon_manager.hpp"
 
 using namespace fetch::crypto;
 %}
@@ -17,3 +18,4 @@ namespace std {
 }
 
 %include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
+%include "beacon_cpp/libs/include/beacon_manager.hpp"

@@ -20,8 +20,9 @@
 
 #include "mcl/bn256.hpp"
 
-#include <unordered_map>
 #include <atomic>
+#include <memory>
+#include <unordered_map>
 
 namespace bn = mcl::bn256;
 
@@ -52,15 +53,21 @@ public:
   }
 
   explicit PrivateKey(std::string const &pk) {
-    clear();
-    bool set{false};
-    setStr(&set, pk.data());
-    assert(set);
+    FromString(pk);
   }
 
   explicit PrivateKey(uint32_t value) {
     clear();
     bn::Fr::add(*this, *this, value);
+  }
+  std::string ToString() const {
+    return getStr();
+  }
+  void FromString(std::string const &pk) {
+    clear();
+    bool set{false};
+    setStr(&set, pk.data());
+    assert(set);
   }
 };
 
@@ -71,6 +78,12 @@ public:
   }
 
   explicit Signature(std::string const sig) {
+    FromString(sig);
+  }
+  std::string ToString() const {
+    return getStr();
+  }
+  void FromString(std::string const &sig) {
     clear();
     bool set{false};
     setStr(&set, sig.data());
@@ -88,6 +101,15 @@ public:
     clear();
     bn::hashAndMapToG2(*this, string_to_hash);
   }
+  std::string ToString() const {
+    return getStr();
+  }
+  void FromString(std::string const &gen) {
+    clear();
+    bool set{false};
+    setStr(&set, gen.data());
+    assert(set);
+  }
 };
 
 class PublicKey : public bn::G2 {
@@ -97,14 +119,20 @@ public:
   }
 
   explicit PublicKey(std::string const &public_key) {
-    clear();
-    bool set{false};
-    setStr(&set, public_key.data());
-    assert(set);
+    FromString(public_key);
   }
 
   PublicKey(Generator const &G, PrivateKey const &p) {
     bn::G2::mul(*this, G, p);
+  }
+  std::string ToString() const {
+    return getStr();
+  }
+  void FromString(std::string const &pk) {
+    clear();
+    bool set{false};
+    setStr(&set, pk.data());
+    assert(set);
   }
 };
 
@@ -122,6 +150,65 @@ struct DkgKeyInformation
 };
 
 DkgKeyInformation TrustedDealerGenerateKeys(uint32_t cabinet_size, uint32_t threshold);
+
+/**
+ * Helper functions for computations used in the DKG
+ */
+/**
+ * Vector initialisation for pointers to mcl data structures
+ *
+ * @tparam T Type in vector
+ * @param data Vector to be initialised
+ * @param i Number of columns
+ */
+template <typename T>
+void Init(std::vector<std::unique_ptr<T>> &data, uint32_t i)
+{
+  data.resize(i);
+  for (auto &data_i : data)
+  {
+    data_i.reset();
+    data_i = std::make_unique<T>();
+  }
+}
+
+/**
+ * Matrix initialisation for pointers to mcl data structures
+ *
+ * @tparam T Type in matrix
+ * @param data Matrix to be initialised
+ * @param i Number of rows
+ * @param j Number of columns
+ */
+template <typename T>
+void Init(std::vector<std::vector<std::unique_ptr<T>>> &data, uint32_t i, uint32_t j)
+{
+  data.resize(i);
+  for (auto &data_i : data)
+  {
+    data_i.resize(j);
+    for (auto &data_ij : data_i)
+    {
+      data_ij.reset();
+      data_ij = std::make_unique<T>();
+    }
+  }
+}
+void      SetGenerator(Generator &        generator_g,
+                       std::string const &string_to_hash = "Fetch.ai Elliptic Curve Generator G");
+void      SetGenerators(Generator &generator_g, Generator &generator_h,
+                        std::string const &string_to_hash  = "Fetch.ai Elliptic Curve Generator G",
+                        std::string const &string_to_hash2 = "Fetch.ai Elliptic Curve Generator H");
+PublicKey ComputeLHS(PublicKey &tmpG, Generator const &G, Generator const &H,
+                     PrivateKey const &share1, PrivateKey const &share2);
+PublicKey ComputeLHS(Generator const &G, Generator const &H, PrivateKey const &share1,
+                     PrivateKey const &share2);
+void      UpdateRHS(uint32_t rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input);
+PublicKey ComputeRHS(uint32_t rank, std::vector<std::unique_ptr<PublicKey>> const &input);
+void      ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
+                        std::vector<PrivateKey> const &b_i, uint32_t index);
+std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
+                                           std::vector<PrivateKey> const &b);
 
 } //namespace mcl
 } //namespace crypto
