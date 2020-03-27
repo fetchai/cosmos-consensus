@@ -667,6 +667,9 @@ func NewNode(config *cfg.Config,
 	// Make MempoolReactor
 	mempoolReactor, mempool := createMempoolAndMempoolReactor(config, proxyApp, state, memplMetrics, logger)
 
+	// proof of concept: listen for on-chain DKG messages - will attach to the beacon
+	mempool.OnDKGMsg(func(tx types.Tx) error { fmt.Printf("snooper noticed DKG TX: %+v \n", tx); return nil })
+
 	// Make Evidence Reactor
 	evidenceReactor, evidencePool, err := createEvidenceReactor(config, dbProvider, stateDB, logger)
 	if err != nil {
@@ -818,8 +821,9 @@ func (n *Node) OnStart() error {
 		n.rpcListeners = listeners
 	}
 
-	if n.config.Instrumentation.Prometheus &&
+	if true &&
 		n.config.Instrumentation.PrometheusListenAddr != "" {
+		fmt.Printf("did prom. \n")
 		n.prometheusSrv = n.startPrometheusServer(n.config.Instrumentation.PrometheusListenAddr)
 	}
 

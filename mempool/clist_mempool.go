@@ -25,6 +25,13 @@ import (
 
 //--------------------------------------------------------------------------------
 
+// Add an interface to the mempool that allows consensus to listen to DKG messages
+type DKGSnooper interface {
+	OnDKGMsg(cb func(types.Tx) bool)
+}
+
+type OnDKGFunc func(types.Tx) error
+
 // CListMempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
@@ -39,6 +46,8 @@ type CListMempool struct {
 	// notify listeners (ie. consensus) when txs are available
 	notifiedTxsAvailable bool
 	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
+
+	dkgClosure OnDKGFunc
 
 	config *cfg.MempoolConfig
 
@@ -278,6 +287,24 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		return err
 	}
 
+	if tx.IsDKGRelated() {
+		fmt.Printf("is dkg. %+v\n", tx)
+
+		if mem.dkgClosure != nil {
+			mem.dkgClosure(tx)
+		}
+
+		// Make a 'fake' abci call and immediately callback to determine the TX is valid
+		// Response from checking the TX
+		fakeResponse := &abci.ResponseCheckTx{Code: abci.CodeTypeOK, GasWanted: 1}
+
+		// Create a callback and call the mempool
+		fakeResponseCb := &abci.Response{Value: &abci.Response_CheckTx{fakeResponse}}
+		mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb)(fakeResponseCb)
+
+		return nil
+	}
+
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
 	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
 
@@ -324,6 +351,7 @@ func (mem *CListMempool) reqResCb(
 			panic("recheck cursor is not nil in reqResCb")
 		}
 
+		fmt.Printf("callback triggered \n")
 		mem.resCbFirstTime(tx, peerID, peerP2PID, res)
 
 		// update metrics
@@ -383,7 +411,7 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			memTx.senders.Store(peerID, true)
 			mem.addTx(memTx)
-			mem.logger.Info("Added good transaction",
+			mem.logger.Error("Added good transaction",
 				"tx", txID(tx),
 				"res", r,
 				"height", memTx.height,
@@ -392,7 +420,7 @@ func (mem *CListMempool) resCbFirstTime(
 			mem.notifyTxsAvailable()
 		} else {
 			// ignore bad transaction
-			mem.logger.Info("Rejected bad transaction",
+			mem.logger.Error("Rejected bad transaction",
 				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
 			mem.metrics.FailedTxs.Add(1)
 			// remove from cache (it might be good later)
@@ -466,6 +494,10 @@ func (mem *CListMempool) notifyTxsAvailable() {
 		default:
 		}
 	}
+}
+
+func (mem *CListMempool) OnDKGMsg(cb func(types.Tx) error) {
+	mem.dkgClosure = cb
 }
 
 func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {

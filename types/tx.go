@@ -23,6 +23,16 @@ func (tx Tx) Hash() []byte {
 	return tmhash.Sum(tx)
 }
 
+// IsDKGRelated informs as to whether this TX is an on chain DKG transaction
+func (tx Tx) IsDKGRelated() bool {
+	if len(tx) >= 5 && bytes.Equal(tx[0:5], []byte("DKGTX")) {
+	  return true
+	} else {
+		fmt.Printf("TX: %s\n", tx)
+	}
+	return false
+}
+
 // String returns the hex-encoded transaction as a string.
 func (tx Tx) String() string {
 	return fmt.Sprintf("Tx{%X}", []byte(tx))
