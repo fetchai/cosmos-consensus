@@ -36,6 +36,8 @@ type BlockExecutor struct {
 
 	logger log.Logger
 
+	appBlockValidation bool
+
 	metrics *Metrics
 }
 
@@ -44,6 +46,12 @@ type BlockExecutorOption func(executor *BlockExecutor)
 func BlockExecutorWithMetrics(metrics *Metrics) BlockExecutorOption {
 	return func(blockExec *BlockExecutor) {
 		blockExec.metrics = metrics
+	}
+}
+
+func SetAppBlockValidation(enable bool) BlockExecutorOption {
+	return func(blockExec *BlockExecutor) {
+		blockExec.appBlockValidation = enable
 	}
 }
 
@@ -121,19 +129,21 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 	for i, v := range block.Data.Txs {
 		txs[i] = v
 	}
-	req := abci.RequestBlockValidation{
-		Txs: txs,
-	}
-	resp, err := blockExec.proxyApp.ValidateBlockSync(req)
-	if err != nil {
-		return fmt.Errorf("failed to call ValidateBlock: %s", err.Error())
-	}
-	if resp.Code != 0 {
-		return fmt.Errorf("app rejected block, code: %d, info: %s, Log: %s",
-			resp.Code,
-			resp.Info,
-			resp.Log,
-		)
+	if blockExec.appBlockValidation {
+		req := abci.RequestBlockValidation{
+			Txs: txs,
+		}
+		resp, err := blockExec.proxyApp.ValidateBlockSync(req)
+		if err != nil {
+			return fmt.Errorf("failed to call ValidateBlock: %s", err.Error())
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("app rejected block, code: %d, info: %s, Log: %s",
+				resp.Code,
+				resp.Info,
+				resp.Log,
+			)
+		}
 	}
 	return nil
 }
