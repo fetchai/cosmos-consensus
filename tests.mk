@@ -102,10 +102,10 @@ vagrant_test:
 
 build_cpp:
 	cd beacon/beacon_cpp && \
-	rm -rf build && mkdir build && \
+	mkdir -p build && \
 	cd build && \
 	cmake .. && \
-	make && \
+	make -j8 && \
 	cp lib/libmcl.a libs/libmcl.a && \
 	cd ..
 .PHONY: build_cpp
