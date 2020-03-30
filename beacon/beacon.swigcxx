@@ -2,9 +2,9 @@
 %module beacon
 %{
 #include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
-#include "beacon_cpp/libs/include/beacon_manager.hpp"
+#include "beacon_cpp/libs/include/beacon_setup_service.hpp"
 
-using namespace fetch::crypto;
+using namespace fetch::beacon;
 %}
 %include <typemaps.i>
 %include "std_string.i"
@@ -24,4 +24,4 @@ namespace std {
 }
 
 %include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
-%include "beacon_cpp/libs/include/beacon_manager.hpp"
+%include "beacon_cpp/libs/include/beacon_setup_service.hpp"

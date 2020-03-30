@@ -27,7 +27,7 @@
 namespace bn = mcl::bn256;
 
 namespace fetch {
-namespace crypto {
+namespace beacon {
 namespace mcl {
 
 namespace details {

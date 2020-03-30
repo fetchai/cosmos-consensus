@@ -21,7 +21,7 @@
 #include <fstream>
 
 namespace fetch {
-namespace crypto {
+namespace beacon {
 
 void InitialiseMcl() {
   mcl::details::MCLInitialiser();

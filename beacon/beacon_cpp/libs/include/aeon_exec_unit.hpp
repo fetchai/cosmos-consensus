@@ -25,7 +25,7 @@
 #include <string>
 
 namespace fetch {
-namespace crypto {
+namespace beacon {
 
 void InitialiseMcl();
 

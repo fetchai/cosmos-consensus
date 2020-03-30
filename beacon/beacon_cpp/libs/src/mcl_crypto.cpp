@@ -1,7 +1,7 @@
 #include "mcl_crypto.hpp"
 
 namespace fetch {
-namespace crypto {
+namespace beacon {
 namespace mcl {
 
 std::atomic<bool>  details::MCLInitialiser::was_initialised{false};
