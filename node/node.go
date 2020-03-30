@@ -821,7 +821,7 @@ func (n *Node) OnStart() error {
 		n.rpcListeners = listeners
 	}
 
-	if true &&
+	if n.config.Instrumentation.Prometheus &&
 		n.config.Instrumentation.PrometheusListenAddr != "" {
 		fmt.Printf("did prom. \n")
 		n.prometheusSrv = n.startPrometheusServer(n.config.Instrumentation.PrometheusListenAddr)

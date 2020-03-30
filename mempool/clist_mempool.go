@@ -411,7 +411,7 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			memTx.senders.Store(peerID, true)
 			mem.addTx(memTx)
-			mem.logger.Error("Added good transaction",
+			mem.logger.Info("Added good transaction",
 				"tx", txID(tx),
 				"res", r,
 				"height", memTx.height,
@@ -420,7 +420,7 @@ func (mem *CListMempool) resCbFirstTime(
 			mem.notifyTxsAvailable()
 		} else {
 			// ignore bad transaction
-			mem.logger.Error("Rejected bad transaction",
+			mem.logger.Info("Rejected bad transaction",
 				"tx", txID(tx), "peerID", peerP2PID, "res", r, "err", postCheckErr)
 			mem.metrics.FailedTxs.Add(1)
 			// remove from cache (it might be good later)
