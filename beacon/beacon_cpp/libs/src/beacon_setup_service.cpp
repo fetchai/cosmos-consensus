@@ -16,8 +16,8 @@
 //
 //------------------------------------------------------------------------------
 
-#include "beacon_setup_service.hpp"
 #include "beacon_manager.hpp"
+#include "beacon_setup_service.hpp"
 #include "set_intersection.hpp"
 
 #include <assert.h>
@@ -49,6 +49,8 @@ BeaconSetupService::BeaconSetupService(Identifier cabinet_size, CabinetIndex thr
 
   beacon_->GenerateCoefficients();
 }
+
+BeaconSetupService::~BeaconSetupService() = default;
 
 uint32_t BeaconSetupService::QualSize()
 {
@@ -311,7 +313,7 @@ void BeaconSetupService::OnComplaints(std::vector<Identifier> const &msg, Identi
   std::lock_guard<std::mutex> lock(mutex_);
   assert(from < beacon_->cabinet_size());
 
-  std::set<Identifier>        complaints{msg.begin(), msg.end()};
+  std::set<Identifier> complaints{msg.begin(), msg.end()};
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
 
@@ -376,7 +378,7 @@ void BeaconSetupService::OnReconstructionShares(SharesExposedMap const &shares,
 {
   std::lock_guard<std::mutex> lock(mutex_);
   assert(from < beacon_->cabinet_size());
-  
+
   if (reconstruction_shares_received_.find(from) == reconstruction_shares_received_.end())
   {
     reconstruction_shares_received_.insert({from, shares});
@@ -458,30 +460,29 @@ void BeaconSetupService::CheckComplaintAnswers()
   // 1. Nodes which received over t complaints
   // 2. Complaint answers which were false
 
- * @return True if self is in qual and qual is at least of size QualSize(), false
- otherwise
+ * @return Set of qualified members
  */
-bool BeaconSetupService::BuildQual()
+std::vector<BeaconSetupService::Identifier> BeaconSetupService::BuildQual()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   complaint_answers_manager_.Finish(valid_dkg_members_, beacon_->cabinet_index());
   CheckComplaintAnswers();
 
   beacon_->SetQual(complaint_answers_manager_.BuildQual(valid_dkg_members_));
-  std::set<Identifier> qual = beacon_->qual();
 
   // There should be no members in qual that are not in valid_dkg_members
-  assert((qual & valid_dkg_members_) == qual);
+  assert((beacon_->qual() & valid_dkg_members_) == beacon_->qual());
 
-  if (qual.find(beacon_->cabinet_index()) == qual.end())
+  std::vector<Identifier> qual{beacon_->qual().begin(), beacon_->qual().end()};
+  if (std::find(qual.begin(), qual.end(), beacon_->cabinet_index()) == qual.end())
   {
-    return false;
+    return {};
   }
   if (qual.size() < QualSize())
   {
-    return false;
+    return {};
   }
-  return true;
+  return qual;
 }
 
 /**

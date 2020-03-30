@@ -1,25 +1,46 @@
+//------------------------------------------------------------------------------
+//
+//   Copyright 2018-2020 Fetch.AI Limited
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+//
+//------------------------------------------------------------------------------
+
 #include "mcl_crypto.hpp"
 
 namespace fetch {
 namespace beacon {
 namespace mcl {
 
-std::atomic<bool>  details::MCLInitialiser::was_initialised{false};
+std::atomic<bool> details::MCLInitialiser::was_initialised{false};
 
-Signature Sign(std::string const &message, PrivateKey x_i) {
+Signature Sign(std::string const &message, PrivateKey x_i)
+{
   Signature PH;
   Signature sign;
-  bn::Fp Hm;
+  bn::Fp    Hm;
   Hm.setHashOf(message.data(), message.size());
   bn::mapToG1(PH, Hm);
   bn::G1::mul(sign, PH, x_i);  // sign = s H(m)
   return sign;
 }
 
-bool Verify(std::string const &message, Signature const &sign, PublicKey const &public_key, Generator const &G) {
+bool Verify(std::string const &message, Signature const &sign, PublicKey const &public_key,
+            Generator const &G)
+{
   Signature PH;
-  bn::Fp12 e1, e2;
-  bn::Fp Hm;
+  bn::Fp12  e1, e2;
+  bn::Fp    Hm;
   Hm.setHashOf(message.data(), message.size());
   bn::mapToG1(PH, Hm);
 
@@ -36,31 +57,36 @@ bool Verify(std::string const &message, Signature const &sign, PublicKey const &
  * @param shares Unordered map of indices and their corresponding signature shares
  * @return Group signature
  */
-Signature LagrangeInterpolation(std::unordered_map < CabinetIndex, Signature >
-const &shares) {
-assert(!shares.empty());
-if (shares.size()== 1) {
-return shares.begin()->second;
-}
-Signature res;
+Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> const &shares)
+{
+  assert(!shares.empty());
+  if (shares.size() == 1)
+  {
+    return shares.begin()->second;
+  }
+  Signature res;
 
-PrivateKey a{1};
-for (auto &p: shares) {
-a *=bn::Fr(p.first + 1);
-}
+  PrivateKey a{1};
+  for (auto &p : shares)
+  {
+    a *= bn::Fr(p.first + 1);
+  }
 
-for (auto &p1 : shares) {
-auto b = static_cast<bn::Fr>(p1.first + 1);
-for (auto &p2 : shares) {
-if (p2.first != p1.first) {
-b *= static_cast<bn::Fr>(p2.first) - static_cast<bn::Fr>(p1.first);
-}
-}
-Signature t;
-bn::G1::mul(t, p1.second, a / b);
-res +=t;
-}
-return res;
+  for (auto &p1 : shares)
+  {
+    auto b = static_cast<bn::Fr>(p1.first + 1);
+    for (auto &p2 : shares)
+    {
+      if (p2.first != p1.first)
+      {
+        b *= static_cast<bn::Fr>(p2.first) - static_cast<bn::Fr>(p1.first);
+      }
+    }
+    Signature t;
+    bn::G1::mul(t, p1.second, a / b);
+    res += t;
+  }
+  return res;
 }
 
 DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold)
@@ -148,7 +174,7 @@ PublicKey ComputeLHS(Generator const &G, Generator const &H, PrivateKey const &s
   return ComputeLHS(tmpG, G, H, share1, share2);
 }
 
-void UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input)
+void UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<PublicKey> const &input)
 {
   PrivateKey tmpF{1};
   PublicKey  tmpG;
@@ -156,18 +182,18 @@ void UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<std::unique_ptr<P
   for (CabinetIndex k = 1; k < input.size(); k++)
   {
     bn::Fr::pow(tmpF, rank + 1, k);  // adjust rank in computation
-    bn::G2::mul(tmpG, *input[k], tmpF);
+    bn::G2::mul(tmpG, input[k], tmpF);
     bn::G2::add(rhsG, rhsG, tmpG);
   }
 }
 
-PublicKey ComputeRHS(CabinetIndex rank, std::vector<std::unique_ptr<PublicKey>> const &input)
+PublicKey ComputeRHS(CabinetIndex rank, std::vector<PublicKey> const &input)
 {
   PrivateKey tmpF;
   PublicKey  tmpG, rhsG;
   assert(!input.empty());
   // initialise rhsG
-  rhsG = *input[0];
+  rhsG = input[0];
   UpdateRHS(rank, rhsG, input);
   return rhsG;
 }
@@ -265,6 +291,6 @@ std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
   return res;
 }
 
-}
-}
-}
+}  // namespace mcl
+}  // namespace beacon
+}  // namespace fetch

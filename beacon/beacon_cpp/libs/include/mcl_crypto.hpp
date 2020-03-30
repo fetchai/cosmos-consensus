@@ -17,11 +17,9 @@
 //
 //------------------------------------------------------------------------------
 
-
 #include "mcl/bn256.hpp"
 
 #include <atomic>
-#include <memory>
 #include <unordered_map>
 
 namespace bn = mcl::bn256;
@@ -48,24 +46,30 @@ struct MCLInitialiser
 
 using CabinetIndex = uint32_t;
 
-class PrivateKey : public bn::Fr {
+class PrivateKey : public bn::Fr
+{
 public:
-  PrivateKey() {
+  PrivateKey()
+  {
     clear();
   }
 
-  explicit PrivateKey(std::string const &pk) {
+  explicit PrivateKey(std::string const &pk)
+  {
     FromString(pk);
   }
 
-  explicit PrivateKey(CabinetIndex value) {
+  explicit PrivateKey(CabinetIndex value)
+  {
     clear();
     bn::Fr::add(*this, *this, value);
   }
-  std::string ToString() const {
+  std::string ToString() const
+  {
     return getStr();
   }
-  void FromString(std::string const &pk) {
+  void FromString(std::string const &pk)
+  {
     clear();
     bool set{false};
     setStr(&set, pk.data());
@@ -73,19 +77,24 @@ public:
   }
 };
 
-class Signature : public bn::G1 {
+class Signature : public bn::G1
+{
 public:
-  Signature() {
+  Signature()
+  {
     clear();
   }
 
-  explicit Signature(std::string const sig) {
+  explicit Signature(std::string const sig)
+  {
     FromString(sig);
   }
-  std::string ToString() const {
+  std::string ToString() const
+  {
     return getStr();
   }
-  void FromString(std::string const &sig) {
+  void FromString(std::string const &sig)
+  {
     clear();
     bool set{false};
     setStr(&set, sig.data());
@@ -93,20 +102,25 @@ public:
   }
 };
 
-class Generator : public bn::G2 {
+class Generator : public bn::G2
+{
 public:
-  Generator() {
+  Generator()
+  {
     clear();
   }
 
-  explicit Generator(std::string const &string_to_hash) {
+  explicit Generator(std::string const &string_to_hash)
+  {
     clear();
     bn::hashAndMapToG2(*this, string_to_hash);
   }
-  std::string ToString() const {
+  std::string ToString() const
+  {
     return getStr();
   }
-  void FromString(std::string const &gen) {
+  void FromString(std::string const &gen)
+  {
     clear();
     bool set{false};
     setStr(&set, gen.data());
@@ -114,23 +128,29 @@ public:
   }
 };
 
-class PublicKey : public bn::G2 {
+class PublicKey : public bn::G2
+{
 public:
-  PublicKey() {
+  PublicKey()
+  {
     clear();
   }
 
-  explicit PublicKey(std::string const &public_key) {
+  explicit PublicKey(std::string const &public_key)
+  {
     FromString(public_key);
   }
 
-  PublicKey(Generator const &G, PrivateKey const &p) {
+  PublicKey(Generator const &G, PrivateKey const &p)
+  {
     bn::G2::mul(*this, G, p);
   }
-  std::string ToString() const {
+  std::string ToString() const
+  {
     return getStr();
   }
-  void FromString(std::string const &pk) {
+  void FromString(std::string const &pk)
+  {
     clear();
     bool set{false};
     setStr(&set, pk.data());
@@ -139,9 +159,9 @@ public:
 };
 
 Signature Sign(std::string const &message, PrivateKey x_i);
-bool Verify(std::string const &message, Signature const &sign, PublicKey const &public_key, Generator const &G);
-Signature LagrangeInterpolation(std::unordered_map < CabinetIndex, Signature >
-const &shares);
+bool      Verify(std::string const &message, Signature const &sign, PublicKey const &public_key,
+                 Generator const &G);
+Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> const &shares);
 
 struct DkgKeyInformation
 {
@@ -164,14 +184,9 @@ DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIn
  * @param i Number of columns
  */
 template <typename T>
-void Init(std::vector<std::unique_ptr<T>> &data, CabinetIndex i)
+void Init(std::vector<T> &data, CabinetIndex i)
 {
   data.resize(i);
-  for (auto &data_i : data)
-  {
-    data_i.reset();
-    data_i = std::make_unique<T>();
-  }
 }
 
 /**
@@ -183,17 +198,12 @@ void Init(std::vector<std::unique_ptr<T>> &data, CabinetIndex i)
  * @param j Number of columns
  */
 template <typename T>
-void Init(std::vector<std::vector<std::unique_ptr<T>>> &data, CabinetIndex i, CabinetIndex j)
+void Init(std::vector<std::vector<T>> &data, CabinetIndex i, CabinetIndex j)
 {
   data.resize(i);
   for (auto &data_i : data)
   {
     data_i.resize(j);
-    for (auto &data_ij : data_i)
-    {
-      data_ij.reset();
-      data_ij = std::make_unique<T>();
-    }
   }
 }
 void      SetGenerator(Generator &        generator_g,
@@ -205,13 +215,13 @@ PublicKey ComputeLHS(PublicKey &tmpG, Generator const &G, Generator const &H,
                      PrivateKey const &share1, PrivateKey const &share2);
 PublicKey ComputeLHS(Generator const &G, Generator const &H, PrivateKey const &share1,
                      PrivateKey const &share2);
-void      UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<std::unique_ptr<PublicKey>> const &input);
-PublicKey ComputeRHS(CabinetIndex rank, std::vector<std::unique_ptr<PublicKey>> const &input);
+void      UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<PublicKey> const &input);
+PublicKey ComputeRHS(CabinetIndex rank, std::vector<PublicKey> const &input);
 void      ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
                         std::vector<PrivateKey> const &b_i, CabinetIndex index);
 std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
                                            std::vector<PrivateKey> const &b);
 
-} //namespace mcl
-} //namespace crypto
-} //namespace fetch
+}  // namespace mcl
+}  // namespace beacon
+}  // namespace fetch

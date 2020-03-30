@@ -102,10 +102,12 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
+	quals := make([]IntVector, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllComplaintAnswers())
-		assert.True(t, beaconManagers[index].BuildQual())
+		quals[index] = beaconManagers[index].BuildQual()
+		assert.True(t, quals[index].Size() == int64(cabinetSize))
 	}
 
 	// Distribute qual coefficients

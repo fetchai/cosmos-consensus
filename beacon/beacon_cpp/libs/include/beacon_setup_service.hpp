@@ -16,6 +16,7 @@
 //   limitations under the License.
 //
 //------------------------------------------------------------------------------
+
 #include "aeon_exec_unit.hpp"
 #include "complaints_manager.hpp"
 
@@ -24,7 +25,7 @@
 namespace fetch {
 namespace beacon {
 
-class BeaconManager;    
+class BeaconManager;
 
 class BeaconSetupService
 {
@@ -38,7 +39,7 @@ public:
   BeaconSetupService(Identifier cabinet_size, CabinetIndex threshold, Identifier index);
   BeaconSetupService(BeaconSetupService const &) = delete;
   BeaconSetupService(BeaconSetupService &&)      = delete;
-  virtual ~BeaconSetupService()                  = default;
+  ~BeaconSetupService();
 
   /// @name For checking state transition counters
   /// @{
@@ -72,10 +73,10 @@ public:
   void OnReconstructionShares(SharesExposedMap const &shares_msg, Identifier const &from);
   /// @}
 
-  bool              BuildQual();
-  bool              CheckQualComplaints();
-  bool              RunReconstruction();
-  DKGKeyInformation ComputePublicKeys();
+  std::vector<Identifier> BuildQual();
+  bool                    CheckQualComplaints();
+  bool                    RunReconstruction();
+  DKGKeyInformation       ComputePublicKeys();
 
 private:
   // Managing complaints
@@ -96,8 +97,8 @@ private:
   /// @}
 
   // Members below protected by mutex
-  mutable std::mutex mutex_;
-  std::unique_ptr<BeaconManager>      beacon_{};
+  mutable std::mutex             mutex_;
+  std::unique_ptr<BeaconManager> beacon_;
 
   /// @name Helper methods
   /// @{

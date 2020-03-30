@@ -17,8 +17,8 @@
 //------------------------------------------------------------------------------
 
 #include "beacon_manager.hpp"
-#include "mcl_crypto.hpp"
 
+#include <memory>
 #include <mutex>
 #include <type_traits>
 #include <utility>
@@ -109,14 +109,13 @@ void BeaconManager::GenerateCoefficients()
 
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
-    *C_ik[cabinet_index_][k] =
-        beacon::mcl::ComputeLHS(*g__a_i[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
+    C_ik[cabinet_index_][k] =
+        beacon::mcl::ComputeLHS(g__a_i[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
   }
 
   for (CabinetIndex l = 0; l < cabinet_size_; l++)
   {
-    beacon::mcl::ComputeShares(*s_ij[cabinet_index_][l], *sprime_ij[cabinet_index_][l], a_i, b_i,
-                               l);
+    beacon::mcl::ComputeShares(s_ij[cabinet_index_][l], sprime_ij[cabinet_index_][l], a_i, b_i, l);
   }
 }
 
@@ -125,7 +124,7 @@ std::vector<BeaconManager::Coefficient> BeaconManager::GetCoefficients()
   std::vector<Coefficient> coefficients;
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
-    coefficients.emplace_back(C_ik[cabinet_index_][k]->ToString());
+    coefficients.emplace_back(C_ik[cabinet_index_][k].ToString());
   }
   return coefficients;
 }
@@ -133,16 +132,16 @@ std::vector<BeaconManager::Coefficient> BeaconManager::GetCoefficients()
 std::pair<BeaconManager::Share, BeaconManager::Share> BeaconManager::GetOwnShares(
     CabinetIndex const &receiver_index)
 {
-  std::pair<Share, Share> shares_j{s_ij[cabinet_index_][receiver_index]->ToString(),
-                                   sprime_ij[cabinet_index_][receiver_index]->ToString()};
+  std::pair<Share, Share> shares_j{s_ij[cabinet_index_][receiver_index].ToString(),
+                                   sprime_ij[cabinet_index_][receiver_index].ToString()};
   return shares_j;
 }
 
 std::pair<BeaconManager::Share, BeaconManager::Share> BeaconManager::GetReceivedShares(
     CabinetIndex const &owner)
 {
-  std::pair<Share, Share> shares_j{s_ij[owner][cabinet_index_]->ToString(),
-                                   sprime_ij[owner][cabinet_index_]->ToString()};
+  std::pair<Share, Share> shares_j{s_ij[owner][cabinet_index_].ToString(),
+                                   sprime_ij[owner][cabinet_index_].ToString()};
   return shares_j;
 }
 
@@ -153,7 +152,7 @@ void BeaconManager::AddCoefficients(CabinetIndex const &            from,
   {
     for (CabinetIndex i = 0; i <= polynomial_degree_; ++i)
     {
-      C_ik[from][i]->FromString(coefficients[i]);
+      C_ik[from][i].FromString(coefficients[i]);
     }
     return;
   }
@@ -161,8 +160,8 @@ void BeaconManager::AddCoefficients(CabinetIndex const &            from,
 
 void BeaconManager::AddShares(CabinetIndex const &from_index, std::pair<Share, Share> const &shares)
 {
-  s_ij[from_index][cabinet_index_]->FromString(shares.first);
-  sprime_ij[from_index][cabinet_index_]->FromString(shares.second);
+  s_ij[from_index][cabinet_index_].FromString(shares.first);
+  sprime_ij[from_index][cabinet_index_].FromString(shares.second);
 }
 
 /**
@@ -181,8 +180,8 @@ std::set<BeaconManager::CabinetIndex> BeaconManager::ComputeComplaints(
     {
       PublicKey rhs;
       PublicKey lhs;
-      lhs = beacon::mcl::ComputeLHS(*g__s_ij[i][cabinet_index_], GetGroupG(), GetGroupH(),
-                                    *s_ij[i][cabinet_index_], *sprime_ij[i][cabinet_index_]);
+      lhs = beacon::mcl::ComputeLHS(g__s_ij[i][cabinet_index_], GetGroupG(), GetGroupH(),
+                                    s_ij[i][cabinet_index_], sprime_ij[i][cabinet_index_]);
       rhs = beacon::mcl::ComputeRHS(cabinet_index_, C_ik[i]);
       if (lhs != rhs || lhs.isZero())
       {
@@ -211,10 +210,9 @@ bool BeaconManager::VerifyComplaintAnswer(CabinetIndex const &   from_index,
 
   if (reporter_index == cabinet_index_)
   {
-    *s_ij[from_index][cabinet_index_]      = s;
-    *sprime_ij[from_index][cabinet_index_] = sprime;
-    bn::G2::mul(*g__s_ij[from_index][cabinet_index_], GetGroupG(),
-                *s_ij[from_index][cabinet_index_]);
+    s_ij[from_index][cabinet_index_]      = s;
+    sprime_ij[from_index][cabinet_index_] = sprime;
+    bn::G2::mul(g__s_ij[from_index][cabinet_index_], GetGroupG(), s_ij[from_index][cabinet_index_]);
   }
   return true;
 }
@@ -230,12 +228,11 @@ void BeaconManager::SetQual(std::set<CabinetIndex> qual)
  */
 void BeaconManager::ComputeSecretShare()
 {
-  PrivateKey secret_share_temp;
+  secret_share_.clear();
   for (auto const &iq_index : qual_)
   {
-    bn::Fr::add(secret_share_temp, secret_share_temp, *s_ij[iq_index][cabinet_index_]);
+    bn::Fr::add(secret_share_, secret_share_, s_ij[iq_index][cabinet_index_]);
   }
-  secret_share_ = secret_share_temp.ToString();
 }
 
 std::vector<BeaconManager::Coefficient> BeaconManager::GetQualCoefficients()
@@ -243,8 +240,8 @@ std::vector<BeaconManager::Coefficient> BeaconManager::GetQualCoefficients()
   std::vector<Coefficient> coefficients;
   for (std::size_t k = 0; k <= polynomial_degree_; k++)
   {
-    *A_ik[cabinet_index_][k] = *g__a_i[k];
-    coefficients.push_back(A_ik[cabinet_index_][k]->ToString());
+    A_ik[cabinet_index_][k] = g__a_i[k];
+    coefficients.push_back(A_ik[cabinet_index_][k].ToString());
   }
   return coefficients;
 }
@@ -256,7 +253,7 @@ void BeaconManager::AddQualCoefficients(CabinetIndex const &            from_ind
   {
     for (CabinetIndex i = 0; i <= polynomial_degree_; ++i)
     {
-      A_ik[from_index][i]->FromString(coefficients[i]);
+      A_ik[from_index][i].FromString(coefficients[i]);
     }
     return;
   }
@@ -281,18 +278,18 @@ BeaconManager::SharesExposedMap BeaconManager::ComputeQualComplaints(
       {
         PublicKey rhs;
         PublicKey lhs;
-        lhs = *g__s_ij[i][cabinet_index_];
+        lhs = g__s_ij[i][cabinet_index_];
         rhs = beacon::mcl::ComputeRHS(cabinet_index_, A_ik[i]);
         if (lhs != rhs || rhs.isZero())
         {
           qual_complaints.insert(
-              {i, {s_ij[i][cabinet_index_]->ToString(), sprime_ij[i][cabinet_index_]->ToString()}});
+              {i, {s_ij[i][cabinet_index_].ToString(), sprime_ij[i][cabinet_index_].ToString()}});
         }
       }
       else
       {
         qual_complaints.insert(
-            {i, {s_ij[i][cabinet_index_]->ToString(), sprime_ij[i][cabinet_index_]->ToString()}});
+            {i, {s_ij[i][cabinet_index_].ToString(), sprime_ij[i][cabinet_index_].ToString()}});
       }
     }
   }
@@ -330,16 +327,16 @@ BeaconManager::CabinetIndex BeaconManager::VerifyQualComplaint(CabinetIndex cons
  */
 void BeaconManager::ComputePublicKeys()
 {
-  PublicKey public_key_temp;
+  public_key_.clear();
   // For all parties in $QUAL$, set $y_i = A_{i0}
   for (auto const &it : qual_)
   {
-    *y_i[it] = *A_ik[it][0];
+    y_i[it] = A_ik[it][0];
   }
   // Compute public key $y = \prod_{i \in QUAL} y_i \bmod p$
   for (auto const &it : qual_)
   {
-    bn::G2::add(public_key_temp, public_key_temp, *y_i[it]);
+    bn::G2::add(public_key_, public_key_, y_i[it]);
   }
   // Compute public_key_shares_ $v_j = \prod_{i \in QUAL} \prod_{k=0}^t (A_{ik})^{j^k} \bmod
   // p$
@@ -347,11 +344,10 @@ void BeaconManager::ComputePublicKeys()
   {
     for (auto const &it : qual_)
     {
-      bn::G2::add(*public_key_shares_[jt], *public_key_shares_[jt], *A_ik[it][0]);
-      beacon::mcl::UpdateRHS(jt, *public_key_shares_[jt], A_ik[it]);
+      bn::G2::add(public_key_shares_[jt], public_key_shares_[jt], A_ik[it][0]);
+      beacon::mcl::UpdateRHS(jt, public_key_shares_[jt], A_ik[it]);
     }
   }
-  public_key_ = public_key_temp.ToString();
 }
 
 void BeaconManager::AddReconstructionShare(CabinetIndex const &index)
@@ -361,7 +357,7 @@ void BeaconManager::AddReconstructionShare(CabinetIndex const &index)
     mcl::Init(reconstruction_shares[index].second, cabinet_size_);
   }
   reconstruction_shares.at(index).first.insert(cabinet_index_);
-  *reconstruction_shares.at(index).second[cabinet_index_] = *s_ij[index][cabinet_index_];
+  reconstruction_shares.at(index).second[cabinet_index_] = s_ij[index][cabinet_index_];
 }
 
 void BeaconManager::AddReconstructionShare(CabinetIndex const &                  from_index,
@@ -371,13 +367,13 @@ void BeaconManager::AddReconstructionShare(CabinetIndex const &                 
   {
     mcl::Init(reconstruction_shares[share.first].second, cabinet_size_);
   }
-  else if (!reconstruction_shares.at(share.first).second[from_index]->isZero())
+  else if (!reconstruction_shares.at(share.first).second[from_index].isZero())
   {
     return;
   }
   PrivateKey s{share.second};
   reconstruction_shares.at(share.first).first.insert(from_index);
-  *reconstruction_shares.at(share.first).second[from_index] = s;
+  reconstruction_shares.at(share.first).second[from_index] = s;
 }
 
 void BeaconManager::VerifyReconstructionShare(CabinetIndex const &from, ExposedShare const &share)
@@ -426,12 +422,12 @@ bool BeaconManager::RunReconstruction()
     for (const auto &index : parties)
     {
       points.emplace_back(index + 1);  // adjust index in computation
-      shares_f.push_back(*in.second.second[index]);
+      shares_f.push_back(in.second.second[index]);
     }
     a_ik[victim_index] = beacon::mcl::InterpolatePolynom(points, shares_f);
     for (std::size_t k = 0; k <= polynomial_degree_; k++)
     {
-      bn::G2::mul(*A_ik[victim_index][k], GetGroupG(), a_ik[victim_index][k]);
+      bn::G2::mul(A_ik[victim_index][k], GetGroupG(), a_ik[victim_index][k]);
     }
   }
   return true;
@@ -498,11 +494,11 @@ BeaconManager::CabinetIndex BeaconManager::cabinet_size() const
 DKGKeyInformation BeaconManager::GetDkgOutput() const
 {
   auto output             = DKGKeyInformation();
-  output.group_public_key = public_key_;
-  output.private_key      = secret_share_;
+  output.group_public_key = public_key_.ToString();
+  output.private_key      = secret_share_.ToString();
   for (auto i = 0; i < public_key_shares_.size(); i++)
   {
-    output.public_key_shares.push_back(public_key_shares_[i]->ToString());
+    output.public_key_shares.push_back(public_key_shares_[i].ToString());
   }
   return output;
 }
