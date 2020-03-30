@@ -16,12 +16,15 @@
 //   limitations under the License.
 //
 //------------------------------------------------------------------------------
-
-#include "beacon_manager.hpp"
+#include "aeon_exec_unit.hpp"
 #include "complaints_manager.hpp"
+
+#include <memory>
 
 namespace fetch {
 namespace beacon {
+
+class BeaconManager;    
 
 class BeaconSetupService
 {
@@ -94,7 +97,7 @@ private:
 
   // Members below protected by mutex
   mutable std::mutex mutex_;
-  BeaconManager      beacon_{};
+  std::unique_ptr<BeaconManager>      beacon_{};
 
   /// @name Helper methods
   /// @{

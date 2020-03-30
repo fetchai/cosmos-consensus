@@ -17,6 +17,7 @@
 //------------------------------------------------------------------------------
 
 #include "beacon_setup_service.hpp"
+#include "beacon_manager.hpp"
 #include "set_intersection.hpp"
 
 #include <assert.h>
@@ -34,7 +35,8 @@ BeaconSetupService::BeaconSetupService(Identifier cabinet_size, CabinetIndex thr
     return;
   }
 
-  beacon_.NewCabinet(cabinet_size, threshold, index);
+  beacon_ = std::make_unique<BeaconManager>();
+  beacon_->NewCabinet(cabinet_size, threshold, index);
   complaints_manager_.ResetCabinet(index, threshold);
   complaint_answers_manager_.ResetCabinet();
   qual_complaints_manager_.Reset();
@@ -45,17 +47,17 @@ BeaconSetupService::BeaconSetupService(Identifier cabinet_size, CabinetIndex thr
     it = valid_dkg_members_.insert(it, i);
   }
 
-  beacon_.GenerateCoefficients();
+  beacon_->GenerateCoefficients();
 }
 
 uint32_t BeaconSetupService::QualSize()
 {
   // Set to 2/3n for now
   auto proposed_qual_size =
-      static_cast<uint32_t>(beacon_.cabinet_size() - (beacon_.cabinet_size() / 3));
-  if (proposed_qual_size <= beacon_.polynomial_degree())
+      static_cast<uint32_t>(beacon_->cabinet_size() - (beacon_->cabinet_size() / 3));
+  if (proposed_qual_size <= beacon_->polynomial_degree())
   {
-    proposed_qual_size = beacon_.polynomial_degree() + 1;
+    proposed_qual_size = beacon_->polynomial_degree() + 1;
   }
   return proposed_qual_size;
 }
@@ -97,22 +99,22 @@ bool BeaconSetupService::ReceivedAllComplaintAnswers() const
 bool BeaconSetupService::ReceivedAllQualCoefficients() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  auto                        intersection = (qual_coefficients_received_ & beacon_.qual());
-  return intersection.size() == (beacon_.qual().size() - 1);
+  auto                        intersection = (qual_coefficients_received_ & beacon_->qual());
+  return intersection.size() == (beacon_->qual().size() - 1);
 }
 
 bool BeaconSetupService::ReceivedAllQualComplaints() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return qual_complaints_manager_.NumComplaintsReceived(beacon_.qual()) ==
-         (beacon_.qual().size() - 1);
+  return qual_complaints_manager_.NumComplaintsReceived(beacon_->qual()) ==
+         (beacon_->qual().size() - 1);
 }
 
 bool BeaconSetupService::ReceivedAllReconstructionShares() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
   auto                        complaints_list = qual_complaints_manager_.Complaints();
-  auto                        qual            = beacon_.qual();
+  auto                        qual            = beacon_->qual();
   std::set<Identifier>        remaining_honest;
   std::set_difference(qual.begin(), qual.end(), complaints_list.begin(), complaints_list.end(),
                       std::inserter(remaining_honest, remaining_honest.begin()));
@@ -120,7 +122,7 @@ bool BeaconSetupService::ReceivedAllReconstructionShares() const
   uint16_t received_count = 0;
   for (auto const &member : remaining_honest)
   {
-    if (member != beacon_.cabinet_index() &&
+    if (member != beacon_->cabinet_index() &&
         reconstruction_shares_received_.find(member) != reconstruction_shares_received_.end())
     {
       received_count++;
@@ -138,43 +140,43 @@ bool BeaconSetupService::RunReconstruction()
   for (auto const &share : reconstruction_shares_received_)
   {
     Identifier from = share.first;
-    if (qual_complaints_manager_.FindComplaint(from) || !beacon_.InQual(from))
+    if (qual_complaints_manager_.FindComplaint(from) || !beacon_->InQual(from))
     {
       continue;
     }
     for (auto const &elem : share.second)
     {
       // Check person who's shares are being exposed is a member of qual
-      if (beacon_.InQual(elem.first))
+      if (beacon_->InQual(elem.first))
       {
-        beacon_.VerifyReconstructionShare(from, elem);
+        beacon_->VerifyReconstructionShare(from, elem);
       }
     }
   }
 
   // Reset if reconstruction fails as this breaks the initial assumption on the
   // number of Byzantine nodes
-  return beacon_.RunReconstruction();
+  return beacon_->RunReconstruction();
 }
 
 DKGKeyInformation BeaconSetupService::ComputePublicKeys()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  beacon_.ComputePublicKeys();
-  return beacon_.GetDkgOutput();
+  beacon_->ComputePublicKeys();
+  return beacon_->GetDkgOutput();
 }
 
 std::vector<BeaconSetupService::MessageCoefficient> BeaconSetupService::GetCoefficients()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return beacon_.GetCoefficients();
+  return beacon_->GetCoefficients();
 }
 
 std::pair<BeaconSetupService::MessageShare, BeaconSetupService::MessageShare>
 BeaconSetupService::GetShare(Identifier index)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return beacon_.GetOwnShares(index);
+  return beacon_->GetOwnShares(index);
 }
 
 /**
@@ -207,7 +209,7 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetComplaintAnswers()
   SharesExposedMap complaint_answer;
   for (auto const &reporter : complaints_manager_.ComplaintsAgainstSelf())
   {
-    complaint_answer.insert({reporter, beacon_.GetOwnShares(reporter)});
+    complaint_answer.insert({reporter, beacon_->GetOwnShares(reporter)});
   }
   return complaint_answer;
 }
@@ -218,8 +220,8 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetComplaintAnswers()
 std::vector<BeaconSetupService::MessageCoefficient> BeaconSetupService::GetQualCoefficients()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  beacon_.ComputeSecretShare();
-  return beacon_.GetQualCoefficients();
+  beacon_->ComputeSecretShare();
+  return beacon_->GetQualCoefficients();
 }
 
 /**
@@ -232,7 +234,7 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetQualComplaints()
   std::lock_guard<std::mutex> lock(mutex_);
   // Qual complaints consist of all nodes from which we did not receive qual shares, or verification
   // of qual shares failed
-  auto complaints = beacon_.ComputeQualComplaints(qual_coefficients_received_);
+  auto complaints = beacon_->ComputeQualComplaints(qual_coefficients_received_);
   // Record own complaints
   for (auto const &mem : complaints)
   {
@@ -253,8 +255,8 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetReconstructionShares
   SharesExposedMap complaint_shares;
   for (auto const &in : qual_complaints_manager_.Complaints())
   {
-    beacon_.AddReconstructionShare(in);
-    complaint_shares.insert({in, beacon_.GetReceivedShares(in)});
+    beacon_->AddReconstructionShare(in);
+    complaint_shares.insert({in, beacon_->GetReceivedShares(in)});
   }
   return complaint_shares;
 }
@@ -270,11 +272,11 @@ void BeaconSetupService::OnShares(std::pair<MessageShare, MessageShare> const &s
                                   const Identifier &                           from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  assert(from < beacon_.cabinet_size());
+  assert(from < beacon_->cabinet_size());
 
   if (shares_received_.find(from) == shares_received_.end())
   {
-    beacon_.AddShares(from, shares);
+    beacon_->AddShares(from, shares);
     shares_received_.insert(from);
   }
 }
@@ -289,10 +291,11 @@ void BeaconSetupService::OnCoefficients(std::vector<MessageCoefficient> const &c
                                         Identifier const &                     from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  assert(from < beacon_->cabinet_size());
 
   if (coefficients_received_.find(from) == coefficients_received_.end())
   {
-    beacon_.AddCoefficients(from, coefficients);
+    beacon_->AddCoefficients(from, coefficients);
     coefficients_received_.insert(from);
   }
 }
@@ -306,6 +309,8 @@ void BeaconSetupService::OnCoefficients(std::vector<MessageCoefficient> const &c
 void BeaconSetupService::OnComplaints(std::vector<Identifier> const &msg, Identifier const &from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  assert(from < beacon_->cabinet_size());
+
   std::set<Identifier>        complaints{msg.begin(), msg.end()};
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
@@ -320,6 +325,8 @@ void BeaconSetupService::OnComplaints(std::vector<Identifier> const &msg, Identi
 void BeaconSetupService::OnComplaintAnswers(SharesExposedMap const &answer, Identifier const &from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  assert(from < beacon_->cabinet_size());
+
   complaint_answers_manager_.AddComplaintAnswerFrom(from, answer);
 }
 
@@ -333,10 +340,11 @@ void BeaconSetupService::OnQualCoefficients(std::vector<MessageCoefficient> cons
                                             Identifier const &                     from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  assert(from < beacon_->cabinet_size());
 
   if (qual_coefficients_received_.find(from) == qual_coefficients_received_.end())
   {
-    beacon_.AddQualCoefficients(from, coefficients);
+    beacon_->AddQualCoefficients(from, coefficients);
     qual_coefficients_received_.insert(from);
   }
 }
@@ -351,6 +359,8 @@ void BeaconSetupService::OnQualCoefficients(std::vector<MessageCoefficient> cons
 void BeaconSetupService::OnQualComplaints(SharesExposedMap const &shares, Identifier const &from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  assert(from < beacon_->cabinet_size());
+
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
 
@@ -365,6 +375,8 @@ void BeaconSetupService::OnReconstructionShares(SharesExposedMap const &shares,
                                                 Identifier const &      from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  assert(from < beacon_->cabinet_size());
+  
   if (reconstruction_shares_received_.find(from) == reconstruction_shares_received_.end())
   {
     reconstruction_shares_received_.insert({from, shares});
@@ -384,7 +396,7 @@ std::set<BeaconSetupService::Identifier> BeaconSetupService::ComputeComplaints()
   // Add nodes who did not send both coefficients and shares to complaints
   for (auto const &member : valid_dkg_members_)
   {
-    if (member == beacon_.cabinet_index())
+    if (member == beacon_->cabinet_index())
     {
       continue;
     }
@@ -397,7 +409,7 @@ std::set<BeaconSetupService::Identifier> BeaconSetupService::ComputeComplaints()
 
   // Add nodes whos coefficients and shares failed verification to complaints
   auto verification_fail =
-      beacon_.ComputeComplaints(coefficients_received_ & shares_received_ & valid_dkg_members_);
+      beacon_->ComputeComplaints(coefficients_received_ & shares_received_ & valid_dkg_members_);
   complaints_local.insert(verification_fail.begin(), verification_fail.end());
 
   for (auto const &cab : complaints_local)
@@ -426,7 +438,7 @@ void BeaconSetupService::CheckComplaintAnswers()
       if (complaints_manager_.FindComplaint(from, share.first))
       {
         answered_complaints.insert(share.first);
-        if (!beacon_.VerifyComplaintAnswer(from, share))
+        if (!beacon_->VerifyComplaintAnswer(from, share))
         {
           complaint_answers_manager_.AddComplaintAgainst(from);
         }
@@ -452,16 +464,16 @@ void BeaconSetupService::CheckComplaintAnswers()
 bool BeaconSetupService::BuildQual()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  complaint_answers_manager_.Finish(valid_dkg_members_, beacon_.cabinet_index());
+  complaint_answers_manager_.Finish(valid_dkg_members_, beacon_->cabinet_index());
   CheckComplaintAnswers();
 
-  beacon_.SetQual(complaint_answers_manager_.BuildQual(valid_dkg_members_));
-  std::set<Identifier> qual = beacon_.qual();
+  beacon_->SetQual(complaint_answers_manager_.BuildQual(valid_dkg_members_));
+  std::set<Identifier> qual = beacon_->qual();
 
   // There should be no members in qual that are not in valid_dkg_members
   assert((qual & valid_dkg_members_) == qual);
 
-  if (qual.find(beacon_.cabinet_index()) == qual.end())
+  if (qual.find(beacon_->cabinet_index()) == qual.end())
   {
     return false;
   }
@@ -478,9 +490,9 @@ bool BeaconSetupService::BuildQual()
 bool BeaconSetupService::CheckQualComplaints()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  qual_complaints_manager_.Finish(beacon_.qual(), beacon_.cabinet_index());
+  qual_complaints_manager_.Finish(beacon_->qual(), beacon_->cabinet_index());
 
-  std::set<Identifier> qual{beacon_.qual()};
+  std::set<Identifier> qual{beacon_->qual()};
   for (const auto &complaint : qual_complaints_manager_.ComplaintsReceived())
   {
     Identifier sender = complaint.first;
@@ -489,7 +501,7 @@ bool BeaconSetupService::CheckQualComplaints()
       // Check person who's shares are being exposed is not in QUAL then don't bother with checks
       if (qual.find(share.first) != qual.end())
       {
-        qual_complaints_manager_.AddComplaintAgainst(beacon_.VerifyQualComplaint(sender, share));
+        qual_complaints_manager_.AddComplaintAgainst(beacon_->VerifyQualComplaint(sender, share));
       }
     }
   }
@@ -498,7 +510,7 @@ bool BeaconSetupService::CheckQualComplaints()
 
   // Reset if complaints is over threshold as this breaks the initial assumption on the
   // number of Byzantine nodes
-  if (size > beacon_.polynomial_degree())
+  if (size > beacon_->polynomial_degree())
   {
     return false;
   }
