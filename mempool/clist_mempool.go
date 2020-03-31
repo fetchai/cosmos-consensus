@@ -48,12 +48,14 @@ type CListMempool struct {
 	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
 
 	dkgClosure OnDKGFunc
+	// Notify waiting goroutines there are TXs
+	//waitCh chan struct{}
 
 	config *cfg.MempoolConfig
 
 	proxyMtx     sync.Mutex
 	proxyAppConn proxy.AppConnMempool
-	txs          *clist.CList // concurrent linked-list of good txs
+	txs          *clist.PriorityPool // concurrent linked-list of good txs
 	preCheck     PreCheckFunc
 	postCheck    PostCheckFunc
 
@@ -94,7 +96,7 @@ func NewCListMempool(
 	mempool := &CListMempool{
 		config:        config,
 		proxyAppConn:  proxyAppConn,
-		txs:           clist.New(),
+		txs:           clist.NewPriorityPool(),
 		height:        height,
 		rechecking:    0,
 		recheckCursor: nil,
@@ -201,7 +203,7 @@ func (mem *CListMempool) Flush() {
 	_ = atomic.SwapInt64(&mem.txsBytes, 0)
 }
 
-// TxsFront returns the first transaction in the ordered list for peer
+// TxsFront returns the first priority transaction in the ordered list for peer
 // goroutines to call .NextWait() on.
 // FIXME: leaking implementation details!
 func (mem *CListMempool) TxsFront() *clist.CElement {
@@ -351,7 +353,6 @@ func (mem *CListMempool) reqResCb(
 			panic("recheck cursor is not nil in reqResCb")
 		}
 
-		fmt.Printf("callback triggered \n")
 		mem.resCbFirstTime(tx, peerID, peerP2PID, res)
 
 		// update metrics
@@ -367,7 +368,7 @@ func (mem *CListMempool) reqResCb(
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
-	e := mem.txs.PushBack(memTx)
+	e := mem.txs.PushBack(memTx, memTx.tx.IsDKGRelated())
 	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))

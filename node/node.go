@@ -823,7 +823,6 @@ func (n *Node) OnStart() error {
 
 	if n.config.Instrumentation.Prometheus &&
 		n.config.Instrumentation.PrometheusListenAddr != "" {
-		fmt.Printf("did prom. \n")
 		n.prometheusSrv = n.startPrometheusServer(n.config.Instrumentation.PrometheusListenAddr)
 	}
 

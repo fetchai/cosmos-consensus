@@ -312,6 +312,34 @@ func (l *CList) WaitChan() <-chan struct{} {
 	return l.waitCh
 }
 
+// Lock the whole structure to perform an insertion
+func (l *CList) Insert(v interface{}, location *CElement) *CElement {
+
+	if location == nil {
+		return l.PushBack(v)
+	}
+
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+
+	return location.insert(v)
+}
+
+// Insert v at location of e, making it such that e follows.
+func (e *CElement) insert(v interface{}) *CElement {
+
+	// Copy e, substituting in v's value, and updating fwd ref
+	copy_element := e
+	copy_element.Value = v
+	copy_element.next = e
+	copy_element.removed = false
+
+	// Update refs for e
+	e.prev = copy_element
+
+	return copy_element
+}
+
 // Panics if list grows beyond its max length.
 func (l *CList) PushBack(v interface{}) *CElement {
 	l.mtx.Lock()

@@ -27,8 +27,6 @@ func (tx Tx) Hash() []byte {
 func (tx Tx) IsDKGRelated() bool {
 	if len(tx) >= 5 && bytes.Equal(tx[0:5], []byte("DKGTX")) {
 	  return true
-	} else {
-		fmt.Printf("TX: %s\n", tx)
 	}
 	return false
 }
