@@ -26,7 +26,7 @@ func (tx Tx) Hash() []byte {
 // IsDKGRelated informs as to whether this TX is an on chain DKG transaction
 func (tx Tx) IsDKGRelated() bool {
 	if len(tx) >= 5 && bytes.Equal(tx[0:5], []byte("DKGTX")) {
-	  return true
+		return true
 	}
 	return false
 }

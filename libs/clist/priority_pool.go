@@ -1,18 +1,17 @@
 package clist
 
 //import (
-	//"sync"
-	//"github.com/tendermint/tendermint/libs/clist"
+//"sync"
+//"github.com/tendermint/tendermint/libs/clist"
 //)
 
 // Define a structure that holds high or low priority items, returning high
 // priority items first (wraps/extends the clist behaviour).
 // It does this by keeping a reference to where in the list the divide between low
 // and high priority items are
-type PriorityPool struct
-{
-	txs                   *CList // concurrent linked-list of other txs
-  back_of_priority      *CElement
+type PriorityPool struct {
+	txs              *CList // concurrent linked-list of other txs
+	back_of_priority *CElement
 }
 
 func NewPriorityPool() *PriorityPool {
