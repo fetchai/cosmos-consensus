@@ -5,7 +5,7 @@ See beacon directory and consensus/state.go for main changes. Swig will need to 
 Get mcl submodule
 ```bash
 git submodule init
-git subdmodule update
+git submodule update
 ```
 To run all tests:
 ```bash
