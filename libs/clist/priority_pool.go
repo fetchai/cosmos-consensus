@@ -33,11 +33,11 @@ func (pool *PriorityPool) Back() *CElement {
 }
 
 func (pool *PriorityPool) PushBack(v interface{}, priority bool) *CElement {
-	if !priority {
+	if !priority || pool.txs.Len() == 0 {
 		return pool.txs.PushBack(v)
 	}
 
-	if pool.back_of_priority == nil {
+	if pool.back_of_priority == nil || pool.back_of_priority.removed {
 		pool.back_of_priority = pool.Front()
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	//"github.com/tendermint/tendermint/tx_extensions"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
@@ -292,10 +293,12 @@ func execBlockOnProxyApp(
 
 	// Run txs of block.
 	for _, tx := range block.Txs {
-		proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx})
-		if err := proxyAppConn.Error(); err != nil {
-			return nil, err
-		}
+		//if !tx_extensions.IsDKGRelated(tx) {
+			proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx})
+			if err := proxyAppConn.Error(); err != nil {
+				return nil, err
+			}
+		//}
 	}
 
 	// End block.

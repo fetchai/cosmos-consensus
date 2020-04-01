@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/tendermint/tendermint/tx_extensions"
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	auto "github.com/tendermint/tendermint/libs/autofile"
@@ -289,22 +290,22 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		return err
 	}
 
-	if tx.IsDKGRelated() {
+	if tx_extensions.IsDKGRelated(tx) {
 		fmt.Printf("is dkg. %+v\n", tx)
 
 		if mem.dkgClosure != nil {
 			mem.dkgClosure(tx)
 		}
 
-		// Make a 'fake' abci call and immediately callback to determine the TX is valid
-		// Response from checking the TX
-		fakeResponse := &abci.ResponseCheckTx{Code: abci.CodeTypeOK, GasWanted: 1}
+		//// Make a 'fake' abci call and immediately callback to determine the TX is valid
+		//// Response from checking the TX
+		//fakeResponse := &abci.ResponseCheckTx{Code: abci.CodeTypeOK, GasWanted: 1}
 
-		// Create a callback and call the mempool
-		fakeResponseCb := &abci.Response{Value: &abci.Response_CheckTx{fakeResponse}}
-		mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb)(fakeResponseCb)
+		//// Create a callback and call the mempool
+		//fakeResponseCb := &abci.Response{Value: &abci.Response_CheckTx{fakeResponse}}
+		//mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb)(fakeResponseCb)
 
-		return nil
+		//return nil
 	}
 
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
@@ -368,7 +369,7 @@ func (mem *CListMempool) reqResCb(
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
-	e := mem.txs.PushBack(memTx, memTx.tx.IsDKGRelated())
+	e := mem.txs.PushBack(memTx, tx_extensions.IsDKGRelated(memTx.tx))
 	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))

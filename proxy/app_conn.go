@@ -1,8 +1,12 @@
 package proxy
 
 import (
+	//"github.com/tendermint/tendermint/tx_extensions"
+	"fmt"
+	"github.com/tendermint/tendermint/libs/kv"
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/tx_extensions"
 )
 
 //----------------------------------------------------------------------------------------
@@ -45,11 +49,13 @@ type AppConnQuery interface {
 
 type appConnConsensus struct {
 	appConn abcicli.Client
+	specialTxHandler *tx_extensions.SpecialTxHandler
 }
 
-func NewAppConnConsensus(appConn abcicli.Client) *appConnConsensus {
+func NewAppConnConsensus(appConn abcicli.Client, handler *tx_extensions.SpecialTxHandler) *appConnConsensus {
 	return &appConnConsensus{
 		appConn: appConn,
+		specialTxHandler: handler,
 	}
 }
 
@@ -70,6 +76,37 @@ func (app *appConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types
 }
 
 func (app *appConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli.ReqRes {
+
+	// Special case for DKG TXs
+	if tx_extensions.IsDKGRelated(req.Tx) {
+
+		no_events := []types.Event{
+			{
+				Type: "app",
+				Attributes: []kv.Pair{
+					{Key: []byte("creator"), Value: []byte("Cosmoshi Netowoko")},
+					{Key: []byte("key"), Value: req.Tx},
+				},
+			},
+		}
+
+		// If the TX is a DKG tx make a 'fake' abci call to pretend the TX was delivered
+		fakeRes := types.ResponseDeliverTx{Code: types.CodeTypeOK, Events: no_events}
+
+		reqRes := abcicli.NewReqRes(types.ToRequestDeliverTx(req))
+		reqRes.Response = types.ToResponseDeliverTx(fakeRes)
+		reqRes.SetDone()
+
+		app.appConn.TriggerResponseCallback(types.ToRequestDeliverTx(req), reqRes.Response)
+		if app.specialTxHandler != nil {
+			app.specialTxHandler.ConfirmedMessage(req.Tx)
+		} else {
+			fmt.Printf("should not happen \n")
+		}
+
+		return reqRes
+	}
+
 	return app.appConn.DeliverTxAsync(req)
 }
 
@@ -111,6 +148,19 @@ func (app *appConnMempool) FlushSync() error {
 }
 
 func (app *appConnMempool) CheckTxAsync(req types.RequestCheckTx) *abcicli.ReqRes {
+
+	// Special case for DKG TXs
+	if tx_extensions.IsDKGRelated(req.Tx) {
+		// If the TX is a DKG tx make a 'fake' abci call to determine the TX is ok.
+		fakeRes := types.ResponseCheckTx{Code: types.CodeTypeOK, GasWanted: 1}
+
+		reqRes := abcicli.NewReqRes(types.ToRequestCheckTx(req))
+		reqRes.Response = types.ToResponseCheckTx(fakeRes)
+		reqRes.SetDone()
+
+		return reqRes
+	}
+
 	return app.appConn.CheckTxAsync(req)
 }
 
