@@ -19,6 +19,8 @@ func RegisterRemoteSignerMsg(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&SignedProposalResponse{}, "tendermint/remotesigner/SignedProposalResponse", nil)
 	cdc.RegisterConcrete(&SignEntropyRequest{}, "tendermint/remotesigner/SignEntropyRequest", nil)
 	cdc.RegisterConcrete(&SignedEntropyResponse{}, "tendermint/remotesigner/SignedEntropyResponse", nil)
+	cdc.RegisterConcrete(&SignDKGRequest{}, "tendermint/remotesigner/SignDKGRequest", nil)
+	cdc.RegisterConcrete(&SignedDKGResponse{}, "tendermint/remotesigner/SignedDKGResponse", nil)
 
 	cdc.RegisterConcrete(&PingRequest{}, "tendermint/remotesigner/PingRequest", nil)
 	cdc.RegisterConcrete(&PingResponse{}, "tendermint/remotesigner/PingResponse", nil)
@@ -65,7 +67,18 @@ type SignEntropyRequest struct {
 // SignedEntropyResponse is response containing a signed entropy or an error
 type SignedEntropyResponse struct {
 	Entropy *types.EntropyShare
-	Error    *RemoteSignerError
+	Error   *RemoteSignerError
+}
+
+// SignDKGRequest is a request to sign a DKG message
+type SignDKGRequest struct {
+	DKGMessage *types.DKGMessage
+}
+
+// SignedDKGResponse is response containing a signed dkg message or an error
+type SignedDKGResponse struct {
+	DKGMessage *types.DKGMessage
+	Error      *RemoteSignerError
 }
 
 // PingRequest is a request to confirm that the connection is alive.
