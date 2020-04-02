@@ -16,7 +16,7 @@ func TestPanicOnMaxLength(t *testing.T) {
 
 	l := newWithMax(maxLength)
 	for i := 0; i < maxLength; i++ {
-		//l.PushBack(1)
+		l.PushBack(1)
 	}
 	assert.Panics(t, func() {
 		l.PushBack(1)
