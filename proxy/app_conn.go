@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	//"github.com/tendermint/tendermint/tx_extensions"
 	"fmt"
 	"github.com/tendermint/tendermint/libs/kv"
 	abcicli "github.com/tendermint/tendermint/abci/client"
