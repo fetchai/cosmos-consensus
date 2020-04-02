@@ -26,9 +26,17 @@ type AppConnMempool interface {
 	Error() error
 
 	CheckTxAsync(types.RequestCheckTx) *abcicli.ReqRes
+	AddTxAsync(types.RequestMempoolAddTx) *abcicli.ReqRes
+	RemoveTxAsync(types.RequestMempoolRemoveTx) *abcicli.ReqRes
+
+	ReapTxsSync(types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error)
 
 	FlushAsync() *abcicli.ReqRes
 	FlushSync() error
+
+	MempoolAddTxAsync(types.RequestMempoolAddTx) *abcicli.ReqRes
+	MempoolRemoveTxAsync(types.RequestMempoolRemoveTx) *abcicli.ReqRes
+	MempoolReapTxsSync(types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error)
 }
 
 type AppConnQuery interface {
@@ -117,6 +125,30 @@ func (app *appConnMempool) FlushSync() error {
 
 func (app *appConnMempool) CheckTxAsync(req types.RequestCheckTx) *abcicli.ReqRes {
 	return app.appConn.CheckTxAsync(req)
+}
+
+func (app *appConnMempool) AddTxAsync(req types.RequestMempoolAddTx) *abcicli.ReqRes {
+	return app.appConn.MempoolAddTxAsync(req)
+}
+
+func (app *appConnMempool) RemoveTxAsync(req types.RequestMempoolRemoveTx) *abcicli.ReqRes {
+	return app.appConn.MempoolRemoveTxAsync(req)
+}
+
+func (app *appConnMempool) ReapTxsSync(req types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
+	return app.appConn.MempoolReapTxsSync(req)
+}
+
+func (app *appConnMempool) MempoolAddTxAsync(req types.RequestMempoolAddTx) *abcicli.ReqRes {
+	return app.appConn.MempoolAddTxAsync(req)
+}
+
+func (app *appConnMempool) MempoolRemoveTxAsync(req types.RequestMempoolRemoveTx) *abcicli.ReqRes {
+	return app.appConn.MempoolRemoveTxAsync(req)
+}
+
+func (app *appConnMempool) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
+	return app.appConn.MempoolReapTxsSync(req)
 }
 
 //------------------------------------------------

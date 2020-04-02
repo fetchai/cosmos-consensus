@@ -141,6 +141,24 @@ func ToRequestEndBlock(req RequestEndBlock) *Request {
 	}
 }
 
+func ToRequestMempoolAddTx(req RequestMempoolAddTx) *Request {
+	return &Request{
+		Value: &Request_MempoolAddTx{&req},
+	}
+}
+
+func ToRequestMempoolRemoveTx(req RequestMempoolRemoveTx) *Request {
+	return &Request{
+		Value: &Request_MempoolRmTx{&req},
+	}
+}
+
+func ToRequestMempoolReapTxs(req RequestMempoolReapTxs) *Request {
+	return &Request{
+		Value: &Request_MempoolReapTxs{&req},
+	}
+}
+
 //----------------------------------------
 
 func ToResponseException(errStr string) *Response {
@@ -212,5 +230,23 @@ func ToResponseBeginBlock(res ResponseBeginBlock) *Response {
 func ToResponseEndBlock(res ResponseEndBlock) *Response {
 	return &Response{
 		Value: &Response_EndBlock{&res},
+	}
+}
+
+func ToResponseMempoolAddTx(res ResponseMempoolAddTx) *Response {
+	return &Response{
+		Value: &Response_MempoolAddTx{&res},
+	}
+}
+
+func ToResponseMempoolRemoveTx(res ResponseMempoolRemoveTx) *Response {
+	return &Response{
+		Value: &Response_MempoolRmTx{&res},
+	}
+}
+
+func ToResponseMempoolReapTxs(res ResponseMempoolReapTxs) *Response {
+	return &Response{
+		Value: &Response_MempoolReapTxs{&res},
 	}
 }

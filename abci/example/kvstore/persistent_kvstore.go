@@ -250,3 +250,21 @@ func (app *PersistentKVStoreApplication) updateValidator(v types.ValidatorUpdate
 
 	return types.ResponseDeliverTx{Code: code.CodeTypeOK}
 }
+
+func (*PersistentKVStoreApplication) MempoolAddTx(types.RequestMempoolAddTx) types.ResponseMempoolAddTx {
+	return types.ResponseMempoolAddTx{
+		Code: 1,
+	}
+}
+
+func (*PersistentKVStoreApplication) MempoolRemoveTx(types.RequestMempoolRemoveTx) types.ResponseMempoolRemoveTx {
+	return types.ResponseMempoolRemoveTx{
+		Code: 1,
+	}
+}
+
+func (*PersistentKVStoreApplication) MempoolReapTxs(types.RequestMempoolReapTxs) types.ResponseMempoolReapTxs {
+	return types.ResponseMempoolReapTxs{
+		Code: 1,
+	}
+}

@@ -158,6 +158,38 @@ func (app *localClient) EndBlockAsync(req types.RequestEndBlock) *ReqRes {
 	)
 }
 
+func (app *localClient) MempoolAddTxAsync(req types.RequestMempoolAddTx) *ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.MempoolAddTx(req)
+	return app.callback(
+		types.ToRequestMempoolAddTx(req),
+		types.ToResponseMempoolAddTx(res),
+	)
+}
+
+func (app *localClient) MempoolRemoveTxAsync(req types.RequestMempoolRemoveTx) *ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.MempoolRemoveTx(req)
+	return app.callback(
+		types.ToRequestMempoolRemoveTx(req),
+		types.ToResponseMempoolRemoveTx(res),
+	)
+}
+func (app *localClient) MempoolReapTxsAsync(req types.RequestMempoolReapTxs) *ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.MempoolReapTxs(req)
+	return app.callback(
+		types.ToRequestMempoolReapTxs(req),
+		types.ToResponseMempoolReapTxs(res),
+	)
+}
+
 //-------------------------------------------------------
 
 func (app *localClient) FlushSync() error {
@@ -245,6 +277,30 @@ func (app *localClient) EndBlockSync(req types.RequestEndBlock) (*types.Response
 	defer app.mtx.Unlock()
 
 	res := app.Application.EndBlock(req)
+	return &res, nil
+}
+
+func (app *localClient) MempoolAddTxSync(req types.RequestMempoolAddTx) (*types.ResponseMempoolAddTx, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.MempoolAddTx(req)
+	return &res, nil
+}
+
+func (app *localClient) MempoolRemoveTxSync(req types.RequestMempoolRemoveTx) (*types.ResponseMempoolRemoveTx, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.MempoolRemoveTx(req)
+	return &res, nil
+}
+
+func (app *localClient) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.MempoolReapTxs(req)
 	return &res, nil
 }
 
