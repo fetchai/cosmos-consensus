@@ -49,8 +49,6 @@ type CListMempool struct {
 	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
 
 	dkgClosure OnDKGFunc
-	// Notify waiting goroutines there are TXs
-	//waitCh chan struct{}
 
 	config *cfg.MempoolConfig
 
@@ -296,16 +294,6 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		if mem.dkgClosure != nil {
 			mem.dkgClosure(tx)
 		}
-
-		//// Make a 'fake' abci call and immediately callback to determine the TX is valid
-		//// Response from checking the TX
-		//fakeResponse := &abci.ResponseCheckTx{Code: abci.CodeTypeOK, GasWanted: 1}
-
-		//// Create a callback and call the mempool
-		//fakeResponseCb := &abci.Response{Value: &abci.Response_CheckTx{fakeResponse}}
-		//mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb)(fakeResponseCb)
-
-		//return nil
 	}
 
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
