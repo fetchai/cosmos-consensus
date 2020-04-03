@@ -26,11 +26,6 @@ import (
 
 //--------------------------------------------------------------------------------
 
-// Add an interface to the mempool that allows consensus to listen to DKG messages
-type DKGSnooper interface {
-	OnDKGMsg(cb func(types.Tx) bool)
-}
-
 type OnDKGFunc func(types.Tx) error
 
 // CListMempool is an ordered in-memory pool for transactions before they are
@@ -48,13 +43,11 @@ type CListMempool struct {
 	notifiedTxsAvailable bool
 	txsAvailable         chan struct{} // fires once for each height, when the mempool is not empty
 
-	dkgClosure OnDKGFunc
-
 	config *cfg.MempoolConfig
 
 	proxyMtx     sync.Mutex
 	proxyAppConn proxy.AppConnMempool
-	txs          *clist.PriorityPool // concurrent linked-list of good txs
+	txs          *clist.CList // concurrent linked-list of good txs
 	preCheck     PreCheckFunc
 	postCheck    PostCheckFunc
 
@@ -95,7 +88,7 @@ func NewCListMempool(
 	mempool := &CListMempool{
 		config:        config,
 		proxyAppConn:  proxyAppConn,
-		txs:           clist.NewPriorityPool(),
+		txs:           clist.New(),
 		height:        height,
 		rechecking:    0,
 		recheckCursor: nil,
@@ -202,7 +195,7 @@ func (mem *CListMempool) Flush() {
 	_ = atomic.SwapInt64(&mem.txsBytes, 0)
 }
 
-// TxsFront returns the first priority transaction in the ordered list for peer
+// TxsFront returns the first transaction in the ordered list for peer
 // goroutines to call .NextWait() on.
 // FIXME: leaking implementation details!
 func (mem *CListMempool) TxsFront() *clist.CElement {
@@ -289,11 +282,7 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 	}
 
 	if tx_extensions.IsDKGRelated(tx) {
-		fmt.Printf("is dkg. %+v\n", tx)
-
-		if mem.dkgClosure != nil {
-			mem.dkgClosure(tx)
-		}
+		fmt.Printf("dkg tx added to mempool. %+v\n", tx)
 	}
 
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
@@ -357,7 +346,7 @@ func (mem *CListMempool) reqResCb(
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
-	e := mem.txs.PushBack(memTx, tx_extensions.IsDKGRelated(memTx.tx))
+	e := mem.txs.PushBack(memTx)
 	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
@@ -484,10 +473,6 @@ func (mem *CListMempool) notifyTxsAvailable() {
 		default:
 		}
 	}
-}
-
-func (mem *CListMempool) OnDKGMsg(cb func(types.Tx) error) {
-	mem.dkgClosure = cb
 }
 
 func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {

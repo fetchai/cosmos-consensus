@@ -98,7 +98,7 @@ func (app *appConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli
 
 		app.appConn.TriggerResponseCallback(types.ToRequestDeliverTx(req), reqRes.Response)
 		if app.specialTxHandler != nil {
-			app.specialTxHandler.ConfirmedMessage(req.Tx)
+			app.specialTxHandler.SpecialTxSeen(req.Tx)
 		} else {
 			fmt.Printf("should not happen \n")
 		}
