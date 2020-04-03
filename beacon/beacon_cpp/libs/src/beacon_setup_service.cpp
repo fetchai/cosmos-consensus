@@ -21,7 +21,16 @@
 #include "set_intersection.hpp"
 
 #include <assert.h>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/set.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/vector.hpp>
+#include <iostream>
 #include <mutex>
+#include <sstream>
 #include <utility>
 
 namespace fetch {
@@ -168,17 +177,22 @@ DKGKeyInformation BeaconSetupService::ComputePublicKeys()
   return beacon_->GetDkgOutput();
 }
 
-std::vector<BeaconSetupService::MessageCoefficient> BeaconSetupService::GetCoefficients()
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetCoefficients()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return beacon_->GetCoefficients();
+  std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << beacon_->GetCoefficients();
+  return ss.str();
 }
 
-std::pair<BeaconSetupService::MessageShare, BeaconSetupService::MessageShare>
-BeaconSetupService::GetShare(Identifier index)
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetShare(Identifier index)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return beacon_->GetOwnShares(index);
+  std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << beacon_->GetOwnShares(index);
+  return ss.str();
 }
 
 /**
@@ -186,15 +200,14 @@ BeaconSetupService::GetShare(Identifier index)
  * sent to use. Also increments the number of complaints a given cabinet member has received with
  * our complaints
  */
-void BeaconSetupService::GetComplaints(std::vector<BeaconSetupService::Identifier> &complaints)
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetComplaints()
 {
   std::lock_guard<std::mutex> lock(mutex_);
-
-  complaints.clear();
-  std::set<Identifier> complaints_local = ComputeComplaints();
-  complaints.reserve(complaints_local.size());
-  std::copy(complaints_local.begin(), complaints_local.end(), complaints.begin());
-}
+  std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << ComputeComplaints();
+  return ss.str();
+  }
 
 /**
  * For a complaint by cabinet member c_i against self we broadcast the secret share
@@ -202,7 +215,7 @@ void BeaconSetupService::GetComplaints(std::vector<BeaconSetupService::Identifie
  * complaints where a member reveals the secret share they sent to c_i to everyone to
  * prove that it is consistent with the coefficients they originally broadcasted
  */
-BeaconSetupService::SharesExposedMap BeaconSetupService::GetComplaintAnswers()
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetComplaintAnswers()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   complaints_manager_.Finish(valid_dkg_members_);
@@ -213,17 +226,24 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetComplaintAnswers()
   {
     complaint_answer.insert({reporter, beacon_->GetOwnShares(reporter)});
   }
-  return complaint_answer;
+  std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << complaint_answer;
+  return ss.str();
 }
 
 /**
  * Get qual coefficients after computing own secret share
  */
-std::vector<BeaconSetupService::MessageCoefficient> BeaconSetupService::GetQualCoefficients()
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualCoefficients()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputeSecretShare();
-  return beacon_->GetQualCoefficients();
+
+  std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << beacon_->GetQualCoefficients();
+  return ss.str();
 }
 
 /**
@@ -231,7 +251,7 @@ std::vector<BeaconSetupService::MessageCoefficient> BeaconSetupService::GetQualC
  * broadcast the secret shares s_ij, sprime_ij of all members in qual who sent qual coefficients
  * which failed verification
  */
-BeaconSetupService::SharesExposedMap BeaconSetupService::GetQualComplaints()
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualComplaints()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   // Qual complaints consist of all nodes from which we did not receive qual shares, or verification
@@ -242,7 +262,10 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetQualComplaints()
   {
     qual_complaints_manager_.AddComplaintAgainst(mem.first);
   }
-  return complaints;
+   std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << complaints;
+  return ss.str();
 }
 
 /**
@@ -250,7 +273,7 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetQualComplaints()
  * the secret shares we received from them to all cabinet members and collect the shares broadcasted
  * by others
  */
-BeaconSetupService::SharesExposedMap BeaconSetupService::GetReconstructionShares()
+BeaconSetupService::SerialisedMsg BeaconSetupService::GetReconstructionShares()
 {
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -260,7 +283,10 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetReconstructionShares
     beacon_->AddReconstructionShare(in);
     complaint_shares.insert({in, beacon_->GetReceivedShares(in)});
   }
-  return complaint_shares;
+   std::ostringstream ss;
+  boost::archive::text_oarchive oa{ss};
+  oa << complaint_shares;
+  return ss.str();;
 }
 
 /**
@@ -270,7 +296,7 @@ BeaconSetupService::SharesExposedMap BeaconSetupService::GetReconstructionShares
  * @param from Identifier of sender
  * @param shares Pair of secret shares
  */
-void BeaconSetupService::OnShares(std::pair<MessageShare, MessageShare> const &shares,
+void BeaconSetupService::OnShares(SerialisedMsg const &msg,
                                   const Identifier &                           from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -278,6 +304,10 @@ void BeaconSetupService::OnShares(std::pair<MessageShare, MessageShare> const &s
 
   if (shares_received_.find(from) == shares_received_.end())
   {
+    std::pair<Share, Share> shares;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> shares;
     beacon_->AddShares(from, shares);
     shares_received_.insert(from);
   }
@@ -289,7 +319,7 @@ void BeaconSetupService::OnShares(std::pair<MessageShare, MessageShare> const &s
  * @param coefficients Coefficients
  * @param from Identifier of sender
  */
-void BeaconSetupService::OnCoefficients(std::vector<MessageCoefficient> const &coefficients,
+void BeaconSetupService::OnCoefficients(SerialisedMsg const &msg,
                                         Identifier const &                     from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -297,6 +327,10 @@ void BeaconSetupService::OnCoefficients(std::vector<MessageCoefficient> const &c
 
   if (coefficients_received_.find(from) == coefficients_received_.end())
   {
+    std::vector<Coefficient> coefficients;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> coefficients;
     beacon_->AddCoefficients(from, coefficients);
     coefficients_received_.insert(from);
   }
@@ -308,12 +342,15 @@ void BeaconSetupService::OnCoefficients(std::vector<MessageCoefficient> const &c
  * @param msg List of complaints
  * @param from Identifier of sender
  */
-void BeaconSetupService::OnComplaints(std::vector<Identifier> const &msg, Identifier const &from)
+void BeaconSetupService::OnComplaints(SerialisedMsg const &msg, Identifier const &from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
   assert(from < beacon_->cabinet_size());
 
-  std::set<Identifier> complaints{msg.begin(), msg.end()};
+  std::set<Identifier> complaints;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> complaints;
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
 
@@ -324,11 +361,15 @@ void BeaconSetupService::OnComplaints(std::vector<Identifier> const &msg, Identi
  * @param answer Map of exposed shares
  * @param from Identifier of sender
  */
-void BeaconSetupService::OnComplaintAnswers(SharesExposedMap const &answer, Identifier const &from)
+void BeaconSetupService::OnComplaintAnswers(SerialisedMsg const &msg, Identifier const &from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
   assert(from < beacon_->cabinet_size());
 
+SharesExposedMap answer;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> answer;
   complaint_answers_manager_.AddComplaintAnswerFrom(from, answer);
 }
 
@@ -338,7 +379,7 @@ void BeaconSetupService::OnComplaintAnswers(SharesExposedMap const &answer, Iden
  * @param coefficients qual coefficients
  * @param from Identifier of sender
  */
-void BeaconSetupService::OnQualCoefficients(std::vector<MessageCoefficient> const &coefficients,
+void BeaconSetupService::OnQualCoefficients(SerialisedMsg const &msg,
                                             Identifier const &                     from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -346,6 +387,10 @@ void BeaconSetupService::OnQualCoefficients(std::vector<MessageCoefficient> cons
 
   if (qual_coefficients_received_.find(from) == qual_coefficients_received_.end())
   {
+    std::vector<Coefficient> coefficients;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> coefficients;
     beacon_->AddQualCoefficients(from, coefficients);
     qual_coefficients_received_.insert(from);
   }
@@ -358,11 +403,15 @@ void BeaconSetupService::OnQualCoefficients(std::vector<MessageCoefficient> cons
  * @param shares Map of exposed shares
  * @param from Identifier of sender
  */
-void BeaconSetupService::OnQualComplaints(SharesExposedMap const &shares, Identifier const &from)
+void BeaconSetupService::OnQualComplaints(SerialisedMsg const &msg, Identifier const &from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
   assert(from < beacon_->cabinet_size());
 
+SharesExposedMap shares;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> shares;
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
 
@@ -373,7 +422,7 @@ void BeaconSetupService::OnQualComplaints(SharesExposedMap const &shares, Identi
  * @param shares Map of exposed shares
  * @param from Identifier of sender
  */
-void BeaconSetupService::OnReconstructionShares(SharesExposedMap const &shares,
+void BeaconSetupService::OnReconstructionShares(SerialisedMsg const &msg,
                                                 Identifier const &      from)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -381,6 +430,10 @@ void BeaconSetupService::OnReconstructionShares(SharesExposedMap const &shares,
 
   if (reconstruction_shares_received_.find(from) == reconstruction_shares_received_.end())
   {
+    SharesExposedMap shares;
+    std::istringstream ss{msg};
+    boost::archive::text_iarchive ia{ss};
+    ia >> shares;
     reconstruction_shares_received_.insert({from, shares});
   }
 }

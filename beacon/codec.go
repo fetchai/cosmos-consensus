@@ -9,6 +9,5 @@ var cdc = amino.NewCodec()
 
 func init() {
 	RegisterMessages(cdc)
-	RegisterDKGMessages(cdc)
 	types.RegisterBlockAmino(cdc)
 }

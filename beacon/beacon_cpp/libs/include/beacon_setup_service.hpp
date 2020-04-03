@@ -32,9 +32,10 @@ class BeaconSetupService
 public:
   using CabinetIndex       = uint32_t;
   using Identifier         = CabinetIndex;
-  using MessageCoefficient = std::string;
-  using MessageShare       = std::string;
-  using SharesExposedMap   = std::map<Identifier, std::pair<MessageShare, MessageShare>>;
+  using SerialisedMsg      = std::string;
+  using Share = std::string;
+  using Coefficient = std::string;
+  using SharesExposedMap   = std::unordered_map<Identifier, std::pair<Share, Share>>;
 
   BeaconSetupService(Identifier cabinet_size, CabinetIndex threshold, Identifier index);
   BeaconSetupService(BeaconSetupService const &) = delete;
@@ -53,24 +54,24 @@ public:
 
   /// @name For constructing DKG messages
   /// @{
-  std::vector<MessageCoefficient>       GetCoefficients();
-  std::pair<MessageShare, MessageShare> GetShare(Identifier index);
-  void                                  GetComplaints(std::vector<Identifier> &complaints);
-  SharesExposedMap                      GetComplaintAnswers();
-  std::vector<MessageCoefficient>       GetQualCoefficients();
-  SharesExposedMap                      GetQualComplaints();
-  SharesExposedMap                      GetReconstructionShares();
+  SerialisedMsg       GetCoefficients();
+  SerialisedMsg GetShare(Identifier index);
+  SerialisedMsg                          GetComplaints();
+  SerialisedMsg                      GetComplaintAnswers();
+  SerialisedMsg       GetQualCoefficients();
+  SerialisedMsg                      GetQualComplaints();
+  SerialisedMsg                      GetReconstructionShares();
   /// @}
 
   /// @name Handlers for messages
   /// @{
-  void OnShares(std::pair<MessageShare, MessageShare> const &shares, const Identifier &from);
-  void OnCoefficients(std::vector<MessageCoefficient> const &coefficients, Identifier const &from);
-  void OnComplaints(std::vector<Identifier> const &msg, Identifier const &from);
-  void OnComplaintAnswers(SharesExposedMap const &answer, Identifier const &from);
-  void OnQualCoefficients(std::vector<MessageCoefficient> const &msg, Identifier const &from);
-  void OnQualComplaints(SharesExposedMap const &shares_msg, Identifier const &from);
-  void OnReconstructionShares(SharesExposedMap const &shares_msg, Identifier const &from);
+  void OnShares(SerialisedMsg const &msg, const Identifier &from);
+  void OnCoefficients(SerialisedMsg const &msg, Identifier const &from);
+  void OnComplaints(SerialisedMsg const &msg, Identifier const &from);
+  void OnComplaintAnswers(SerialisedMsg const &msg, Identifier const &from);
+  void OnQualCoefficients(SerialisedMsg const &msg, Identifier const &from);
+  void OnQualComplaints(SerialisedMsg const &msg, Identifier const &from);
+  void OnReconstructionShares(SerialisedMsg const &msg, Identifier const &from);
   /// @}
 
   std::vector<Identifier> BuildQual();
