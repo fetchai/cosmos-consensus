@@ -30,12 +30,12 @@ class BeaconManager;
 class BeaconSetupService
 {
 public:
-  using CabinetIndex       = uint32_t;
-  using Identifier         = CabinetIndex;
-  using SerialisedMsg      = std::string;
-  using Share = std::string;
-  using Coefficient = std::string;
-  using SharesExposedMap   = std::unordered_map<Identifier, std::pair<Share, Share>>;
+  using CabinetIndex     = uint32_t;
+  using Identifier       = CabinetIndex;
+  using SerialisedMsg    = std::string;
+  using Share            = std::string;
+  using Coefficient      = std::string;
+  using SharesExposedMap = std::unordered_map<Identifier, std::pair<Share, Share>>;
 
   BeaconSetupService(Identifier cabinet_size, CabinetIndex threshold, Identifier index);
   BeaconSetupService(BeaconSetupService const &) = delete;
@@ -54,13 +54,13 @@ public:
 
   /// @name For constructing DKG messages
   /// @{
-  SerialisedMsg       GetCoefficients();
+  SerialisedMsg GetCoefficients();
   SerialisedMsg GetShare(Identifier index);
-  SerialisedMsg                          GetComplaints();
-  SerialisedMsg                      GetComplaintAnswers();
-  SerialisedMsg       GetQualCoefficients();
-  SerialisedMsg                      GetQualComplaints();
-  SerialisedMsg                      GetReconstructionShares();
+  SerialisedMsg GetComplaints();
+  SerialisedMsg GetComplaintAnswers();
+  SerialisedMsg GetQualCoefficients();
+  SerialisedMsg GetQualComplaints();
+  SerialisedMsg GetReconstructionShares();
   /// @}
 
   /// @name Handlers for messages
