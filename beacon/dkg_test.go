@@ -240,7 +240,8 @@ func TestDKGMessageSerialisation(t *testing.T) {
 }
 
 func TestDKGSimple(t *testing.T) {
-	nodes := exampleDKGNetwork(4)
+	nVals := 4
+	nodes := exampleDKGNetwork(nVals)
 
 	// Start all nodes
 	for _, node := range nodes {
@@ -263,6 +264,17 @@ OUTER_LOOP:
 			}
 		}
 		break
+	}
+
+	// Check all outputs agree
+	for index, node := range nodes {
+		assert.True(t, node.dkg.qual.Size() == int64(nVals))
+		for index1, node1 := range nodes {
+			if index != index1 {
+				assert.True(t, node.dkg.qual.Size() == node1.dkg.qual.Size())
+				assert.True(t, node.dkg.output.GetGroup_public_key() == node1.dkg.output.GetGroup_public_key())
+			}
+		}
 	}
 
 }

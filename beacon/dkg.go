@@ -74,6 +74,9 @@ type DistributedKeyGeneration struct {
 	chainID      string
 
 	sendMsgCallback func(tx *types.Tx) error
+
+	qual   IntVector
+	output DKGKeyInformation
 }
 
 // NewDistributedKeyGeneration
@@ -300,6 +303,9 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 }
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
+	if dkg.currentState == dkgFinish {
+		return
+	}
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {
 		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", dkg.currentState)
 		if !dkg.states[dkg.currentState].onExit() {
@@ -317,9 +323,6 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		dkg.currentState++
 		dkg.states[dkg.currentState].onEntry()
 		// Run check transition again in case we can proceed to the next state already
-		if dkg.currentState == dkgFinish {
-			return
-		}
 		dkg.checkTransition(blockHeight)
 	} else {
 		dkg.Logger.Debug("checkTransition: no state change", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
@@ -424,8 +427,8 @@ func (dkg *DistributedKeyGeneration) sendReconstructionShares() {
 }
 
 func (dkg *DistributedKeyGeneration) buildQual() bool {
-	qual := dkg.beaconService.BuildQual()
-	if qual.Size() == 0 {
+	dkg.qual = dkg.beaconService.BuildQual()
+	if dkg.qual.Size() == 0 {
 		dkg.Logger.Info("buildQual: DKG failed", "iteration", dkg.dkgIteration)
 		return false
 	}
@@ -433,7 +436,7 @@ func (dkg *DistributedKeyGeneration) buildQual() bool {
 }
 
 func (dkg *DistributedKeyGeneration) computeKeys() {
-	dkg.beaconService.ComputePublicKeys()
+	dkg.output = dkg.beaconService.ComputePublicKeys()
 
 	// Stop service so we do not process more blocks
 	dkg.Stop()
