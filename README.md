@@ -1,6 +1,7 @@
 # Changes
 
-See beacon directory and consensus/state.go for main changes. Swig will need to be installed for the c++ to go interface.
+See beacon directory and consensus/state.go for main changes. Swig and C++ Boost libraries will need to be installed for the c++ to go interface
+and serialisation, respectively.
 
 Get mcl submodule
 ```bash

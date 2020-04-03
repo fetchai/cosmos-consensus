@@ -1,7 +1,7 @@
 FROM golang:buster AS build-env
 
 # Set up dependencies
-ENV PACKAGES curl make git libc-dev bash gcc python cmake g++ swig
+ENV PACKAGES curl make git libc-dev bash gcc python cmake g++ swig libboost-all-dev
 
 # Set working directory for the build
 WORKDIR /tendermint-src

@@ -220,7 +220,6 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.Tx
 		default:
 			dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 		}
-
 	}
 
 	dkg.checkTransition(blockHeight)
