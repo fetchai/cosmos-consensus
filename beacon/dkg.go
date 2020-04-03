@@ -73,7 +73,7 @@ type DistributedKeyGeneration struct {
 	dkgIteration int
 	chainID      string
 
-	sendMsgCallback func(tx types.Tx) error
+	sendMsgCallback func(tx *types.Tx) error
 }
 
 // NewDistributedKeyGeneration
@@ -109,7 +109,7 @@ func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.Valida
 }
 
 // SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
-func (dkg *DistributedKeyGeneration) SetSendMsgCallback(callback func(tx types.Tx) error) {
+func (dkg *DistributedKeyGeneration) SetSendMsgCallback(callback func(tx *types.Tx) error) {
 	dkg.mtx.Lock()
 	defer dkg.mtx.Unlock()
 
@@ -142,6 +142,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.Tx
 	defer dkg.mtx.Unlock()
 
 	if !dkg.IsRunning() {
+		dkg.checkTransition(blockHeight)
 		return
 	}
 	// Process transactions
@@ -177,39 +178,93 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.Tx
 			if msg.Type != types.DKGShare || dkg.currentState > waitForCoefficientsAndShares {
 				continue
 			}
-			dkg.beaconService.OnShares(dataMsg.shares, uint(index))
+			shares := NewStringPair()
+			defer DeleteStringPair(shares)
+			shares.SetFirst(dataMsg.FirstShare)
+			shares.SetSecond(dataMsg.SecondShare)
+			dkg.beaconService.OnShares(shares, uint(index))
 		case *DKGCoefficient:
 			switch msg.Type {
 			case types.DKGCoefficient:
 				if dkg.currentState > waitForCoefficientsAndShares {
 					continue
 				}
-				dkg.beaconService.OnCoefficients(dataMsg.coefficients, uint(index))
+				coefficients := NewStringVector()
+				defer DeleteStringVector(coefficients)
+				for i := 0; i < len(dataMsg.Coefficients); i++ {
+					coefficients.Add(dataMsg.Coefficients[i])
+				}
+				dkg.beaconService.OnCoefficients(coefficients, uint(index))
 			case types.DKGQualCoefficient:
 				if dkg.currentState > waitForQualCoefficients {
 					continue
 				}
-				dkg.beaconService.OnQualCoefficients(dataMsg.coefficients, uint(index))
+				coefficients := NewStringVector()
+				defer DeleteStringVector(coefficients)
+				for i := 0; i < len(dataMsg.Coefficients); i++ {
+					coefficients.Add(dataMsg.Coefficients[i])
+				}
+				dkg.beaconService.OnQualCoefficients(coefficients, uint(index))
 			default:
 				dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 			}
-		case *DKGExposedShare:
+		case *DKGComplaint:
+			if msg.Type != types.DKGComplaint || dkg.currentState > waitForComplaints {
+				continue
+			}
+			complaints := NewIntVector()
+			defer DeleteIntVector(complaints)
+			for i := 0; i < len(dataMsg.Complaints); i++ {
+				complaints.Add(dataMsg.Complaints[i])
+			}
+			dkg.beaconService.OnComplaints(complaints, uint(index))
+		case *DKGExposedShareList:
 			switch msg.Type {
 			case types.DKGComplaintAnswer:
 				if dkg.currentState > waitForComplaintAnswers {
 					continue
 				}
-				dkg.beaconService.OnComplaintAnswers(dataMsg.exposedShares, uint(index))
+				exposedShares := NewGoSharesExposedMap()
+				defer DeleteGoSharesExposedMap(exposedShares)
+				for i := 0; i < len(dataMsg.ExposedShares); i++ {
+					keyValuePair := dataMsg.ExposedShares[i]
+					pair := NewStringPair()
+					defer DeleteStringPair(pair)
+					pair.SetFirst(keyValuePair.Shares.FirstShare)
+					pair.SetSecond(keyValuePair.Shares.SecondShare)
+					exposedShares.Set(keyValuePair.Index, pair)
+				}
+				dkg.beaconService.OnComplaintAnswers(exposedShares, uint(index))
 			case types.DKGQualComplaint:
 				if dkg.currentState > waitForQualComplaints {
 					continue
 				}
-				dkg.beaconService.OnQualComplaints(dataMsg.exposedShares, uint(index))
+				exposedShares := NewGoSharesExposedMap()
+				defer DeleteGoSharesExposedMap(exposedShares)
+				for i := 0; i < len(dataMsg.ExposedShares); i++ {
+					keyValuePair := dataMsg.ExposedShares[i]
+					pair := NewStringPair()
+					defer DeleteStringPair(pair)
+					pair.SetFirst(keyValuePair.Shares.FirstShare)
+					pair.SetSecond(keyValuePair.Shares.SecondShare)
+					exposedShares.Set(keyValuePair.Index, pair)
+				}
+				dkg.beaconService.OnQualComplaints(exposedShares, uint(index))
 			case types.DKGReconstructionShare:
 				if dkg.currentState > waitForReconstructionShares {
 					continue
 				}
-				dkg.beaconService.OnReconstructionShares(dataMsg.exposedShares, uint(index))
+				exposedShares := NewGoSharesExposedMap()
+				defer DeleteGoSharesExposedMap(exposedShares)
+				for i := 0; i < len(dataMsg.ExposedShares); i++ {
+					keyValuePair := dataMsg.ExposedShares[i]
+					pair := NewStringPair()
+					defer DeleteStringPair(pair)
+					pair.SetFirst(keyValuePair.Shares.FirstShare)
+					pair.SetSecond(keyValuePair.Shares.SecondShare)
+					exposedShares.Set(keyValuePair.Index, pair)
+				}
+				dkg.beaconService.OnReconstructionShares(exposedShares, uint(index))
 			default:
 				dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 			}
@@ -261,6 +316,11 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		}
 		dkg.currentState++
 		dkg.states[dkg.currentState].onEntry()
+		// Run check transition again in case we can proceed to the next state already
+		if dkg.currentState == dkgFinish {
+			return
+		}
+		dkg.checkTransition(blockHeight)
 	} else {
 		dkg.Logger.Debug("checkTransition: no state change", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
 	}
@@ -284,19 +344,27 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 
 func (dkg *DistributedKeyGeneration) serialisedAndSendMsg(msg *types.DKGMessage) {
 	if dkg.sendMsgCallback != nil {
-		dkg.sendMsgCallback(types.Tx(cdc.MustMarshalBinaryBare(msg)))
+		trx := types.Tx(cdc.MustMarshalBinaryBare(msg))
+		dkg.sendMsgCallback(&trx)
 	}
 }
 
 func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
+	coefficients := dkg.beaconService.GetCoefficients()
+	coeffGo := make([]string, coefficients.Size())
+	for i := 0; i < int(coefficients.Size()); i++ {
+		coeffGo[i] = coefficients.Get(i)
+	}
 	coefficientMsg := dkg.newDKGMessage(types.DKGCoefficient, cdc.MustMarshalBinaryBare(&DKGCoefficient{
-		coefficients: dkg.beaconService.GetCoefficients(),
+		Coefficients: coeffGo,
 	}), []byte{})
 	dkg.serialisedAndSendMsg(coefficientMsg)
 
 	for validator, index := range dkg.valToIndex {
+		shares := dkg.beaconService.GetShare(index)
 		shareMsg := dkg.newDKGMessage(types.DKGShare, cdc.MustMarshalBinaryBare(&DKGSecretShare{
-			shares: dkg.beaconService.GetShare(index),
+			FirstShare:  shares.GetFirst(),
+			SecondShare: shares.GetSecond(),
 		}), crypto.Address(validator))
 		dkg.serialisedAndSendMsg(shareMsg)
 	}
@@ -305,36 +373,52 @@ func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 func (dkg *DistributedKeyGeneration) sendComplaints() {
 	complaints := NewIntVector()
 	dkg.beaconService.GetComplaints(complaints)
+	complaintsGo := make([]uint, complaints.Size())
+	for i := 0; i < int(complaints.Size()); i++ {
+		complaintsGo[i] = complaints.Get(i)
+	}
 	complaintMsg := dkg.newDKGMessage(types.DKGComplaint, cdc.MustMarshalBinaryBare(&DKGComplaint{
-		complaints: complaints,
+		Complaints: complaintsGo,
 	}), []byte{})
 	dkg.serialisedAndSendMsg(complaintMsg)
 }
 
 func (dkg *DistributedKeyGeneration) sendComplaintAnswers() {
-	complaintAnswerMsg := dkg.newDKGMessage(types.DKGComplaintAnswer, cdc.MustMarshalBinaryBare(&DKGExposedShare{
-		exposedShares: dkg.beaconService.GetComplaintAnswers(),
+	dkg.beaconService.GetComplaintAnswers()
+	exposedSharesGo := make([]DKGExposedShare, 0)
+	// How to insert data??
+	complaintAnswerMsg := dkg.newDKGMessage(types.DKGComplaintAnswer, cdc.MustMarshalBinaryBare(&DKGExposedShareList{
+		ExposedShares: exposedSharesGo,
 	}), []byte{})
 	dkg.serialisedAndSendMsg(complaintAnswerMsg)
 }
 
 func (dkg *DistributedKeyGeneration) sendQualCoefficients() {
+	coefficients := dkg.beaconService.GetQualCoefficients()
+	coeffGo := make([]string, coefficients.Size())
+	for i := 0; i < int(coefficients.Size()); i++ {
+		coeffGo[i] = coefficients.Get(i)
+	}
 	qualCoeffMsg := dkg.newDKGMessage(types.DKGQualCoefficient, cdc.MustMarshalBinaryBare(&DKGCoefficient{
-		coefficients: dkg.beaconService.GetQualCoefficients(),
+		Coefficients: coeffGo,
 	}), []byte{})
 	dkg.serialisedAndSendMsg(qualCoeffMsg)
 }
 
 func (dkg *DistributedKeyGeneration) sendQualComplaints() {
-	qualComplaintMsg := dkg.newDKGMessage(types.DKGQualComplaint, cdc.MustMarshalBinaryBare(&DKGExposedShare{
-		exposedShares: dkg.beaconService.GetQualComplaints(),
+	dkg.beaconService.GetQualComplaints()
+	exposedSharesGo := make([]DKGExposedShare, 0)
+	qualComplaintMsg := dkg.newDKGMessage(types.DKGQualComplaint, cdc.MustMarshalBinaryBare(&DKGExposedShareList{
+		ExposedShares: exposedSharesGo,
 	}), []byte{})
 	dkg.serialisedAndSendMsg(qualComplaintMsg)
 }
 
 func (dkg *DistributedKeyGeneration) sendReconstructionShares() {
-	reconstructionMsg := dkg.newDKGMessage(types.DKGReconstructionShare, cdc.MustMarshalBinaryBare(&DKGExposedShare{
-		exposedShares: dkg.beaconService.GetReconstructionShares(),
+	dkg.beaconService.GetReconstructionShares()
+	exposedSharesGo := make([]DKGExposedShare, 0)
+	reconstructionMsg := dkg.newDKGMessage(types.DKGReconstructionShare, cdc.MustMarshalBinaryBare(&DKGExposedShareList{
+		ExposedShares: exposedSharesGo,
 	}), []byte{})
 	dkg.serialisedAndSendMsg(reconstructionMsg)
 }
@@ -380,18 +464,26 @@ func RegisterDKGMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&DKGCoefficient{}, "tendermint/DKGCoefficient", nil)
 	cdc.RegisterConcrete(&DKGComplaint{}, "tendermint/DKGComplaint", nil)
 	cdc.RegisterConcrete(&DKGExposedShare{}, "tendermint/DKGExposedShare", nil)
+	cdc.RegisterConcrete(&DKGExposedShareList{}, "tendermint/DKGExposedShareList", nil)
+
 }
 
 type DKGSecretShare struct {
-	shares StringPair
+	FirstShare  string
+	SecondShare string
 }
 
 func (share *DKGSecretShare) ValidateBasic() error {
 	return nil
 }
 
+// String returns a string representation.
+func (share *DKGSecretShare) String() string {
+	return fmt.Sprintf("[DKGSecretShare %v/%v]", share.FirstShare, share.SecondShare)
+}
+
 type DKGCoefficient struct {
-	coefficients StringVector
+	Coefficients []string
 }
 
 func (coefficient *DKGCoefficient) ValidateBasic() error {
@@ -399,7 +491,7 @@ func (coefficient *DKGCoefficient) ValidateBasic() error {
 }
 
 type DKGComplaint struct {
-	complaints IntVector
+	Complaints []uint
 }
 
 func (complaint *DKGComplaint) ValidateBasic() error {
@@ -407,9 +499,18 @@ func (complaint *DKGComplaint) ValidateBasic() error {
 }
 
 type DKGExposedShare struct {
-	exposedShares GoSharesExposedMap
+	Index  uint
+	Shares DKGSecretShare
 }
 
-func (exposedShare *DKGExposedShare) ValidateBasic() error {
+func (share *DKGExposedShare) ValidateBasic() error {
+	return nil
+}
+
+type DKGExposedShareList struct {
+	ExposedShares []DKGExposedShare
+}
+
+func (exposedShare *DKGExposedShareList) ValidateBasic() error {
 	return nil
 }
