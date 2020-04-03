@@ -157,6 +157,8 @@ func (app *appConnMempool) CheckTxAsync(req types.RequestCheckTx) *abcicli.ReqRe
 		reqRes.Response = types.ToResponseCheckTx(fakeRes)
 		reqRes.SetDone()
 
+		app.appConn.TriggerResponseCallback(types.ToRequestCheckTx(req), reqRes.Response)
+
 		return reqRes
 	}
 

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"strconv"
 	"time"
+	"math/rand"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -674,7 +675,7 @@ func NewNode(config *cfg.Config,
 	mempoolReactor, mempool := createMempoolAndMempoolReactor(config, proxyApp, state, memplMetrics, logger)
 
 	// proof of concept: listen for on-chain DKG messages - will attach to the beacon
-	mempool.OnDKGMsg(func(tx types.Tx) error { fmt.Printf("snooper noticed DKG TX: %+v \n", tx); return nil })
+	mempool.OnDKGMsg(func(tx types.Tx) error { fmt.Printf("snooper noticed DKG TX: %+v \n", string(tx)); return nil })
 
 	// Make Evidence Reactor
 	evidenceReactor, evidencePool, err := createEvidenceReactor(config, dbProvider, stateDB, logger)
@@ -861,13 +862,14 @@ func (n *Node) OnStart() error {
 	}
 
 	// Point the TX handler at the mempool
-	n.specialTxHandler.OnSendMessage(func(as_bytes []byte){ n.mempool.CheckTx(as_bytes, nil, mempl.TxInfo{}) })
+	n.specialTxHandler.OnSendMessage(func(as_bytes []byte){ n.mempool.CheckTx(as_bytes, func(resp *abci.Response){}, mempl.TxInfo{}) })
 
 	// Proof of concept: submit some DKG TXs into the system
 	go func() {
+		time.Sleep(2 * time.Second)
 		for i := 0; i < 5; i++ {
-			time.Sleep(2 * time.Second)
-			n.specialTxHandler.Submit(tx_extensions.DKGMessage{"a message " + strconv.Itoa(i)})
+			time.Sleep(30 * time.Second)
+			n.specialTxHandler.Submit(tx_extensions.DKGMessage{"a message " + strconv.Itoa(rand.Int())})
 		}
 	}()
 
