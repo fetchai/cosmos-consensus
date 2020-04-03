@@ -478,7 +478,7 @@ func (mem *ABCIMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		SizeLimit: maxBytes,
 		GasLimit:  maxGas,
 	})
-	if err != nil {
+	if err != nil && resp != nil {
 		if resp.Code == 0 {
 			txs := make([]types.Tx, 0, len(resp.Txs))
 			for i, tx := range resp.Txs {
@@ -487,7 +487,11 @@ func (mem *ABCIMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 			return txs
 		}
 	} else {
-		mem.logger.Info("Mempool ABCI call failed: " + err.Error())
+		msg := ""
+		if err != nil {
+			msg = err.Error()
+		}
+		mem.logger.Info("Mempool ABCI call failed: " + msg)
 	}
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
@@ -526,6 +530,25 @@ func (mem *ABCIMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 }
 
 func (mem *ABCIMempool) ReapMaxTxs(max int) types.Txs {
+	resp, err := mem.proxyAppConn.MempoolReapTxsSync(abci.RequestMempoolReapTxs{
+		SizeLimit: -1,
+		GasLimit:  int64(max),
+	})
+	if err != nil && resp != nil {
+		if resp.Code == 0 {
+			txs := make([]types.Tx, 0, len(resp.Txs))
+			for i, tx := range resp.Txs {
+				txs[i] = tx
+			}
+			return txs
+		}
+	} else {
+		msg := ""
+		if err != nil {
+			msg = err.Error()
+		}
+		mem.logger.Info("Mempool ABCI call failed: " + msg)
+	}
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
 

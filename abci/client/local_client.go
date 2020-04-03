@@ -299,7 +299,6 @@ func (app *localClient) MempoolRemoveTxSync(req types.RequestMempoolRemoveTx) (*
 func (app *localClient) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
-
 	res := app.Application.MempoolReapTxs(req)
 	return &res, nil
 }
