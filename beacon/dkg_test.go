@@ -82,7 +82,7 @@ func TestDKGCheckMessage(t *testing.T) {
 	}{
 		{"Valid message", func(msg *types.DKGMessage) {}, true},
 		{"Fail validate basic", func(msg *types.DKGMessage) {
-			msg.Data = []byte{}
+			msg.Data = ""
 			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
 		}, false},
 		{"Incorrect dkg id", func(msg *types.DKGMessage) {
@@ -108,7 +108,7 @@ func TestDKGCheckMessage(t *testing.T) {
 			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
 		}, false},
 		{"Incorrect Signature", func(msg *types.DKGMessage) {
-			msg.Data = []byte("changed data")
+			msg.Data = "changed data"
 		}, false},
 	}
 	for _, tc := range testCases {

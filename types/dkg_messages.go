@@ -27,7 +27,7 @@ type DKGMessage struct {
 	FromAddress  crypto.Address
 	DKGID        int
 	DKGIteration int
-	Data         []byte
+	Data         string
 	ToAddress    crypto.Address
 	Signature    []byte
 }

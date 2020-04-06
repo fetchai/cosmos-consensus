@@ -77,7 +77,7 @@ type DistributedKeyGeneration struct {
 	output DKGKeyInformation
 }
 
-// NewDistributedKeyGeneration
+// NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.ValidatorSet, startH int64, dkgRunID int, chain string) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
@@ -186,37 +186,37 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.Tx
 			if dkg.currentState > waitForCoefficientsAndShares {
 				continue
 			}
-			dkg.beaconService.OnShares(string(msg.Data), uint(index))
+			dkg.beaconService.OnShares(msg.Data, uint(index))
 		case types.DKGCoefficient:
 			if dkg.currentState > waitForCoefficientsAndShares {
 				continue
 			}
-			dkg.beaconService.OnCoefficients(string(msg.Data), uint(index))
+			dkg.beaconService.OnCoefficients(msg.Data, uint(index))
 		case types.DKGComplaint:
 			if dkg.currentState > waitForComplaints {
 				continue
 			}
-			dkg.beaconService.OnComplaints(string(msg.Data), uint(index))
+			dkg.beaconService.OnComplaints(msg.Data, uint(index))
 		case types.DKGComplaintAnswer:
 			if dkg.currentState > waitForComplaintAnswers {
 				continue
 			}
-			dkg.beaconService.OnComplaintAnswers(string(msg.Data), uint(index))
+			dkg.beaconService.OnComplaintAnswers(msg.Data, uint(index))
 		case types.DKGQualCoefficient:
 			if dkg.currentState > waitForQualCoefficients {
 				continue
 			}
-			dkg.beaconService.OnQualCoefficients(string(msg.Data), uint(index))
+			dkg.beaconService.OnQualCoefficients(msg.Data, uint(index))
 		case types.DKGQualComplaint:
 			if dkg.currentState > waitForQualComplaints {
 				continue
 			}
-			dkg.beaconService.OnQualComplaints(string(msg.Data), uint(index))
+			dkg.beaconService.OnQualComplaints(msg.Data, uint(index))
 		case types.DKGReconstructionShare:
 			if dkg.currentState > waitForReconstructionShares {
 				continue
 			}
-			dkg.beaconService.OnReconstructionShares(string(msg.Data), uint(index))
+			dkg.beaconService.OnReconstructionShares(msg.Data, uint(index))
 		default:
 			dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 		}
@@ -284,7 +284,7 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 		DKGIteration: dkg.dkgIteration,
 		FromAddress:  dkg.privValidator.GetPubKey().Address(),
 		ToAddress:    toAddress,
-		Data:         []byte(data),
+		Data:         data,
 	}
 	err := dkg.privValidator.SignDKGMessage(dkg.chainID, newMsg)
 	if err != nil {
