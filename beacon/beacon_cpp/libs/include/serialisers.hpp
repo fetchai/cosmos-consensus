@@ -41,7 +41,7 @@ bool Deserialise(std::string const &msg, std::vector<std::string> &coeff) {
     try {
     ia >> coeff;
     } catch (boost::archive::archive_exception ex) {
-        std::cerr << "Error deserialising coefficients" << std::endl;
+        std::cerr << "Error deserialising coefficients: " << ex.what() << std::endl;
         return false;
     }
     return true;
@@ -53,7 +53,7 @@ bool Deserialise(std::string const &msg, std::pair<std::string, std::string> &sh
     try {
     ia >> shares;
     } catch (boost::archive::archive_exception ex) {
-        std::cerr << "Error deserialising shares" << std::endl;
+        std::cerr << "Error deserialising shares: " << ex.what() << std::endl;
         return false;
     }
     return true;
@@ -65,7 +65,7 @@ bool Deserialise(std::string const &msg, std::set<uint32_t> &complaints) {
     try {
     ia >> complaints;
     } catch (boost::archive::archive_exception ex) {
-        std::cerr << "Error deserialising complaints" << std::endl;
+        std::cerr << "Error deserialising complaints: " << ex.what() << std::endl;
         return false;
     }
     return true;
@@ -77,7 +77,7 @@ bool Deserialise(std::string const &msg, std::unordered_map<uint32_t, std::pair<
     try {
     ia >> shares;
     } catch (boost::archive::archive_exception ex) {
-        std::cerr << "Error deserialising exposed shares" << std::endl;
+        std::cerr << "Error deserialising exposed shares: " << ex.what() << std::endl;
         return false;
     }
     return true;
