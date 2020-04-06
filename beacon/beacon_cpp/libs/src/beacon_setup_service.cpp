@@ -173,13 +173,13 @@ DKGKeyInformation BeaconSetupService::ComputePublicKeys()
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetCoefficients()
 {
   std::lock_guard<std::mutex>   lock(mutex_);
-  return Serialise(beacon_->GetCoefficients());
+  return serialisers::Serialise(beacon_->GetCoefficients());
 }
 
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetShare(Identifier index)
 {
   std::lock_guard<std::mutex>   lock(mutex_);
-  return Serialise(beacon_->GetOwnShares(index));
+  return serialisers::Serialise(beacon_->GetOwnShares(index));
 }
 
 /**
@@ -190,7 +190,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetShare(Identifier index)
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetComplaints()
 {
   std::lock_guard<std::mutex>   lock(mutex_);
-  return Serialise(ComputeComplaints());
+  return serialisers::Serialise(ComputeComplaints());
 }
 
 /**
@@ -210,7 +210,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetComplaintAnswers()
   {
     complaint_answer.insert({reporter, beacon_->GetOwnShares(reporter)});
   }
-  return Serialise(complaint_answer);
+  return serialisers::Serialise(complaint_answer);
 }
 
 /**
@@ -220,7 +220,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualCoefficients()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputeSecretShare();
-  return Serialise(beacon_->GetQualCoefficients());
+  return serialisers::Serialise(beacon_->GetQualCoefficients());
 }
 
 /**
@@ -239,7 +239,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualComplaints()
   {
     qual_complaints_manager_.AddComplaintAgainst(mem.first);
   }
-  return Serialise(complaints);
+  return serialisers::Serialise(complaints);
 }
 
 /**
@@ -257,7 +257,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetReconstructionShares()
     beacon_->AddReconstructionShare(in);
     complaint_shares.insert({in, beacon_->GetReceivedShares(in)});
   }
-  return Serialise(complaint_shares);
+  return serialisers::Serialise(complaint_shares);
   ;
 }
 
@@ -276,7 +276,7 @@ void BeaconSetupService::OnShares(SerialisedMsg const &msg, const Identifier &fr
   if (shares_received_.find(from) == shares_received_.end())
   {
     std::pair<Share, Share>       shares;
-    if (Deserialise(msg, shares)) {
+    if (serialisers::Deserialise(msg, shares)) {
       beacon_->AddShares(from, shares);
     }
     shares_received_.insert(from);
@@ -297,7 +297,7 @@ void BeaconSetupService::OnCoefficients(SerialisedMsg const &msg, Identifier con
   if (coefficients_received_.find(from) == coefficients_received_.end())
   {
     std::vector<Coefficient>      coefficients;
-    if (Deserialise(msg, coefficients)) {
+    if (serialisers::Deserialise(msg, coefficients)) {
       beacon_->AddCoefficients(from, coefficients);
     }
     coefficients_received_.insert(from);
@@ -316,7 +316,7 @@ void BeaconSetupService::OnComplaints(SerialisedMsg const &msg, Identifier const
   assert(from < beacon_->cabinet_size());
 
   std::set<Identifier>          complaints;
-  Deserialise(msg, complaints);
+  serialisers::Deserialise(msg, complaints);
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
 
@@ -333,7 +333,7 @@ void BeaconSetupService::OnComplaintAnswers(SerialisedMsg const &msg, Identifier
   assert(from < beacon_->cabinet_size());
 
   SharesExposedMap              answer;
-  Deserialise(msg, answer);
+  serialisers::Deserialise(msg, answer);
   complaint_answers_manager_.AddComplaintAnswerFrom(from, answer);
 }
 
@@ -351,7 +351,7 @@ void BeaconSetupService::OnQualCoefficients(SerialisedMsg const &msg, Identifier
   if (qual_coefficients_received_.find(from) == qual_coefficients_received_.end())
   {
     std::vector<Coefficient>      coefficients;
-    if (Deserialise(msg, coefficients)) {
+    if (serialisers::Deserialise(msg, coefficients)) {
       beacon_->AddQualCoefficients(from, coefficients);
     }
     qual_coefficients_received_.insert(from);
@@ -371,7 +371,7 @@ void BeaconSetupService::OnQualComplaints(SerialisedMsg const &msg, Identifier c
   assert(from < beacon_->cabinet_size());
 
   SharesExposedMap              shares;
-  Deserialise(msg, shares);
+  serialisers::Deserialise(msg, shares);
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
 
@@ -390,7 +390,7 @@ void BeaconSetupService::OnReconstructionShares(SerialisedMsg const &msg, Identi
   if (reconstruction_shares_received_.find(from) == reconstruction_shares_received_.end())
   {
     SharesExposedMap              shares;
-    Deserialise(msg, shares);
+    serialisers::Deserialise(msg, shares);
     reconstruction_shares_received_.insert({from, shares});
   }
 }

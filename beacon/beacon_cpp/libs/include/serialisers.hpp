@@ -26,6 +26,9 @@
 #include <boost/serialization/vector.hpp>
 #include <sstream>
 
+namespace fetch {
+namespace serialisers {
+
 std::string Serialise(std::vector<std::string> const &coeff) {
   std::ostringstream            ss;
   boost::archive::text_oarchive oa{ss};
@@ -101,3 +104,6 @@ bool Deserialise(std::string const &msg, std::unordered_map<uint32_t, std::pair<
     }
     return true;
 }
+
+}  // namespace serialisers
+}  // namespace fetch
