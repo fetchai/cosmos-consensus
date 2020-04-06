@@ -163,3 +163,18 @@ func (app *GRPCApplication) EndBlock(ctx context.Context, req *RequestEndBlock) 
 	res := app.app.EndBlock(*req)
 	return &res, nil
 }
+
+func (app *GRPCApplication) MempoolAddTx(ctx context.Context, req *RequestMempoolAddTx) (*ResponseMempoolAddTx, error) {
+	res := app.app.MempoolAddTx(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) MempoolRemoveTx(ctx context.Context, req *RequestMempoolRemoveTx) (*ResponseMempoolRemoveTx, error) {
+	res := app.app.MempoolRemoveTx(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) MempoolReapTxs(ctx context.Context, req *RequestMempoolReapTxs) (*ResponseMempoolReapTxs, error) {
+	res := app.app.MempoolReapTxs(*req)
+	return &res, nil
+}
