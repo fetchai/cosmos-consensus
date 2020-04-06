@@ -149,6 +149,11 @@ func (app *GRPCApplication) Commit(ctx context.Context, req *RequestCommit) (*Re
 	return &res, nil
 }
 
+func (app *GRPCApplication) ValidateBlock(ctx context.Context, req *RequestBlockValidation) (*ResponseBlockValidation, error) {
+	res := app.app.ValidateBlock(*req)
+	return &res, nil
+}
+
 func (app *GRPCApplication) InitChain(ctx context.Context, req *RequestInitChain) (*ResponseInitChain, error) {
 	res := app.app.InitChain(*req)
 	return &res, nil
