@@ -865,8 +865,8 @@ func (n *Node) OnStart() error {
 	go func() {
 		time.Sleep(2 * time.Second)
 		for i := 0; i < 5; i++ {
-			time.Sleep(30 * time.Second)
-			n.specialTxHandler.SubmitSpecialTx(tx_extensions.DKGMessage{"a message " + strconv.Itoa(rand.Int())})
+			time.Sleep(5 * time.Second)
+			n.specialTxHandler.SubmitSpecialTx("a message " + strconv.Itoa(rand.Int()))
 		}
 	}()
 

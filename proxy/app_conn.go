@@ -1,8 +1,6 @@
 package proxy
 
 import (
-	"fmt"
-	"github.com/tendermint/tendermint/libs/kv"
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/tx_extensions"
@@ -79,15 +77,7 @@ func (app *appConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli
 	// Special case for DKG TXs
 	if tx_extensions.IsDKGRelated(req.Tx) {
 
-		no_events := []types.Event{
-			{
-				Type: "app",
-				Attributes: []kv.Pair{
-					{Key: []byte("creator"), Value: []byte("Cosmoshi Netowoko")},
-					{Key: []byte("key"), Value: req.Tx},
-				},
-			},
-		}
+		no_events := []types.Event{}
 
 		// If the TX is a DKG tx make a 'fake' abci call to pretend the TX was delivered
 		fakeRes := types.ResponseDeliverTx{Code: types.CodeTypeOK, Events: no_events}
@@ -99,8 +89,6 @@ func (app *appConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli
 		app.appConn.TriggerResponseCallback(types.ToRequestDeliverTx(req), reqRes.Response)
 		if app.specialTxHandler != nil {
 			app.specialTxHandler.SpecialTxSeen(req.Tx)
-		} else {
-			fmt.Printf("should not happen \n")
 		}
 
 		return reqRes
