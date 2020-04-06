@@ -18,19 +18,12 @@
 
 #include "beacon_manager.hpp"
 #include "beacon_setup_service.hpp"
+#include "serialisers.hpp"
 #include "set_intersection.hpp"
 
 #include <assert.h>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/serialization/set.hpp>
-#include <boost/serialization/string.hpp>
-#include <boost/serialization/unordered_map.hpp>
-#include <boost/serialization/utility.hpp>
-#include <boost/serialization/vector.hpp>
 #include <iostream>
 #include <mutex>
-#include <sstream>
 #include <utility>
 
 namespace fetch {
@@ -180,19 +173,13 @@ DKGKeyInformation BeaconSetupService::ComputePublicKeys()
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetCoefficients()
 {
   std::lock_guard<std::mutex>   lock(mutex_);
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << beacon_->GetCoefficients();
-  return ss.str();
+  return Serialise(beacon_->GetCoefficients());
 }
 
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetShare(Identifier index)
 {
   std::lock_guard<std::mutex>   lock(mutex_);
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << beacon_->GetOwnShares(index);
-  return ss.str();
+  return Serialise(beacon_->GetOwnShares(index));
 }
 
 /**
@@ -203,10 +190,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetShare(Identifier index)
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetComplaints()
 {
   std::lock_guard<std::mutex>   lock(mutex_);
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << ComputeComplaints();
-  return ss.str();
+  return Serialise(ComputeComplaints());
 }
 
 /**
@@ -226,10 +210,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetComplaintAnswers()
   {
     complaint_answer.insert({reporter, beacon_->GetOwnShares(reporter)});
   }
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << complaint_answer;
-  return ss.str();
+  return Serialise(complaint_answer);
 }
 
 /**
@@ -239,11 +220,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualCoefficients()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputeSecretShare();
-
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << beacon_->GetQualCoefficients();
-  return ss.str();
+  return Serialise(beacon_->GetQualCoefficients());
 }
 
 /**
@@ -262,10 +239,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualComplaints()
   {
     qual_complaints_manager_.AddComplaintAgainst(mem.first);
   }
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << complaints;
-  return ss.str();
+  return Serialise(complaints);
 }
 
 /**
@@ -283,10 +257,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetReconstructionShares()
     beacon_->AddReconstructionShare(in);
     complaint_shares.insert({in, beacon_->GetReceivedShares(in)});
   }
-  std::ostringstream            ss;
-  boost::archive::text_oarchive oa{ss};
-  oa << complaint_shares;
-  return ss.str();
+  return Serialise(complaint_shares);
   ;
 }
 
@@ -305,10 +276,9 @@ void BeaconSetupService::OnShares(SerialisedMsg const &msg, const Identifier &fr
   if (shares_received_.find(from) == shares_received_.end())
   {
     std::pair<Share, Share>       shares;
-    std::istringstream            ss{msg};
-    boost::archive::text_iarchive ia{ss};
-    ia >> shares;
-    beacon_->AddShares(from, shares);
+    if (Deserialise(msg, shares)) {
+      beacon_->AddShares(from, shares);
+    }
     shares_received_.insert(from);
   }
 }
@@ -327,10 +297,9 @@ void BeaconSetupService::OnCoefficients(SerialisedMsg const &msg, Identifier con
   if (coefficients_received_.find(from) == coefficients_received_.end())
   {
     std::vector<Coefficient>      coefficients;
-    std::istringstream            ss{msg};
-    boost::archive::text_iarchive ia{ss};
-    ia >> coefficients;
-    beacon_->AddCoefficients(from, coefficients);
+    if (Deserialise(msg, coefficients)) {
+      beacon_->AddCoefficients(from, coefficients);
+    }
     coefficients_received_.insert(from);
   }
 }
@@ -347,9 +316,7 @@ void BeaconSetupService::OnComplaints(SerialisedMsg const &msg, Identifier const
   assert(from < beacon_->cabinet_size());
 
   std::set<Identifier>          complaints;
-  std::istringstream            ss{msg};
-  boost::archive::text_iarchive ia{ss};
-  ia >> complaints;
+  Deserialise(msg, complaints);
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
 
@@ -366,9 +333,7 @@ void BeaconSetupService::OnComplaintAnswers(SerialisedMsg const &msg, Identifier
   assert(from < beacon_->cabinet_size());
 
   SharesExposedMap              answer;
-  std::istringstream            ss{msg};
-  boost::archive::text_iarchive ia{ss};
-  ia >> answer;
+  Deserialise(msg, answer);
   complaint_answers_manager_.AddComplaintAnswerFrom(from, answer);
 }
 
@@ -386,10 +351,9 @@ void BeaconSetupService::OnQualCoefficients(SerialisedMsg const &msg, Identifier
   if (qual_coefficients_received_.find(from) == qual_coefficients_received_.end())
   {
     std::vector<Coefficient>      coefficients;
-    std::istringstream            ss{msg};
-    boost::archive::text_iarchive ia{ss};
-    ia >> coefficients;
-    beacon_->AddQualCoefficients(from, coefficients);
+    if (Deserialise(msg, coefficients)) {
+      beacon_->AddQualCoefficients(from, coefficients);
+    }
     qual_coefficients_received_.insert(from);
   }
 }
@@ -407,9 +371,7 @@ void BeaconSetupService::OnQualComplaints(SerialisedMsg const &msg, Identifier c
   assert(from < beacon_->cabinet_size());
 
   SharesExposedMap              shares;
-  std::istringstream            ss{msg};
-  boost::archive::text_iarchive ia{ss};
-  ia >> shares;
+  Deserialise(msg, shares);
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
 
@@ -428,9 +390,7 @@ void BeaconSetupService::OnReconstructionShares(SerialisedMsg const &msg, Identi
   if (reconstruction_shares_received_.find(from) == reconstruction_shares_received_.end())
   {
     SharesExposedMap              shares;
-    std::istringstream            ss{msg};
-    boost::archive::text_iarchive ia{ss};
-    ia >> shares;
+    Deserialise(msg, shares);
     reconstruction_shares_received_.insert({from, shares});
   }
 }
