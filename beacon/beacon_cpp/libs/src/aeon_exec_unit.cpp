@@ -21,7 +21,7 @@
 #include <fstream>
 
 namespace fetch {
-namespace crypto {
+namespace beacon {
 
 void InitialiseMcl() {
   mcl::details::MCLInitialiser();
@@ -129,7 +129,7 @@ bool AeonExecUnit::CanSign() const {
     return !aeon_keys_.private_key.empty();
 }
 
-bool AeonExecUnit::CheckIndex(uint64_t index) const {
+bool AeonExecUnit::CheckIndex(CabinetIndex index) const {
   if (index >= aeon_keys_.public_key_shares.size()) {
     return false;
   }

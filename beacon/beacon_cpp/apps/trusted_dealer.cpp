@@ -6,7 +6,7 @@
 #include <cassert>
 #include <stdlib.h>
 
-using namespace fetch::crypto;
+using namespace fetch::beacon;
 
 int main(int argc, char **argv) {
   InitialiseMcl();
@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
   auto nNonValidators = static_cast<uint32_t>(std::atoi(argv[3]));
   auto outputDir = std::string(argv[4]);
 
-  auto dealer_keys = fetch::crypto::mcl::TrustedDealerGenerateKeys(nValidators, threshold);
+  auto dealer_keys = fetch::beacon::mcl::TrustedDealerGenerateKeys(nValidators, threshold);
 
  for (uint32_t i = 0; i < nValidators; i++) {
     std::ofstream new_file;

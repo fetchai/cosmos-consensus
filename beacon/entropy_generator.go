@@ -205,7 +205,7 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 	// Verify share
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[share.Height-1]))
-	if !entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint64(index)) {
+	if !entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index)) {
 		entropyGenerator.Logger.Error("invalid entropy share", "validator", share.SignerAddress, "index", index)
 		return
 	}
