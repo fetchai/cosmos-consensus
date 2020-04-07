@@ -12,7 +12,6 @@ To run all tests:
 make test
 ```
 
-
 To create a single node, which also generates entropy, first build the c++ library:
 ```bash
 cd beacon/beacon_cpp
