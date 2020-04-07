@@ -214,3 +214,9 @@ func ToResponseEndBlock(res ResponseEndBlock) *Response {
 		Value: &Response_EndBlock{&res},
 	}
 }
+
+func ToResponseBlockValidation(res ResponseBlockValidation) *Response {
+	return &Response{
+		Value: &Response_BlockValidation{&res},
+	}
+}
