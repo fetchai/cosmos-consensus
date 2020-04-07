@@ -233,6 +233,12 @@ func ToResponseEndBlock(res ResponseEndBlock) *Response {
 	}
 }
 
+func ToResponseBlockValidation(res ResponseBlockValidation) *Response {
+	return &Response{
+		Value: &Response_BlockValidation{&res},
+	}
+}
+
 func ToResponseMempoolAddTx(res ResponseMempoolAddTx) *Response {
 	return &Response{
 		Value: &Response_MempoolAddTx{&res},
