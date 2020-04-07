@@ -12,7 +12,7 @@ file(GLOB LIB_SOURCE_FILES "${LIBRARY_SRC_PATH}/*.cpp")
 add_library(${LIB_NAME} ${LIB_HEADER_FILES} ${LIB_SOURCE_FILES})
 
 target_include_directories(${LIB_NAME} PUBLIC ${LIBRARY_INCLUDE_PATH})
-target_link_libraries(${LIB_NAME} vendor-mcl)
+target_link_libraries(${LIB_NAME} vendor-mcl Boost::serialization)
 
 set(LIBRARY_INCLUDE_PATH ${LIBRARY_INCLUDE_PATH} PARENT_SCOPE)
 set(LIB_NAME ${LIB_NAME} PARENT_SCOPE)

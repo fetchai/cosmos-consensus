@@ -135,8 +135,8 @@ func TestSignerEntropy(t *testing.T) {
 
 func TestSignerDKGMessage(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		want := &types.DKGMessage{Type: types.DKGShare, Data: []byte("share"), FromAddress: tc.mockPV.GetPubKey().Address()}
-		have := &types.DKGMessage{Type: types.DKGShare, Data: []byte("share"), FromAddress: tc.mockPV.GetPubKey().Address()}
+		want := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: tc.mockPV.GetPubKey().Address()}
+		have := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: tc.mockPV.GetPubKey().Address()}
 
 		defer tc.signerServer.Stop()
 		defer tc.signerClient.Close()
@@ -268,7 +268,7 @@ func TestSignerSignEntropyErrors(t *testing.T) {
 
 func TestSignerSignDKGErrors(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		msg := &types.DKGMessage{Type: types.DKGShare, Data: []byte("share"), FromAddress: tc.mockPV.GetPubKey().Address()}
+		msg := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: tc.mockPV.GetPubKey().Address()}
 
 		// Replace signer service privval with one that always fails
 		tc.signerServer.privVal = types.NewErroringMockPV()

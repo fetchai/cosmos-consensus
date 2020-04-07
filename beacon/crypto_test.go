@@ -77,9 +77,7 @@ func TestHonestDkg(t *testing.T) {
 
 	// Distribute complaints
 	for index := uint(0); index < cabinetSize; index++ {
-		complaints := NewIntVector()
-		defer DeleteIntVector(complaints)
-		beaconManagers[index].GetComplaints(complaints)
+		complaints := beaconManagers[index].GetComplaints()
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
 			if index != index1 {
 				beaconManagers[index1].OnComplaints(complaints, index)
