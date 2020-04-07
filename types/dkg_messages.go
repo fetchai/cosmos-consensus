@@ -7,7 +7,7 @@ import (
 )
 
 // DKGMessageType are message types allowed in DKG
-type DKGMessageType int
+type DKGMessageType uint16
 
 const (
 	DKGShare DKGMessageType = iota
@@ -25,8 +25,8 @@ const (
 type DKGMessage struct {
 	Type         DKGMessageType
 	FromAddress  crypto.Address
-	DKGID        int
-	DKGIteration int
+	DKGID        uint32
+	DKGIteration uint16
 	Data         []byte
 	ToAddress    crypto.Address
 	Signature    []byte
