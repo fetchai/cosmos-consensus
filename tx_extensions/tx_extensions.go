@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"errors"
 
-	//"github.com/tendermint/tendermint/crypto"
 	amino "github.com/tendermint/go-amino"
 "github.com/tendermint/tendermint/types"
 )
@@ -22,16 +21,6 @@ func RegisterMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&DKGMessage{}, "tendermint/DKGMessage", nil)
 }
 
-//type DKGMessage struct {
-//	Type        uint8          // Type of DKG message
-//	FromAddress crypto.Address // Sender
-//	DKGID       uint32         // Which Aeon
-//	DKGAttempt  uint32         // Which attempt of the aeon
-//	Data        []byte         // Payload
-//	ToAddress   crypto.Address // Receiver if directed
-//	Signature   []byte         // Signature of above for verifying data
-//}
-//
 // Return the DKG message as bytes
 func AsBytes(msg *DKGMessage) (ret []byte) {
 
@@ -59,7 +48,6 @@ func AsDKG(msg interface{}) (ret DKGMessage, err error) {
 	}
 	return
 }
-
 
 // IsDKGRelated informs as to whether this TX (bytes) is an on chain DKG transaction.
 // At the moment this is signified by the leading bytes being 'SP:DKG' (special tx: DKG)
