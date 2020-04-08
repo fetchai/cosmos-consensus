@@ -42,7 +42,7 @@ func AsDKG(msg interface{}) (ret DKGMessage, err error) {
 
 	switch v := msg.(type) {
 	case string:
-		ret.Data = []byte(v)
+		ret.Data = v
 	default:
 		err = errors.New("Failed to convert DKG message")
 	}
