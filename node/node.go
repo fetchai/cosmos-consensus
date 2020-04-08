@@ -862,13 +862,15 @@ func (n *Node) OnStart() error {
 	n.specialTxHandler.ToSubmitTx(func(as_bytes []byte){ n.mempool.CheckTx(as_bytes, func(resp *abci.Response){}, mempl.TxInfo{}) })
 
 	// Proof of concept: submit some DKG TXs into the system
-	go func() {
-		time.Sleep(2 * time.Second)
-		for i := 0; i < 5; i++ {
-			time.Sleep(5 * time.Second)
-			n.specialTxHandler.SubmitSpecialTx("a message " + strconv.Itoa(rand.Int()))
-		}
-	}()
+	if false {
+		go func() {
+			time.Sleep(2 * time.Second)
+			for i := 0; i < 5; i++ {
+				time.Sleep(5 * time.Second)
+				n.specialTxHandler.SubmitSpecialTx("a message " + strconv.Itoa(rand.Int()))
+			}
+		}()
+	}
 
 	return nil
 }
