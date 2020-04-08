@@ -22,6 +22,7 @@ type Client interface {
 	service.Service
 
 	SetResponseCallback(Callback)
+	TriggerResponseCallback(*types.Request, *types.Response)
 	Error() error
 
 	FlushAsync() *ReqRes

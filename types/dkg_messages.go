@@ -7,7 +7,7 @@ import (
 )
 
 // DKGMessageType are message types allowed in DKG
-type DKGMessageType int
+type DKGMessageType uint16
 
 const (
 	DKGShare DKGMessageType = iota

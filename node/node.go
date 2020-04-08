@@ -9,7 +9,9 @@ import (
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
 	"os"
 	"strings"
+	"strconv"
 	"time"
+	"math/rand"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,6 +21,7 @@ import (
 	amino "github.com/tendermint/go-amino"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/beacon"
+	"github.com/tendermint/tendermint/tx_extensions"
 	bcv0 "github.com/tendermint/tendermint/blockchain/v0"
 	bcv1 "github.com/tendermint/tendermint/blockchain/v1"
 	cfg "github.com/tendermint/tendermint/config"
@@ -212,6 +215,7 @@ type Node struct {
 	txIndexer        txindex.TxIndexer
 	indexerService   *txindex.IndexerService
 	prometheusSrv    *http.Server
+	specialTxHandler *tx_extensions.SpecialTxHandler
 	entropyGenerator *beacon.EntropyGenerator
 	beaconReactor    *beacon.Reactor // reactor for signature shares
 }
@@ -232,8 +236,9 @@ func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.Block
 	return
 }
 
-func createAndStartProxyAppConns(clientCreator proxy.ClientCreator, logger log.Logger) (proxy.AppConns, error) {
+func createAndStartProxyAppConns(clientCreator proxy.ClientCreator, logger log.Logger, specialTxHandler *tx_extensions.SpecialTxHandler) (proxy.AppConns, error) {
 	proxyApp := proxy.NewAppConns(clientCreator)
+	proxyApp.SetSpecialTxHandler(specialTxHandler)
 	proxyApp.SetLogger(logger.With("module", "proxy"))
 	if err := proxyApp.Start(); err != nil {
 		return nil, fmt.Errorf("error starting proxy app connections: %v", err)
@@ -607,8 +612,10 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 
+	specialTxHandler := &tx_extensions.SpecialTxHandler{}
+
 	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
-	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger)
+	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger, specialTxHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -784,6 +791,7 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
+		specialTxHandler: specialTxHandler,
 		entropyGenerator: entropyGenerator,
 		beaconReactor:    beaconReactor,
 	}
@@ -848,6 +856,20 @@ func (n *Node) OnStart() error {
 	err = n.sw.DialPeersAsync(splitAndTrimEmpty(n.config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return errors.Wrap(err, "could not dial peers from persistent_peers field")
+	}
+
+	// Point the TX handler at the mempool
+	n.specialTxHandler.ToSubmitTx(func(as_bytes []byte){ n.mempool.CheckTx(as_bytes, func(resp *abci.Response){}, mempl.TxInfo{}) })
+
+	// Proof of concept: submit some DKG TXs into the system
+	if false {
+		go func() {
+			time.Sleep(2 * time.Second)
+			for i := 0; i < 5; i++ {
+				time.Sleep(5 * time.Second)
+				n.specialTxHandler.SubmitSpecialTx("a message " + strconv.Itoa(rand.Int()))
+			}
+		}()
 	}
 
 	return nil

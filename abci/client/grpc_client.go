@@ -116,6 +116,10 @@ func (cli *grpcClient) SetResponseCallback(resCb Callback) {
 	cli.mtx.Unlock()
 }
 
+func (cli *grpcClient) TriggerResponseCallback(req *types.Request, res *types.Response) {
+	cli.resCb(req, res)
+}
+
 //----------------------------------------
 // GRPC calls are synchronous, but some callbacks expect to be called asynchronously
 // (eg. the mempool expects to be able to lock to remove bad txs from cache).
