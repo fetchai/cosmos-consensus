@@ -18,7 +18,6 @@
 //------------------------------------------------------------------------------
 
 #include <atomic>
-#include <map>
 #include <mutex>
 #include <set>
 #include <unordered_map>
@@ -80,8 +79,8 @@ class ComplaintAnswersManager
   using Identifier       = uint32_t;
   using Share            = std::string;
   using ExposedShares    = std::pair<Share, Share>;
-  using Answer           = std::map<Identifier, ExposedShares>;
-  using ComplaintAnswers = std::map<Identifier, Answer>;
+  using Answer           = std::unordered_map<Identifier, ExposedShares>;
+  using ComplaintAnswers = std::unordered_map<Identifier, Answer>;
   using ComplaintsList   = std::set<Identifier>;
   using Cabinet          = std::set<Identifier>;
 
@@ -112,7 +111,7 @@ class QualComplaintsManager
   using Identifier       = uint32_t;
   using Share            = std::string;
   using ExposedShares    = std::pair<Share, Share>;
-  using SharesExposedMap = std::map<Identifier, ExposedShares>;
+  using SharesExposedMap = std::unordered_map<Identifier, ExposedShares>;
   using QualComplaints   = std::unordered_map<Identifier, SharesExposedMap>;
   using ComplaintsList   = std::set<Identifier>;
   using Cabinet          = std::set<Identifier>;

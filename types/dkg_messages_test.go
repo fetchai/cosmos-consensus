@@ -15,7 +15,7 @@ func exampleDKGMessage(t DKGMessageType) *DKGMessage {
 		FromAddress:  crypto.AddressHash([]byte("from_address")),
 		DKGID:        1234,
 		DKGIteration: 2,
-		Data:         []byte("dkg_data"),
+		Data:         "dkg_data",
 		ToAddress:    crypto.AddressHash([]byte("to_address")),
 	}
 }
@@ -75,8 +75,8 @@ func TestDKGValidateBasic(t *testing.T) {
 		{"Invalid FromAddress", func(msg *DKGMessage) { msg.FromAddress = make([]byte, 1) }, true},
 		{"Invalid ToAddress", func(msg *DKGMessage) { msg.FromAddress = make([]byte, 1) }, true},
 		{"Empty ToAddress", func(msg *DKGMessage) { msg.ToAddress = make([]byte, 0) }, false},
-		{"Invalid Data", func(msg *DKGMessage) { msg.Data = make([]byte, 0) }, true},
-		{"Too big Data", func(msg *DKGMessage) { msg.Data = make([]byte, MaxDKGDataSize+1) }, true},
+		{"Invalid Data", func(msg *DKGMessage) { msg.Data = "" }, true},
+		{"Too big Data", func(msg *DKGMessage) { msg.Data = string(make([]byte, MaxDKGDataSize+1)) }, true},
 		{"Invalid Signature", func(msg *DKGMessage) { msg.Signature = nil }, true},
 		{"Too big Signature", func(msg *DKGMessage) { msg.Signature = make([]byte, MaxSignatureSize+1) }, true},
 	}

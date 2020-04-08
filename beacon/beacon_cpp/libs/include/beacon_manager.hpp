@@ -40,7 +40,7 @@ public:
   using Coefficient      = std::string;
   using ComplaintAnswer  = std::pair<CabinetIndex, std::pair<Share, Share>>;
   using ExposedShare     = std::pair<CabinetIndex, std::pair<Share, Share>>;
-  using SharesExposedMap = std::map<CabinetIndex, std::pair<Share, Share>>;
+  using SharesExposedMap = std::unordered_map<CabinetIndex, std::pair<Share, Share>>;
 
   explicit BeaconManager();
 

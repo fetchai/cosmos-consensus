@@ -340,13 +340,20 @@ void BeaconManager::ComputePublicKeys()
   }
   // Compute public_key_shares_ $v_j = \prod_{i \in QUAL} \prod_{k=0}^t (A_{ik})^{j^k} \bmod
   // p$
+
+  std::vector<PublicKey> v_coeff;
+  for (size_t k = 0; k <= polynomial_degree_; k++) {
+    PublicKey tmpV;
+    for (const auto &jt : qual_) {
+      bn::G2::add(tmpV, tmpV, A_ik[jt][k]);
+    }
+    v_coeff.push_back(tmpV);
+  }
+
   for (auto const &jt : qual_)
   {
-    for (auto const &it : qual_)
-    {
-      bn::G2::add(public_key_shares_[jt], public_key_shares_[jt], A_ik[it][0]);
-      beacon::mcl::UpdateRHS(jt, public_key_shares_[jt], A_ik[it]);
-    }
+      bn::G2::add(public_key_shares_[jt], public_key_shares_[jt], v_coeff[0]);
+      beacon::mcl::UpdateRHS(jt, public_key_shares_[jt], v_coeff);
   }
 }
 
