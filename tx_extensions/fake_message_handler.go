@@ -18,7 +18,6 @@ type FakeMessageHandler struct {
 	cb_confirmed_message []func(int64, []*types.DKGMessage)
 	cb_submit_special_tx func([]byte)
 
-	// TODO(HUT): clean this.
 	currentlyPending []*types.DKGMessage
 }
 
@@ -51,8 +50,6 @@ func (txHandler *FakeMessageHandler) SubmitTx(tx types.DKGMessage) {
 	txHandler.mtx.Lock()
 	defer txHandler.mtx.Unlock()
 	
-	fmt.Printf("Adding! \n")
-
 	txHandler.currentlyPending = append(txHandler.currentlyPending, &tx)
 }
 
@@ -64,10 +61,13 @@ func (txHandler *FakeMessageHandler) ToSubmitTx(cb func([]byte)) {
 
 func (txHandler *FakeMessageHandler) EndBlock(blockHeight int64) {
 	txHandler.mtx.Lock()
-	defer txHandler.mtx.Unlock()
+	currentlyPending := txHandler.currentlyPending
+	txHandler.mtx.Unlock()
 
+	// Call without the lock to avoid deadlock if toExecute can somehow submit
+	// TXs to this struct
 	for _, toExecute := range txHandler.cb_confirmed_message {
-		toExecute(blockHeight, txHandler.currentlyPending)
+		toExecute(blockHeight, currentlyPending)
 	}
 
 	txHandler.currentlyPending = make([]*types.DKGMessage, 0)
@@ -80,10 +80,8 @@ func (txHandler *FakeMessageHandler) WhenChainTxSeen(cb func(int64, []*types.DKG
 
 // Call this when new special Txs are seen on the chain
 func (txHandler *FakeMessageHandler) SpecialTxSeen(tx []byte) {
-	fmt.Printf("Recieved DKG TX in the (fake) chain \n")
 	resp, err := FromBytes(tx)
 	if err == nil {
-		fmt.Printf("Note: data is: %v\n", string(resp.Data))
 		txHandler.SubmitTx(*resp)
 	} else {
 		fmt.Printf("Failed to decode DKG tx!\n")

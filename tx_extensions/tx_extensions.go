@@ -10,7 +10,6 @@ import (
 )
 
 var cdc = amino.NewCodec()
-//type types.DKGMessage types.types.DKGMessage
 
 func init() {
 	RegisterMessages(cdc)
@@ -69,11 +68,15 @@ type MessageHandler interface {
 // The struct designed to handle sending and receiving messages via the chain
 type SpecialTxHandler struct {
 	// Trigger this when new DKG messages are seen by the chain
-	cb_confirmed_message func(types.DKGMessage)
+	cb_confirmed_message func(int64, []*types.DKGMessage)
 
 	// Trigger this to send DKG TX to the mempool
 	cb_submit_special_tx func([]byte)
+
+	currentlyPending []*types.DKGMessage
 }
+
+var _ MessageHandler = &SpecialTxHandler{}
 
 // Submit a special TX to the chain
 func (txHandler *SpecialTxHandler) SubmitSpecialTx(message interface{}) {
@@ -98,7 +101,7 @@ func (txHandler *SpecialTxHandler) ToSubmitTx(cb func([]byte)) {
 }
 
 // Set the closure to be triggered when special Txs are seen on the chain
-func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(types.DKGMessage)) {
+func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(int64, []*types.DKGMessage)) {
 	txHandler.cb_confirmed_message = cb
 }
 
@@ -108,10 +111,17 @@ func (txHandler *SpecialTxHandler) SpecialTxSeen(tx []byte) {
 	resp, err := FromBytes(tx)
 	if err == nil {
 		fmt.Printf("Note: data is: %v\n", string(resp.Data))
-		if txHandler.cb_confirmed_message != nil {
-			txHandler.cb_confirmed_message(*resp)
-		}
+		txHandler.currentlyPending = append(txHandler.currentlyPending, resp)
 	} else {
 		fmt.Printf("Failed to decode DKG tx!\n")
 	}
+}
+
+// Submit TXs and clear
+func (txHandler *SpecialTxHandler) EndBlock(blockHeight int64) {
+	if txHandler.cb_confirmed_message != nil {
+		txHandler.cb_confirmed_message(blockHeight, txHandler.currentlyPending)
+	}
+
+	txHandler.currentlyPending = make([]*types.DKGMessage, 0)
 }

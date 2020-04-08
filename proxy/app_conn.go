@@ -98,6 +98,11 @@ func (app *appConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli
 }
 
 func (app *appConnConsensus) EndBlockSync(req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
+
+	if app.specialTxHandler != nil {
+		app.specialTxHandler.EndBlock(req.Height)
+	}
+
 	return app.appConn.EndBlockSync(req)
 }
 

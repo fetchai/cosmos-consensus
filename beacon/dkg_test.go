@@ -3,6 +3,7 @@ package beacon
 import (
 	"github.com/tendermint/tendermint/tx_extensions"
 	"testing"
+	"fmt"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
@@ -203,7 +204,7 @@ func TestDKGScenarios(t *testing.T) {
 			// Start all nodes
 			blockHeight := int64(10)
 			for _, node := range nodes {
-				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{})
+				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
 				node.clearTx()
 			}
 
@@ -218,32 +219,13 @@ func TestDKGScenarios(t *testing.T) {
 				blockHeight++
 
 				for _, node := range nodes {
-					if !node.dkg.IsRunning() {
+					if node.dkg.currentState == dkgFinish && node.dkg.dkgIteration >= 2 {
 						all_running = false
 					}
 				}
 			}
 
-		//OUTER_LOOP:
-		//	for true {
-		//		for index, node := range nodes {
-		//			for index1, node1 := range nodes {
-		//				if index1 != index {
-		//					node1.dkg.OnBlock(blockHeight, node.currentTx)
-		//				}
-		//			}
-		//		}
-		//		for _, node := range nodes {
-		//			node.clearTx()
-		//		}
-		//		blockHeight++
-		//		for index := 0; index < tc.completionSize; index++ {
-		//			if nodes[index].dkg.currentState != dkgFinish && nodes[index].dkg.dkgIteration < 2 {
-		//				continue OUTER_LOOP
-		//			}
-		//		}
-		//		break
-		//	}
+			fmt.Printf("hereeeeee!! \n")
 
 			// Check all outputs of expected completed nodes agree
 			for index := 0; index < tc.completionSize; index++ {
