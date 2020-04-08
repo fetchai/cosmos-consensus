@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"github.com/tendermint/tendermint/tx_extensions"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,32 +124,56 @@ func TestDKGCheckMessage(t *testing.T) {
 	}
 }
 
+var _ tx_extensions.MessageHandler = &tx_extensions.FakeMessageHandler{}
+
 func TestDKGSimple(t *testing.T) {
 	nVals := 4
 	nodes := exampleDKGNetwork(nVals)
 
-	// Start all nodes
+	// Create shared communication channel that represents the chain
+	//var messageHandler tx_extensions.MessageHandler
+	fakeHandler := tx_extensions.NewFakeMessageHandler()
+
+	//messageHandler = tx_extensions.NewFakeMessageHandler()
+
+	// Attach to all nodes
 	for _, node := range nodes {
-		node.dkg.OnBlock(node.dkg.startHeight, []*types.Tx{})
+		node.dkg.AttachMessageHandler(fakeHandler)
 	}
 
-OUTER_LOOP:
-	for true {
-		for index, node := range nodes {
-			for index1, node1 := range nodes {
-				if index1 != index {
-					node1.dkg.OnBlock(node.dkg.startHeight, node.trxToBroadcast)
-				}
-			}
-			node.clearTx()
-		}
-		for _, node := range nodes {
-			if node.dkg.IsRunning() {
-				continue OUTER_LOOP
-			}
-		}
-		break
+	// Start all nodes
+	for _, node := range nodes {
+		node.dkg.OnBlock(node.dkg.startHeight, []*types.DKGMessage{})
 	}
+
+	// Wait until dkg has completed
+	for all_running := true; all_running; {
+		fakeHandler.EndBlock(nodes[0].dkg.startHeight)
+
+		for _, node := range nodes {
+			if !node.dkg.IsRunning() {
+				all_running = false
+			}
+		}
+	}
+
+//OUTER_LOOP:
+//	for true {
+//		for index, node := range nodes {
+//			for index1, node1 := range nodes {
+//				if index1 != index {
+//					node1.dkg.OnBlock(node.dkg.startHeight, node.trxToBroadcast)
+//				}
+//			}
+//			node.clearTx()
+//		}
+//		for _, node := range nodes {
+//			if node.dkg.IsRunning() {
+//				continue OUTER_LOOP
+//			}
+//		}
+//		break
+//	}
 
 	// Check all outputs agree
 	for index, node := range nodes {
@@ -160,7 +185,6 @@ OUTER_LOOP:
 			}
 		}
 	}
-
 }
 
 func exampleDKG(nVals int) *DistributedKeyGeneration {
@@ -183,10 +207,10 @@ func newTestNode(privVal types.PrivValidator, vals *types.ValidatorSet, chainID 
 		trxToBroadcast: make([]*types.Tx, 0),
 	}
 	node.dkg.SetLogger(log.TestingLogger())
-	node.dkg.SetSendMsgCallback(func(trx *types.Tx) error {
-		node.trxToBroadcast = append(node.trxToBroadcast, trx)
-		return nil
-	})
+	//node.dkg.SetSendMsgCallback(func(trx *types.Tx) error {
+	//	node.trxToBroadcast = append(node.trxToBroadcast, trx)
+	//	return nil
+	//})
 
 	return node
 }

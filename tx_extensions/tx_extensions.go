@@ -6,11 +6,11 @@ import (
 	"errors"
 
 	amino "github.com/tendermint/go-amino"
-"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/types"
 )
 
 var cdc = amino.NewCodec()
-type DKGMessage types.DKGMessage
+//type types.DKGMessage types.types.DKGMessage
 
 func init() {
 	RegisterMessages(cdc)
@@ -18,11 +18,11 @@ func init() {
 }
 
 func RegisterMessages(cdc *amino.Codec) {
-	cdc.RegisterConcrete(&DKGMessage{}, "tendermint/DKGMessage", nil)
+	cdc.RegisterConcrete(&types.DKGMessage{}, "tendermint/DKGMessage", nil)
 }
 
 // Return the DKG message as bytes
-func AsBytes(msg *DKGMessage) (ret []byte) {
+func AsBytes(msg *types.DKGMessage) (ret []byte) {
 
 	as_bytes := cdc.MustMarshalBinaryBare(*msg)
 	ret = append([]byte("SP:DKG"), as_bytes...)
@@ -30,15 +30,15 @@ func AsBytes(msg *DKGMessage) (ret []byte) {
 	return
 }
 
-func FromBytes(msg []byte) (ret *DKGMessage, err error) {
+func FromBytes(msg []byte) (ret *types.DKGMessage, err error) {
 
-	ret = &DKGMessage{}
+	ret = &types.DKGMessage{}
 	err = cdc.UnmarshalBinaryBare(msg[6:], ret)
 	return
 }
 
 // Handler for converting DKG message from a string
-func AsDKG(msg interface{}) (ret DKGMessage, err error) {
+func AsDKG(msg interface{}) (ret types.DKGMessage, err error) {
 
 	switch v := msg.(type) {
 	case string:
@@ -58,10 +58,18 @@ func IsDKGRelated(tx []byte) bool {
 	return false
 }
 
+type MessageHandler interface {
+	SubmitSpecialTx(message interface{}) // DKG calls this to send away messages
+	ToSubmitTx(cb func([]byte))          // Set the callback to dispatch raw TXs to mempool
+	SpecialTxSeen(tx []byte)             // Chain watcher calls this to notify of TXs seen
+	EndBlock(blockHeight int64)          // Call this to send the block TXs to the DKG
+	WhenChainTxSeen(cb func(int64, []*types.DKGMessage)) // Set the callback for an end block
+}
+
 // The struct designed to handle sending and receiving messages via the chain
 type SpecialTxHandler struct {
 	// Trigger this when new DKG messages are seen by the chain
-	cb_confirmed_message func(DKGMessage)
+	cb_confirmed_message func(types.DKGMessage)
 
 	// Trigger this to send DKG TX to the mempool
 	cb_submit_special_tx func([]byte)
@@ -70,7 +78,7 @@ type SpecialTxHandler struct {
 // Submit a special TX to the chain
 func (txHandler *SpecialTxHandler) SubmitSpecialTx(message interface{}) {
 	switch v := message.(type) {
-	case DKGMessage:
+	case types.DKGMessage:
 		to_send := AsBytes(&v)
 		if txHandler.cb_submit_special_tx != nil {
 			txHandler.cb_submit_special_tx(to_send)
@@ -90,7 +98,7 @@ func (txHandler *SpecialTxHandler) ToSubmitTx(cb func([]byte)) {
 }
 
 // Set the closure to be triggered when special Txs are seen on the chain
-func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(DKGMessage)) {
+func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(types.DKGMessage)) {
 	txHandler.cb_confirmed_message = cb
 }
 
