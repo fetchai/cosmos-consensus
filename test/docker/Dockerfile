@@ -6,7 +6,7 @@ RUN echo 'deb http://httpredir.debian.org/debian testing main non-free contrib' 
 # Grab deps (jq, hexdump, xxd, killall)
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
-  jq bsdmainutils vim-common psmisc netcat curl cmake swig
+  jq bsdmainutils vim-common psmisc netcat curl cmake swig libboost-all-dev
 
 # Setup tendermint repo
 ENV REPO $GOPATH/src/github.com/tendermint/tendermint

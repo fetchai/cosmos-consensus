@@ -16,9 +16,6 @@ using namespace fetch::beacon;
 namespace std {
  %template(StringVector) vector<string>;
  %template(IntStringMap) map<int, string>;
- %template(StringPair) pair<string, string>;
- %template(GoExposedShare) pair<uint32_t, std::pair<string, string>>;
- %template(GoSharesExposedMap) map<uint32_t, std::pair<string, string>>;
  %template(IntVector) vector<uint32_t>;
 
 }

@@ -14,20 +14,20 @@ const (
 	DKGCoefficient
 	DKGComplaint
 	DKGComplaintAnswer
-	DKGQualCommit
+	DKGQualCoefficient
 	DKGQualComplaint
 	DKGReconstructionShare
 
-	MaxDKGDataSize = 64000 // Max value calculated for committee size of 200
+	MaxDKGDataSize = 32000 // Max value calculated for committee size of 200
 )
 
 // DKGMessage contains DKGData for a particular phase of the DKG
 type DKGMessage struct {
 	Type         DKGMessageType
 	FromAddress  crypto.Address
-	DKGID        uint32
-	DKGIteration uint16
-	Data         []byte
+	DKGID        int
+	DKGIteration int
+	Data         string
 	ToAddress    crypto.Address
 	Signature    []byte
 }
