@@ -68,7 +68,6 @@ func TestDKGValidateBasic(t *testing.T) {
 		expectErr       bool
 	}{
 		{"Good DKGMessage", func(msg *DKGMessage) {}, false},
-		{"Invalid Type", func(msg *DKGMessage) { msg.Type = DKGMessageType(-1) }, true},
 		{"Invalid Type 2", func(msg *DKGMessage) { msg.Type = DKGMessageType(7) }, true},
 		{"Negative DKGID", func(msg *DKGMessage) { msg.DKGID = -1 }, true},
 		{"Negative DKGIteration", func(msg *DKGMessage) { msg.DKGIteration = -1 }, true},
