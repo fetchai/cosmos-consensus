@@ -73,7 +73,6 @@ public:
     clear();
     bool set{false};
     setStr(&set, pk.data());
-    assert(set);
   }
 };
 
@@ -98,7 +97,6 @@ public:
     clear();
     bool set{false};
     setStr(&set, sig.data());
-    assert(set);
   }
 };
 
@@ -124,7 +122,6 @@ public:
     clear();
     bool set{false};
     setStr(&set, gen.data());
-    assert(set);
   }
 };
 
@@ -154,7 +151,6 @@ public:
     clear();
     bool set{false};
     setStr(&set, pk.data());
-    assert(set);
   }
 };
 

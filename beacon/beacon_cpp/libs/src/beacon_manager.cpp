@@ -88,8 +88,6 @@ CurveParameters curve_params_{};
 
 }  // namespace
 
-constexpr char const *LOGGING_NAME = "BeaconManager";
-
 BeaconManager::BeaconManager()
 {
   curve_params_.EnsureInitialised();

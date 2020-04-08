@@ -17,22 +17,38 @@
 //
 //------------------------------------------------------------------------------
 
-#include <set>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace fetch {
-namespace serialisers {
+namespace beacon {    
 
-std::string Serialise(std::vector<std::string> const &coeff);
-std::string Serialise(std::pair<std::string, std::string> const &share);
-std::string Serialise(std::set<uint32_t> const &complaints);
-std::string Serialise(std::unordered_map<uint32_t, std::pair<std::string, std::string>> const &shares);
-bool Deserialise(std::string const &msg, std::vector<std::string> &coeff);
-bool Deserialise(std::string const &msg, std::pair<std::string, std::string> &shares);
-bool Deserialise(std::string const &msg, std::set<uint32_t> &complaints);
-bool Deserialise(std::string const &msg, std::unordered_map<uint32_t, std::pair<std::string, std::string>> &shares);
+enum class Failure : uint8_t 
+{
+  BAD_SHARE,
+  BAD_COEFFICIENT,
+  MESSAGES_WITH_UNKNOWN_INDEX,
+  MESSAGES_WITH_INVALID_CRYPTO,
+  QUAL_MESSAGES_WITH_INVALID_CRYPTO,
+  EMPTY_COMPLAINT_ANSWER,
+  BAD_QUAL_COEFFICIENT,
+  FALSE_QUAL_COMPLAINT,
+  WITHHOLD_RECONSTRUCTION_SHARE
+};
 
-}  // namespace serialisers
-}  // namespace fetch
+// Needs to match with tendermint/types/dkg_messages.go
+enum class DKGMessageType : uint8_t 
+{
+  SHARE,   
+  COEFFICIENT,
+  COMPLAINT,
+  COMPLAINT_ANSWER,
+  QUAL_COEFFICIENT,
+  QUAL_COMPLAINT,
+  RECONSTRUCTION_SHARE,
+};
+
+std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure);
+
+
+}  // beacon
+}  // fetch
