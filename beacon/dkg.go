@@ -318,7 +318,9 @@ func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 	dkg.broadcastMsg(types.DKGCoefficient, dkg.beaconService.GetCoefficients(), nil)
 
 	for validator, index := range dkg.valToIndex {
-		dkg.broadcastMsg(types.DKGShare, dkg.beaconService.GetShare(index), crypto.Address(validator))
+		if index != dkg.index() {
+			dkg.broadcastMsg(types.DKGShare, dkg.beaconService.GetShare(index), crypto.Address(validator))
+		}
 	}
 }
 
