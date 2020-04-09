@@ -66,19 +66,6 @@ uint32_t BeaconSetupService::QualSize()
   return proposed_qual_size;
 }
 
-template <typename T>
-std::set<T> ConvertToSet(std::unordered_set<T> const &from)
-{
-  std::set<T> ret;
-
-  for (auto const &i : from)
-  {
-    ret.insert(i);
-  }
-
-  return ret;
-}
-
 bool BeaconSetupService::ReceivedAllCoefficientsAndShares() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
