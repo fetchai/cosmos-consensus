@@ -73,6 +73,7 @@ type DistributedKeyGeneration struct {
 	chainID      string
 
 	messageHandler tx_extensions.MessageHandler
+	txPreprocessing func(tx *types.DKGMessage) error
 
 	qual   IntVector
 	output DKGKeyInformation
@@ -110,7 +111,11 @@ func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.Valida
 	return dkg
 }
 
-// SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
+func (dkg *DistributedKeyGeneration) SetTxPreprocessing(cb func(tx *types.DKGMessage) error) {
+	dkg.txPreprocessing = cb
+}
+
+// AttachMessageHandler sets the function for the DKG to send transactions to the mempool
 func (dkg *DistributedKeyGeneration) AttachMessageHandler(handler tx_extensions.MessageHandler) {
 	dkg.mtx.Lock()
 	defer dkg.mtx.Unlock()
@@ -306,6 +311,11 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 
 func (dkg *DistributedKeyGeneration) broadcastMsg(msgType types.DKGMessageType, serialisedMsg string, toAddress crypto.Address) {
 	msg := dkg.newDKGMessage(msgType, serialisedMsg, toAddress)
+
+	if dkg.txPreprocessing != nil {
+		dkg.txPreprocessing(msg)
+	}
+
 	if dkg.messageHandler != nil {
 		dkg.messageHandler.SubmitSpecialTx(msg)
 	} else {

@@ -268,6 +268,11 @@ func newTestNode(privVal types.PrivValidator, vals *types.ValidatorSet, chainID 
 	}
 	node.dkg.SetLogger(log.TestingLogger())
 
+	node.dkg.SetTxPreprocessing(func(tx *types.DKGMessage) error {
+		node.mutateTrx(tx)
+		return nil
+	})
+
 	return node
 }
 
@@ -276,10 +281,8 @@ func (node *testNode) clearTx() {
 	node.nextTx = []*types.Tx{}
 }
 
-func (node *testNode) mutateTrx(trx *types.Tx) {
+func (node *testNode) mutateTrx(msg *types.DKGMessage) {
 	if len(node.failures) != 0 {
-		msg := &types.DKGMessage{}
-		cdc.UnmarshalBinaryBare([]byte(*trx), msg)
 		for i := 0; i < len(node.failures); i++ {
 			if node.failures[i] == mutateData {
 				msg.Data = "garbage"
@@ -295,7 +298,6 @@ func (node *testNode) mutateTrx(trx *types.Tx) {
 			msg.Data = MutateMsg(msg.Data, FetchBeaconDKGMessageType(msg.Type), FetchBeaconFailure(node.failures[i]))
 		}
 		node.dkg.privValidator.SignDKGMessage(node.dkg.chainID, msg)
-		*trx = types.Tx(cdc.MustMarshalBinaryBare(msg))
 	}
 }
 
