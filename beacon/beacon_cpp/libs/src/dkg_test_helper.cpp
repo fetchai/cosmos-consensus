@@ -30,9 +30,8 @@ namespace beacon {
   case Failure::BAD_SHARE:
   {
     std::pair<std::string, std::string> shares;  
-    mcl::PrivateKey fake{2};
-    mcl::PrivateKey fake2{10};
-    shares = {fake.ToString(), fake2.ToString()};
+    mcl::PrivateKey fake;
+    shares = {fake.ToString(), fake.ToString()};
     msg = serialisers::Serialise(shares);
     break;
   }
