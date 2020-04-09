@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"bytes"
 	"strconv"
 	"testing"
 	"time"
@@ -194,6 +195,8 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen.Start()
 
 	assert.Eventually(t, func() bool { return newGen.getComputedEntropy(21) != nil }, 3*time.Second, 500*time.Millisecond)
+	newGen.Stop()
+	newGen.wait()
 	assert.True(t, len(newGen.entropyShares) <= entropyHistoryLength+1)
 	assert.True(t, len(newGen.entropyComputed) <= entropyHistoryLength+1)
 }
@@ -211,13 +214,13 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		entropy := types.ComputedEntropy{Height: 0, GroupSignature: []byte("Fake signature")}
 
 		newGen.applyComputedEntropy(&entropy)
-		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
+		assert.True(t, bytes.Equal(newGen.getComputedEntropy(entropy.Height), []byte("Test Entropy")))
 	})
 	t.Run("applyEntropy height far ahead", func(t *testing.T) {
 		entropy := types.ComputedEntropy{Height: 3, GroupSignature: []byte("Fake signature")}
 
 		newGen.applyComputedEntropy(&entropy)
-		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
+		assert.True(t, newGen.getComputedEntropy(entropy.Height) == nil)
 	})
 	t.Run("applyEntropy invalid entropy", func(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
@@ -225,11 +228,11 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
 
 		otherGen.sign(1)
-		share := otherGen.entropyShares[2][index]
+		share := otherGen.getEntropyShares(2)[index]
 		entropyWrong := types.ComputedEntropy{Height: 2, GroupSignature: []byte(share.SignatureShare)}
 
 		newGen.applyComputedEntropy(&entropyWrong)
-		assert.True(t, newGen.getLastComputedEntropyHeight() == 1)
+		assert.True(t, newGen.getComputedEntropy(entropyWrong.Height) == nil)
 	})
 	t.Run("applyEntropy correct", func(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
@@ -243,16 +246,14 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 			tempGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
 
 			tempGen.sign(1)
-			share := tempGen.entropyShares[2][tempIndex]
+			share := tempGen.getEntropyShares(2)[tempIndex]
 			otherGen.applyEntropyShare(&share)
 		}
 
 		assert.Eventually(t, func() bool { return otherGen.getLastComputedEntropyHeight() >= 2 }, time.Second, 10*time.Millisecond)
-
-		entropyRight := types.ComputedEntropy{Height: 2, GroupSignature: otherGen.entropyComputed[2]}
-
+		entropyRight := types.ComputedEntropy{Height: 2, GroupSignature: otherGen.getComputedEntropy(2)}
 		newGen.applyComputedEntropy(&entropyRight)
-		assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() >= 2 }, 2*computeEntropySleepDuration, 25*time.Millisecond)
+		assert.True(t, bytes.Equal(newGen.getComputedEntropy(entropyRight.Height), entropyRight.GroupSignature))
 	})
 }
 
