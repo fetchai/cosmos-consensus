@@ -25,40 +25,32 @@ namespace beacon {
  
  void MutateShare(std::string &msg, Failure failure) 
 {   
-  switch (failure)
-  {
-  case Failure::BAD_SHARE:
+  if (failure == Failure::BAD_SHARE)
   {
     std::pair<std::string, std::string> shares;  
     mcl::PrivateKey fake{2};
     mcl::PrivateKey fake2{10};
     shares = {fake.ToString(), fake2.ToString()};
     msg = serialisers::Serialise(shares);
-    break;
   }
-  case Failure::MESSAGES_WITH_INVALID_CRYPTO:
+  else if (failure == Failure::MESSAGES_WITH_INVALID_CRYPTO)
   {
     std::pair<std::string, std::string> shares;  
     shares = {"garbage", "garbage2"};
     msg = serialisers::Serialise(shares);
-    break;
   }
-  }  
 }
 
 void MutateCoefficient(std::string &msg, Failure failure) 
 {
-  switch (failure)
-  {
-  case Failure::BAD_COEFFICIENT:
+  if (failure == Failure::BAD_COEFFICIENT)
   {
     std::vector<std::string> coeff;  
     mcl::PublicKey fake;
     coeff.push_back(fake.ToString());
     msg = serialisers::Serialise(coeff);
-  break;
   }
-  case Failure::MESSAGES_WITH_INVALID_CRYPTO:
+  else if (failure == Failure::MESSAGES_WITH_INVALID_CRYPTO)
   {
     std::vector<std::string> coeff;  
     serialisers::Deserialise(msg, coeff);
@@ -67,8 +59,6 @@ void MutateCoefficient(std::string &msg, Failure failure)
       elem += "garbage";
     }
     msg = serialisers::Serialise(coeff);
-  }
-  break;
   }
 }
 
@@ -101,34 +91,31 @@ void MutateComplaintAnswer(std::string &msg, Failure failure)
 {
   std::unordered_map<uint32_t, std::pair<std::string, std::string>> exposed_shares;
   serialisers::Deserialise(msg, exposed_shares);
-  switch (failure)
+  if (failure == Failure::MESSAGES_WITH_UNKNOWN_INDEX)
   {
-  case Failure::MESSAGES_WITH_UNKNOWN_INDEX:
     InvalidIndexExposedShare(exposed_shares);
-    break;
-  case Failure::MESSAGES_WITH_INVALID_CRYPTO:
+  }
+  else if (failure == Failure::MESSAGES_WITH_INVALID_CRYPTO)
+  {
     InvalidCryptoExposedShare(exposed_shares);  
-    break;
-  case Failure::EMPTY_COMPLAINT_ANSWER:
+  }
+  else if (failure == Failure::EMPTY_COMPLAINT_ANSWER)
+  {
     exposed_shares.clear();
-    break;
   }
   msg = serialisers::Serialise(exposed_shares);
 }
 
 void MutateQualCoefficient(std::string &msg, Failure failure) 
 {
-  switch (failure)
-  {
-  case Failure::BAD_QUAL_COEFFICIENT:
+  if (failure == Failure::BAD_QUAL_COEFFICIENT)
   {
     std::vector<std::string> coeff;  
     mcl::PublicKey fake;
     coeff.push_back(fake.ToString());
     msg = serialisers::Serialise(coeff);
-    break;
   }
-  case Failure::QUAL_MESSAGES_WITH_INVALID_CRYPTO:
+  else if (failure == Failure::QUAL_MESSAGES_WITH_INVALID_CRYPTO)
   {
     std::vector<std::string> coeff;  
     serialisers::Deserialise(msg, coeff);
@@ -137,8 +124,6 @@ void MutateQualCoefficient(std::string &msg, Failure failure)
       elem += "garbage";
     }
     msg = serialisers::Serialise(coeff);
-    break;
-  }
   }
 }
 
@@ -146,18 +131,18 @@ void MutateQualComplaint(std::string &msg, Failure failure)
 {
   std::unordered_map<uint32_t, std::pair<std::string, std::string>> exposed_shares;
   serialisers::Deserialise(msg, exposed_shares);
-  switch (failure)
+  if (failure == Failure::MESSAGES_WITH_UNKNOWN_INDEX)
   {
-  case Failure::MESSAGES_WITH_UNKNOWN_INDEX:
     InvalidIndexExposedShare(exposed_shares);
-    break;
-  case Failure::QUAL_MESSAGES_WITH_INVALID_CRYPTO:
+  }
+  else if (failure == Failure::QUAL_MESSAGES_WITH_INVALID_CRYPTO)
+  {
     InvalidCryptoExposedShare(exposed_shares);  
-    break;
-  case Failure::FALSE_QUAL_COMPLAINT:
+  }
+  if (failure == Failure::FALSE_QUAL_COMPLAINT)
+  {
     mcl::PrivateKey fake;  
     exposed_shares[0] = {fake.ToString(), fake.ToString()};
-    break;
   }
   msg = serialisers::Serialise(exposed_shares);
 }
@@ -166,17 +151,17 @@ void MutateReconstructionShare(std::string &msg, Failure failure)
 {
   std::unordered_map<uint32_t, std::pair<std::string, std::string>> exposed_shares;
   serialisers::Deserialise(msg, exposed_shares);
-  switch (failure)
+  if (failure == Failure::MESSAGES_WITH_UNKNOWN_INDEX)
   {
-  case Failure::MESSAGES_WITH_UNKNOWN_INDEX:
     InvalidIndexExposedShare(exposed_shares);
-    break;
-  case Failure::QUAL_MESSAGES_WITH_INVALID_CRYPTO:
+  }
+  else if (failure == Failure::QUAL_MESSAGES_WITH_INVALID_CRYPTO)
+  {
     InvalidCryptoExposedShare(exposed_shares);  
-    break;
-  case Failure::WITHHOLD_RECONSTRUCTION_SHARE:
+  }
+  else if (failure == Failure::WITHHOLD_RECONSTRUCTION_SHARE)
+  {
     exposed_shares.clear();
-    break;
   }
   msg = serialisers::Serialise(exposed_shares);
 }

@@ -149,13 +149,7 @@ func (dkg *DistributedKeyGeneration) setStates() {
 	dkg.states[dkgFinish] = newState(0, dkg.computeKeys, nil, nil)
 }
 
-//OnStart implements BaseService
-func (dkg *DistributedKeyGeneration) OnStart() error { return nil }
-
-//OnStop implements BaseService
-func (dkg *DistributedKeyGeneration) OnStop() {}
-
-//OnReset implements BaseService
+//OnReset overrides BaseService
 func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
