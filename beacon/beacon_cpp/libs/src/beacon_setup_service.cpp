@@ -226,6 +226,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualComplaints()
   {
     qual_complaints_manager_.AddComplaintAgainst(mem.first);
   }
+  std::cout << "GetQualComplaints (" << beacon_->cabinet_index() << "): complaints size " << complaints.size() << std::endl;
   return serialisers::Serialise(complaints);
 }
 
@@ -304,6 +305,7 @@ void BeaconSetupService::OnComplaints(SerialisedMsg const &msg, Identifier const
 
   std::set<Identifier>          complaints;
   serialisers::Deserialise(msg, complaints);
+  std::cout << "OnComplaints (" << from << "->" << beacon_->cabinet_index() << "): complaints size " << complaints.size() << std::endl;
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
 
@@ -321,6 +323,7 @@ void BeaconSetupService::OnComplaintAnswers(SerialisedMsg const &msg, Identifier
 
   SharesExposedMap              answer;
   serialisers::Deserialise(msg, answer);
+  std::cout << "OnComplaintsAnswer (" << from << "->" << beacon_->cabinet_index() << "): complaint answer size " << answer.size() << std::endl;
   complaint_answers_manager_.AddComplaintAnswerFrom(from, answer);
 }
 
@@ -359,6 +362,7 @@ void BeaconSetupService::OnQualComplaints(SerialisedMsg const &msg, Identifier c
 
   SharesExposedMap              shares;
   serialisers::Deserialise(msg, shares);
+  std::cout << "OnQualComplaints (" << from << "->" << beacon_->cabinet_index() << "): complaint size " << shares.size() << std::endl;
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
 
@@ -378,6 +382,7 @@ void BeaconSetupService::OnReconstructionShares(SerialisedMsg const &msg, Identi
   {
     SharesExposedMap              shares;
     serialisers::Deserialise(msg, shares);
+    std::cout << "OnReconstructionShares (" << from << "->" << beacon_->cabinet_index() << "): shares size " << shares.size() << std::endl;
     reconstruction_shares_received_.insert({from, shares});
   }
 }
@@ -415,6 +420,7 @@ std::set<BeaconSetupService::Identifier> BeaconSetupService::ComputeComplaints()
   {
     complaints_manager_.AddComplaintAgainst(cab);
   }
+  std::cout << "ComputeComplaints (" << beacon_->cabinet_index() << "): complaint size " << complaints_local.size() << std::endl;
   return complaints_local;
 }
 
