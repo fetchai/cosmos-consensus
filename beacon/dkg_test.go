@@ -267,14 +267,6 @@ func newTestNode(privVal types.PrivValidator, vals *types.ValidatorSet, chainID 
 		sentBadShare: false,
 	}
 	node.dkg.SetLogger(log.TestingLogger())
-	//node.dkg.SetSendMsgCallback(func(tx *types.Tx) error {
-		//node.mutateTrx(tx)
-		//node.nextTx = append(node.nextTx, tx)
-		//if sendDuplicates {
-			//node.nextTx = append(node.nextTx, tx)
-		//}
-		//return nil
-	//})
 
 	return node
 }

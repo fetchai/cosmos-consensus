@@ -12,7 +12,6 @@ import (
 )
 
 type dkgState int
-//type DKGMessage tx_extensions.DKGMessage
 
 const (
 	dkgStart dkgState = iota
@@ -111,14 +110,6 @@ func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.Valida
 	return dkg
 }
 
-//// SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
-//func (dkg *DistributedKeyGeneration) SetSendMsgCallback(callback func(tx *types.Tx) error) {
-//	dkg.mtx.Lock()
-//	defer dkg.mtx.Unlock()
-//
-//	dkg.sendMsgCallback = callback
-//}
-
 // SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
 func (dkg *DistributedKeyGeneration) AttachMessageHandler(handler tx_extensions.MessageHandler) {
 	dkg.mtx.Lock()
@@ -200,8 +191,6 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		if err := dkg.checkMsg(msg, index, val); err != nil {
 			dkg.Logger.Error("OnBlock: check msg", "index", dkg.index(), "height", blockHeight, "msg", msg, "err", err)
 			continue
-		} else {
-			fmt.Printf("success\n")
 		}
 
 		switch msg.Type {

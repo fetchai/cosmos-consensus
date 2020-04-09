@@ -1,12 +1,9 @@
 package tx_extensions
 
 import (
-	//"bytes"
 	"fmt"
 	"sync"
-	//"errors"
 
-	//amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/types"
 )
 
