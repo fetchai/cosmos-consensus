@@ -3,7 +3,6 @@ package beacon
 import (
 	"github.com/tendermint/tendermint/tx_extensions"
 	"testing"
-	"fmt"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
