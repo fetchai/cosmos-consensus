@@ -62,6 +62,7 @@ func (txHandler *FakeMessageHandler) ToSubmitTx(cb func([]byte)) {
 func (txHandler *FakeMessageHandler) EndBlock(blockHeight int64) {
 	txHandler.mtx.Lock()
 	currentlyPending := txHandler.currentlyPending
+	txHandler.currentlyPending = make([]*types.DKGMessage, 0)
 	txHandler.mtx.Unlock()
 
 	// Call without the lock to avoid deadlock if toExecute can somehow submit
@@ -69,8 +70,6 @@ func (txHandler *FakeMessageHandler) EndBlock(blockHeight int64) {
 	for _, toExecute := range txHandler.cb_confirmed_message {
 		toExecute(blockHeight, currentlyPending)
 	}
-
-	txHandler.currentlyPending = make([]*types.DKGMessage, 0)
 }
 
 // Set the closure to be triggered when special Txs are seen on the chain

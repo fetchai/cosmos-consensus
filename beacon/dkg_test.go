@@ -209,7 +209,7 @@ func TestDKGScenarios(t *testing.T) {
 			}
 
 			// Wait until dkg has completed
-			for all_running := true; all_running; {
+			for nodes_finished := 0; nodes_finished < len(nodes); {
 				fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
 
 				for _, node := range nodes {
@@ -217,15 +217,14 @@ func TestDKGScenarios(t *testing.T) {
 				}
 
 				blockHeight++
+				nodes_finished = 0
 
 				for _, node := range nodes {
-					if node.dkg.currentState == dkgFinish && node.dkg.dkgIteration >= 2 {
-						all_running = false
+					if node.dkg.currentState == dkgFinish || node.dkg.dkgIteration >= 2 {
+						nodes_finished++
 					}
 				}
 			}
-
-			fmt.Printf("hereeeeee!! \n")
 
 			// Check all outputs of expected completed nodes agree
 			for index := 0; index < tc.completionSize; index++ {
