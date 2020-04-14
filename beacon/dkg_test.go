@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"github.com/tendermint/tendermint/tx_extensions"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -188,35 +189,40 @@ func TestDKGScenarios(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
 
+			// Create shared communication channel that represents the chain
+			fakeHandler := tx_extensions.NewFakeMessageHandler()
+
+			// Attach to all nodes
+			for _, node := range nodes {
+				node.dkg.AttachMessageHandler(fakeHandler)
+			}
+
 			// Set node failures
 			tc.failures(nodes)
 
 			// Start all nodes
 			blockHeight := int64(10)
 			for _, node := range nodes {
-				node.dkg.OnBlock(blockHeight, []*types.Tx{})
+				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
 				node.clearTx()
 			}
 
-		OUTER_LOOP:
-			for true {
-				for index, node := range nodes {
-					for index1, node1 := range nodes {
-						if index1 != index {
-							node1.dkg.OnBlock(blockHeight, node.currentTx)
-						}
-					}
-				}
+			// Wait until dkg has completed
+			for nodes_finished := 0; nodes_finished < len(nodes); {
+				fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
+
 				for _, node := range nodes {
 					node.clearTx()
 				}
+
 				blockHeight++
-				for index := 0; index < tc.completionSize; index++ {
-					if nodes[index].dkg.currentState != dkgFinish && nodes[index].dkg.dkgIteration < 2 {
-						continue OUTER_LOOP
+				nodes_finished = 0
+
+				for _, node := range nodes {
+					if node.dkg.currentState == dkgFinish || node.dkg.dkgIteration >= 2 {
+						nodes_finished++
 					}
 				}
-				break
 			}
 
 			// Check all outputs of expected completed nodes agree
@@ -261,12 +267,9 @@ func newTestNode(privVal types.PrivValidator, vals *types.ValidatorSet, chainID 
 		sentBadShare: false,
 	}
 	node.dkg.SetLogger(log.TestingLogger())
-	node.dkg.SetSendMsgCallback(func(tx *types.Tx) error {
+
+	node.dkg.SetTxPreprocessing(func(tx *types.DKGMessage) error {
 		node.mutateTrx(tx)
-		node.nextTx = append(node.nextTx, tx)
-		if sendDuplicates {
-			node.nextTx = append(node.nextTx, tx)
-		}
 		return nil
 	})
 
@@ -278,10 +281,8 @@ func (node *testNode) clearTx() {
 	node.nextTx = []*types.Tx{}
 }
 
-func (node *testNode) mutateTrx(trx *types.Tx) {
+func (node *testNode) mutateTrx(msg *types.DKGMessage) {
 	if len(node.failures) != 0 {
-		msg := &types.DKGMessage{}
-		cdc.UnmarshalBinaryBare([]byte(*trx), msg)
 		for i := 0; i < len(node.failures); i++ {
 			if node.failures[i] == mutateData {
 				msg.Data = "garbage"
@@ -297,7 +298,6 @@ func (node *testNode) mutateTrx(trx *types.Tx) {
 			msg.Data = MutateMsg(msg.Data, FetchBeaconDKGMessageType(msg.Type), FetchBeaconFailure(node.failures[i]))
 		}
 		node.dkg.privValidator.SignDKGMessage(node.dkg.chainID, msg)
-		*trx = types.Tx(cdc.MustMarshalBinaryBare(msg))
 	}
 }
 

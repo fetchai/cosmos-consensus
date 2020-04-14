@@ -8,6 +8,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/tx_extensions"
 )
 
 type dkgState int
@@ -71,7 +72,8 @@ type DistributedKeyGeneration struct {
 	dkgIteration int
 	chainID      string
 
-	sendMsgCallback func(tx *types.Tx) error
+	messageHandler tx_extensions.MessageHandler
+	txPreprocessing func(tx *types.DKGMessage) error
 
 	qual   IntVector
 	output DKGKeyInformation
@@ -109,12 +111,19 @@ func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.Valida
 	return dkg
 }
 
-// SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
-func (dkg *DistributedKeyGeneration) SetSendMsgCallback(callback func(tx *types.Tx) error) {
+func (dkg *DistributedKeyGeneration) SetTxPreprocessing(cb func(tx *types.DKGMessage) error) {
+	dkg.txPreprocessing = cb
+}
+
+// AttachMessageHandler sets the function for the DKG to send transactions to the mempool
+func (dkg *DistributedKeyGeneration) AttachMessageHandler(handler tx_extensions.MessageHandler) {
 	dkg.mtx.Lock()
 	defer dkg.mtx.Unlock()
 
-	dkg.sendMsgCallback = callback
+	dkg.messageHandler = handler
+
+	// When DKG TXs are seen, they should call OnBlock
+	dkg.messageHandler.WhenChainTxSeen(dkg.OnBlock)
 }
 
 func (dkg *DistributedKeyGeneration) setStates() {
@@ -163,7 +172,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 }
 
 //OnBlock processes DKG messages from a block
-func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.Tx) {
+func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkg.mtx.Lock()
 	defer dkg.mtx.Unlock()
 
@@ -174,16 +183,11 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.Tx
 	// Process transactions
 	for _, trx := range trxs {
 		// Decode transaction
-		msg := &types.DKGMessage{}
-		err := cdc.UnmarshalBinaryBare([]byte(*trx), msg)
-		if err != nil {
-			dkg.Logger.Error("OnBlock: decode tx", "index", dkg.index(), "height", blockHeight, "msg", msg, "err", err)
-			continue
-		}
+		msg := trx
 
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
-		if err = dkg.checkMsg(msg, index, val); err != nil {
+		if err := dkg.checkMsg(msg, index, val); err != nil {
 			dkg.Logger.Error("OnBlock: check msg", "index", dkg.index(), "height", blockHeight, "msg", msg, "err", err)
 			continue
 		}
@@ -301,9 +305,15 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 
 func (dkg *DistributedKeyGeneration) broadcastMsg(msgType types.DKGMessageType, serialisedMsg string, toAddress crypto.Address) {
 	msg := dkg.newDKGMessage(msgType, serialisedMsg, toAddress)
-	if dkg.sendMsgCallback != nil {
-		trx := types.Tx(cdc.MustMarshalBinaryBare(msg))
-		dkg.sendMsgCallback(&trx)
+
+	if dkg.txPreprocessing != nil {
+		dkg.txPreprocessing(msg)
+	}
+
+	if dkg.messageHandler != nil {
+		dkg.messageHandler.SubmitSpecialTx(msg)
+	} else {
+		fmt.Printf("Attempted to submit TXs when handler nil!\n")
 	}
 }
 
