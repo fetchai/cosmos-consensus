@@ -158,13 +158,7 @@ func (dkg *DistributedKeyGeneration) setStates() {
 	dkg.states[dkgFinish] = newState(0, dkg.computeKeys, nil, nil)
 }
 
-//OnStart implements BaseService
-func (dkg *DistributedKeyGeneration) OnStart() error { return nil }
-
-//OnStop implements BaseService
-func (dkg *DistributedKeyGeneration) OnStop() {}
-
-//OnReset implements BaseService
+//OnReset overrides BaseService
 func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
@@ -328,7 +322,9 @@ func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 	dkg.broadcastMsg(types.DKGCoefficient, dkg.beaconService.GetCoefficients(), nil)
 
 	for validator, index := range dkg.valToIndex {
-		dkg.broadcastMsg(types.DKGShare, dkg.beaconService.GetShare(index), crypto.Address(validator))
+		if index != dkg.index() {
+			dkg.broadcastMsg(types.DKGShare, dkg.beaconService.GetShare(index), crypto.Address(validator))
+		}
 	}
 }
 
