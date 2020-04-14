@@ -125,11 +125,11 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 	if err != nil {
 		return err
 	}
-	txs := make([][]byte, len(block.Data.Txs))
-	for i, v := range block.Data.Txs {
-		txs[i] = v
-	}
 	if blockExec.appBlockValidation {
+		txs := make([][]byte, len(block.Data.Txs))
+		for i, v := range block.Data.Txs {
+			txs[i] = v
+		}
 		req := abci.RequestBlockValidation{
 			Txs: txs,
 		}
