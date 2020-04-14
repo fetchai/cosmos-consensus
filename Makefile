@@ -1,4 +1,5 @@
-PACKAGES=$(shell go list ./...)
+# Exclude go package inside mcl
+PACKAGES=$(shell find . -name "*_test.go" -not -path "./vendor/*" -not -path "./beacon/trusted_dealer/*" | xargs -I {} dirname {}  | uniq)
 OUTPUT?=build/tendermint
 
 BUILD_TAGS?='tendermint'
@@ -18,10 +19,10 @@ include tests.mk
 ###############################################################################
 
 build:
-	CGO_ENABLED=0 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
+	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
 .PHONY: build
 
-build_c:
+build_cleveldb:
 	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" -o $(OUTPUT) ./cmd/tendermint/
 .PHONY: build_c
 
@@ -30,10 +31,10 @@ build_race:
 .PHONY: build_race
 
 install:
-	CGO_ENABLED=0 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
+	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint/
 .PHONY: install
 
-install_c:
+install_cleveldb:
 	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" ./cmd/tendermint
 .PHONY: install_c
 

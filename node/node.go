@@ -18,6 +18,7 @@ import (
 
 	amino "github.com/tendermint/go-amino"
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/beacon"
 	bcv0 "github.com/tendermint/tendermint/blockchain/v0"
 	bcv1 "github.com/tendermint/tendermint/blockchain/v1"
 	cfg "github.com/tendermint/tendermint/config"
@@ -26,6 +27,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -109,6 +111,15 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		oldPV.Upgrade(newPrivValKey, newPrivValState)
 	}
 
+	// entropy key
+	aeonKeysFile := config.EntropyKeyFile()
+	if tmos.FileExists(aeonKeysFile) {
+		logger.Info("Found entropy key file", "path", aeonKeysFile)
+	} else {
+		logger.Info("No entropy key file", "path", aeonKeysFile)
+		aeonKeysFile = ""
+	}
+
 	return NewNode(config,
 		privval.LoadOrGenFilePV(newPrivValKey, newPrivValState),
 		nodeKey,
@@ -116,6 +127,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
+		aeonKeysFile,
 		logger,
 	)
 }
@@ -200,6 +212,8 @@ type Node struct {
 	txIndexer        txindex.TxIndexer
 	indexerService   *txindex.IndexerService
 	prometheusSrv    *http.Server
+	entropyGenerator *beacon.EntropyGenerator
+	beaconReactor    *beacon.Reactor // reactor for signature shares
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -549,6 +563,28 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
+func createBeaconReactor(
+	aeonFile string,
+	state sm.State,
+	privValidator types.PrivValidator,
+	beaconLogger log.Logger, fastSync bool,
+	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
+	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
+	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+
+	aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID)
+	entropyGenerator.SetLogger(beaconLogger)
+	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
+	entropyGenerator.SetAeonDetails(aeonDetails)
+	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
+
+	reactor := beacon.NewReactor(entropyGenerator, fastSync, blockStore)
+	reactor.SetLogger(beaconLogger)
+
+	return entropyChannel, entropyGenerator, reactor
+}
+
 // NewNode returns a new, ready to go, Tendermint Node.
 func NewNode(config *cfg.Config,
 	privValidator types.PrivValidator,
@@ -557,6 +593,7 @@ func NewNode(config *cfg.Config,
 	genesisDocProvider GenesisDocProvider,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
+	aeonKeysFile string,
 	logger log.Logger,
 	options ...Option) (*Node, error) {
 
@@ -674,6 +711,18 @@ func NewNode(config *cfg.Config,
 		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
 	)
 
+	// Make BeaconReactor
+	var beaconReactor *beacon.Reactor
+	var entropyChannel chan types.ComputedEntropy
+	var entropyGenerator *beacon.EntropyGenerator
+	beaconLogger := logger.With("module", "beacon")
+	if len(aeonKeysFile) != 0 {
+		beacon.InitialiseMcl()
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync, blockStore)
+		consensusState.SetEntropyChannel(entropyChannel)
+		sw.AddReactor("BEACON", beaconReactor)
+	}
+
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add peers from persistent_peers field")
@@ -736,6 +785,8 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
+		entropyGenerator: entropyGenerator,
+		beaconReactor:    beaconReactor,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -1026,6 +1077,11 @@ func (n *Node) PEXReactor() *pex.Reactor {
 	return n.pexReactor
 }
 
+// BeaconReactor returns the Node's beacon reactor
+func (n *Node) BeaconReactor() *beacon.Reactor {
+	return n.beaconReactor
+}
+
 // EvidencePool returns the Node's EvidencePool.
 func (n *Node) EvidencePool() *evidence.Pool {
 	return n.evidencePool
@@ -1120,6 +1176,10 @@ func makeNodeInfo(
 
 	if config.P2P.PexReactor {
 		nodeInfo.Channels = append(nodeInfo.Channels, pex.PexChannel)
+	}
+	if len(config.BaseConfig.EntropyKey) != 0 {
+		nodeInfo.Channels = append(nodeInfo.Channels, beacon.StateChannel)
+		nodeInfo.Channels = append(nodeInfo.Channels, beacon.EntropyChannel)
 	}
 
 	lAddr := config.P2P.ExternalAddress

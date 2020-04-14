@@ -68,7 +68,8 @@ func MakeVote(
 func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
 	block := &Block{
 		Header: Header{
-			Height: height,
+			Height:  height,
+			Entropy: []byte("Fetch.ai Block Test Entropy"),
 		},
 		Data: Data{
 			Txs: txs,

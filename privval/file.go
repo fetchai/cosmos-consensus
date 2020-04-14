@@ -259,6 +259,16 @@ func (pv *FilePV) SignProposal(chainID string, proposal *types.Proposal) error {
 	return nil
 }
 
+func (pv *FilePV) SignEntropy(chainID string, entropy *types.EntropyShare) error {
+	signBytes := entropy.SignBytes(chainID)
+	sig, err := pv.Key.PrivKey.Sign(signBytes)
+	if err != nil {
+		return err
+	}
+	entropy.Signature = sig
+	return nil
+}
+
 // Save persists the FilePV to disk.
 func (pv *FilePV) Save() {
 	pv.Key.Save()
