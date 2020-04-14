@@ -34,10 +34,20 @@ func NewAeonDetails(
 		if !aeonKeys.CheckIndex(uint(index)) {
 			panic(fmt.Errorf("aeonDetails has DKG keys not matching validator index"))
 		}
+		if !aeonKeys.InQual(uint(index)) {
+			panic(fmt.Errorf("aeonDetails has DKG keys not in qual"))
+		}
+	}
+
+	qual := make([]*types.Validator, 0)
+	for index := 0; index < len(validators.Validators); index++ {
+		if aeonKeys.InQual(uint(index)) {
+			qual = append(qual, validators.Validators[index])
+		}
 	}
 	ad := &aeonDetails{
 		privValidator: newPrivValidator,
-		validators:    validators,
+		validators:    types.NewValidatorSet(qual),
 		aeonExecUnit:  aeonKeys,
 		threshold:     validators.Size()/2 + 1,
 	}

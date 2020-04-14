@@ -23,6 +23,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <set>
 
 namespace fetch {
 namespace beacon {
@@ -43,6 +44,7 @@ public:
   using CabinetIndex       = uint32_t;
 
   AeonExecUnit(std::string const &filename);
+  AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
 
   Signature Sign(MessagePayload const &message);
   bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender);
@@ -51,10 +53,13 @@ public:
 
   bool CanSign() const;
   bool CheckIndex(CabinetIndex index) const;
+  bool WriteToFile(std::string const &filename) const;
+  bool InQual(CabinetIndex index) const;
 
 private:
   DKGKeyInformation aeon_keys_;
   Generator generator_;
+  std::set<CabinetIndex> qual_;
 
   void CheckKeys() const;
 };

@@ -100,12 +100,10 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	quals := make([]IntVector, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllComplaintAnswers())
-		quals[index] = beaconManagers[index].BuildQual()
-		assert.True(t, quals[index].Size() == int64(cabinetSize))
+		assert.True(t, beaconManagers[index].BuildQual() == cabinetSize)
 	}
 
 	// Distribute qual coefficients
@@ -149,7 +147,7 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	outputs := make([]DKGKeyInformation, cabinetSize)
+	outputs := make([]AeonExecUnit, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllReconstructionShares())
@@ -158,13 +156,21 @@ func TestHonestDkg(t *testing.T) {
 	}
 
 	// Check all group public keys agree
+	message := "TestMessage"
+	sigShares := NewIntStringMap()
+	defer DeleteIntStringMap(sigShares)
 	for index := uint(0); index < cabinetSize; index++ {
-		for index1 := index + 1; index1 < cabinetSize; index1++ {
-			assert.True(t, outputs[index].GetGroup_public_key() == outputs[index1].GetGroup_public_key())
-			assert.False(t, outputs[index].GetPrivate_key() == outputs[index1].GetPrivate_key())
-			for index2 := uint(0); index2 < cabinetSize; index2++ {
-				assert.True(t, outputs[index].GetPublic_key_shares().Get(int(index2)) == outputs[index1].GetPublic_key_shares().Get(int(index2)))
+		signature := outputs[index].Sign(message)
+		for index1 := uint(0); index1 < cabinetSize; index1++ {
+			if index != index1 {
+				assert.True(t, outputs[index1].Verify(message, signature, index))
 			}
 		}
+		sigShares.Set(int(index), signature)
 	}
+	groupSig := outputs[0].ComputeGroupSignature(sigShares)
+	for index := uint(0); index < cabinetSize; index++ {
+		assert.True(t, outputs[index].VerifyGroupSignature(message, groupSig))
+	}
+
 }

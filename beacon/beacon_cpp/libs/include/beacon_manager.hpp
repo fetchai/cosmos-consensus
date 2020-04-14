@@ -77,6 +77,7 @@ public:
   CabinetIndex                  polynomial_degree() const;
   CabinetIndex                  cabinet_size() const;
   DKGKeyInformation             GetDkgOutput() const;
+  std::string                   generator() const;
   ///}
   //
 

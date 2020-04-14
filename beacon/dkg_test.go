@@ -1,8 +1,11 @@
 package beacon
 
 import (
-	"github.com/tendermint/tendermint/tx_extensions"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
@@ -189,6 +192,16 @@ func TestDKGScenarios(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
 
+			outputs := make([]*aeonDetails, 0)
+			var mtx sync.Mutex
+			for index := 0; index < tc.completionSize; index++ {
+				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
+					mtx.Lock()
+					defer mtx.Unlock()
+					outputs = append(outputs, aeon)
+				})
+			}
+
 			// Create shared communication channel that represents the chain
 			fakeHandler := tx_extensions.NewFakeMessageHandler()
 
@@ -208,7 +221,7 @@ func TestDKGScenarios(t *testing.T) {
 			}
 
 			// Wait until dkg has completed
-			for nodes_finished := 0; nodes_finished < len(nodes); {
+			for nodes_finished := 0; nodes_finished < tc.completionSize; {
 				fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
 
 				for _, node := range nodes {
@@ -219,23 +232,50 @@ func TestDKGScenarios(t *testing.T) {
 				nodes_finished = 0
 
 				for _, node := range nodes {
-					if node.dkg.currentState == dkgFinish || node.dkg.dkgIteration >= 2 {
+					if node.dkg.dkgIteration >= 2 {
+						t.Log("Test failed: dkg iteration exceeded 1")
+						t.FailNow()
+					}
+					if node.dkg.currentState == dkgFinish {
 						nodes_finished++
 					}
 				}
 			}
 
-			// Check all outputs of expected completed nodes agree
-			for index := 0; index < tc.completionSize; index++ {
-				node := nodes[index]
-				assert.Equal(t, int64(tc.qualSize), node.dkg.qual.Size(), "Wrong qual size")
-				for index1 := 0; index1 < tc.completionSize; index1++ {
-					node1 := nodes[index1]
-					if index != index1 {
-						assert.True(t, node.dkg.qual.Size() == node1.dkg.qual.Size())
-						assert.True(t, node.dkg.output.GetGroup_public_key() == node1.dkg.output.GetGroup_public_key())
+			// Wait for all dkgs to stop running
+			assert.Eventually(t, func() bool {
+				running := 0
+				for index := 0; index < tc.completionSize; index++ {
+					if nodes[index].dkg.IsRunning() {
+						running++
 					}
 				}
+				return running == 0
+			}, 1*time.Second, 100*time.Millisecond)
+
+			// Check outputs have been set
+			if len(outputs) != tc.completionSize {
+				t.Logf("Test failed: incorrect number of dkg outputs. Expected: %v Got: %v", tc.completionSize, len(outputs))
+				t.FailNow()
+			}
+
+			// Check all outputs of expected completed nodes agree
+			message := "TestMessage"
+			sigShares := NewIntStringMap()
+			defer DeleteIntStringMap(sigShares)
+			for index := 0; index < tc.completionSize; index++ {
+				node := nodes[index]
+				signature := outputs[index].aeonExecUnit.Sign(message)
+				for index1 := 0; index1 < tc.completionSize; index1++ {
+					if index != index1 {
+						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, node.dkg.index()))
+					}
+				}
+				sigShares.Set(int(node.dkg.index()), signature)
+			}
+			groupSig := outputs[0].aeonExecUnit.ComputeGroupSignature(sigShares)
+			for index := 0; index < tc.completionSize; index++ {
+				assert.True(t, outputs[index].aeonExecUnit.VerifyGroupSignature(message, groupSig))
 			}
 		})
 	}

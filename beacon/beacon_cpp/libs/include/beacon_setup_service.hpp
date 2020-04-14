@@ -74,10 +74,10 @@ public:
   void OnReconstructionShares(SerialisedMsg const &msg, Identifier const &from);
   /// @}
 
-  std::vector<Identifier> BuildQual();
+  CabinetIndex            BuildQual();
   bool                    CheckQualComplaints();
   bool                    RunReconstruction();
-  DKGKeyInformation       ComputePublicKeys();
+  AeonExecUnit            ComputePublicKeys();
 
 private:
   // Managing complaints
@@ -103,8 +103,8 @@ private:
 
   /// @name Helper methods
   /// @{
-  void     CheckComplaintAnswers();
-  uint32_t QualSize();
+  void         CheckComplaintAnswers();
+  CabinetIndex QualSize();
   /// @}
 };
 }  // namespace beacon

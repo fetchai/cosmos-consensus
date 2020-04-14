@@ -501,11 +501,15 @@ DKGKeyInformation BeaconManager::GetDkgOutput() const
   auto output             = DKGKeyInformation();
   output.group_public_key = public_key_.ToString();
   output.private_key      = secret_share_.ToString();
-  for (auto i = 0; i < public_key_shares_.size(); i++)
+  for (auto elem : qual_)
   {
-    output.public_key_shares.push_back(public_key_shares_[i].ToString());
+    output.public_key_shares.push_back(public_key_shares_[elem].ToString());
   }
   return output;
+}
+
+std::string BeaconManager::generator() const {
+  return GetGroupG().ToString();
 }
 
 BeaconManager::Generator const &BeaconManager::GetGroupG()

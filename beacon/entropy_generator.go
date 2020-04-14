@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"container/list"
 	"fmt"
 	"sync"
 	"time"
@@ -35,6 +36,7 @@ type EntropyGenerator struct {
 
 	// Channel for sending off entropy for receiving elsewhere
 	computedEntropyChannel chan<- types.ComputedEntropy
+	aeonQueue              *list.List
 
 	aeon *aeonDetails
 
@@ -57,6 +59,7 @@ func NewEntropyGenerator(newChainID string) *EntropyGenerator {
 		entropyShares:             make(map[int64]map[int]types.EntropyShare),
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
+		aeonQueue:                 list.New(),
 		evsw:                      tmevents.NewEventSwitch(),
 		chainID:                   newChainID,
 		quit:                      make(chan struct{}),
@@ -83,12 +86,20 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.C
 	}
 }
 
-// SetAeonDetails sets the DKG keys for computing DRB
+// SetAeonDetails sets the DKG keys for computing DRB (used on creation of NewNode)
 func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
 	entropyGenerator.aeon = aeon
+}
+
+// AddNewAeonDetails adds new AeonDetails from DKG into the queue
+func (entropyGenerator *EntropyGenerator) AddNewAeonDetails(aeon *aeonDetails) {
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
+
+	entropyGenerator.aeonQueue.PushBack(aeon)
 }
 
 // SetComputedEntropyChannel sets the channel along which entropy should be dispatched
