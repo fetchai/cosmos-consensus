@@ -97,9 +97,9 @@ func (pv MockPV) SignProposal(chainID string, proposal *Proposal) error {
 }
 
 // Implements PrivValidator
-func (pv *MockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
+func (pv MockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
 	signBytes := entropy.SignBytes(chainID)
-	sig, err := pv.privKey.Sign(signBytes)
+	sig, err := pv.PrivKey.Sign(signBytes)
 	if err != nil {
 		return err
 	}
