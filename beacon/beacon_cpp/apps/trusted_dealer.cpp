@@ -23,30 +23,21 @@ int main(int argc, char **argv) {
 
   auto dealer_keys = fetch::beacon::mcl::TrustedDealerGenerateKeys(nValidators, threshold);
 
+  std::set<CabinetIndex> qual;
+  for (CabinetIndex i = 0; i < nValidators; i++) {
+    qual.insert(i);
+  }
+
  for (uint32_t i = 0; i < nValidators; i++) {
-    std::ofstream new_file;
-    new_file.open(outputDir + std::to_string(i) + ".txt");
-    new_file << "Generator, group public key, private key, list of public key shares" << std::endl;
-    new_file << dealer_keys.generator << std::endl;
-    new_file << dealer_keys.group_public_key << std::endl;
-    new_file << dealer_keys.private_key_shares[i] << std::endl;
-    for (uint32_t j = 0; j < dealer_keys.public_key_shares.size(); j++) {
-      new_file << dealer_keys.public_key_shares[j] << std::endl;
-    }
-    new_file.close();
+    DKGKeyInformation keys{dealer_keys.private_key_shares[i], dealer_keys.public_key_shares, dealer_keys.group_public_key};
+    AeonExecUnit aeon{dealer_keys.generator, keys, qual};
+    aeon.WriteToFile(outputDir + std::to_string(i) + ".txt");
  }
 
  for (uint32_t k = 0; k < nNonValidators; k++) {
-    std::ofstream new_file;
-    new_file.open(outputDir + std::to_string(k + nValidators) + ".txt");
-    new_file << "Generator, group public key, private key, list of public key shares" << std::endl;
-    new_file << dealer_keys.generator << std::endl;
-    new_file << dealer_keys.group_public_key << std::endl;
-    new_file << std::endl;
-    for (uint32_t m = 0; m < dealer_keys.public_key_shares.size(); m++) {
-      new_file << dealer_keys.public_key_shares[m] << std::endl;
-    }
-    new_file.close();
+    DKGKeyInformation keys{"", dealer_keys.public_key_shares, dealer_keys.group_public_key};
+    AeonExecUnit aeon{dealer_keys.generator, keys, qual};
+    aeon.WriteToFile(outputDir + std::to_string(k + nValidators) + ".txt");
  }
   return 0;
 }

@@ -7,8 +7,8 @@ import (
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/tx_extensions"
+	"github.com/tendermint/tendermint/types"
 )
 
 type dkgState int
@@ -72,11 +72,11 @@ type DistributedKeyGeneration struct {
 	dkgIteration int
 	chainID      string
 
-	messageHandler tx_extensions.MessageHandler
-	txPreprocessing func(tx *types.DKGMessage) error
+	messageHandler        tx_extensions.MessageHandler
+	txPreprocessing       func(tx *types.DKGMessage) error
+	dkgCompletionCallback func(aeon *aeonDetails)
 
-	qual   IntVector
-	output DKGKeyInformation
+	qual IntVector
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
@@ -124,6 +124,13 @@ func (dkg *DistributedKeyGeneration) AttachMessageHandler(handler tx_extensions.
 
 	// When DKG TXs are seen, they should call OnBlock
 	dkg.messageHandler.WhenChainTxSeen(dkg.OnBlock)
+}
+
+func (dkg *DistributedKeyGeneration) SetDkgCompletionCallback(callback func(aeon *aeonDetails)) {
+	dkg.mtx.Lock()
+	defer dkg.mtx.Unlock()
+
+	dkg.dkgCompletionCallback = callback
 }
 
 func (dkg *DistributedKeyGeneration) setStates() {
@@ -354,8 +361,8 @@ func (dkg *DistributedKeyGeneration) sendReconstructionShares() {
 }
 
 func (dkg *DistributedKeyGeneration) buildQual() bool {
-	dkg.qual = dkg.beaconService.BuildQual()
-	if dkg.qual.Size() == 0 {
+	qualSize := dkg.beaconService.BuildQual()
+	if qualSize == 0 {
 		dkg.Logger.Info("buildQual: DKG failed", "index", dkg.index(), "iteration", dkg.dkgIteration)
 		return false
 	}
@@ -363,7 +370,13 @@ func (dkg *DistributedKeyGeneration) buildQual() bool {
 }
 
 func (dkg *DistributedKeyGeneration) computeKeys() {
-	dkg.output = dkg.beaconService.ComputePublicKeys()
+	aeonExecUnit := dkg.beaconService.ComputePublicKeys()
+
+	if dkg.dkgCompletionCallback != nil {
+		// Create new aeon details
+		aeonDetails := NewAeonDetails(dkg.validators, dkg.privValidator, aeonExecUnit)
+		dkg.dkgCompletionCallback(aeonDetails)
+	}
 
 	// Stop service so we do not process more blocks
 	dkg.Stop()

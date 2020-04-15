@@ -150,11 +150,11 @@ bool BeaconSetupService::RunReconstruction()
   return beacon_->RunReconstruction();
 }
 
-DKGKeyInformation BeaconSetupService::ComputePublicKeys()
+AeonExecUnit BeaconSetupService::ComputePublicKeys()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputePublicKeys();
-  return beacon_->GetDkgOutput();
+  return beacon_-> GetDkgOutput();
 }
 
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetCoefficients()
@@ -465,7 +465,7 @@ void BeaconSetupService::CheckComplaintAnswers()
 
  * @return Set of qualified members
  */
-std::vector<BeaconSetupService::Identifier> BeaconSetupService::BuildQual()
+CabinetIndex BeaconSetupService::BuildQual()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   complaint_answers_manager_.Finish(valid_dkg_members_, beacon_->cabinet_index());
@@ -475,17 +475,15 @@ std::vector<BeaconSetupService::Identifier> BeaconSetupService::BuildQual()
 
   // There should be no members in qual that are not in valid_dkg_members
   assert((beacon_->qual() & valid_dkg_members_) == beacon_->qual());
-
-  std::vector<Identifier> qual{beacon_->qual().begin(), beacon_->qual().end()};
-  if (std::find(qual.begin(), qual.end(), beacon_->cabinet_index()) == qual.end())
+  if (std::find(beacon_->qual().begin(), beacon_->qual().end(), beacon_->cabinet_index()) == beacon_->qual().end())
   {
-    return {};
+    return 0;
   }
-  if (qual.size() < QualSize())
+  if (beacon_->qual().size() < QualSize())
   {
-    return {};
+    return 0;
   }
-  return qual;
+  return static_cast<CabinetIndex>(beacon_->qual().size());
 }
 
 /**

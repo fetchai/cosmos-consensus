@@ -135,7 +135,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		entropyChannels[i] = make(chan types.ComputedEntropy, EntropyChannelCapacity)
 
 		aeonDetails := NewAeonDetails(state.Validators, privVals[i], aeonExecUnits[index])
-		entropyGenerators[i] = NewEntropyGenerator(state.ChainID)
+		entropyGenerators[i] = NewEntropyGenerator(state.ChainID, nil)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(types.ComputedEntropy{Height: types.GenesisHeight, GroupSignature: state.LastComputedEntropy})
 		entropyGenerators[i].SetAeonDetails(aeonDetails)

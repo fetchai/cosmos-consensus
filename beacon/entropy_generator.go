@@ -1,10 +1,12 @@
 package beacon
 
 import (
+	"container/list"
 	"fmt"
 	"sync"
 	"time"
 
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
@@ -35,8 +37,10 @@ type EntropyGenerator struct {
 
 	// Channel for sending off entropy for receiving elsewhere
 	computedEntropyChannel chan<- types.ComputedEntropy
+	aeonQueue              *list.List
+	aeon                   *aeonDetails
 
-	aeon *aeonDetails
+	config *cfg.BaseConfig
 
 	// synchronous pubsub between entropy generator and reactor.
 	// entropy generator only emits new computed entropy height
@@ -52,11 +56,13 @@ type EntropyGenerator struct {
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
-func NewEntropyGenerator(newChainID string) *EntropyGenerator {
+func NewEntropyGenerator(newChainID string, baseConfig *cfg.BaseConfig) *EntropyGenerator {
 	es := &EntropyGenerator{
 		entropyShares:             make(map[int64]map[int]types.EntropyShare),
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
+		aeonQueue:                 list.New(),
+		config:                    baseConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		chainID:                   newChainID,
 		quit:                      make(chan struct{}),
@@ -83,12 +89,37 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.C
 	}
 }
 
-// SetAeonDetails sets the DKG keys for computing DRB
+// SetAeonDetails sets the DKG keys for computing DRB (used on creation of NewNode)
 func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
 	entropyGenerator.aeon = aeon
+}
+
+// AddNewAeonDetails adds new AeonDetails from DKG into the queue
+func (entropyGenerator *EntropyGenerator) AddNewAeonDetails(aeon *aeonDetails) {
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
+
+	entropyGenerator.aeonQueue.PushBack(aeon)
+}
+
+func (entropyGenerator *EntropyGenerator) ChangeKeys() bool {
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
+
+	newAeon := entropyGenerator.aeonQueue.Front()
+	if newAeon != nil {
+		entropyGenerator.aeon = newAeon.Value.(*aeonDetails)
+		entropyGenerator.aeonQueue.Remove(newAeon)
+		// Save keys for crash recovery
+		if entropyGenerator.config != nil {
+			entropyGenerator.aeon.aeonExecUnit.WriteToFile(entropyGenerator.config.EntropyKeyFile())
+		}
+		return true
+	}
+	return false
 }
 
 // SetComputedEntropyChannel sets the channel along which entropy should be dispatched
