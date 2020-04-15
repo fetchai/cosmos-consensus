@@ -25,7 +25,6 @@ const (
 
 	dkgTypicalStateDuration = int64(10)
 	dkgResetWait            = int64(5) // Wait time in blocks before next dkg iteration
-	aeonLength              = int64(100)
 )
 
 type state struct {
