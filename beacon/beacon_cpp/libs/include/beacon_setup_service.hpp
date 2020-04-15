@@ -85,6 +85,10 @@ private:
   ComplaintAnswersManager complaint_answers_manager_;
   QualComplaintsManager   qual_complaints_manager_;
 
+    // Members below protected by mutex
+  mutable std::mutex             mutex_;
+  std::unique_ptr<BeaconManager> beacon_;
+
   // Counters for types of messages received
   std::set<CabinetIndex>                   shares_received_;
   std::set<CabinetIndex>                   coefficients_received_;
@@ -92,19 +96,11 @@ private:
   std::map<CabinetIndex, SharesExposedMap> reconstruction_shares_received_;
   std::set<CabinetIndex>                   valid_dkg_members_;
 
-  /// @name Helper function
-  /// @{
-  std::set<CabinetIndex> ComputeComplaints();
-  /// @}
-
-  // Members below protected by mutex
-  mutable std::mutex             mutex_;
-  std::unique_ptr<BeaconManager> beacon_;
-
   /// @name Helper methods
   /// @{
-  void         CheckComplaintAnswers();
-  CabinetIndex QualSize();
+  std::set<CabinetIndex> ComputeComplaints();
+  void     CheckComplaintAnswers();
+  uint32_t QualSize();
   /// @}
 };
 }  // namespace beacon
