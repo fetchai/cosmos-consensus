@@ -4,6 +4,7 @@
 #include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
 #include "beacon_cpp/libs/include/beacon_setup_service.hpp"
 #include "beacon_cpp/libs/include/dkg_test_helper.hpp"
+#include "beacon_cpp/libs/include/logging_sink.hpp"
 
 using namespace fetch::beacon;
 %}
@@ -22,3 +23,4 @@ namespace std {
 %include "beacon_cpp/libs/include/aeon_exec_unit.hpp"
 %include "beacon_cpp/libs/include/beacon_setup_service.hpp"
 %include "beacon_cpp/libs/include/dkg_test_helper.hpp"
+%include "beacon_cpp/libs/include/logging_sink.hpp"

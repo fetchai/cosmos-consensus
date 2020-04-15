@@ -114,7 +114,7 @@ build_cpp:
 test:
 	make build_cpp
 	@echo "--> Running go test"
-	@go test -short -p 1 -timeout 1m $(PACKAGES)
+	@go test -short -parallel 1 -timeout 1m $(PACKAGES)
 .PHONY: test
 
 test_race:
