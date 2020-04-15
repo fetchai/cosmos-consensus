@@ -139,7 +139,7 @@ type State struct {
 	metrics *Metrics
 
 	// Last entropy and channel for receiving entropy
-	newEntropy             types.ComputedEntropy
+	newEntropy             *types.ComputedEntropy
 	computedEntropyChannel <-chan types.ComputedEntropy
 }
 
@@ -962,17 +962,21 @@ func (cs *State) enterPropose(height int64, round int) {
 }
 
 func (cs *State) getProposer(height int64, round int) *types.Validator {
-	if cs.computedEntropyChannel == nil {
+
+	// Get entropy for this round
+	newEntropy, entropyEnabled := cs.getNewEntropy()
+
+	// Use normal tendermint proposer selection when there is no entropy
+	if entropyEnabled == false {
 		return cs.Validators.GetProposer()
 	}
+
 	index := round
 	if round >= cs.Validators.Size() {
 		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round",  round, "validator size", cs.Validators.Size())
 		index = round % cs.Validators.Size()
 	}
 
-	// If first round of new block height then reset entropy
-	newEntropy := cs.getNewEntropy()
 	if newEntropy.Height != height {
 		panic(fmt.Sprintf("getProposer(%v/%v), invalid entropy height %v", height, round, newEntropy.Height))
 	}
@@ -984,15 +988,18 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 
 // Allows entropy to be received from any stage it is required, which is necessary for
 // catch up via WAL. Entropy is reset to empty at start and after every committed block.
-func (cs *State) getNewEntropy() types.ComputedEntropy {
-	if cs.newEntropy.IsEmpty() {
+// Note that this function can block as long as it takes for the network to generate entropy
+// (possibly forever)
+func (cs *State) getNewEntropy() types.ComputedEntropy, bool {
+	if cs.newEntropy == nil {
 		newEntropy := <-cs.computedEntropyChannel
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
 		}
-		cs.newEntropy = newEntropy
+		cs.newEntropy = &newEntropy
 	}
-	return cs.newEntropy
+
+	return cs.newEntropy, cs.NewEntropy.Enabled
 }
 
 // TODO: Check that rand.Shuffle is same across different platforms
@@ -1027,10 +1034,9 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 		// Create a new proposal block from state/txs from the mempool.
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
-		if cs.computedEntropyChannel != nil {
-			block.Header.Entropy = cs.getNewEntropy().GroupSignature
-			blockParts = block.MakePartSet(types.BlockPartSizeBytes)
-		}
+
+		block.Header.Entropy = cs.getNewEntropy().GroupSignature
+		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
 		}
@@ -1147,12 +1153,10 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 		return
 	}
 
-	// Check block entropy
-	if cs.computedEntropyChannel != nil {
-		if !bytes.Equal(cs.ProposalBlock.Header.Entropy, cs.getNewEntropy().GroupSignature) {
-			logger.Error("enterPrevote: ProposalBlock has invalid entropy")
-			return
-		}
+	// Check block entropy (note this can be empty in fallback mode which is fine)
+	if !bytes.Equal(cs.ProposalBlock.Header.Entropy, cs.getNewEntropy().GroupSignature) {
+		logger.Error("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v", cs.getNewEntropy().Enabled)
+		return
 	}
 
 	// Validate proposal block
@@ -1528,7 +1532,7 @@ func (cs *State) finalizeCommit(height int64) {
 	cs.updateToState(stateCopy)
 
 	// Reset entropy. Important that this is only done here!
-	cs.newEntropy = types.ComputedEntropy{}
+	cs.newEntropy = nil
 
 	fail.Fail() // XXX
 

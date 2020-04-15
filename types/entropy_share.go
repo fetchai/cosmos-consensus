@@ -21,6 +21,7 @@ type ThresholdSignature = []byte
 type ComputedEntropy struct {
 	Height         int64
 	GroupSignature ThresholdSignature
+	Enabled bool
 }
 
 func (ce *ComputedEntropy) IsEmpty() bool {
