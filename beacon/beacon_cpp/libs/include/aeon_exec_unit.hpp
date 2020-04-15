@@ -46,10 +46,10 @@ public:
   AeonExecUnit(std::string const &filename);
   AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
 
-  Signature Sign(MessagePayload const &message);
-  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender);
-  Signature ComputeGroupSignature(std::map <int, Signature> const &signature_shares);
-  bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature);
+  Signature Sign(MessagePayload const &message) const;
+  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const;
+  Signature ComputeGroupSignature(std::map <int, Signature> const &signature_shares) const;
+  bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature) const;
 
   bool CanSign() const;
   bool CheckIndex(CabinetIndex index) const;

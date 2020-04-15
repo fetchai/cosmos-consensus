@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
-	"math/rand"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,7 +21,6 @@ import (
 	amino "github.com/tendermint/go-amino"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/beacon"
-	"github.com/tendermint/tendermint/tx_extensions"
 	bcv0 "github.com/tendermint/tendermint/blockchain/v0"
 	bcv1 "github.com/tendermint/tendermint/blockchain/v1"
 	cfg "github.com/tendermint/tendermint/config"
@@ -47,6 +46,7 @@ import (
 	"github.com/tendermint/tendermint/state/txindex/kv"
 	"github.com/tendermint/tendermint/state/txindex/null"
 	"github.com/tendermint/tendermint/store"
+	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
@@ -114,15 +114,6 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		oldPV.Upgrade(newPrivValKey, newPrivValState)
 	}
 
-	// entropy key
-	aeonKeysFile := config.EntropyKeyFile()
-	if tmos.FileExists(aeonKeysFile) {
-		logger.Info("Found entropy key file", "path", aeonKeysFile)
-	} else {
-		logger.Info("No entropy key file", "path", aeonKeysFile)
-		aeonKeysFile = ""
-	}
-
 	return NewNode(config,
 		privval.LoadOrGenFilePV(newPrivValKey, newPrivValState),
 		nodeKey,
@@ -130,7 +121,6 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
-		aeonKeysFile,
 		logger,
 	)
 }
@@ -569,16 +559,16 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 }
 
 func createBeaconReactor(
-	aeonFile string,
+	config *cfg.Config,
 	state sm.State,
 	privValidator types.PrivValidator,
 	beaconLogger log.Logger, fastSync bool,
 	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
-	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
+	aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
 	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
 	aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
-	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
 	entropyGenerator.SetAeonDetails(aeonDetails)
@@ -598,7 +588,6 @@ func NewNode(config *cfg.Config,
 	genesisDocProvider GenesisDocProvider,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
-	aeonKeysFile string,
 	logger log.Logger,
 	options ...Option) (*Node, error) {
 
@@ -722,9 +711,13 @@ func NewNode(config *cfg.Config,
 	var entropyChannel chan types.ComputedEntropy
 	var entropyGenerator *beacon.EntropyGenerator
 	beaconLogger := logger.With("module", "beacon")
-	if len(aeonKeysFile) != 0 {
+	// entropy key
+	if tmos.FileExists(config.EntropyKeyFile()) {
 		beacon.InitialiseMcl()
-		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync, blockStore)
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(
+			config, state, privValidator, beaconLogger,
+			fastSync, blockStore,
+		)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
 	}
@@ -859,7 +852,7 @@ func (n *Node) OnStart() error {
 	}
 
 	// Point the TX handler at the mempool
-	n.specialTxHandler.ToSubmitTx(func(as_bytes []byte){ n.mempool.CheckTx(as_bytes, func(resp *abci.Response){}, mempl.TxInfo{}) })
+	n.specialTxHandler.ToSubmitTx(func(as_bytes []byte) { n.mempool.CheckTx(as_bytes, func(resp *abci.Response) {}, mempl.TxInfo{}) })
 
 	// Proof of concept: submit some DKG TXs into the system
 	if false {

@@ -154,7 +154,7 @@ AeonExecUnit BeaconSetupService::ComputePublicKeys()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputePublicKeys();
-  return AeonExecUnit(beacon_->generator(), beacon_->GetDkgOutput(), beacon_->qual());
+  return beacon_-> GetDkgOutput();
 }
 
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetCoefficients()

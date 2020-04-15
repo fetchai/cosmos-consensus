@@ -79,7 +79,7 @@ func TestEntropyNodeStartStop(t *testing.T) {
 	// create & start node
 	// Generate node PrivKey
 	logger := log.TestingLogger()
-	aeonKeysFile := "test_key/single_validator.txt"
+	config.EntropyKey = "test_key/single_validator.txt"
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	require.NoError(t, err)
 
@@ -105,7 +105,6 @@ func TestEntropyNodeStartStop(t *testing.T) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
-		aeonKeysFile,
 		logger,
 	)
 	require.NoError(t, err)
@@ -379,7 +378,6 @@ func TestNodeNewNodeCustomReactors(t *testing.T) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
-		"",
 		log.TestingLogger(),
 		CustomReactors(map[string]p2p.Reactor{"FOO": cr, "BLOCKCHAIN": customBlockchainReactor}),
 	)
@@ -412,7 +410,7 @@ func state(nVals int, height int64) (sm.State, dbm.DB) {
 		ChainID:    "test-chain",
 		Validators: vals,
 		AppHash:    nil,
-		Entropy: "Fetch.ai Test Genesis Entropy",
+		Entropy:    "Fetch.ai Test Genesis Entropy",
 	})
 
 	// save validators to db for 2 heights

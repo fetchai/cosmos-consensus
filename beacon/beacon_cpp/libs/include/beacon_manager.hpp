@@ -76,8 +76,7 @@ public:
   CabinetIndex                  cabinet_index() const;
   CabinetIndex                  polynomial_degree() const;
   CabinetIndex                  cabinet_size() const;
-  DKGKeyInformation             GetDkgOutput() const;
-  std::string                   generator() const;
+  AeonExecUnit                  GetDkgOutput() const;
   ///}
   //
 

@@ -13,7 +13,6 @@ import (
 
 	cfg "github.com/tendermint/tendermint/config"
 	tmnet "github.com/tendermint/tendermint/libs/net"
-	tmos "github.com/tendermint/tendermint/libs/os"
 	nm "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
@@ -168,18 +167,10 @@ func NewTendermint(app abci.Application, opts *Options) *nm.Node {
 	if err != nil {
 		panic(err)
 	}
-	aeonKeysFile := config.EntropyKeyFile()
-	if tmos.FileExists(aeonKeysFile) {
-		logger.Info("Found entropy key file", "path", aeonKeysFile)
-	} else {
-		logger.Info("No entropy key file", "path", aeonKeysFile)
-		aeonKeysFile = ""
-	}
 	node, err := nm.NewNode(config, pv, nodeKey, papp,
 		nm.DefaultGenesisDocProviderFunc(config),
 		nm.DefaultDBProvider,
 		nm.DefaultMetricsProvider(config.Instrumentation),
-		aeonKeysFile,
 		logger)
 	if err != nil {
 		panic(err)

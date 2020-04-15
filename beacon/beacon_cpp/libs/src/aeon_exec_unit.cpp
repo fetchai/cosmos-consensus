@@ -67,7 +67,9 @@ AeonExecUnit::AeonExecUnit(std::string const &filename) {
 AeonExecUnit::AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual) 
   : aeon_keys_{std::move(keys)}
   , generator_{std::move(generator)}
-  , qual_{std::move(qual)} {
+  , qual_{std::move(qual)} 
+  {
+  assert(aeon_keys_.public_key_shares.size() == qual_.size());
   CheckKeys();
 }
 
@@ -99,7 +101,7 @@ void AeonExecUnit::CheckKeys() const {
  * @param x_i Secret key share
  * @return Signature share
  */
-AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) {
+AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) const {
   if (!CanSign()) {
      assert(CanSign());
      return Signature{};
@@ -118,7 +120,7 @@ AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) {
  * @return
  */
 bool
-AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) {
+AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
   assert(sender < aeon_keys_.public_key_shares.size());
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.public_key_shares[sender]};
@@ -128,7 +130,7 @@ AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, Cabin
 }
 
 AeonExecUnit::Signature
-AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) {
+AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) const {
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
     assert(static_cast<CabinetIndex>(share.first) < aeon_keys_.public_key_shares.size());
@@ -140,7 +142,7 @@ AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) {
   return group_sig.getStr();
 }
 
-bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) {
+bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) const {
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.group_public_key};
   mcl::Generator generator{generator_};
@@ -158,11 +160,11 @@ bool AeonExecUnit::CheckIndex(CabinetIndex index) const {
   }
   mcl::PrivateKey private_key{aeon_keys_.private_key};
   mcl::PublicKey public_key{aeon_keys_.public_key_shares[index]};
-  mcl::Generator generator{generator_};
 
-  mcl::PublicKey check_public_key{generator, private_key};
+  auto test_message = "Test";
+  auto sig = Sign(test_message);
 
-  return check_public_key == public_key;
+  return Verify(test_message, sig, index);
 }
 
 bool AeonExecUnit::WriteToFile(std::string const &filename) const {

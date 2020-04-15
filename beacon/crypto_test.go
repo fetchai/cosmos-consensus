@@ -155,7 +155,7 @@ func TestHonestDkg(t *testing.T) {
 		outputs[index] = beaconManagers[index].ComputePublicKeys()
 	}
 
-	// Check all group public keys agree
+	// Check all group public keys agree with threshold signing
 	message := "TestMessage"
 	sigShares := NewIntStringMap()
 	defer DeleteIntStringMap(sigShares)

@@ -142,6 +142,7 @@ public:
 
   PublicKey(Generator const &G, PrivateKey const &p)
   {
+    clear();
     bn::G2::mul(*this, G, p);
   }
   std::string ToString() const
