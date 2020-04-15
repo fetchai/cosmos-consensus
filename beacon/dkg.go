@@ -375,9 +375,6 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	if dkg.dkgCompletionCallback != nil {
 		// Create new aeon details
 		aeonDetails := NewAeonDetails(dkg.validators, dkg.privValidator, aeonExecUnit)
-		// Reset threshold
-		aeonDetails.threshold = dkg.threshold
-
 		dkg.dkgCompletionCallback(aeonDetails)
 	}
 
