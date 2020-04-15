@@ -114,15 +114,6 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		oldPV.Upgrade(newPrivValKey, newPrivValState)
 	}
 
-	// entropy key
-	aeonKeysFile := config.EntropyKeyFile()
-	if tmos.FileExists(aeonKeysFile) {
-		logger.Info("Found entropy key file", "path", aeonKeysFile)
-	} else {
-		logger.Info("No entropy key file", "path", aeonKeysFile)
-		aeonKeysFile = ""
-	}
-
 	return NewNode(config,
 		privval.LoadOrGenFilePV(newPrivValKey, newPrivValState),
 		nodeKey,
@@ -130,7 +121,6 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
-		aeonKeysFile,
 		logger,
 	)
 }
@@ -570,16 +560,16 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 }
 
 func createBeaconReactor(
-	aeonFile string,
+	config *cfg.Config,
 	state sm.State,
 	privValidator types.PrivValidator,
 	beaconLogger log.Logger, fastSync bool,
 	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
-	aeonKeys := beacon.NewAeonExecUnit(aeonFile)
+	aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
 	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
 	aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
-	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
 	entropyGenerator.SetAeonDetails(aeonDetails)
@@ -599,7 +589,6 @@ func NewNode(config *cfg.Config,
 	genesisDocProvider GenesisDocProvider,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
-	aeonKeysFile string,
 	logger log.Logger,
 	options ...Option) (*Node, error) {
 
@@ -726,9 +715,13 @@ func NewNode(config *cfg.Config,
 	var entropyChannel chan types.ComputedEntropy
 	var entropyGenerator *beacon.EntropyGenerator
 	beaconLogger := logger.With("module", "beacon")
-	if len(aeonKeysFile) != 0 {
+	// entropy key
+	if tmos.FileExists(config.EntropyKeyFile()) {
 		beacon.InitialiseMcl()
-		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(aeonKeysFile, state, privValidator, beaconLogger, fastSync, blockStore)
+		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(
+			config, state, privValidator, beaconLogger,
+			fastSync, blockStore,
+		)
 		consensusState.SetEntropyChannel(entropyChannel)
 		sw.AddReactor("BEACON", beaconReactor)
 	}

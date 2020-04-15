@@ -36,14 +36,25 @@ AeonExecUnit::AeonExecUnit(std::string const &filename) {
       // Ignore first line which contains description of ordering
       getline(myfile, line);
 
+      getline(myfile, line);
+      CabinetIndex qual_size{static_cast<CabinetIndex>(std::stoul(line))};
+
       getline(myfile, generator_);
       getline(myfile, aeon_keys_.group_public_key);
       getline(myfile, aeon_keys_.private_key);
 
-      while (getline(myfile, line))
+      for (CabinetIndex i = 0; i < qual_size; i++)
       {
+        getline(myfile, line);
         aeon_keys_.public_key_shares.push_back(line);
       }
+
+      for (CabinetIndex i = 0; i < qual_size; i++)
+      {
+        getline(myfile, line);
+        qual_.insert(static_cast<CabinetIndex>(std::stoul(line)));
+      }
+
       myfile.close();
 
       CheckKeys();
@@ -51,6 +62,15 @@ AeonExecUnit::AeonExecUnit(std::string const &filename) {
       // AeonExecUnit can not open file
       assert(false);
     }
+}
+
+AeonExecUnit::AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual) 
+  : aeon_keys_{std::move(keys)}
+  , generator_{std::move(generator)}
+  , qual_{std::move(qual)} 
+  {
+  assert(aeon_keys_.public_key_shares.size() == qual_.size());
+  CheckKeys();
 }
 
 /**
@@ -61,12 +81,17 @@ AeonExecUnit::AeonExecUnit(std::string const &filename) {
  */
 void AeonExecUnit::CheckKeys() const {
   if (CanSign()) {
-    mcl::PrivateKey temp_private_key{aeon_keys_.private_key};
+    mcl::PrivateKey temp_private_key;
+    assert(temp_private_key.FromString(aeon_keys_.private_key));
   }
-  mcl::PublicKey temp_group_key{aeon_keys_.group_public_key};
+  mcl::PublicKey temp_group_key;
+  assert(temp_group_key.FromString(aeon_keys_.group_public_key));
   for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
-     mcl::PublicKey temp_key_share{aeon_keys_.public_key_shares[i]};
+     mcl::PublicKey temp_key_share;
+     assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
   }
+  mcl::Generator generator;
+  assert(generator.FromString(generator_));
 }
 
 /**
@@ -76,7 +101,7 @@ void AeonExecUnit::CheckKeys() const {
  * @param x_i Secret key share
  * @return Signature share
  */
-AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) {
+AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) const {
   if (!CanSign()) {
      assert(CanSign());
      return Signature{};
@@ -95,7 +120,7 @@ AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) {
  * @return
  */
 bool
-AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) {
+AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
   assert(sender < aeon_keys_.public_key_shares.size());
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.public_key_shares[sender]};
@@ -105,7 +130,7 @@ AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, Cabin
 }
 
 AeonExecUnit::Signature
-AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) {
+AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) const {
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
     assert(static_cast<CabinetIndex>(share.first) < aeon_keys_.public_key_shares.size());
@@ -117,7 +142,7 @@ AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) {
   return group_sig.getStr();
 }
 
-bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) {
+bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) const {
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.group_public_key};
   mcl::Generator generator{generator_};
@@ -135,13 +160,34 @@ bool AeonExecUnit::CheckIndex(CabinetIndex index) const {
   }
   mcl::PrivateKey private_key{aeon_keys_.private_key};
   mcl::PublicKey public_key{aeon_keys_.public_key_shares[index]};
-  mcl::Generator generator{generator_};
 
-  mcl::PublicKey check_public_key{generator, private_key};
+  auto test_message = "Test";
+  auto sig = Sign(test_message);
 
-  return check_public_key == public_key;
+  return Verify(test_message, sig, index);
 }
 
+bool AeonExecUnit::WriteToFile(std::string const &filename) const {
+  std::ofstream new_file;
+  new_file.open(filename);
+  new_file << "Qual size, generator, group public key, private key, list of public key shares, qual" << std::endl;
+  new_file << qual_.size() << std::endl;
+  new_file << generator_ << std::endl;
+  new_file << aeon_keys_.group_public_key << std::endl;
+  new_file << aeon_keys_.private_key << std::endl;
+  for (uint32_t j = 0; j < aeon_keys_.public_key_shares.size(); j++) {
+    new_file << aeon_keys_.public_key_shares[j] << std::endl;
+  }
+  for (auto member : qual_) {
+    new_file << member << std::endl;
+  }
+
+  new_file.close();
+}
+
+bool AeonExecUnit::InQual(CabinetIndex index) const {
+  return qual_.find(index) != qual_.end();
+}
 
 }  // namespace crypto
 }  // namespace fetch

@@ -26,6 +26,9 @@ namespace bn = mcl::bn256;
 
 namespace fetch {
 namespace beacon {
+
+using CabinetIndex = uint32_t;
+
 namespace mcl {
 
 namespace details {
@@ -43,8 +46,6 @@ struct MCLInitialiser
   static std::atomic<bool> was_initialised;
 };
 }  // namespace details
-
-using CabinetIndex = uint32_t;
 
 class PrivateKey : public bn::Fr
 {
@@ -68,11 +69,12 @@ public:
   {
     return getStr();
   }
-  void FromString(std::string const &pk)
+  bool FromString(std::string const &pk)
   {
     clear();
     bool set{false};
     setStr(&set, pk.data());
+    return set;
   }
 };
 
@@ -108,20 +110,20 @@ public:
     clear();
   }
 
-  explicit Generator(std::string const &string_to_hash)
+  explicit Generator(std::string const &generator)
   {
-    clear();
-    bn::hashAndMapToG2(*this, string_to_hash);
+    FromString(generator);
   }
   std::string ToString() const
   {
     return getStr();
   }
-  void FromString(std::string const &gen)
+  bool FromString(std::string const &gen)
   {
     clear();
     bool set{false};
     setStr(&set, gen.data());
+    return set;
   }
 };
 
@@ -140,17 +142,19 @@ public:
 
   PublicKey(Generator const &G, PrivateKey const &p)
   {
+    clear();
     bn::G2::mul(*this, G, p);
   }
   std::string ToString() const
   {
     return getStr();
   }
-  void FromString(std::string const &pk)
+  bool FromString(std::string const &pk)
   {
     clear();
     bool set{false};
     setStr(&set, pk.data());
+    return set;
   }
 };
 

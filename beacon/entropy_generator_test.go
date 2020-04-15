@@ -18,7 +18,7 @@ func TestNewEntropyGenerator(t *testing.T) {
 	nValidators := 4
 	state, _ := groupTestSetup(nValidators)
 
-	newGen := NewEntropyGenerator("TestChain")
+	newGen := NewEntropyGenerator("TestChain", nil)
 
 	// Panic OnStart() as no aeonDetails or previous entropy set
 	assert.Panics(t, func() {
@@ -185,7 +185,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 func TestEntropyGeneratorFlush(t *testing.T) {
 	state, privVal := groupTestSetup(1)
 
-	newGen := NewEntropyGenerator("TestChain")
+	newGen := NewEntropyGenerator("TestChain", nil)
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
@@ -265,7 +265,7 @@ func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 }
 
 func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator, index int) *EntropyGenerator {
-	newGen := NewEntropyGenerator("TestChain")
+	newGen := NewEntropyGenerator("TestChain", nil)
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")

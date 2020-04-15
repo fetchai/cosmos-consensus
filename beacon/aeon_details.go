@@ -23,11 +23,18 @@ func NewAeonDetails(
 	if aeonKeys == nil {
 		panic(fmt.Errorf("aeonDetails with nil active execution unit"))
 	}
+	qual := make([]*types.Validator, 0)
+	for index := 0; index < len(validators.Validators); index++ {
+		if aeonKeys.InQual(uint(index)) {
+			qual = append(qual, validators.Validators[index])
+		}
+	}
+	newVals := types.NewValidatorSet(qual)
 	if aeonKeys.CanSign() {
 		if newPrivValidator == nil {
 			panic(fmt.Errorf("aeonDetails has DKG keys but no privValidator"))
 		}
-		index, _ := validators.GetByAddress(newPrivValidator.GetPubKey().Address())
+		index, _ := newVals.GetByAddress(newPrivValidator.GetPubKey().Address())
 		if index < 0 {
 			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators"))
 		}
@@ -35,9 +42,10 @@ func NewAeonDetails(
 			panic(fmt.Errorf("aeonDetails has DKG keys not matching validator index"))
 		}
 	}
+
 	ad := &aeonDetails{
 		privValidator: newPrivValidator,
-		validators:    validators,
+		validators:    newVals,
 		aeonExecUnit:  aeonKeys,
 		threshold:     validators.Size()/2 + 1,
 	}
