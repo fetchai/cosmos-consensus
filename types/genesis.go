@@ -96,11 +96,6 @@ func (genDoc *GenesisDoc) ValidateAndComplete() error {
 		genDoc.GenesisTime = tmtime.Now()
 	}
 
-	// Make entropy required in genesis
-	if len(genDoc.Entropy) == 0 {
-		return errors.Errorf("genesis doc must contain entropy")
-	}
-
 	return nil
 }
 
