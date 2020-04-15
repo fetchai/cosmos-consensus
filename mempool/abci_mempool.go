@@ -337,9 +337,11 @@ func (mem *ABCIMempool) reqResCb(
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *ABCIMempool) addTx(memTx *mempoolTx) {
-	mem.proxyAppConn.MempoolAddTxAsync(abci.RequestMempoolAddTx{
-		Tx: memTx.tx,
-	})
+	if mem.config.AppMempool {
+		mem.proxyAppConn.MempoolAddTxAsync(abci.RequestMempoolAddTx{
+			Tx: memTx.tx,
+		})
+	}
 	e := mem.txs.PushBack(memTx)
 	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
@@ -351,9 +353,11 @@ func (mem *ABCIMempool) addTx(memTx *mempoolTx) {
 // 	- resCbRecheck (lock not held) if tx was invalidated
 func (mem *ABCIMempool) removeTx(tx types.Tx, elem *clist.CElement, removeFromCache bool) {
 	key := txKey(tx)
-	mem.proxyAppConn.MempoolRemoveTxAsync(abci.RequestMempoolRemoveTx{
-		TxHash: key[:],
-	})
+	if mem.config.AppMempool {
+		mem.proxyAppConn.MempoolRemoveTxAsync(abci.RequestMempoolRemoveTx{
+			TxHash: key[:],
+		})
+	}
 	mem.txs.Remove(elem)
 	elem.DetachPrev()
 	mem.txsMap.Delete(key)
@@ -474,24 +478,26 @@ func (mem *ABCIMempool) notifyTxsAvailable() {
 }
 
 func (mem *ABCIMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	resp, err := mem.proxyAppConn.MempoolReapTxsSync(abci.RequestMempoolReapTxs{
-		SizeLimit: maxBytes,
-		GasLimit:  maxGas,
-	})
-	if err != nil && resp != nil {
-		if resp.Code == 0 {
-			txs := make([]types.Tx, 0, len(resp.Txs))
-			for i, tx := range resp.Txs {
-				txs[i] = tx
+	if mem.config.AppMempool {
+		resp, err := mem.proxyAppConn.MempoolReapTxsSync(abci.RequestMempoolReapTxs{
+			SizeLimit: maxBytes,
+			GasLimit:  maxGas,
+		})
+		if err != nil && resp != nil {
+			if resp.Code == 0 {
+				txs := make([]types.Tx, 0, len(resp.Txs))
+				for i, tx := range resp.Txs {
+					txs[i] = tx
+				}
+				return txs
 			}
-			return txs
+		} else {
+			msg := ""
+			if err != nil {
+				msg = err.Error()
+			}
+			mem.logger.Info("Mempool ABCI call failed: " + msg)
 		}
-	} else {
-		msg := ""
-		if err != nil {
-			msg = err.Error()
-		}
-		mem.logger.Info("Mempool ABCI call failed: " + msg)
 	}
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
