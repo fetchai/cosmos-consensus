@@ -236,11 +236,20 @@ func TestReactorWithDKG(t *testing.T) {
 	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", false)
 	defer cleanup()
 
+	aeonStart := int64(20)
+
 	dkgNodes, fakeHandler := exampleDKGNetwork(N, false)
 
 	for index := 0; index < N; index++ {
 		entropyGen := entropyGenerators[index]
+		// Reset entropy generator to state just before receiving first
+		// dkg keys from genesus
+		entropyGen.setLastBlockHeight(aeonStart - 1)
+		entropyGen.entropyComputed = make(map[int64][]byte)
+		entropyGen.lastComputedEntropyHeight = -1
 		dkgNodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
+			aeon.start = aeonStart
+			aeon.end = 30
 			entropyGen.AddNewAeonDetails(aeon)
 		})
 	}
@@ -283,7 +292,7 @@ func TestReactorWithDKG(t *testing.T) {
 	// Change keys over
 	for _, entropyGen := range entropyGenerators {
 		assert.True(t, entropyGen.aeonQueue.Len() == 1)
-		assert.True(t, entropyGen.ChangeKeys())
+		assert.True(t, entropyGen.changeKeys())
 	}
 
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)

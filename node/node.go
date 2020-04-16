@@ -565,15 +565,21 @@ func createBeaconReactor(
 	privValidator types.PrivValidator,
 	beaconLogger log.Logger, fastSync bool,
 	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
-	aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
-	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 
-	aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
-	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig)
+	beacon.InitialiseMcl()
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, state.LastBlockHeight)
+	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
-	entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
-	entropyGenerator.SetAeonDetails(aeonDetails)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
+
+	if tmos.FileExists(config.EntropyKeyFile()) {
+		aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
+		aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
+		entropyGenerator.SetAeonDetails(aeonDetails)
+	}
+	if len(state.LastComputedEntropy) != 0 {
+		entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
+	}
 
 	reactor := beacon.NewReactor(entropyGenerator, fastSync, blockStore)
 	reactor.SetLogger(beaconLogger)
@@ -711,20 +717,10 @@ func NewNode(config *cfg.Config,
 	nativeLogger := beacon.NewNativeLoggingCollector(logger)
 
 	// Make BeaconReactor
-	var beaconReactor *beacon.Reactor
-	var entropyChannel chan types.ComputedEntropy
-	var entropyGenerator *beacon.EntropyGenerator
 	beaconLogger := logger.With("module", "beacon")
-	// entropy key
-	if tmos.FileExists(config.EntropyKeyFile()) {
-		beacon.InitialiseMcl()
-		entropyChannel, entropyGenerator, beaconReactor = createBeaconReactor(
-			config, state, privValidator, beaconLogger,
-			fastSync, blockStore,
-		)
-		consensusState.SetEntropyChannel(entropyChannel)
-		sw.AddReactor("BEACON", beaconReactor)
-	}
+	entropyChannel, entropyGenerator, beaconReactor := createBeaconReactor(config, state, privValidator, beaconLogger, fastSync, blockStore)
+	consensusState.SetEntropyChannel(entropyChannel)
+	sw.AddReactor("BEACON", beaconReactor)
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {

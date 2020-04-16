@@ -71,6 +71,11 @@ func (beaconR *Reactor) OnStart() error {
 
 	beaconR.subscribeToBroadcastEvents()
 	if !beaconR.fastSync {
+		// If no previous entropy has been set then look back through chain to find
+		// either genesis or last computed entropy
+		if beaconR.entropyGen.lastComputedEntropyHeight == -1 {
+			beaconR.findAndSetLastEntropy(beaconR.entropyGen.lastBlockHeight)
+		}
 		return beaconR.entropyGen.Start()
 	}
 
@@ -81,10 +86,8 @@ func (beaconR *Reactor) OnStart() error {
 // state.
 func (beaconR *Reactor) OnStop() {
 	beaconR.unsubscribeFromBroadcastEvents()
-	beaconR.entropyGen.Stop()
-	// Check for not fast sync ensures that compute entropy routine in entropy
-	// generator was started and we wait until the routine has exited
-	if !beaconR.getFastSync() {
+	if beaconR.entropyGen.IsRunning() {
+		beaconR.entropyGen.Stop()
 		beaconR.entropyGen.wait()
 	}
 }
@@ -93,7 +96,12 @@ func (beaconR *Reactor) OnStop() {
 // last computed entropy
 func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	beaconR.Logger.Info("SwitchToConsensus")
-	beaconR.entropyGen.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
+	if len(state.LastComputedEntropy) == 0 {
+		beaconR.findAndSetLastEntropy(state.LastBlockHeight)
+	} else {
+		beaconR.entropyGen.SetLastComputedEntropy(*types.NewComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy, true))
+	}
+	beaconR.entropyGen.setLastBlockHeight(state.LastBlockHeight)
 
 	beaconR.mtx.Lock()
 	beaconR.fastSync = false
@@ -134,6 +142,21 @@ func (beaconR *Reactor) getFastSync() bool {
 	beaconR.mtx.RLock()
 	defer beaconR.mtx.RUnlock()
 	return beaconR.fastSync
+}
+
+func (beaconR *Reactor) findAndSetLastEntropy(height int64) {
+	// Start one before current block height as if current block had entropy it
+	// it would have been set into entropy generator
+	blockHeight := height - 1
+	for blockHeight > 0 {
+		blockEntropy := beaconR.blockStore.LoadBlockMeta(blockHeight).Header.Entropy
+		if len(blockEntropy) != 0 {
+			lastEntropy := types.NewComputedEntropy(blockHeight, blockEntropy, true)
+			beaconR.entropyGen.SetLastComputedEntropy(*lastEntropy)
+			break
+		}
+		blockHeight--
+	}
 }
 
 // InitPeer implements Reactor by creating a state for the peer.
@@ -205,8 +228,8 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		}
 
 	case EntropyChannel:
-		if beaconR.getFastSync() {
-			beaconR.Logger.Info("Ignoring message received during fastSync", "msg", msg)
+		if beaconR.getFastSync() || !beaconR.entropyGen.isSigningEntropy() {
+			beaconR.Logger.Info("Ignoring message received during fastSync/entropy generator not running", "msg", msg)
 			return
 		}
 		switch msg := msg.(type) {
@@ -267,7 +290,7 @@ OUTER_LOOP:
 		// Use block chain for entropy that has been included in block
 		if nextEntropyHeight < beaconR.entropyGen.getLastComputedEntropyHeight() {
 			block := beaconR.blockStore.LoadBlockMeta(nextEntropyHeight)
-			if block != nil {
+			if block != nil && len(block.Header.Entropy) != 0 {
 				// Send peer entropy from block store
 				ps.sendEntropy(nextEntropyHeight, block.Header.Entropy)
 				time.Sleep(peerGossipSleepDuration)
@@ -280,9 +303,11 @@ OUTER_LOOP:
 			time.Sleep(peerGossipSleepDuration)
 			continue OUTER_LOOP
 		}
-		ps.pickSendEntropyShare(nextEntropyHeight,
-			beaconR.entropyGen.getEntropyShares(nextEntropyHeight),
-			beaconR.entropyGen.aeon.validators.Size())
+		if beaconR.entropyGen.isSigningEntropy() {
+			ps.pickSendEntropyShare(nextEntropyHeight,
+				beaconR.entropyGen.getEntropyShares(nextEntropyHeight),
+				beaconR.entropyGen.aeon.validators.Size())
+		}
 
 		time.Sleep(peerGossipSleepDuration)
 		continue OUTER_LOOP
