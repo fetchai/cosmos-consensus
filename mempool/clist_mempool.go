@@ -475,7 +475,7 @@ func (mem *CListMempool) notifyTxsAvailable() {
 	}
 }
 
-func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
+func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
 
@@ -491,7 +491,13 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
+
 		memTx := e.Value.(*mempoolTx)
+
+		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
+			continue
+		}
+
 		// Check total size requirement
 		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
 		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {

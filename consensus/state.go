@@ -1102,8 +1102,9 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 		return
 	}
 
+	entropyEnabled := cs.getNewEntropy().Enabled
 	proposerAddr := cs.privValidator.GetPubKey().Address()
-	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr)
+	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, entropyEnabled)
 }
 
 // Enter: `timeoutPropose` after entering Propose.
