@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: node3
+  name: node3
+spec:
+  clusterIP: None
+  ports:
+  - name: p2p-net-port
+    port: 26656
+  - name: prometheus
+    port: 26660
+  selector:
+    app: node3

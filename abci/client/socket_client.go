@@ -266,6 +266,18 @@ func (cli *socketClient) EndBlockAsync(req types.RequestEndBlock) *ReqRes {
 	return cli.queueRequest(types.ToRequestEndBlock(req))
 }
 
+func (cli *socketClient) MempoolAddTxAsync(req types.RequestMempoolAddTx) *ReqRes {
+	return cli.queueRequest(types.ToRequestMempoolAddTx(req))
+}
+
+func (cli *socketClient) MempoolRemoveTxAsync(req types.RequestMempoolRemoveTx) *ReqRes {
+	return cli.queueRequest(types.ToRequestMempoolRemoveTx(req))
+}
+
+func (cli *socketClient) MempoolReapTxsAsync(req types.RequestMempoolReapTxs) *ReqRes {
+	return cli.queueRequest(types.ToRequestMempoolReapTxs(req))
+}
+
 //----------------------------------------
 
 func (cli *socketClient) FlushSync() error {
@@ -343,6 +355,24 @@ func (cli *socketClient) ValidateBlockSync(req types.RequestBlockValidation) (*t
 	return reqres.Response.GetBlockValidation(), cli.Error()
 }
 
+func (cli *socketClient) MempoolAddTxSync(req types.RequestMempoolAddTx) (*types.ResponseMempoolAddTx, error) {
+	reqres := cli.queueRequest(types.ToRequestMempoolAddTx(req))
+	cli.FlushSync()
+	return reqres.Response.GetMempoolAddTx(), cli.Error()
+}
+
+func (cli *socketClient) MempoolRemoveTxSync(req types.RequestMempoolRemoveTx) (*types.ResponseMempoolRemoveTx, error) {
+	reqres := cli.queueRequest(types.ToRequestMempoolRemoveTx(req))
+	cli.FlushSync()
+	return reqres.Response.GetMempoolRmTx(), cli.Error()
+}
+
+func (cli *socketClient) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
+	reqres := cli.queueRequest(types.ToRequestMempoolReapTxs(req))
+	cli.FlushSync()
+	return reqres.Response.GetMempoolReapTxs(), cli.Error()
+}
+
 //----------------------------------------
 
 func (cli *socketClient) queueRequest(req *types.Request) *ReqRes {
@@ -409,6 +439,12 @@ func resMatchesReq(req *types.Request, res *types.Response) (ok bool) {
 		_, ok = res.Value.(*types.Response_EndBlock)
 	case *types.Request_BlockValidation:
 		_, ok = res.Value.(*types.Response_BlockValidation)
+	case *types.Request_MempoolAddTx:
+		_, ok = res.Value.(*types.Response_MempoolAddTx)
+	case *types.Request_MempoolRmTx:
+		_, ok = res.Value.(*types.Response_MempoolRmTx)
+	case *types.Request_MempoolReapTxs:
+		_, ok = res.Value.(*types.Response_MempoolReapTxs)
 	}
 	return ok
 }

@@ -118,6 +118,21 @@ func TestSignerVote(t *testing.T) {
 	}
 }
 
+func TestSignerEntropy(t *testing.T) {
+	for _, tc := range getSignerTestCases(t) {
+		want := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: tc.mockPV.GetPubKey().Address()}
+		have := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: tc.mockPV.GetPubKey().Address()}
+
+		defer tc.signerServer.Stop()
+		defer tc.signerClient.Close()
+
+		require.NoError(t, tc.mockPV.SignEntropy(tc.chainID, want))
+		require.NoError(t, tc.signerClient.SignEntropy(tc.chainID, have))
+
+		assert.Equal(t, want.Signature, have.Signature)
+	}
+}
+
 func TestSignerVoteResetDeadline(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
 		ts := time.Now()
@@ -214,6 +229,28 @@ func TestSignerSignVoteErrors(t *testing.T) {
 	}
 }
 
+func TestSignerSignEntropyErrors(t *testing.T) {
+	for _, tc := range getSignerTestCases(t) {
+		entropy := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: tc.mockPV.GetPubKey().Address()}
+
+		// Replace signer service privval with one that always fails
+		tc.signerServer.privVal = types.NewErroringMockPV()
+		tc.mockPV = types.NewErroringMockPV()
+
+		defer tc.signerServer.Stop()
+		defer tc.signerClient.Close()
+
+		err := tc.signerClient.SignEntropy(tc.chainID, entropy)
+		require.Equal(t, err.(*RemoteSignerError).Description, types.ErroringMockPVErr.Error())
+
+		err = tc.mockPV.SignEntropy(tc.chainID, entropy)
+		require.Error(t, err)
+
+		err = tc.signerClient.SignEntropy(tc.chainID, entropy)
+		require.Error(t, err)
+	}
+}
+
 func brokenHandler(privVal types.PrivValidator, request SignerMessage, chainID string) (SignerMessage, error) {
 	var res SignerMessage
 	var err error
@@ -226,6 +263,8 @@ func brokenHandler(privVal types.PrivValidator, request SignerMessage, chainID s
 	case *SignVoteRequest:
 		res = &PubKeyResponse{nil, nil}
 	case *SignProposalRequest:
+		res = &PubKeyResponse{nil, nil}
+	case *SignEntropyRequest:
 		res = &PubKeyResponse{nil, nil}
 
 	case *PingRequest:

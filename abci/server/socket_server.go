@@ -213,6 +213,15 @@ func (s *SocketServer) handleRequest(req *types.Request, responses chan<- *types
 	case *types.Request_EndBlock:
 		res := s.app.EndBlock(*r.EndBlock)
 		responses <- types.ToResponseEndBlock(res)
+	case *types.Request_MempoolAddTx:
+		res := s.app.MempoolAddTx(*r.MempoolAddTx)
+		responses <- types.ToResponseMempoolAddTx(res)
+	case *types.Request_MempoolRmTx:
+		res := s.app.MempoolRemoveTx(*r.MempoolRmTx)
+		responses <- types.ToResponseMempoolRemoveTx(res)
+	case *types.Request_MempoolReapTxs:
+		res := s.app.MempoolReapTxs(*r.MempoolReapTxs)
+		responses <- types.ToResponseMempoolReapTxs(res)
 	default:
 		responses <- types.ToResponseException("Unknown request")
 	}

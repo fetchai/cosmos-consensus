@@ -40,6 +40,10 @@ message Request {
     RequestEndBlock   end_block   = 11;
     RequestCommit     commit      = 12;
     RequestBlockValidation block_validation = 13;
+
+    RequestMempoolAddTx    mempool_add_tx   = 30;
+    RequestMempoolRemoveTx mempool_rm_tx    = 31;
+    RequestMempoolReapTxs  mempool_reap_txs = 32;
   }
 }
 
@@ -109,6 +113,21 @@ message RequestEndBlock {
 
 message RequestCommit {}
 
+
+//Mempool messages
+message RequestMempoolAddTx {
+  bytes tx = 1;
+}
+
+message RequestMempoolRemoveTx {
+  bytes tx_hash = 1;
+}
+
+message RequestMempoolReapTxs {
+  int64 size_limit = 1;
+  int64 gas_limit = 2;
+}
+
 //----------------------------------------
 // Response types
 
@@ -127,6 +146,10 @@ message Response {
     ResponseEndBlock   end_block   = 11;
     ResponseCommit     commit      = 12;
     ResponseBlockValidation block_validation = 13;
+
+    ResponseMempoolAddTx    mempool_add_tx   = 30;
+    ResponseMempoolRemoveTx mempool_rm_tx    = 31;
+    ResponseMempoolReapTxs  mempool_reap_txs = 32;
   }
 }
 
@@ -223,6 +246,21 @@ message ResponseEndBlock {
 message ResponseCommit {
   // reserve 1
   bytes data = 2;
+}
+
+message ResponseMempoolAddTx {
+  uint32 code = 1;
+  string log  = 2;
+}
+
+message ResponseMempoolRemoveTx {
+  uint32 code = 1;
+  string log  = 2;
+}
+
+message ResponseMempoolReapTxs {
+  uint32         code = 1;
+  repeated bytes txs  = 2;
 }
 
 //----------------------------------------
@@ -359,4 +397,8 @@ service ABCIApplication {
   rpc BeginBlock(RequestBeginBlock) returns (ResponseBeginBlock);
   rpc EndBlock(RequestEndBlock) returns (ResponseEndBlock);
   rpc ValidateBlock(RequestBlockValidation) returns (ResponseBlockValidation);
+
+  rpc MempoolAddTx(RequestMempoolAddTx) returns (ResponseMempoolAddTx);
+  rpc MempoolRemoveTx(RequestMempoolRemoveTx) returns (ResponseMempoolRemoveTx);
+  rpc MempoolReapTxs(RequestMempoolReapTxs) returns (ResponseMempoolReapTxs);
 }

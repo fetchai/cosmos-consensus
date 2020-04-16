@@ -35,6 +35,9 @@ type Client interface {
 	InitChainAsync(types.RequestInitChain) *ReqRes
 	BeginBlockAsync(types.RequestBeginBlock) *ReqRes
 	EndBlockAsync(types.RequestEndBlock) *ReqRes
+	MempoolAddTxAsync(types.RequestMempoolAddTx) *ReqRes
+	MempoolRemoveTxAsync(types.RequestMempoolRemoveTx) *ReqRes
+	MempoolReapTxsAsync(types.RequestMempoolReapTxs) *ReqRes
 
 	FlushSync() error
 	EchoSync(msg string) (*types.ResponseEcho, error)
@@ -48,6 +51,9 @@ type Client interface {
 	BeginBlockSync(types.RequestBeginBlock) (*types.ResponseBeginBlock, error)
 	EndBlockSync(types.RequestEndBlock) (*types.ResponseEndBlock, error)
 	ValidateBlockSync(types.RequestBlockValidation) (*types.ResponseBlockValidation, error)
+	MempoolAddTxSync(types.RequestMempoolAddTx) (*types.ResponseMempoolAddTx, error)
+	MempoolRemoveTxSync(types.RequestMempoolRemoveTx) (*types.ResponseMempoolRemoveTx, error)
+	MempoolReapTxsSync(types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error)
 }
 
 //----------------------------------------

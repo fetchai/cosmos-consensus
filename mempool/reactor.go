@@ -36,7 +36,7 @@ const (
 type Reactor struct {
 	p2p.BaseReactor
 	config  *cfg.MempoolConfig
-	mempool *CListMempool
+	mempool *ABCIMempool
 	ids     *mempoolIDs
 }
 
@@ -104,7 +104,7 @@ func newMempoolIDs() *mempoolIDs {
 }
 
 // NewReactor returns a new Reactor with the given config and mempool.
-func NewReactor(config *cfg.MempoolConfig, mempool *CListMempool) *Reactor {
+func NewReactor(config *cfg.MempoolConfig, mempool *ABCIMempool) *Reactor {
 	memR := &Reactor{
 		config:  config,
 		mempool: mempool,

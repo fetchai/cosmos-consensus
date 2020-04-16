@@ -76,11 +76,11 @@ test_integrations:
 	make build_docker_test_image
 	make tools
 	make install
+	make install_abci
 	make test_cover
 	make test_apps
 	make test_abci_apps
 	make test_abci_cli
-	make test_libs
 	make test_persistence
 	make test_p2p
 	# Disabled by default since it requires Docker daemon with IPv6 enabled
@@ -99,16 +99,15 @@ vagrant_test:
 	vagrant up
 	vagrant ssh -c 'make test_integrations'
 .PHONY: vagrant_test
-
 ### go tests
 test:
 	@echo "--> Running go test"
-	@go test -p 1 $(PACKAGES)
+	@go test -short -p 1 -timeout 1m $(PACKAGES)
 .PHONY: test
 
 test_race:
 	@echo "--> Running go test --race"
-	@go test -p 1 -v -race $(PACKAGES)
+	@go test -p 1 -v -timeout 1m -race $(PACKAGES)
 .PHONY: test_race
 
 # uses https://github.com/sasha-s/go-deadlock/ to detect potential deadlocks

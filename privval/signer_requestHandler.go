@@ -37,6 +37,14 @@ func DefaultValidationRequestHandler(
 			res = &SignedProposalResponse{r.Proposal, nil}
 		}
 
+	case *SignEntropyRequest:
+		err = privVal.SignEntropy(chainID, r.Entropy)
+		if err != nil {
+			res = &SignedEntropyResponse{nil, &RemoteSignerError{0, err.Error()}}
+		} else {
+			res = &SignedEntropyResponse{r.Entropy, nil}
+		}
+
 	case *PingRequest:
 		err, res = nil, &PingResponse{}
 

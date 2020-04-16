@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node2configmap
+data:
+  p2ppex: "--p2p.pex=false"
+  tmhomedir: "/tm_data/node2"
+  perspeers: ""
+  privpeers: ""
+  rpcladdr: "--rpc.laddr=tcp://0.0.0.0:26657"
+  proxyapp: "--proxy_app=kvstore"

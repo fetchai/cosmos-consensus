@@ -5,6 +5,8 @@ import (
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -125,11 +127,11 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 	if err != nil {
 		return err
 	}
-	txs := make([][]byte, len(block.Data.Txs))
-	for i, v := range block.Data.Txs {
-		txs[i] = v
-	}
 	if blockExec.appBlockValidation {
+		txs := make([][]byte, len(block.Data.Txs))
+		for i, v := range block.Data.Txs {
+			txs[i] = v
+		}
 		req := abci.RequestBlockValidation{
 			Txs: txs,
 		}
@@ -335,7 +337,7 @@ func execBlockOnProxyApp(
 		return nil, err
 	}
 
-	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs)
+	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs, "entropy", tmbytes.HexBytes(tmhash.Sum(block.Entropy)))
 
 	return abciResponses, nil
 }
@@ -470,6 +472,7 @@ func updateState(
 		LastHeightConsensusParamsChanged: lastHeightParamsChanged,
 		LastResultsHash:                  abciResponses.ResultsHash(),
 		AppHash:                          nil,
+		LastComputedEntropy:              header.Entropy,
 	}, nil
 }
 

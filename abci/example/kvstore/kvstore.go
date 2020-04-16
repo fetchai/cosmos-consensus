@@ -160,3 +160,21 @@ func (app *Application) Query(reqQuery types.RequestQuery) (resQuery types.Respo
 
 	return resQuery
 }
+
+func (*Application) MempoolAddTx(types.RequestMempoolAddTx) types.ResponseMempoolAddTx {
+	return types.ResponseMempoolAddTx{
+		Code: 1,
+	}
+}
+
+func (*Application) MempoolRemoveTx(types.RequestMempoolRemoveTx) types.ResponseMempoolRemoveTx {
+	return types.ResponseMempoolRemoveTx{
+		Code: 1,
+	}
+}
+
+func (*Application) MempoolReapTxs(types.RequestMempoolReapTxs) types.ResponseMempoolReapTxs {
+	return types.ResponseMempoolReapTxs{
+		Code: 1,
+	}
+}

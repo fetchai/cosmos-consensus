@@ -232,6 +232,32 @@ func (cli *grpcClient) EndBlockAsync(params types.RequestEndBlock) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_EndBlock{EndBlock: res}})
 }
 
+func (cli *grpcClient) MempoolAddTxAsync(params types.RequestMempoolAddTx) *ReqRes {
+	req := types.ToRequestMempoolAddTx(params)
+	res, err := cli.client.MempoolAddTx(context.Background(), req.GetMempoolAddTx(), grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_MempoolAddTx{MempoolAddTx: res}})
+}
+
+func (cli *grpcClient) MempoolRemoveTxAsync(params types.RequestMempoolRemoveTx) *ReqRes {
+	req := types.ToRequestMempoolRemoveTx(params)
+	res, err := cli.client.MempoolRemoveTx(context.Background(), req.GetMempoolRmTx(), grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_MempoolRmTx{MempoolRmTx: res}})
+}
+func (cli *grpcClient) MempoolReapTxsAsync(params types.RequestMempoolReapTxs) *ReqRes {
+	req := types.ToRequestMempoolReapTxs(params)
+	res, err := cli.client.MempoolReapTxs(context.Background(), req.GetMempoolReapTxs(), grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_MempoolReapTxs{MempoolReapTxs: res}})
+}
+
 func (cli *grpcClient) finishAsyncCall(req *types.Request, res *types.Response) *ReqRes {
 	reqres := NewReqRes(req)
 	reqres.Response = res // Set response
@@ -317,4 +343,18 @@ func (cli *grpcClient) BeginBlockSync(params types.RequestBeginBlock) (*types.Re
 func (cli *grpcClient) EndBlockSync(params types.RequestEndBlock) (*types.ResponseEndBlock, error) {
 	reqres := cli.EndBlockAsync(params)
 	return reqres.Response.GetEndBlock(), cli.Error()
+}
+
+func (cli *grpcClient) MempoolAddTxSync(params types.RequestMempoolAddTx) (*types.ResponseMempoolAddTx, error) {
+	reqres := cli.MempoolAddTxAsync(params)
+	return reqres.Response.GetMempoolAddTx(), cli.Error()
+}
+
+func (cli *grpcClient) MempoolRemoveTxSync(params types.RequestMempoolRemoveTx) (*types.ResponseMempoolRemoveTx, error) {
+	reqres := cli.MempoolRemoveTxAsync(params)
+	return reqres.Response.GetMempoolRmTx(), cli.Error()
+}
+func (cli *grpcClient) MempoolReapTxsSync(params types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
+	reqres := cli.MempoolReapTxsAsync(params)
+	return reqres.Response.GetMempoolReapTxs(), cli.Error()
 }

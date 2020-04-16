@@ -59,15 +59,7 @@ func TestMain(m *testing.M) {
 //------------------------------------------------------------------------------------------
 // WAL Tests
 
-// TODO: It would be better to verify explicitly which states we can recover from without the wal
-// and which ones we need the wal for - then we'd also be able to only flush the
-// wal writer when we need to, instead of with every message.
-
-func startNewStateAndWaitForBlock(t *testing.T, consensusReplayConfig *cfg.Config,
-	lastBlockHeight int64, blockDB dbm.DB, stateDB dbm.DB) {
-	logger := log.TestingLogger()
-	state, _ := sm.LoadStateFromDBOrGenesisFile(stateDB, consensusReplayConfig.GenesisFile())
-	privValidator := loadPrivValidator(consensusReplayConfig)
+func createConsensusState(consensusReplayConfig *cfg.Config, state sm.State, privValidator types.PrivValidator, blockDB dbm.DB, logger log.Logger, lastBlockHeight int64) *State {
 	cs := newStateWithConfigAndBlockStore(
 		consensusReplayConfig,
 		state,
@@ -76,6 +68,27 @@ func startNewStateAndWaitForBlock(t *testing.T, consensusReplayConfig *cfg.Confi
 		blockDB,
 	)
 	cs.SetLogger(logger)
+
+	// Set entropy channel and input in entropy starting from next one after last block height
+	entropyChannel := make(chan types.ComputedEntropy, numBlocks + 10)
+	cs.SetEntropyChannel(entropyChannel)
+	for i := lastBlockHeight + 1; i < numBlocks + 1; i++ {
+		iByte := byte(i)
+		entropyChannel <- types.ComputedEntropy{Height:int64(i), GroupSignature:[]byte{0,0,0,0,iByte,iByte,iByte,iByte,iByte}}
+	}
+	return cs
+}
+
+// TODO: It would be better to verify explicitly which states we can recover from without the wal
+// and which ones we need the wal for - then we'd also be able to only flush the
+// wal writer when we need to, instead of with every message.
+
+func startNewStateAndWaitForBlock(t *testing.T, consensusReplayConfig *cfg.Config,
+	consensusHeight int64, blockDB dbm.DB, stateDB dbm.DB) {
+	logger := log.TestingLogger()
+	state, _ := sm.LoadStateFromDBOrGenesisFile(stateDB, consensusReplayConfig.GenesisFile())
+	privValidator := loadPrivValidator(consensusReplayConfig)
+	cs := createConsensusState(consensusReplayConfig, state, privValidator, blockDB, logger, consensusHeight - 1)
 
 	bytes, _ := ioutil.ReadFile(cs.config.WalFile())
 	t.Logf("====== WAL: \n\r%X\n", bytes)
@@ -154,14 +167,7 @@ LOOP:
 		stateDB := blockDB
 		state, _ := sm.MakeGenesisStateFromFile(consensusReplayConfig.GenesisFile())
 		privValidator := loadPrivValidator(consensusReplayConfig)
-		cs := newStateWithConfigAndBlockStore(
-			consensusReplayConfig,
-			state,
-			privValidator,
-			kvstore.NewApplication(),
-			blockDB,
-		)
-		cs.SetLogger(logger)
+		cs := createConsensusState(consensusReplayConfig, state, privValidator, blockDB, logger, state.LastBlockHeight)
 
 		// start sending transactions
 		ctx, cancel := context.WithCancel(context.Background())

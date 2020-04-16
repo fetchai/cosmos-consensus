@@ -24,6 +24,10 @@ type Application interface {
 	DeliverTx(RequestDeliverTx) ResponseDeliverTx                 // Deliver a tx for full processing
 	EndBlock(RequestEndBlock) ResponseEndBlock                    // Signals the end of a block, returns changes to the validator set
 	Commit() ResponseCommit                                       // Commit the state and return the application Merkle root hash
+
+	MempoolAddTx(RequestMempoolAddTx) ResponseMempoolAddTx
+	MempoolRemoveTx(RequestMempoolRemoveTx) ResponseMempoolRemoveTx
+	MempoolReapTxs(RequestMempoolReapTxs) ResponseMempoolReapTxs
 }
 
 //-------------------------------------------------------
@@ -76,6 +80,24 @@ func (BaseApplication) BeginBlock(req RequestBeginBlock) ResponseBeginBlock {
 
 func (BaseApplication) EndBlock(req RequestEndBlock) ResponseEndBlock {
 	return ResponseEndBlock{}
+}
+
+func (BaseApplication) MempoolAddTx(RequestMempoolAddTx) ResponseMempoolAddTx {
+	return ResponseMempoolAddTx{
+		Code: 1,
+	}
+}
+
+func (BaseApplication) MempoolRemoveTx(RequestMempoolRemoveTx) ResponseMempoolRemoveTx {
+	return ResponseMempoolRemoveTx{
+		Code: 1,
+	}
+}
+
+func (BaseApplication) MempoolReapTxs(RequestMempoolReapTxs) ResponseMempoolReapTxs {
+	return ResponseMempoolReapTxs{
+		Code: 1,
+	}
 }
 
 //-------------------------------------------------------
@@ -144,5 +166,20 @@ func (app *GRPCApplication) BeginBlock(ctx context.Context, req *RequestBeginBlo
 
 func (app *GRPCApplication) EndBlock(ctx context.Context, req *RequestEndBlock) (*ResponseEndBlock, error) {
 	res := app.app.EndBlock(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) MempoolAddTx(ctx context.Context, req *RequestMempoolAddTx) (*ResponseMempoolAddTx, error) {
+	res := app.app.MempoolAddTx(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) MempoolRemoveTx(ctx context.Context, req *RequestMempoolRemoveTx) (*ResponseMempoolRemoveTx, error) {
+	res := app.app.MempoolRemoveTx(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) MempoolReapTxs(ctx context.Context, req *RequestMempoolReapTxs) (*ResponseMempoolReapTxs, error) {
+	res := app.app.MempoolReapTxs(*req)
 	return &res, nil
 }
