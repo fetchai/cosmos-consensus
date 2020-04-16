@@ -767,6 +767,9 @@ type ConsensusConfig struct {
 	// Reactor sleep duration parameters
 	PeerGossipSleepDuration     time.Duration `mapstructure:"peer_gossip_sleep_duration"`
 	PeerQueryMaj23SleepDuration time.Duration `mapstructure:"peer_query_maj23_sleep_duration"`
+
+	//ABCI block validation
+	AppBlockValidation bool `mapstructure:"app_block_validation"`
 }
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
@@ -785,6 +788,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		CreateEmptyBlocksInterval:   0 * time.Second,
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
+		AppBlockValidation:          true,
 	}
 }
 
@@ -801,6 +805,7 @@ func TestConsensusConfig() *ConsensusConfig {
 	cfg.SkipTimeoutCommit = true
 	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
 	cfg.PeerQueryMaj23SleepDuration = 250 * time.Millisecond
+	cfg.AppBlockValidation = false
 	return cfg
 }
 

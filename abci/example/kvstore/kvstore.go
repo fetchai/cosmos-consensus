@@ -81,6 +81,10 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 	}
 }
 
+func (app *Application) ValidateBlock(req types.RequestBlockValidation) types.ResponseBlockValidation {
+	return types.ResponseBlockValidation{Code: code.CodeTypeOK}
+}
+
 // tx is either "key=value" or just arbitrary bytes
 func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
 	var key, value []byte

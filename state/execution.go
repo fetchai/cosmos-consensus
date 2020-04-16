@@ -36,6 +36,8 @@ type BlockExecutor struct {
 
 	logger log.Logger
 
+	appBlockValidation bool
+
 	metrics *Metrics
 }
 
@@ -44,6 +46,12 @@ type BlockExecutorOption func(executor *BlockExecutor)
 func BlockExecutorWithMetrics(metrics *Metrics) BlockExecutorOption {
 	return func(blockExec *BlockExecutor) {
 		blockExec.metrics = metrics
+	}
+}
+
+func SetAppBlockValidation(enable bool) BlockExecutorOption {
+	return func(blockExec *BlockExecutor) {
+		blockExec.appBlockValidation = enable
 	}
 }
 
@@ -113,7 +121,31 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 // Validation does not mutate state, but does require historical information from the stateDB,
 // ie. to verify evidence from a validator at an old height.
 func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) error {
-	return validateBlock(blockExec.evpool, blockExec.db, state, block)
+	err := validateBlock(blockExec.evpool, blockExec.db, state, block)
+	if err != nil {
+		return err
+	}
+	txs := make([][]byte, len(block.Data.Txs))
+	for i, v := range block.Data.Txs {
+		txs[i] = v
+	}
+	if blockExec.appBlockValidation {
+		req := abci.RequestBlockValidation{
+			Txs: txs,
+		}
+		resp, err := blockExec.proxyApp.ValidateBlockSync(req)
+		if err != nil {
+			return fmt.Errorf("failed to call ValidateBlock: %s", err.Error())
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("app rejected block, code: %d, info: %s, Log: %s",
+				resp.Code,
+				resp.Info,
+				resp.Log,
+			)
+		}
+	}
+	return nil
 }
 
 // ApplyBlock validates the block against the state, executes it against the app,

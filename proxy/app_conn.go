@@ -18,6 +18,7 @@ type AppConnConsensus interface {
 	DeliverTxAsync(types.RequestDeliverTx) *abcicli.ReqRes
 	EndBlockSync(types.RequestEndBlock) (*types.ResponseEndBlock, error)
 	CommitSync() (*types.ResponseCommit, error)
+	ValidateBlockSync(types.RequestBlockValidation) (*types.ResponseBlockValidation, error)
 }
 
 type AppConnMempool interface {
@@ -63,6 +64,10 @@ func (app *appConnConsensus) Error() error {
 
 func (app *appConnConsensus) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {
 	return app.appConn.InitChainSync(req)
+}
+
+func (app *appConnConsensus) ValidateBlockSync(req types.RequestBlockValidation) (*types.ResponseBlockValidation, error) {
+	return app.appConn.ValidateBlockSync(req)
 }
 
 func (app *appConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {

@@ -644,6 +644,7 @@ func NewNode(config *cfg.Config,
 		mempool,
 		evidencePool,
 		sm.BlockExecutorWithMetrics(smMetrics),
+		sm.SetAppBlockValidation(config.Consensus.AppBlockValidation),
 	)
 
 	// Make BlockchainReactor

@@ -105,6 +105,12 @@ func ToRequestCheckTx(req RequestCheckTx) *Request {
 	}
 }
 
+func ToRequestBlockValidation(req RequestBlockValidation) *Request {
+	return &Request{
+		Value: &Request_BlockValidation{&req},
+	}
+}
+
 func ToRequestCommit() *Request {
 	return &Request{
 		Value: &Request_Commit{&RequestCommit{}},
@@ -206,5 +212,11 @@ func ToResponseBeginBlock(res ResponseBeginBlock) *Response {
 func ToResponseEndBlock(res ResponseEndBlock) *Response {
 	return &Response{
 		Value: &Response_EndBlock{&res},
+	}
+}
+
+func ToResponseBlockValidation(res ResponseBlockValidation) *Response {
+	return &Response{
+		Value: &Response_BlockValidation{&res},
 	}
 }

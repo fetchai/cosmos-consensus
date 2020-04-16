@@ -143,6 +143,11 @@ func (app *PersistentKVStoreApplication) EndBlock(req types.RequestEndBlock) typ
 	return types.ResponseEndBlock{ValidatorUpdates: app.ValUpdates}
 }
 
+//ValidateBlock checks block in consensus time
+func (app *PersistentKVStoreApplication) ValidateBlock(req types.RequestBlockValidation) types.ResponseBlockValidation {
+	return types.ResponseBlockValidation{Code: code.CodeTypeOK}
+}
+
 //---------------------------------------------
 // update validators
 

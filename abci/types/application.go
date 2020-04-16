@@ -18,11 +18,12 @@ type Application interface {
 	CheckTx(RequestCheckTx) ResponseCheckTx // Validate a tx for the mempool
 
 	// Consensus Connection
-	InitChain(RequestInitChain) ResponseInitChain    // Initialize blockchain w validators/other info from TendermintCore
-	BeginBlock(RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
-	DeliverTx(RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
-	EndBlock(RequestEndBlock) ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
-	Commit() ResponseCommit                          // Commit the state and return the application Merkle root hash
+	InitChain(RequestInitChain) ResponseInitChain                 // Initialize blockchain w validators/other info from TendermintCore
+	ValidateBlock(RequestBlockValidation) ResponseBlockValidation // Verifies proposed block in consensus time
+	BeginBlock(RequestBeginBlock) ResponseBeginBlock              // Signals the beginning of a block
+	DeliverTx(RequestDeliverTx) ResponseDeliverTx                 // Deliver a tx for full processing
+	EndBlock(RequestEndBlock) ResponseEndBlock                    // Signals the end of a block, returns changes to the validator set
+	Commit() ResponseCommit                                       // Commit the state and return the application Merkle root hash
 }
 
 //-------------------------------------------------------
@@ -55,6 +56,10 @@ func (BaseApplication) CheckTx(req RequestCheckTx) ResponseCheckTx {
 
 func (BaseApplication) Commit() ResponseCommit {
 	return ResponseCommit{}
+}
+
+func (BaseApplication) ValidateBlock(RequestBlockValidation) ResponseBlockValidation {
+	return ResponseBlockValidation{}
 }
 
 func (BaseApplication) Query(req RequestQuery) ResponseQuery {
@@ -119,6 +124,11 @@ func (app *GRPCApplication) Query(ctx context.Context, req *RequestQuery) (*Resp
 
 func (app *GRPCApplication) Commit(ctx context.Context, req *RequestCommit) (*ResponseCommit, error) {
 	res := app.app.Commit()
+	return &res, nil
+}
+
+func (app *GRPCApplication) ValidateBlock(ctx context.Context, req *RequestBlockValidation) (*ResponseBlockValidation, error) {
+	res := app.app.ValidateBlock(*req)
 	return &res, nil
 }
 
