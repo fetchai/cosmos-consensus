@@ -53,6 +53,10 @@ func TestNodeStartStop(t *testing.T) {
 		t.Fatal("timed out waiting for the node to produce a block")
 	}
 
+	// block should contain no entropy
+	block := n.blockStore.LoadBlock(1)
+	assert.True(t, len(block.Entropy) == 0)
+
 	// stop the node
 	go func() {
 		n.Stop()
@@ -123,6 +127,10 @@ func TestEntropyNodeStartStop(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the node to produce a block")
 	}
+
+	// Should have entropy
+	block := n.blockStore.LoadBlock(1)
+	assert.True(t, len(block.Entropy) != 0)
 
 	// stop the node
 	go func() {
