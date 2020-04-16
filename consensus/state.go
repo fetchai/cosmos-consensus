@@ -964,7 +964,8 @@ func (cs *State) enterPropose(height int64, round int) {
 func (cs *State) getProposer(height int64, round int) *types.Validator {
 
 	// Get entropy for this round
-	newEntropy, entropyEnabled := cs.getNewEntropy()
+	newEntropy := cs.getNewEntropy()
+	entropyEnabled := newEntropy.Enabled
 
 	// Use normal tendermint proposer selection when there is no entropy
 	if entropyEnabled == false {
@@ -990,7 +991,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 // catch up via WAL. Entropy is reset to empty at start and after every committed block.
 // Note that this function can block as long as it takes for the network to generate entropy
 // (possibly forever)
-func (cs *State) getNewEntropy() types.ComputedEntropy, bool {
+func (cs *State) getNewEntropy() (*types.ComputedEntropy) {
 	if cs.newEntropy == nil {
 		newEntropy := <-cs.computedEntropyChannel
 		if err := newEntropy.ValidateBasic(); err != nil {
@@ -999,7 +1000,7 @@ func (cs *State) getNewEntropy() types.ComputedEntropy, bool {
 		cs.newEntropy = &newEntropy
 	}
 
-	return cs.newEntropy, cs.NewEntropy.Enabled
+	return cs.newEntropy
 }
 
 // TODO: Check that rand.Shuffle is same across different platforms
