@@ -78,12 +78,12 @@ func TestNodeStartStop(t *testing.T) {
 
 func TestEntropyNodeStartStop(t *testing.T) {
 	config := cfg.ResetTestRoot("node_node_test")
+	cfg.AddTestEntropyKey(config)
 	defer os.RemoveAll(config.RootDir)
 
 	// create & start node
 	// Generate node PrivKey
 	logger := log.TestingLogger()
-	config.EntropyKey = "test_key/single_validator.txt"
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	require.NoError(t, err)
 
