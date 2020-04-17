@@ -963,7 +963,7 @@ func (cs *State) enterPropose(height int64, round int) {
 
 func (cs *State) getProposer(height int64, round int) *types.Validator {
 
-	// Get entropy for this round
+	// Get entropy for this round if not already set
 	newEntropy := cs.getNewEntropy()
 	entropyEnabled := newEntropy.Enabled
 
