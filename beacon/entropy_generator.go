@@ -19,11 +19,6 @@ const (
 	entropyHistoryLength = 10
 )
 
-var (
-	// EntropyChannelCapacity is number of ComputedEntropy that channel can hold
-	EntropyChannelCapacity = 3
-)
-
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
 // and entropy for dispatching along channel
 type EntropyGenerator struct {
@@ -41,14 +36,12 @@ type EntropyGenerator struct {
 	aeonQueue              *list.List
 	aeon                   *aeonDetails
 
-	config *cfg.BaseConfig
+	baseConfig      *cfg.BaseConfig
+	consensusConfig *cfg.ConsensusConfig
 
 	// synchronous pubsub between entropy generator and reactor.
 	// entropy generator only emits new computed entropy height
 	evsw tmevents.EventSwitch
-
-	// For signing entropy messages
-	chainID string
 
 	// closed when shutting down to unblock send to full channel
 	quit chan struct{}
@@ -57,16 +50,19 @@ type EntropyGenerator struct {
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
-func NewEntropyGenerator(newChainID string, baseConfig *cfg.BaseConfig, blockHeight int64) *EntropyGenerator {
+func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig, blockHeight int64) *EntropyGenerator {
+	if bConfig == nil || csConfig == nil {
+		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/consensusConfig can not be nil"))
+	}
 	es := &EntropyGenerator{
 		entropyShares:             make(map[int64]map[int]types.EntropyShare),
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
 		aeonQueue:                 list.New(),
-		config:                    baseConfig,
+		baseConfig:                bConfig,
+		consensusConfig:           csConfig,
 		evsw:                      tmevents.NewEventSwitch(),
-		chainID:                   newChainID,
 		quit:                      make(chan struct{}),
 		done:                      make(chan struct{}),
 	}
@@ -109,7 +105,7 @@ func (entropyGenerator *EntropyGenerator) OnStop() {
 // Wait waits for the computeEntropyRoutine to return.
 func (entropyGenerator *EntropyGenerator) wait() {
 	// Try to stop gracefully by waiting for routine to return
-	t := time.NewTimer(2 * computeEntropySleepDuration)
+	t := time.NewTimer(2 * entropyGenerator.consensusConfig.ComputeEntropySleepDuration)
 	select {
 	case <-t.C:
 		panic(fmt.Errorf("wait timeout - deadlock in closing channel"))
@@ -196,9 +192,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		entropyGenerator.aeon = newAeon.Value.(*aeonDetails)
 		entropyGenerator.aeonQueue.Remove(newAeon)
 		// Save keys for crash recovery
-		if entropyGenerator.config != nil {
-			entropyGenerator.aeon.aeonExecUnit.WriteToFile(entropyGenerator.config.EntropyKeyFile())
-		}
+		entropyGenerator.aeon.aeonExecUnit.WriteToFile(entropyGenerator.baseConfig.EntropyKeyFile())
 
 		// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
 		// only be the case one for first DKG after genesis)
@@ -254,7 +248,7 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	}
 
 	// Verify signature on message
-	verifySig := validator.PubKey.VerifyBytes(share.SignBytes(entropyGenerator.chainID), share.Signature)
+	verifySig := validator.PubKey.VerifyBytes(share.SignBytes(entropyGenerator.baseConfig.ChainID()), share.Signature)
 	if !verifySig {
 		entropyGenerator.Logger.Error("invalid validator signature on entropy share", "validator", share.SignerAddress, "index", index)
 		return
@@ -347,7 +341,7 @@ func (entropyGenerator *EntropyGenerator) sign(height int64) {
 		SignatureShare: signature,
 	}
 	// Sign message
-	err = entropyGenerator.aeon.privValidator.SignEntropy(entropyGenerator.chainID, &share)
+	err = entropyGenerator.aeon.privValidator.SignEntropy(entropyGenerator.baseConfig.ChainID(), &share)
 	if err != nil {
 		entropyGenerator.Logger.Error(err.Error())
 		return
@@ -398,7 +392,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			// Clean out old entropy shares and computed entropy
 			entropyGenerator.flushOldEntropy()
 		}
-		time.Sleep(computeEntropySleepDuration)
+		time.Sleep(entropyGenerator.consensusConfig.ComputeEntropySleepDuration)
 	}
 }
 

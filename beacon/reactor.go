@@ -23,14 +23,6 @@ const (
 	EntropyChannel = byte(0x81)
 
 	maxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
-
-	// peerGossipSleepDuration sleep time in gossip routine
-	peerGossipSleepDuration = 100 * time.Millisecond
-	// computeEntropySleepDuration sleep time in between checking if group signature
-	// can be computed. Note peerGossipSleepDuration must be greater than
-	// computeEntropySleepDuration so that peer does not send entropy for next height
-	// before the current height has been computed
-	computeEntropySleepDuration = 50 * time.Millisecond
 )
 
 //-----------------------------------------------------------------------------
@@ -293,14 +285,14 @@ OUTER_LOOP:
 			if block != nil && len(block.Header.Entropy) != 0 {
 				// Send peer entropy from block store
 				ps.sendEntropy(nextEntropyHeight, block.Header.Entropy)
-				time.Sleep(peerGossipSleepDuration)
+				time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
 				continue OUTER_LOOP
 			}
 		}
 		entropy := beaconR.entropyGen.getComputedEntropy(nextEntropyHeight)
 		if entropy != nil {
 			ps.sendEntropy(nextEntropyHeight, entropy)
-			time.Sleep(peerGossipSleepDuration)
+			time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
 			continue OUTER_LOOP
 		}
 		if beaconR.entropyGen.isSigningEntropy() {
@@ -309,7 +301,7 @@ OUTER_LOOP:
 				beaconR.entropyGen.aeon.validators.Size())
 		}
 
-		time.Sleep(peerGossipSleepDuration)
+		time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
 		continue OUTER_LOOP
 	}
 }

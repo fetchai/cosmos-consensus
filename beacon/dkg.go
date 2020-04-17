@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/tx_extensions"
@@ -22,9 +23,6 @@ const (
 	waitForQualComplaints
 	waitForReconstructionShares
 	dkgFinish
-
-	dkgTypicalStateDuration = int64(10)
-	dkgResetWait            = int64(5) // Wait time in blocks before next dkg iteration
 )
 
 type state struct {
@@ -58,6 +56,11 @@ type DistributedKeyGeneration struct {
 	service.BaseService
 	mtx sync.RWMutex
 
+	config       *cfg.ConsensusConfig
+	chainID      string
+	dkgID        int
+	dkgIteration int
+
 	privValidator types.PrivValidator
 	valToIndex    map[string]uint // Need to convert crypto.Address into string for key
 	validators    *types.ValidatorSet
@@ -68,25 +71,24 @@ type DistributedKeyGeneration struct {
 	currentState  dkgState
 	beaconService BeaconSetupService
 
-	dkgID        int
-	dkgIteration int
-	chainID      string
-
 	messageHandler        tx_extensions.MessageHandler
 	txPreprocessing       func(tx *types.DKGMessage) error
 	dkgCompletionCallback func(aeon *aeonDetails)
-
-	qual IntVector
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
-func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.ValidatorSet, startH int64, dkgRunID int, chain string) *DistributedKeyGeneration {
+func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
+	privVal types.PrivValidator, vals *types.ValidatorSet, startH int64) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
 	}
 	dkgThreshold := len(vals.Validators)/2 + 1
 	dkg := &DistributedKeyGeneration{
+		config:        csConfig,
+		chainID:       chain,
+		dkgID:         dkgRunID,
+		dkgIteration:  0,
 		privValidator: privVal,
 		valToIndex:    make(map[string]uint),
 		validators:    vals,
@@ -95,9 +97,6 @@ func NewDistributedKeyGeneration(privVal types.PrivValidator, vals *types.Valida
 		states:        make(map[dkgState]*state),
 		currentState:  dkgStart,
 		beaconService: NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
-		dkgID:         dkgRunID,
-		dkgIteration:  0,
-		chainID:       chain,
 	}
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
@@ -138,27 +137,27 @@ func (dkg *DistributedKeyGeneration) setStates() {
 		err := dkg.Start()
 		return err == nil
 	}, nil)
-	dkg.states[waitForCoefficientsAndShares] = newState(dkgTypicalStateDuration,
+	dkg.states[waitForCoefficientsAndShares] = newState(dkg.config.DKGStateDuration,
 		dkg.sendSharesAndCoefficients,
 		nil,
 		dkg.beaconService.ReceivedAllCoefficientsAndShares)
-	dkg.states[waitForComplaints] = newState(dkgTypicalStateDuration,
+	dkg.states[waitForComplaints] = newState(dkg.config.DKGStateDuration,
 		dkg.sendComplaints,
 		nil,
 		dkg.beaconService.ReceivedAllComplaints)
-	dkg.states[waitForComplaintAnswers] = newState(dkgTypicalStateDuration,
+	dkg.states[waitForComplaintAnswers] = newState(dkg.config.DKGStateDuration,
 		dkg.sendComplaintAnswers,
 		dkg.buildQual,
 		dkg.beaconService.ReceivedAllComplaintAnswers)
-	dkg.states[waitForQualCoefficients] = newState(dkgTypicalStateDuration,
+	dkg.states[waitForQualCoefficients] = newState(dkg.config.DKGStateDuration,
 		dkg.sendQualCoefficients,
 		nil,
 		dkg.beaconService.ReceivedAllQualCoefficients)
-	dkg.states[waitForQualComplaints] = newState(dkgTypicalStateDuration,
+	dkg.states[waitForQualComplaints] = newState(dkg.config.DKGStateDuration,
 		dkg.sendQualComplaints,
 		dkg.beaconService.CheckQualComplaints,
 		dkg.beaconService.ReceivedAllQualComplaints)
-	dkg.states[waitForReconstructionShares] = newState(dkgTypicalStateDuration,
+	dkg.states[waitForReconstructionShares] = newState(dkg.config.DKGStateDuration,
 		dkg.sendReconstructionShares,
 		dkg.beaconService.RunReconstruction,
 		dkg.beaconService.ReceivedAllReconstructionShares)
@@ -170,7 +169,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
 	// Reset start time
-	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetWait
+	dkg.startHeight = dkg.startHeight + dkg.duration() + dkg.config.DKGResetDelay
 	// Reset beaconService
 	index := dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]
 	DeleteBeaconSetupService(dkg.beaconService)
@@ -373,8 +372,11 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	aeonExecUnit := dkg.beaconService.ComputePublicKeys()
 
 	if dkg.dkgCompletionCallback != nil {
-		// Create new aeon details
-		aeonDetails := NewAeonDetails(dkg.validators, dkg.privValidator, aeonExecUnit)
+		// Create new aeon details - start height at the moment is always set to be the start
+		// of the next aeon
+		currentAeon := (dkg.startHeight + dkg.duration()) % dkg.config.AeonLength
+		aeonDetails := NewAeonDetails(dkg.validators, dkg.privValidator, aeonExecUnit,
+			currentAeon+1, currentAeon+1+dkg.config.AeonLength)
 		dkg.dkgCompletionCallback(aeonDetails)
 	}
 
