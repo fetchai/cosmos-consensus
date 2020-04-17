@@ -28,7 +28,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 			nValidators := 4
 			state, _ := groupTestSetup(nValidators)
 			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
-			aeonDetails := NewAeonDetails(state.Validators, nil, aeonExecUnit, 0, 10)
+			aeonDetails := NewAeonDetails(state.Validators, nil, aeonExecUnit, 1, 10)
 			eg.SetAeonDetails(aeonDetails)
 		}},
 	}
@@ -40,6 +40,34 @@ func TestEntropyGeneratorStart(t *testing.T) {
 			assert.NotPanics(t, func() {
 				newGen.Start()
 			})
+		})
+	}
+}
+
+func TestEntropyGeneratorSetAeon(t *testing.T) {
+	newGen := testEntropyGenerator()
+	// Set be on the end of first aeon
+	lastBlockHeight := newGen.consensusConfig.AeonLength - 1
+	newGen.lastBlockHeight = lastBlockHeight
+
+	testCases := []struct {
+		testName string
+		start    int64
+		end      int64
+		aeonSet  bool
+	}{
+		{"Old aeon", 1, 10, false},
+		{"Old aeon end", lastBlockHeight, lastBlockHeight, false},
+		{"Correct aeon", lastBlockHeight + 1, lastBlockHeight + 10, true},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.testName, func(t *testing.T) {
+			state, _ := groupTestSetup(4)
+			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
+			aeonDetails := NewAeonDetails(state.Validators, nil, aeonExecUnit, tc.start, tc.end)
+			newGen.SetAeonDetails(aeonDetails)
+			assert.Equal(t, newGen.isSigningEntropy(), tc.aeonSet)
 		})
 	}
 }
@@ -194,7 +222,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
-	aeonDetails := NewAeonDetails(state.Validators, privVal[0], aeonExecUnit, 0, 50)
+	aeonDetails := NewAeonDetails(state.Validators, privVal[0], aeonExecUnit, 1, 50)
 	newGen.SetAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
 	newGen.Start()
@@ -278,7 +306,7 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 	if index >= 0 {
 		aeonExecUnit = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(index)) + ".txt")
 	}
-	aeonDetails := NewAeonDetails(validators, privVal, aeonExecUnit, 0, 50)
+	aeonDetails := NewAeonDetails(validators, privVal, aeonExecUnit, 1, 50)
 	newGen.SetAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
 	return newGen

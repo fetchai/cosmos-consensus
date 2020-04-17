@@ -574,7 +574,7 @@ func createBeaconReactor(
 
 	if tmos.FileExists(config.EntropyKeyFile()) {
 		aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
-		aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys, 0, config.Consensus.AeonLength-1)
+		aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys, 1, config.Consensus.AeonLength-1)
 		entropyGenerator.SetAeonDetails(aeonDetails)
 	}
 	if len(state.LastComputedEntropy) != 0 {
