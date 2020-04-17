@@ -567,14 +567,14 @@ func createBeaconReactor(
 	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
 
 	beacon.InitialiseMcl()
-	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, state.LastBlockHeight)
-	entropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Consensus, state.LastBlockHeight)
+	entropyChannel := make(chan types.ComputedEntropy, config.Consensus.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
 
 	if tmos.FileExists(config.EntropyKeyFile()) {
 		aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
-		aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys)
+		aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys, 0, config.Consensus.AeonLength-1)
 		entropyGenerator.SetAeonDetails(aeonDetails)
 	}
 	if len(state.LastComputedEntropy) != 0 {
