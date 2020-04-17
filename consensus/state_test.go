@@ -259,7 +259,7 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 	}
 
 	// Reset entropy
-	cs1.newEntropy = types.ComputedEntropy{}
+	cs1.newEntropy = &types.ComputedEntropy{}
 
 	// Check validators for height 2
 	entropy2 := tmhash.Sum([]byte{0, 0, 0, 0, 5, 6, 7, 8})
