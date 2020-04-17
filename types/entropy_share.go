@@ -42,7 +42,7 @@ func (ce *ComputedEntropy) ValidateBasic() error {
 		return fmt.Errorf("invalid Height")
 	}
 
-	if ce.IsEmpty() || len(ce.GroupSignature) > MaxThresholdSignatureSize {
+	if len(ce.GroupSignature) > MaxThresholdSignatureSize {
 		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
 			MaxThresholdSignatureSize,
 			len(ce.GroupSignature),
