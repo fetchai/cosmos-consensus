@@ -141,6 +141,7 @@ type State struct {
 	// Last entropy and channel for receiving entropy
 	newEntropy             *types.ComputedEntropy
 	computedEntropyChannel <-chan types.ComputedEntropy
+	haveSetComputedEntropyChannel bool
 }
 
 // StateOption sets an optional parameter on the State.
@@ -207,6 +208,7 @@ func (cs *State) SetEventBus(b *types.EventBus) {
 // SetEntropyChannel sets channel along which to receive entropy
 func (cs *State) SetEntropyChannel(channel <-chan types.ComputedEntropy) {
 	if cs.computedEntropyChannel == nil {
+		cs.haveSetComputedEntropyChannel = true
 		cs.computedEntropyChannel = channel
 	}
 }
@@ -992,8 +994,14 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 // Note that this function can block as long as it takes for the network to generate entropy
 // (possibly forever)
 func (cs *State) getNewEntropy() (*types.ComputedEntropy) {
-	if cs.newEntropy == nil {
+
+	if cs.haveSetComputedEntropyChannel == false {
+		cs.newEntropy = &types.ComputedEntropy{}
+		cs.newEntropy.Enabled = false
+	} else if cs.newEntropy == nil {
+		//cs.mtx.Unlock()
 		newEntropy := <-cs.computedEntropyChannel
+		//cs.mtx.Lock()
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
 		}
