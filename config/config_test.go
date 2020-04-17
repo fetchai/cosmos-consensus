@@ -149,6 +149,11 @@ func TestConsensusConfigValidateBasic(t *testing.T) {
 		"CreateEmptyBlocksInterval",
 		"PeerGossipSleepDuration",
 		"PeerQueryMaj23SleepDuration",
+		"EntropyChannelCapacity",
+		"ComputeEntropySleepDuration",
+		"DKGStateDuration",
+		"DKGResetDelay",
+		"AeonLength",
 	}
 
 	for _, fieldName := range fieldsToTest {

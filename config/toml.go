@@ -350,6 +350,13 @@ create_empty_blocks_interval = "{{ .Consensus.CreateEmptyBlocksInterval }}"
 peer_gossip_sleep_duration = "{{ .Consensus.PeerGossipSleepDuration }}"
 peer_query_maj23_sleep_duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 
+# DKG/DRB parameters
+entropy_channel_capacity = "{{ .Consensus.EntropyChannelCapacity }}"
+compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
+dkg_state_duration = "{{ .Consensus.DKGStateDuration }}"
+dkg_reset_delay = "{{ .Consensus.DKGResetDelay }}"
+aeon_length = "{{ .Consensus.AeonLength }}"
+
 ##### transactions indexer configuration options #####
 [tx_index]
 
