@@ -32,17 +32,13 @@ func NewComputedEntropy(height int64, sig ThresholdSignature, enabled bool) *Com
 	}
 }
 
-func (ce *ComputedEntropy) IsEmpty() bool {
-	return ce.GroupSignature == nil || len(ce.GroupSignature) == 0
-}
-
 // ValidateBasic performs basic validation.
 func (ce *ComputedEntropy) ValidateBasic() error {
 	if ce.Height <= GenesisHeight {
 		return fmt.Errorf("invalid Height")
 	}
 
-	if ce.IsEmpty() || len(ce.GroupSignature) > MaxThresholdSignatureSize {
+	if len(ce.GroupSignature) > MaxThresholdSignatureSize {
 		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
 			MaxThresholdSignatureSize,
 			len(ce.GroupSignature),
