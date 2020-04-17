@@ -12,8 +12,9 @@ type aeonDetails struct {
 	validators    *types.ValidatorSet
 	threshold     int
 	aeonExecUnit  AeonExecUnit
-	start         int64
-	end           int64
+	// start and end are inclusive
+	start int64
+	end   int64
 }
 
 // NewAeonDetails creates new aeonDetails, checking validity of inputs

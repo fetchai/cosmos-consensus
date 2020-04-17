@@ -374,9 +374,10 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	if dkg.dkgCompletionCallback != nil {
 		// Create new aeon details - start height at the moment is always set to be the start
 		// of the next aeon
-		currentAeon := (dkg.startHeight + dkg.duration()) % dkg.config.AeonLength
+		currentAeon := (dkg.startHeight + dkg.duration()) / dkg.config.AeonLength
+		nextAeonStart := (currentAeon + 1) * dkg.config.AeonLength
 		aeonDetails := NewAeonDetails(dkg.validators, dkg.privValidator, aeonExecUnit,
-			currentAeon+1, currentAeon+1+dkg.config.AeonLength)
+			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
 		dkg.dkgCompletionCallback(aeonDetails)
 	}
 
