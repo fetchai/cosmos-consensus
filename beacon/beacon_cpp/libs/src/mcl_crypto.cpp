@@ -92,9 +92,9 @@ Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> cons
 DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold)
 {
   DkgKeyInformation output;
-  output.generator = "Fetch.ai Generator G";
-
-  Generator generator{output.generator};
+  Generator generator;
+  SetGenerator(generator);
+  output.generator = generator.ToString();
 
   // Construct polynomial of degree threshold - 1
   std::vector<PrivateKey> vec_a;

@@ -226,7 +226,7 @@ func DefaultBaseConfig() BaseConfig {
 		Genesis:            defaultGenesisJSONPath,
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
-		EntropyKey:			defaultEntropyKeyPath,
+		EntropyKey:         defaultEntropyKeyPath,
 		NodeKey:            defaultNodeKeyPath,
 		Moniker:            defaultMoniker,
 		ProxyApp:           "tcp://127.0.0.1:26658",
@@ -779,6 +779,17 @@ type ConsensusConfig struct {
 	// Reactor sleep duration parameters
 	PeerGossipSleepDuration     time.Duration `mapstructure:"peer_gossip_sleep_duration"`
 	PeerQueryMaj23SleepDuration time.Duration `mapstructure:"peer_query_maj23_sleep_duration"`
+
+	// For DKG/DRB
+	EntropyChannelCapacity int64 `mapstructure:"entropy_channel_capacity"`
+	// computeEntropySleepDuration sleep time in between checking if group signature
+	// can be computed. Note peerGossipSleepDuration must be greater than
+	// computeEntropySleepDuration so that peer does not send entropy for next height
+	// before the current height has been computed
+	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
+	DKGStateDuration            int64         `mapstructure:"dkg_state_duration"`
+	DKGResetDelay               int64         `mapstructure:"dkg_reset_delay"`
+	AeonLength                  int64         `mapstructure:"aeon_length"`
 }
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
@@ -797,6 +808,11 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		CreateEmptyBlocksInterval:   0 * time.Second,
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
+		EntropyChannelCapacity:      3,
+		ComputeEntropySleepDuration: 50 * time.Millisecond,
+		DKGStateDuration:            3,
+		DKGResetDelay:               2,
+		AeonLength:                  50,
 	}
 }
 
@@ -893,6 +909,21 @@ func (cfg *ConsensusConfig) ValidateBasic() error {
 	}
 	if cfg.PeerQueryMaj23SleepDuration < 0 {
 		return errors.New("peer_query_maj23_sleep_duration can't be negative")
+	}
+	if cfg.EntropyChannelCapacity < 0 {
+		return errors.New("entropy_channel_capacity can't be negative")
+	}
+	if cfg.ComputeEntropySleepDuration < 0 {
+		return errors.New("compute_entropy_sleep_duration can't be negative")
+	}
+	if cfg.DKGStateDuration < 0 {
+		return errors.New("dkg_state_duration can't be negative")
+	}
+	if cfg.DKGResetDelay < 0 {
+		return errors.New("dkg_reset_delay can't be negative")
+	}
+	if cfg.AeonLength < 0 {
+		return errors.New("aeon_length can't be negative")
 	}
 	return nil
 }

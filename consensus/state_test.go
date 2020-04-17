@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/beacon"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/log"
@@ -232,7 +231,7 @@ func TestStateBadProposal(t *testing.T) {
 func TestStateBeaconProposerSelection(t *testing.T) {
 	cs1, _ := randState(4)
 
-	computedEntropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+	computedEntropyChannel := make(chan types.ComputedEntropy, cs1.config.EntropyChannelCapacity)
 	cs1.SetEntropyChannel(computedEntropyChannel)
 
 	computedEntropyChannel <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0, 0, 0, 0, 1, 2, 3, 4}}

@@ -496,16 +496,18 @@ BeaconManager::CabinetIndex BeaconManager::cabinet_size() const
   return cabinet_size_;
 }
 
-DKGKeyInformation BeaconManager::GetDkgOutput() const
+AeonExecUnit BeaconManager::GetDkgOutput() const
 {
+  assert(qual_.size() != 0);
   auto output             = DKGKeyInformation();
   output.group_public_key = public_key_.ToString();
   output.private_key      = secret_share_.ToString();
-  for (auto i = 0; i < public_key_shares_.size(); i++)
+  for (auto elem : qual_)
   {
-    output.public_key_shares.push_back(public_key_shares_[i].ToString());
+    output.public_key_shares.push_back(public_key_shares_[elem].ToString());
   }
-  return output;
+  AeonExecUnit aeon{GetGroupG().ToString(), output, qual_};
+  return aeon;
 }
 
 BeaconManager::Generator const &BeaconManager::GetGroupG()

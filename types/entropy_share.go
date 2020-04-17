@@ -21,7 +21,15 @@ type ThresholdSignature = []byte
 type ComputedEntropy struct {
 	Height         int64
 	GroupSignature ThresholdSignature
-	Enabled bool
+	Enabled        bool
+}
+
+func NewComputedEntropy(height int64, sig ThresholdSignature, enabled bool) *ComputedEntropy {
+	return &ComputedEntropy{
+		Height:         height,
+		GroupSignature: sig,
+		Enabled:        enabled,
+	}
 }
 
 func (ce *ComputedEntropy) IsEmpty() bool {

@@ -53,6 +53,10 @@ func TestNodeStartStop(t *testing.T) {
 		t.Fatal("timed out waiting for the node to produce a block")
 	}
 
+	// block should contain no entropy
+	block := n.blockStore.LoadBlock(1)
+	assert.True(t, len(block.Entropy) == 0)
+
 	// stop the node
 	go func() {
 		n.Stop()
@@ -74,12 +78,12 @@ func TestNodeStartStop(t *testing.T) {
 
 func TestEntropyNodeStartStop(t *testing.T) {
 	config := cfg.ResetTestRoot("node_node_test")
+	cfg.AddTestEntropyKey(config)
 	defer os.RemoveAll(config.RootDir)
 
 	// create & start node
 	// Generate node PrivKey
 	logger := log.TestingLogger()
-	aeonKeysFile := "test_key/single_validator.txt"
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	require.NoError(t, err)
 
@@ -105,7 +109,6 @@ func TestEntropyNodeStartStop(t *testing.T) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
-		aeonKeysFile,
 		logger,
 	)
 	require.NoError(t, err)
@@ -124,6 +127,10 @@ func TestEntropyNodeStartStop(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for the node to produce a block")
 	}
+
+	// Should have entropy
+	block := n.blockStore.LoadBlock(1)
+	assert.True(t, len(block.Entropy) != 0)
 
 	// stop the node
 	go func() {
@@ -380,7 +387,6 @@ func TestNodeNewNodeCustomReactors(t *testing.T) {
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
-		"",
 		log.TestingLogger(),
 		CustomReactors(map[string]p2p.Reactor{"FOO": cr, "BLOCKCHAIN": customBlockchainReactor}),
 	)
@@ -413,7 +419,7 @@ func state(nVals int, height int64) (sm.State, dbm.DB) {
 		ChainID:    "test-chain",
 		Validators: vals,
 		AppHash:    nil,
-		Entropy: "Fetch.ai Test Genesis Entropy",
+		Entropy:    "Fetch.ai Test Genesis Entropy",
 	})
 
 	// save validators to db for 2 heights

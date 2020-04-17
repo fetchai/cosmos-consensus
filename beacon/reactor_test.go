@@ -230,3 +230,81 @@ func TestReactorCatchupWithBlocks(t *testing.T) {
 		}
 	}
 }
+
+func TestReactorWithDKG(t *testing.T) {
+	N := 4
+	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", false)
+	defer cleanup()
+
+	aeonStart := int64(20)
+
+	dkgNodes, fakeHandler := exampleDKGNetwork(N, false)
+
+	for index := 0; index < N; index++ {
+		entropyGen := entropyGenerators[index]
+		// Reset entropy generator to state just before receiving first
+		// dkg keys from genesus
+		entropyGen.setLastBlockHeight(aeonStart - 1)
+		entropyGen.entropyComputed = make(map[int64][]byte)
+		entropyGen.lastComputedEntropyHeight = -1
+		dkgNodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
+			aeon.start = aeonStart
+			aeon.end = 30
+			entropyGen.AddNewAeonDetails(aeon)
+		})
+	}
+
+	// Start all nodes
+	blockHeight := int64(10)
+	for _, node := range dkgNodes {
+		node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+	}
+
+	// Wait until dkg has completed
+	for nodesFinished := 0; nodesFinished < N; {
+		fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
+
+		blockHeight++
+		nodesFinished = 0
+
+		for _, node := range dkgNodes {
+			if node.dkg.dkgIteration >= 1 {
+				t.Log("Test failed: dkg iteration exceeded 0")
+				t.FailNow()
+			}
+			if node.dkg.currentState == dkgFinish {
+				nodesFinished++
+			}
+		}
+	}
+
+	// Wait for all dkgs to stop running
+	assert.Eventually(t, func() bool {
+		running := 0
+		for index := 0; index < N; index++ {
+			if dkgNodes[index].dkg.IsRunning() {
+				running++
+			}
+		}
+		return running == 0
+	}, 1*time.Second, 100*time.Millisecond)
+
+	// Change keys over
+	for _, entropyGen := range entropyGenerators {
+		assert.True(t, entropyGen.aeonQueue.Len() == 1)
+		assert.True(t, entropyGen.changeKeys())
+	}
+
+	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
+	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
+
+	// Wait for everyone to generate 3 rounds of entropy
+	assert.Eventually(t, func() bool {
+		for i := 0; i < N; i++ {
+			if entropyGenerators[i].getLastComputedEntropyHeight() < 3 {
+				return false
+			}
+		}
+		return true
+	}, 3*time.Second, 100*time.Millisecond)
+}
