@@ -356,6 +356,7 @@ func TestCreateProposalBlock(t *testing.T) {
 		height,
 		state, commit,
 		proposerAddr,
+		false
 	)
 
 	err = blockExec.ValidateBlock(state, block)
