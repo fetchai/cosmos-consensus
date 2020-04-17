@@ -189,5 +189,9 @@ bool AeonExecUnit::InQual(CabinetIndex index) const {
   return qual_.find(index) != qual_.end();
 }
 
+std::string AeonExecUnit::GroupPublicKey() const {
+  return aeon_keys_.group_public_key;
+}
+
 }  // namespace crypto
 }  // namespace fetch
