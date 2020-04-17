@@ -995,13 +995,13 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 // (possibly forever)
 func (cs *State) getNewEntropy() (*types.ComputedEntropy) {
 
+	// Only during test cases should the entropy channel not be set.
 	if cs.haveSetComputedEntropyChannel == false {
 		cs.newEntropy = &types.ComputedEntropy{}
 		cs.newEntropy.Enabled = false
 	} else if cs.newEntropy == nil {
-		//cs.mtx.Unlock()
+
 		newEntropy := <-cs.computedEntropyChannel
-		//cs.mtx.Lock()
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
 		}
