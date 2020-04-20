@@ -8,7 +8,6 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -71,9 +70,8 @@ type DistributedKeyGeneration struct {
 	currentState  dkgState
 	beaconService BeaconSetupService
 
-	messageHandler        tx_extensions.MessageHandler
-	txPreprocessing       func(tx *types.DKGMessage) error
-	dkgCompletionCallback func(aeon *aeonDetails)
+	sendMsgCallback       func(tx *types.DKGMessage)
+	dkgCompletionCallback func(*aeonDetails)
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
@@ -110,19 +108,12 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 	return dkg
 }
 
-func (dkg *DistributedKeyGeneration) SetTxPreprocessing(cb func(tx *types.DKGMessage) error) {
-	dkg.txPreprocessing = cb
-}
-
 // AttachMessageHandler sets the function for the DKG to send transactions to the mempool
-func (dkg *DistributedKeyGeneration) AttachMessageHandler(handler tx_extensions.MessageHandler) {
+func (dkg *DistributedKeyGeneration) SetSendMsgCallback(callback func(msg *types.DKGMessage)) {
 	dkg.mtx.Lock()
 	defer dkg.mtx.Unlock()
 
-	dkg.messageHandler = handler
-
-	// When DKG TXs are seen, they should call OnBlock
-	dkg.messageHandler.WhenChainTxSeen(dkg.OnBlock)
+	dkg.sendMsgCallback = callback
 }
 
 func (dkg *DistributedKeyGeneration) SetDkgCompletionCallback(callback func(aeon *aeonDetails)) {
@@ -312,14 +303,8 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 func (dkg *DistributedKeyGeneration) broadcastMsg(msgType types.DKGMessageType, serialisedMsg string, toAddress crypto.Address) {
 	msg := dkg.newDKGMessage(msgType, serialisedMsg, toAddress)
 
-	if dkg.txPreprocessing != nil {
-		dkg.txPreprocessing(msg)
-	}
-
-	if dkg.messageHandler != nil {
-		dkg.messageHandler.SubmitSpecialTx(msg)
-	} else {
-		fmt.Printf("Attempted to submit TXs when handler nil!\n")
+	if dkg.sendMsgCallback != nil {
+		dkg.sendMsgCallback(msg)
 	}
 }
 

@@ -238,7 +238,7 @@ func TestReactorWithDKG(t *testing.T) {
 
 	aeonStart := int64(20)
 
-	dkgNodes, fakeHandler := exampleDKGNetwork(N, false)
+	dkgNodes := exampleDKGNetwork(N, false)
 
 	for index := 0; index < N; index++ {
 		entropyGen := entropyGenerators[index]
@@ -258,11 +258,21 @@ func TestReactorWithDKG(t *testing.T) {
 	blockHeight := int64(10)
 	for _, node := range dkgNodes {
 		node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+		node.clearMsgs()
 	}
 
 	// Wait until dkg has completed
 	for nodesFinished := 0; nodesFinished < N; {
-		fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
+		for index, node := range dkgNodes {
+			for index1, node1 := range dkgNodes {
+				if index1 != index {
+					node1.dkg.OnBlock(blockHeight, node.currentMsgs)
+				}
+			}
+		}
+		for _, node := range dkgNodes {
+			node.clearMsgs()
+		}
 
 		blockHeight++
 		nodesFinished = 0
