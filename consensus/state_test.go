@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/beacon"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/log"
@@ -232,11 +231,11 @@ func TestStateBadProposal(t *testing.T) {
 func TestStateBeaconProposerSelection(t *testing.T) {
 	cs1, _ := randState(4)
 
-	computedEntropyChannel := make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+	computedEntropyChannel := make(chan types.ComputedEntropy, cs1.config.EntropyChannelCapacity)
 	cs1.SetEntropyChannel(computedEntropyChannel)
 
-	computedEntropyChannel <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0, 0, 0, 0, 1, 2, 3, 4}}
-	computedEntropyChannel <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0, 0, 0, 0, 5, 6, 7, 8}}
+	computedEntropyChannel <- *types.NewComputedEntropy(1, []byte{0, 0, 0, 0, 1, 2, 3, 4}, true)
+	computedEntropyChannel <- *types.NewComputedEntropy(2, []byte{0, 0, 0, 0, 5, 6, 7, 8}, true)
 
 	// Check validators for height 1
 	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})
@@ -259,7 +258,7 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 	}
 
 	// Reset entropy
-	cs1.newEntropy = types.ComputedEntropy{}
+	cs1.newEntropy = nil
 
 	// Check validators for height 2
 	entropy2 := tmhash.Sum([]byte{0, 0, 0, 0, 5, 6, 7, 8})

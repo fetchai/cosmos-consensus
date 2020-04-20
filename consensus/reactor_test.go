@@ -18,7 +18,6 @@ import (
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
 	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/beacon"
 	cfg "github.com/tendermint/tendermint/config"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
@@ -540,7 +539,7 @@ func TestReactorBeaconProposerSelection(t *testing.T) {
 	// Create entropy channels and put channels into each state
 	computedEntropyChannels := make([]chan types.ComputedEntropy, nPeers)
 	for e := 0; e < nPeers; e++ {
-		computedEntropyChannels[e] = make(chan types.ComputedEntropy, beacon.EntropyChannelCapacity)
+		computedEntropyChannels[e] = make(chan types.ComputedEntropy, css[e].config.EntropyChannelCapacity)
 		css[e].SetEntropyChannel(computedEntropyChannels[e])
 	}
 

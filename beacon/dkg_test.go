@@ -8,6 +8,7 @@ import (
 	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/stretchr/testify/assert"
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
@@ -32,13 +33,13 @@ const (
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
 
-	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkgTypicalStateDuration)
+	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.config.DKGStateDuration)
 	// DKG is set to start at block height 10
 	assert.False(t, dkg.stateExpired(dkg.startHeight-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight))
 	dkg.currentState = waitForCoefficientsAndShares
 	assert.False(t, dkg.stateExpired(dkg.startHeight))
-	assert.True(t, dkg.stateExpired(dkg.startHeight+dkgTypicalStateDuration))
+	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.config.DKGStateDuration))
 	dkg.currentState = dkgFinish
 	assert.False(t, dkg.stateExpired(dkg.startHeight+dkg.duration()-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.duration()))
@@ -79,7 +80,7 @@ func TestDKGReset(t *testing.T) {
 	dkg.checkTransition(dkg.startHeight)
 
 	assert.True(t, !dkg.IsRunning())
-	assert.True(t, dkg.startHeight == oldStartHeight+dkg.duration()+dkgResetWait)
+	assert.True(t, dkg.startHeight == oldStartHeight+dkg.duration()+dkg.config.DKGResetDelay)
 	assert.True(t, dkg.dkgIteration == 1)
 }
 
@@ -261,7 +262,9 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
-	dkg := NewDistributedKeyGeneration(privVals[0], state.Validators, 10, 0, genDoc.ChainID)
+	config := cfg.TestConsensusConfig()
+
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], state.Validators, 10)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -272,9 +275,10 @@ type testNode struct {
 	sentBadShare bool
 }
 
-func newTestNode(privVal types.PrivValidator, vals *types.ValidatorSet, chainID string, sendDuplicates bool) *testNode {
+func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
+	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(privVal, vals, 10, 0, chainID),
+		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, vals, 10),
 		failures:     make([]dkgFailure, 0),
 		sentBadShare: false,
 	}
@@ -312,10 +316,11 @@ func exampleDKGNetwork(nVals int, sendDuplicates bool) ([]*testNode, tx_extensio
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
+	config := cfg.TestConsensusConfig()
 
 	nodes := make([]*testNode, nVals)
 	for i := 0; i < nVals; i++ {
-		nodes[i] = newTestNode(privVals[i], state.Validators, genDoc.ChainID, sendDuplicates)
+		nodes[i] = newTestNode(config, genDoc.ChainID, privVals[i], state.Validators, sendDuplicates)
 	}
 
 	// Create shared communication channel that represents the chain

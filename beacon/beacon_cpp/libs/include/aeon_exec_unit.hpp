@@ -55,6 +55,7 @@ public:
   bool CheckIndex(CabinetIndex index) const;
   bool WriteToFile(std::string const &filename) const;
   bool InQual(CabinetIndex index) const;
+  std::string GroupPublicKey() const;
 
 private:
   DKGKeyInformation aeon_keys_;

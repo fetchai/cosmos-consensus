@@ -22,7 +22,9 @@ type Mempool interface {
 	// maxGas.
 	// If both maxes are negative, there is no cap on the size of all returned
 	// transactions (~ all available transactions).
-	ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs
+	// If the chain is in fallback mode (unable to create entropy), only reap
+	// TXs related to consensus
+	ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs
 
 	// ReapMaxTxs reaps up to max transactions from the mempool.
 	// If max is negative, there is no cap on the size of all returned
