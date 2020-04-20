@@ -18,23 +18,23 @@ func TestNewAeonDetails(t *testing.T) {
 
 	// Panic with no validator set
 	assert.Panics(t, func() {
-		NewAeonDetails(nil, privVals[0], aeonSigning, 0, 10)
+		NewAeonDetails(nil, privVals[0], aeonSigning, 1, 10)
 	})
 
 	// Panic with no aeon execution unit
 	assert.Panics(t, func() {
-		NewAeonDetails(state.Validators, privVals[0], nil, 0, 10)
+		NewAeonDetails(state.Validators, privVals[0], nil, 1, 10)
 	})
 
 	// Panic if can sign and no priv validator
 	assert.Panics(t, func() {
-		NewAeonDetails(state.Validators, nil, aeonSigning, 0, 10)
+		NewAeonDetails(state.Validators, nil, aeonSigning, 1, 10)
 	})
 
 	// Panic if can sign and not in validators
 	_, privVal := types.RandValidator(false, 30)
 	assert.Panics(t, func() {
-		NewAeonDetails(state.Validators, privVal, aeonSigning, 0, 10)
+		NewAeonDetails(state.Validators, privVal, aeonSigning, 1, 10)
 	})
 
 	// Panic if validator index does not match dkg index
@@ -42,7 +42,7 @@ func TestNewAeonDetails(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
 		if index != 0 {
 			assert.Panics(t, func() {
-				NewAeonDetails(state.Validators, val, aeonSigning, 0, 10)
+				NewAeonDetails(state.Validators, val, aeonSigning, 1, 10)
 			})
 			break
 		}
@@ -51,7 +51,7 @@ func TestNewAeonDetails(t *testing.T) {
 	// Does not panic if priv validator is invalid if can not sign
 	var newAeon *aeonDetails
 	assert.NotPanics(t, func() {
-		newAeon = NewAeonDetails(state.Validators, nil, aeonNonSigning, 0, 10)
+		newAeon = NewAeonDetails(state.Validators, nil, aeonNonSigning, 1, 10)
 	})
 	assert.True(t, newAeon.threshold == nValidators/2+1)
 
@@ -61,7 +61,7 @@ func TestNewAeonDetails(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
 		if index == 0 {
 			assert.NotPanics(t, func() {
-				NewAeonDetails(state.Validators, val, aeonSigning, 0, 10)
+				NewAeonDetails(state.Validators, val, aeonSigning, 1, 10)
 			})
 			break
 		}

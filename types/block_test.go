@@ -86,7 +86,6 @@ func TestBlockValidateBasic(t *testing.T) {
 		{"Tampered EvidenceHash", func(blk *Block) {
 			blk.EvidenceHash = []byte("something else")
 		}, true},
-
 		{"Entropy too large", func(blk *Block) {
 			zeros := [MaxThresholdSignatureSize + 1]byte{1}
 			blk.Entropy = zeros[0:len(zeros)]

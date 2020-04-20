@@ -234,8 +234,8 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 	computedEntropyChannel := make(chan types.ComputedEntropy, cs1.config.EntropyChannelCapacity)
 	cs1.SetEntropyChannel(computedEntropyChannel)
 
-	computedEntropyChannel <- types.ComputedEntropy{Height: 1, GroupSignature: []byte{0, 0, 0, 0, 1, 2, 3, 4}}
-	computedEntropyChannel <- types.ComputedEntropy{Height: 2, GroupSignature: []byte{0, 0, 0, 0, 5, 6, 7, 8}}
+	computedEntropyChannel <- *types.NewComputedEntropy(1, []byte{0, 0, 0, 0, 1, 2, 3, 4}, true)
+	computedEntropyChannel <- *types.NewComputedEntropy(2, []byte{0, 0, 0, 0, 5, 6, 7, 8}, true)
 
 	// Check validators for height 1
 	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})
@@ -258,7 +258,7 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 	}
 
 	// Reset entropy
-	cs1.newEntropy = types.ComputedEntropy{}
+	cs1.newEntropy = nil
 
 	// Check validators for height 2
 	entropy2 := tmhash.Sum([]byte{0, 0, 0, 0, 5, 6, 7, 8})

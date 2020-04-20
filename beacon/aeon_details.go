@@ -27,7 +27,7 @@ func NewAeonDetails(
 	if aeonKeys == nil {
 		panic(fmt.Errorf("aeonDetails with nil active execution unit"))
 	}
-	if startHeight < 0 || endHeight < startHeight {
+	if startHeight <= 0 || endHeight < startHeight {
 		panic(fmt.Errorf("aeonDetails invalid start/end height"))
 	}
 	qual := make([]*types.Validator, 0)
