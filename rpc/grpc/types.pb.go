@@ -117,6 +117,234 @@ func (m *RequestBroadcastTx) GetTx() []byte {
 	return nil
 }
 
+type RequestTx struct {
+	Hash                 []byte   `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	Prove                bool     `protobuf:"varint,2,opt,name=prove,proto3" json:"prove,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RequestTx) Reset()         { *m = RequestTx{} }
+func (m *RequestTx) String() string { return proto.CompactTextString(m) }
+func (*RequestTx) ProtoMessage()    {}
+func (*RequestTx) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{2}
+}
+func (m *RequestTx) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RequestTx) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RequestTx.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RequestTx) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequestTx.Merge(m, src)
+}
+func (m *RequestTx) XXX_Size() int {
+	return m.Size()
+}
+func (m *RequestTx) XXX_DiscardUnknown() {
+	xxx_messageInfo_RequestTx.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RequestTx proto.InternalMessageInfo
+
+func (m *RequestTx) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *RequestTx) GetProve() bool {
+	if m != nil {
+		return m.Prove
+	}
+	return false
+}
+
+type RequestTxSearch struct {
+	Query                string   `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Prove                bool     `protobuf:"varint,2,opt,name=prove,proto3" json:"prove,omitempty"`
+	Page                 int32    `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage              int32    `protobuf:"varint,4,opt,name=perPage,proto3" json:"perPage,omitempty"`
+	OrderBy              string   `protobuf:"bytes,5,opt,name=orderBy,proto3" json:"orderBy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RequestTxSearch) Reset()         { *m = RequestTxSearch{} }
+func (m *RequestTxSearch) String() string { return proto.CompactTextString(m) }
+func (*RequestTxSearch) ProtoMessage()    {}
+func (*RequestTxSearch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{3}
+}
+func (m *RequestTxSearch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RequestTxSearch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RequestTxSearch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RequestTxSearch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequestTxSearch.Merge(m, src)
+}
+func (m *RequestTxSearch) XXX_Size() int {
+	return m.Size()
+}
+func (m *RequestTxSearch) XXX_DiscardUnknown() {
+	xxx_messageInfo_RequestTxSearch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RequestTxSearch proto.InternalMessageInfo
+
+func (m *RequestTxSearch) GetQuery() string {
+	if m != nil {
+		return m.Query
+	}
+	return ""
+}
+
+func (m *RequestTxSearch) GetProve() bool {
+	if m != nil {
+		return m.Prove
+	}
+	return false
+}
+
+func (m *RequestTxSearch) GetPage() int32 {
+	if m != nil {
+		return m.Page
+	}
+	return 0
+}
+
+func (m *RequestTxSearch) GetPerPage() int32 {
+	if m != nil {
+		return m.PerPage
+	}
+	return 0
+}
+
+func (m *RequestTxSearch) GetOrderBy() string {
+	if m != nil {
+		return m.OrderBy
+	}
+	return ""
+}
+
+type RequestSubscribe struct {
+	Query                string   `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RequestSubscribe) Reset()         { *m = RequestSubscribe{} }
+func (m *RequestSubscribe) String() string { return proto.CompactTextString(m) }
+func (*RequestSubscribe) ProtoMessage()    {}
+func (*RequestSubscribe) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{4}
+}
+func (m *RequestSubscribe) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RequestSubscribe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RequestSubscribe.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RequestSubscribe) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequestSubscribe.Merge(m, src)
+}
+func (m *RequestSubscribe) XXX_Size() int {
+	return m.Size()
+}
+func (m *RequestSubscribe) XXX_DiscardUnknown() {
+	xxx_messageInfo_RequestSubscribe.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RequestSubscribe proto.InternalMessageInfo
+
+func (m *RequestSubscribe) GetQuery() string {
+	if m != nil {
+		return m.Query
+	}
+	return ""
+}
+
+type RequestUnsubscribe struct {
+	Query                string   `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RequestUnsubscribe) Reset()         { *m = RequestUnsubscribe{} }
+func (m *RequestUnsubscribe) String() string { return proto.CompactTextString(m) }
+func (*RequestUnsubscribe) ProtoMessage()    {}
+func (*RequestUnsubscribe) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{5}
+}
+func (m *RequestUnsubscribe) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RequestUnsubscribe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RequestUnsubscribe.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RequestUnsubscribe) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequestUnsubscribe.Merge(m, src)
+}
+func (m *RequestUnsubscribe) XXX_Size() int {
+	return m.Size()
+}
+func (m *RequestUnsubscribe) XXX_DiscardUnknown() {
+	xxx_messageInfo_RequestUnsubscribe.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RequestUnsubscribe proto.InternalMessageInfo
+
+func (m *RequestUnsubscribe) GetQuery() string {
+	if m != nil {
+		return m.Query
+	}
+	return ""
+}
+
 type ResponsePing struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -127,7 +355,7 @@ func (m *ResponsePing) Reset()         { *m = ResponsePing{} }
 func (m *ResponsePing) String() string { return proto.CompactTextString(m) }
 func (*ResponsePing) ProtoMessage()    {}
 func (*ResponsePing) Descriptor() ([]byte, []int) {
-	return fileDescriptor_15f63baabf91876a, []int{2}
+	return fileDescriptor_15f63baabf91876a, []int{6}
 }
 func (m *ResponsePing) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -156,26 +384,26 @@ func (m *ResponsePing) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ResponsePing proto.InternalMessageInfo
 
-type ResponseBroadcastTx struct {
-	CheckTx              *types.ResponseCheckTx   `protobuf:"bytes,1,opt,name=check_tx,json=checkTx,proto3" json:"check_tx,omitempty"`
-	DeliverTx            *types.ResponseDeliverTx `protobuf:"bytes,2,opt,name=deliver_tx,json=deliverTx,proto3" json:"deliver_tx,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
+type ResponseBroadcastTxSync struct {
+	Hash                 []byte                 `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	CheckTx              *types.ResponseCheckTx `protobuf:"bytes,2,opt,name=check_tx,json=checkTx,proto3" json:"check_tx,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *ResponseBroadcastTx) Reset()         { *m = ResponseBroadcastTx{} }
-func (m *ResponseBroadcastTx) String() string { return proto.CompactTextString(m) }
-func (*ResponseBroadcastTx) ProtoMessage()    {}
-func (*ResponseBroadcastTx) Descriptor() ([]byte, []int) {
-	return fileDescriptor_15f63baabf91876a, []int{3}
+func (m *ResponseBroadcastTxSync) Reset()         { *m = ResponseBroadcastTxSync{} }
+func (m *ResponseBroadcastTxSync) String() string { return proto.CompactTextString(m) }
+func (*ResponseBroadcastTxSync) ProtoMessage()    {}
+func (*ResponseBroadcastTxSync) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{7}
 }
-func (m *ResponseBroadcastTx) XXX_Unmarshal(b []byte) error {
+func (m *ResponseBroadcastTxSync) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ResponseBroadcastTx) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ResponseBroadcastTxSync) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ResponseBroadcastTx.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ResponseBroadcastTxSync.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -185,70 +413,528 @@ func (m *ResponseBroadcastTx) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *ResponseBroadcastTx) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseBroadcastTx.Merge(m, src)
+func (m *ResponseBroadcastTxSync) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseBroadcastTxSync.Merge(m, src)
 }
-func (m *ResponseBroadcastTx) XXX_Size() int {
+func (m *ResponseBroadcastTxSync) XXX_Size() int {
 	return m.Size()
 }
-func (m *ResponseBroadcastTx) XXX_DiscardUnknown() {
-	xxx_messageInfo_ResponseBroadcastTx.DiscardUnknown(m)
+func (m *ResponseBroadcastTxSync) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseBroadcastTxSync.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ResponseBroadcastTx proto.InternalMessageInfo
+var xxx_messageInfo_ResponseBroadcastTxSync proto.InternalMessageInfo
 
-func (m *ResponseBroadcastTx) GetCheckTx() *types.ResponseCheckTx {
+func (m *ResponseBroadcastTxSync) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *ResponseBroadcastTxSync) GetCheckTx() *types.ResponseCheckTx {
 	if m != nil {
 		return m.CheckTx
 	}
 	return nil
 }
 
-func (m *ResponseBroadcastTx) GetDeliverTx() *types.ResponseDeliverTx {
+type ResponseBroadcastTxCommit struct {
+	Hash                 []byte                   `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	CheckTx              *types.ResponseCheckTx   `protobuf:"bytes,2,opt,name=check_tx,json=checkTx,proto3" json:"check_tx,omitempty"`
+	DeliverTx            *types.ResponseDeliverTx `protobuf:"bytes,3,opt,name=deliver_tx,json=deliverTx,proto3" json:"deliver_tx,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
+}
+
+func (m *ResponseBroadcastTxCommit) Reset()         { *m = ResponseBroadcastTxCommit{} }
+func (m *ResponseBroadcastTxCommit) String() string { return proto.CompactTextString(m) }
+func (*ResponseBroadcastTxCommit) ProtoMessage()    {}
+func (*ResponseBroadcastTxCommit) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{8}
+}
+func (m *ResponseBroadcastTxCommit) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ResponseBroadcastTxCommit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ResponseBroadcastTxCommit.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ResponseBroadcastTxCommit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseBroadcastTxCommit.Merge(m, src)
+}
+func (m *ResponseBroadcastTxCommit) XXX_Size() int {
+	return m.Size()
+}
+func (m *ResponseBroadcastTxCommit) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseBroadcastTxCommit.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseBroadcastTxCommit proto.InternalMessageInfo
+
+func (m *ResponseBroadcastTxCommit) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *ResponseBroadcastTxCommit) GetCheckTx() *types.ResponseCheckTx {
+	if m != nil {
+		return m.CheckTx
+	}
+	return nil
+}
+
+func (m *ResponseBroadcastTxCommit) GetDeliverTx() *types.ResponseDeliverTx {
 	if m != nil {
 		return m.DeliverTx
 	}
 	return nil
 }
 
+type ResponseBroadcastTxAsync struct {
+	Hash                 []byte   `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ResponseBroadcastTxAsync) Reset()         { *m = ResponseBroadcastTxAsync{} }
+func (m *ResponseBroadcastTxAsync) String() string { return proto.CompactTextString(m) }
+func (*ResponseBroadcastTxAsync) ProtoMessage()    {}
+func (*ResponseBroadcastTxAsync) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{9}
+}
+func (m *ResponseBroadcastTxAsync) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ResponseBroadcastTxAsync) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ResponseBroadcastTxAsync.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ResponseBroadcastTxAsync) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseBroadcastTxAsync.Merge(m, src)
+}
+func (m *ResponseBroadcastTxAsync) XXX_Size() int {
+	return m.Size()
+}
+func (m *ResponseBroadcastTxAsync) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseBroadcastTxAsync.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseBroadcastTxAsync proto.InternalMessageInfo
+
+func (m *ResponseBroadcastTxAsync) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+type ResponseTx struct {
+	Hash                 []byte                   `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	Height               int64                    `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Index                uint32                   `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	TxResult             *types.ResponseDeliverTx `protobuf:"bytes,4,opt,name=tx_result,json=txResult,proto3" json:"tx_result,omitempty"`
+	Tx                   []byte                   `protobuf:"bytes,5,opt,name=tx,proto3" json:"tx,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
+}
+
+func (m *ResponseTx) Reset()         { *m = ResponseTx{} }
+func (m *ResponseTx) String() string { return proto.CompactTextString(m) }
+func (*ResponseTx) ProtoMessage()    {}
+func (*ResponseTx) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{10}
+}
+func (m *ResponseTx) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ResponseTx) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ResponseTx.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ResponseTx) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseTx.Merge(m, src)
+}
+func (m *ResponseTx) XXX_Size() int {
+	return m.Size()
+}
+func (m *ResponseTx) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseTx.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseTx proto.InternalMessageInfo
+
+func (m *ResponseTx) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *ResponseTx) GetHeight() int64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+func (m *ResponseTx) GetIndex() uint32 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
+func (m *ResponseTx) GetTxResult() *types.ResponseDeliverTx {
+	if m != nil {
+		return m.TxResult
+	}
+	return nil
+}
+
+func (m *ResponseTx) GetTx() []byte {
+	if m != nil {
+		return m.Tx
+	}
+	return nil
+}
+
+type ResponseTxSearch struct {
+	Txs                  []*ResponseTx `protobuf:"bytes,1,rep,name=txs,proto3" json:"txs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *ResponseTxSearch) Reset()         { *m = ResponseTxSearch{} }
+func (m *ResponseTxSearch) String() string { return proto.CompactTextString(m) }
+func (*ResponseTxSearch) ProtoMessage()    {}
+func (*ResponseTxSearch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{11}
+}
+func (m *ResponseTxSearch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ResponseTxSearch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ResponseTxSearch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ResponseTxSearch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseTxSearch.Merge(m, src)
+}
+func (m *ResponseTxSearch) XXX_Size() int {
+	return m.Size()
+}
+func (m *ResponseTxSearch) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseTxSearch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseTxSearch proto.InternalMessageInfo
+
+func (m *ResponseTxSearch) GetTxs() []*ResponseTx {
+	if m != nil {
+		return m.Txs
+	}
+	return nil
+}
+
+type EventItem struct {
+	Event                []string `protobuf:"bytes,1,rep,name=event,proto3" json:"event,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *EventItem) Reset()         { *m = EventItem{} }
+func (m *EventItem) String() string { return proto.CompactTextString(m) }
+func (*EventItem) ProtoMessage()    {}
+func (*EventItem) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{12}
+}
+func (m *EventItem) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventItem) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventItem.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventItem) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventItem.Merge(m, src)
+}
+func (m *EventItem) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventItem) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventItem.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventItem proto.InternalMessageInfo
+
+func (m *EventItem) GetEvent() []string {
+	if m != nil {
+		return m.Event
+	}
+	return nil
+}
+
+type ResponseSubscribe struct {
+	Type   string                `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Query  string                `protobuf:"bytes,5,opt,name=query,proto3" json:"query,omitempty"`
+	Events map[string]*EventItem `protobuf:"bytes,6,rep,name=events,proto3" json:"events,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	//Block
+	NewBlockHeader       *EventNewBlockHeader `protobuf:"bytes,10,opt,name=new_block_header,json=newBlockHeader,proto3" json:"new_block_header,omitempty"`
+	NewBlock             *EventNewBlock       `protobuf:"bytes,11,opt,name=new_block,json=newBlock,proto3" json:"new_block,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *ResponseSubscribe) Reset()         { *m = ResponseSubscribe{} }
+func (m *ResponseSubscribe) String() string { return proto.CompactTextString(m) }
+func (*ResponseSubscribe) ProtoMessage()    {}
+func (*ResponseSubscribe) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{13}
+}
+func (m *ResponseSubscribe) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ResponseSubscribe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ResponseSubscribe.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ResponseSubscribe) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseSubscribe.Merge(m, src)
+}
+func (m *ResponseSubscribe) XXX_Size() int {
+	return m.Size()
+}
+func (m *ResponseSubscribe) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseSubscribe.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseSubscribe proto.InternalMessageInfo
+
+func (m *ResponseSubscribe) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
+func (m *ResponseSubscribe) GetQuery() string {
+	if m != nil {
+		return m.Query
+	}
+	return ""
+}
+
+func (m *ResponseSubscribe) GetEvents() map[string]*EventItem {
+	if m != nil {
+		return m.Events
+	}
+	return nil
+}
+
+func (m *ResponseSubscribe) GetNewBlockHeader() *EventNewBlockHeader {
+	if m != nil {
+		return m.NewBlockHeader
+	}
+	return nil
+}
+
+func (m *ResponseSubscribe) GetNewBlock() *EventNewBlock {
+	if m != nil {
+		return m.NewBlock
+	}
+	return nil
+}
+
+type ResponseUnsubscribe struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ResponseUnsubscribe) Reset()         { *m = ResponseUnsubscribe{} }
+func (m *ResponseUnsubscribe) String() string { return proto.CompactTextString(m) }
+func (*ResponseUnsubscribe) ProtoMessage()    {}
+func (*ResponseUnsubscribe) Descriptor() ([]byte, []int) {
+	return fileDescriptor_15f63baabf91876a, []int{14}
+}
+func (m *ResponseUnsubscribe) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ResponseUnsubscribe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ResponseUnsubscribe.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ResponseUnsubscribe) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseUnsubscribe.Merge(m, src)
+}
+func (m *ResponseUnsubscribe) XXX_Size() int {
+	return m.Size()
+}
+func (m *ResponseUnsubscribe) XXX_DiscardUnknown() {
+	xxx_messageInfo_ResponseUnsubscribe.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ResponseUnsubscribe proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*RequestPing)(nil), "tendermint.rpc.grpc.RequestPing")
 	golang_proto.RegisterType((*RequestPing)(nil), "tendermint.rpc.grpc.RequestPing")
 	proto.RegisterType((*RequestBroadcastTx)(nil), "tendermint.rpc.grpc.RequestBroadcastTx")
 	golang_proto.RegisterType((*RequestBroadcastTx)(nil), "tendermint.rpc.grpc.RequestBroadcastTx")
+	proto.RegisterType((*RequestTx)(nil), "tendermint.rpc.grpc.RequestTx")
+	golang_proto.RegisterType((*RequestTx)(nil), "tendermint.rpc.grpc.RequestTx")
+	proto.RegisterType((*RequestTxSearch)(nil), "tendermint.rpc.grpc.RequestTxSearch")
+	golang_proto.RegisterType((*RequestTxSearch)(nil), "tendermint.rpc.grpc.RequestTxSearch")
+	proto.RegisterType((*RequestSubscribe)(nil), "tendermint.rpc.grpc.RequestSubscribe")
+	golang_proto.RegisterType((*RequestSubscribe)(nil), "tendermint.rpc.grpc.RequestSubscribe")
+	proto.RegisterType((*RequestUnsubscribe)(nil), "tendermint.rpc.grpc.RequestUnsubscribe")
+	golang_proto.RegisterType((*RequestUnsubscribe)(nil), "tendermint.rpc.grpc.RequestUnsubscribe")
 	proto.RegisterType((*ResponsePing)(nil), "tendermint.rpc.grpc.ResponsePing")
 	golang_proto.RegisterType((*ResponsePing)(nil), "tendermint.rpc.grpc.ResponsePing")
-	proto.RegisterType((*ResponseBroadcastTx)(nil), "tendermint.rpc.grpc.ResponseBroadcastTx")
-	golang_proto.RegisterType((*ResponseBroadcastTx)(nil), "tendermint.rpc.grpc.ResponseBroadcastTx")
+	proto.RegisterType((*ResponseBroadcastTxSync)(nil), "tendermint.rpc.grpc.ResponseBroadcastTxSync")
+	golang_proto.RegisterType((*ResponseBroadcastTxSync)(nil), "tendermint.rpc.grpc.ResponseBroadcastTxSync")
+	proto.RegisterType((*ResponseBroadcastTxCommit)(nil), "tendermint.rpc.grpc.ResponseBroadcastTxCommit")
+	golang_proto.RegisterType((*ResponseBroadcastTxCommit)(nil), "tendermint.rpc.grpc.ResponseBroadcastTxCommit")
+	proto.RegisterType((*ResponseBroadcastTxAsync)(nil), "tendermint.rpc.grpc.ResponseBroadcastTxAsync")
+	golang_proto.RegisterType((*ResponseBroadcastTxAsync)(nil), "tendermint.rpc.grpc.ResponseBroadcastTxAsync")
+	proto.RegisterType((*ResponseTx)(nil), "tendermint.rpc.grpc.ResponseTx")
+	golang_proto.RegisterType((*ResponseTx)(nil), "tendermint.rpc.grpc.ResponseTx")
+	proto.RegisterType((*ResponseTxSearch)(nil), "tendermint.rpc.grpc.ResponseTxSearch")
+	golang_proto.RegisterType((*ResponseTxSearch)(nil), "tendermint.rpc.grpc.ResponseTxSearch")
+	proto.RegisterType((*EventItem)(nil), "tendermint.rpc.grpc.EventItem")
+	golang_proto.RegisterType((*EventItem)(nil), "tendermint.rpc.grpc.EventItem")
+	proto.RegisterType((*ResponseSubscribe)(nil), "tendermint.rpc.grpc.ResponseSubscribe")
+	golang_proto.RegisterType((*ResponseSubscribe)(nil), "tendermint.rpc.grpc.ResponseSubscribe")
+	proto.RegisterMapType((map[string]*EventItem)(nil), "tendermint.rpc.grpc.ResponseSubscribe.EventsEntry")
+	golang_proto.RegisterMapType((map[string]*EventItem)(nil), "tendermint.rpc.grpc.ResponseSubscribe.EventsEntry")
+	proto.RegisterType((*ResponseUnsubscribe)(nil), "tendermint.rpc.grpc.ResponseUnsubscribe")
+	golang_proto.RegisterType((*ResponseUnsubscribe)(nil), "tendermint.rpc.grpc.ResponseUnsubscribe")
 }
 
 func init() { proto.RegisterFile("rpc/grpc/types.proto", fileDescriptor_15f63baabf91876a) }
 func init() { golang_proto.RegisterFile("rpc/grpc/types.proto", fileDescriptor_15f63baabf91876a) }
 
 var fileDescriptor_15f63baabf91876a = []byte{
-	// 344 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xb1, 0x4e, 0xf3, 0x30,
-	0x14, 0x85, 0xe5, 0xea, 0xd7, 0x0f, 0xdc, 0x96, 0x0e, 0x2e, 0x42, 0x28, 0x83, 0x55, 0x2a, 0x54,
-	0x3a, 0x39, 0x52, 0x19, 0x99, 0x5a, 0x90, 0x10, 0x62, 0xa9, 0xa2, 0x4e, 0x2c, 0x25, 0x75, 0xac,
-	0x34, 0x82, 0xc6, 0xc6, 0x71, 0x51, 0xfa, 0x38, 0x6c, 0x3c, 0x02, 0x0b, 0x12, 0x23, 0x23, 0x8f,
-	0x00, 0xe1, 0x25, 0x18, 0x91, 0x93, 0x86, 0x78, 0x80, 0xb2, 0x44, 0x27, 0xd6, 0x39, 0x9f, 0xce,
-	0xbd, 0xba, 0xb0, 0xa3, 0x24, 0x73, 0x43, 0xf3, 0xd1, 0x4b, 0xc9, 0x13, 0x2a, 0x95, 0xd0, 0x02,
-	0xb7, 0x34, 0x8f, 0x03, 0xae, 0xe6, 0x51, 0xac, 0xa9, 0x92, 0x8c, 0x1a, 0x83, 0xd3, 0xd5, 0xb3,
-	0x48, 0x05, 0x13, 0xe9, 0x2b, 0xbd, 0x74, 0x73, 0x9f, 0x1b, 0x8a, 0x50, 0x54, 0xaa, 0x08, 0x3b,
-	0xbb, 0xfe, 0x94, 0x45, 0x05, 0xce, 0x86, 0x76, 0xb6, 0xa1, 0xee, 0xf1, 0xdb, 0x05, 0x4f, 0xf4,
-	0x28, 0x8a, 0xc3, 0xce, 0x01, 0xe0, 0xd5, 0xef, 0x50, 0x09, 0x3f, 0x60, 0x7e, 0xa2, 0xc7, 0x29,
-	0x6e, 0x42, 0x4d, 0xa7, 0x7b, 0xa8, 0x8d, 0x7a, 0x0d, 0xaf, 0xa6, 0xd3, 0x4e, 0x13, 0x1a, 0x1e,
-	0x4f, 0xa4, 0x88, 0x13, 0x9e, 0xa7, 0xee, 0x11, 0xb4, 0xca, 0x07, 0x3b, 0x37, 0x80, 0x4d, 0x36,
-	0xe3, 0xec, 0x7a, 0xb2, 0x4a, 0xd7, 0xfb, 0x5d, 0x6a, 0x0d, 0x61, 0x2a, 0xd1, 0xa2, 0x4c, 0x99,
-	0x3e, 0x31, 0xf6, 0x71, 0xea, 0x6d, 0xb0, 0x42, 0xe0, 0x33, 0x80, 0x80, 0xdf, 0x44, 0x77, 0x5c,
-	0x19, 0x48, 0x2d, 0x87, 0xf4, 0xfe, 0x80, 0x9c, 0x16, 0x81, 0x71, 0xea, 0x6d, 0x05, 0xa5, 0xec,
-	0x3f, 0x21, 0x68, 0x7c, 0x77, 0x1b, 0x8c, 0xce, 0xf1, 0x05, 0xfc, 0x33, 0xe5, 0x71, 0x9b, 0xfe,
-	0xb0, 0x57, 0x6a, 0x2d, 0xc5, 0xd9, 0xff, 0xc5, 0x51, 0x6d, 0x00, 0x5f, 0x41, 0xdd, 0x1e, 0xfc,
-	0x70, 0x1d, 0xd3, 0x32, 0x3a, 0xbd, 0xb5, 0x68, 0xcb, 0x39, 0x1c, 0x7d, 0xbe, 0x13, 0xf4, 0x90,
-	0x11, 0xf4, 0x98, 0x11, 0xf4, 0x92, 0x11, 0xf4, 0x9a, 0x11, 0xf4, 0x96, 0x11, 0xf4, 0xfc, 0x41,
-	0xd0, 0x65, 0x3f, 0x8c, 0xf4, 0x6c, 0x31, 0xa5, 0x4c, 0xcc, 0xdd, 0x8a, 0x68, 0xcb, 0xf2, 0xa4,
-	0x8e, 0x99, 0x50, 0xdc, 0x88, 0xe9, 0xff, 0xfc, 0x02, 0x8e, 0xbe, 0x02, 0x00, 0x00, 0xff, 0xff,
-	0x30, 0xfd, 0xaa, 0xac, 0x6e, 0x02, 0x00, 0x00,
+	// 859 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x96, 0xcd, 0x8e, 0xe3, 0x44,
+	0x10, 0xc7, 0xd5, 0xc9, 0x24, 0x13, 0x57, 0x76, 0x66, 0xb3, 0xbd, 0xcb, 0x62, 0x7c, 0x30, 0x59,
+	0x6b, 0x77, 0x88, 0x10, 0x38, 0x10, 0x40, 0x42, 0x70, 0x40, 0xc9, 0x12, 0x2d, 0x0b, 0x12, 0x8a,
+	0x7a, 0xb2, 0x42, 0x20, 0xa4, 0xc8, 0xb1, 0x5b, 0xb1, 0x99, 0xc4, 0xf6, 0xb6, 0x3b, 0x59, 0xe7,
+	0x01, 0x78, 0x14, 0x24, 0x1e, 0x01, 0x89, 0x0b, 0x47, 0x8e, 0xbc, 0x00, 0x12, 0x84, 0x97, 0x80,
+	0x1b, 0xea, 0xf6, 0x47, 0xcc, 0x4e, 0xe2, 0x84, 0xc3, 0x5c, 0x46, 0x55, 0x71, 0xd5, 0xef, 0x5f,
+	0x5d, 0xae, 0xea, 0x31, 0xdc, 0x63, 0xa1, 0xdd, 0x9d, 0x89, 0x3f, 0x7c, 0x1d, 0xd2, 0xc8, 0x0c,
+	0x59, 0xc0, 0x03, 0x7c, 0x97, 0x53, 0xdf, 0xa1, 0x6c, 0xe1, 0xf9, 0xdc, 0x64, 0xa1, 0x6d, 0x8a,
+	0x00, 0xed, 0x82, 0xbb, 0x1e, 0x73, 0x26, 0xa1, 0xc5, 0xf8, 0xba, 0x2b, 0xe3, 0xba, 0xb3, 0x60,
+	0x16, 0x6c, 0xad, 0x24, 0x59, 0xbb, 0x6f, 0x4d, 0x6d, 0x2f, 0xc1, 0x15, 0xa1, 0x9a, 0x96, 0x4b,
+	0xd1, 0x15, 0xf5, 0xf9, 0xa4, 0xf0, 0xcc, 0x38, 0x83, 0x26, 0xa1, 0xcf, 0x97, 0x34, 0xe2, 0x23,
+	0xcf, 0x9f, 0x19, 0x0f, 0x01, 0xa7, 0xee, 0x80, 0x05, 0x96, 0x63, 0x5b, 0x11, 0x1f, 0xc7, 0xf8,
+	0x1c, 0x2a, 0x3c, 0x56, 0x51, 0x1b, 0x75, 0x6e, 0x91, 0x0a, 0x8f, 0x8d, 0x0f, 0x40, 0x49, 0xa3,
+	0xc6, 0x31, 0xc6, 0x70, 0xe2, 0x5a, 0x91, 0x9b, 0x3e, 0x96, 0x36, 0xbe, 0x07, 0xb5, 0x90, 0x05,
+	0x2b, 0xaa, 0x56, 0xda, 0xa8, 0xd3, 0x20, 0x89, 0x63, 0x7c, 0x8f, 0xe0, 0x76, 0x9e, 0x77, 0x49,
+	0x2d, 0x66, 0xcb, 0xc8, 0xe7, 0x4b, 0xca, 0xd6, 0x32, 0x5d, 0x21, 0x89, 0xb3, 0x3b, 0x5f, 0x28,
+	0x85, 0xd6, 0x8c, 0xaa, 0xd5, 0x36, 0xea, 0xd4, 0x88, 0xb4, 0xb1, 0x0a, 0xa7, 0x21, 0x65, 0x23,
+	0xf1, 0xf3, 0x89, 0xfc, 0x39, 0x73, 0xc5, 0x93, 0x80, 0x39, 0x94, 0x0d, 0xd6, 0x6a, 0x4d, 0xb2,
+	0x33, 0xd7, 0xe8, 0x40, 0x2b, 0x2d, 0xe3, 0x72, 0x39, 0x8d, 0x6c, 0xe6, 0x4d, 0xe9, 0xee, 0x3a,
+	0x8c, 0x37, 0xf3, 0x76, 0x3c, 0xf3, 0xa3, 0x03, 0xb1, 0xe7, 0x70, 0x8b, 0xd0, 0x28, 0x0c, 0xfc,
+	0x88, 0xca, 0x56, 0x86, 0xf0, 0x6a, 0xe6, 0x17, 0x7a, 0x79, 0xb9, 0xf6, 0xed, 0x9d, 0x2d, 0xeb,
+	0x43, 0xc3, 0x76, 0xa9, 0x7d, 0x35, 0xe1, 0xb1, 0x3c, 0x75, 0xb3, 0x77, 0x61, 0x16, 0x86, 0x41,
+	0xbc, 0x5a, 0x33, 0x79, 0x71, 0x19, 0xf5, 0xb1, 0x08, 0x1f, 0xc7, 0xe4, 0xd4, 0x4e, 0x0c, 0xe3,
+	0x67, 0x04, 0xaf, 0xed, 0x90, 0x7c, 0x1c, 0x2c, 0x16, 0x1e, 0xbf, 0x21, 0x51, 0xfc, 0x04, 0xc0,
+	0xa1, 0x73, 0x6f, 0x45, 0x99, 0x80, 0x54, 0x25, 0xa4, 0x73, 0x00, 0xf2, 0x69, 0x92, 0x30, 0x8e,
+	0x89, 0xe2, 0x64, 0xa6, 0x61, 0x82, 0xba, 0xa3, 0xf8, 0x7e, 0xb4, 0xa7, 0x61, 0xc6, 0x0f, 0x08,
+	0x20, 0x4b, 0xd8, 0x33, 0x86, 0xf7, 0xa1, 0xee, 0x52, 0x6f, 0xe6, 0x72, 0x79, 0xb8, 0x2a, 0x49,
+	0x3d, 0xf1, 0x02, 0x3d, 0xdf, 0xa1, 0x49, 0xb9, 0x67, 0x24, 0x71, 0xf0, 0x10, 0x14, 0x1e, 0x4f,
+	0x18, 0x8d, 0x96, 0x73, 0x2e, 0x87, 0xe9, 0xff, 0x1c, 0xa4, 0xc1, 0x63, 0x22, 0x33, 0xd3, 0x65,
+	0xa9, 0xe5, 0xcb, 0x32, 0x14, 0xd3, 0x96, 0x95, 0x99, 0x4e, 0xfd, 0xbb, 0x50, 0xe5, 0x71, 0xa4,
+	0xa2, 0x76, 0xb5, 0xd3, 0xec, 0xbd, 0x6e, 0xee, 0x58, 0x7a, 0x73, 0x9b, 0x43, 0x44, 0xac, 0xf1,
+	0x00, 0x94, 0xa1, 0xd8, 0xde, 0xa7, 0x9c, 0x2e, 0xc4, 0x01, 0xe4, 0x2a, 0x4b, 0x82, 0x42, 0x12,
+	0xc7, 0xf8, 0xa7, 0x02, 0x77, 0xb2, 0xb4, 0xed, 0x64, 0x63, 0x38, 0x11, 0x45, 0xa7, 0xc3, 0x2a,
+	0xed, 0xed, 0x04, 0xd7, 0x8a, 0x5b, 0xf7, 0x39, 0xd4, 0x25, 0x28, 0x52, 0xeb, 0xb2, 0xb0, 0x5e,
+	0x69, 0x61, 0xb9, 0x82, 0x29, 0xeb, 0x8a, 0x86, 0x3e, 0x67, 0x6b, 0x92, 0x12, 0x30, 0x81, 0x96,
+	0x4f, 0x5f, 0x4c, 0xa6, 0xf3, 0xc0, 0xbe, 0x9a, 0xb8, 0xd4, 0x72, 0x28, 0x53, 0xe1, 0x7a, 0x4f,
+	0x73, 0xaa, 0x64, 0x7c, 0x49, 0x5f, 0x0c, 0x44, 0xc2, 0x67, 0x32, 0x9e, 0x9c, 0xfb, 0xff, 0xf1,
+	0xf1, 0x27, 0xa0, 0xe4, 0x4c, 0xb5, 0x29, 0x61, 0xc6, 0x61, 0x18, 0x69, 0x64, 0x18, 0xed, 0x6b,
+	0x68, 0x16, 0x6a, 0xc5, 0x2d, 0xa8, 0x5e, 0xd1, 0x6c, 0x8b, 0x85, 0x89, 0xdf, 0x87, 0xda, 0xca,
+	0x9a, 0x2f, 0x69, 0xba, 0x0c, 0xfa, 0x7e, 0xba, 0x78, 0x0d, 0x24, 0x09, 0xfe, 0xa8, 0xf2, 0x21,
+	0x32, 0x5e, 0x81, 0xbb, 0x59, 0x63, 0x0a, 0x57, 0x45, 0xef, 0xf7, 0x3a, 0x9c, 0x3e, 0x61, 0xa1,
+	0xdd, 0x1f, 0x3d, 0xc5, 0x5f, 0xc0, 0x89, 0xb8, 0x18, 0x70, 0x7b, 0x4f, 0x5b, 0xf3, 0x5b, 0x58,
+	0x7b, 0x50, 0xda, 0x78, 0x09, 0x19, 0x42, 0x65, 0x1c, 0x63, 0xbd, 0x0c, 0x35, 0x8e, 0xb5, 0x43,
+	0xa3, 0x85, 0xbf, 0x82, 0x46, 0x3e, 0x94, 0x0f, 0xcb, 0x61, 0x49, 0x94, 0xf6, 0xe8, 0x00, 0x32,
+	0x85, 0xb9, 0x70, 0xfb, 0xe5, 0x5b, 0xef, 0x8d, 0x32, 0x7e, 0x21, 0x58, 0x7b, 0xab, 0x54, 0xe2,
+	0x65, 0xec, 0x77, 0xd0, 0xba, 0x76, 0x5f, 0x1c, 0x2d, 0xf5, 0xf6, 0xb1, 0x52, 0x09, 0x77, 0x0e,
+	0x77, 0xae, 0x5f, 0xac, 0x47, 0x8b, 0x99, 0xc7, 0x8a, 0xa5, 0xe0, 0x6f, 0x41, 0xd9, 0xae, 0xf1,
+	0xa3, 0x32, 0x95, 0x3c, 0x4c, 0xbb, 0x38, 0x6e, 0x67, 0xdf, 0x41, 0x78, 0x02, 0xf0, 0xcc, 0xcf,
+	0xf1, 0xa5, 0x87, 0x28, 0x4c, 0xb4, 0xd6, 0x29, 0x15, 0x28, 0xfe, 0x9b, 0x9c, 0xc2, 0xd9, 0x56,
+	0xa0, 0x3f, 0x9f, 0xdf, 0x80, 0xc6, 0x60, 0xf4, 0xf7, 0x9f, 0x3a, 0xfa, 0x71, 0xa3, 0xa3, 0x9f,
+	0x36, 0x3a, 0xfa, 0x75, 0xa3, 0xa3, 0xdf, 0x36, 0x3a, 0xfa, 0x63, 0xa3, 0xa3, 0x5f, 0xfe, 0xd2,
+	0xd1, 0x37, 0xbd, 0x99, 0xc7, 0xdd, 0xe5, 0xd4, 0xb4, 0x83, 0x45, 0x77, 0x4b, 0x2c, 0x9a, 0xd9,
+	0x97, 0xd1, 0xc7, 0x76, 0xc0, 0xa8, 0x30, 0xa6, 0x75, 0xf9, 0x5d, 0xf4, 0xde, 0xbf, 0x01, 0x00,
+	0x00, 0xff, 0xff, 0x85, 0x1d, 0x0e, 0xed, 0xa0, 0x09, 0x00, 0x00,
 }
 
 func (this *RequestPing) Equal(that interface{}) bool {
@@ -302,6 +988,129 @@ func (this *RequestBroadcastTx) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *RequestTx) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RequestTx)
+	if !ok {
+		that2, ok := that.(RequestTx)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Hash, that1.Hash) {
+		return false
+	}
+	if this.Prove != that1.Prove {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RequestTxSearch) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RequestTxSearch)
+	if !ok {
+		that2, ok := that.(RequestTxSearch)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Query != that1.Query {
+		return false
+	}
+	if this.Prove != that1.Prove {
+		return false
+	}
+	if this.Page != that1.Page {
+		return false
+	}
+	if this.PerPage != that1.PerPage {
+		return false
+	}
+	if this.OrderBy != that1.OrderBy {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RequestSubscribe) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RequestSubscribe)
+	if !ok {
+		that2, ok := that.(RequestSubscribe)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Query != that1.Query {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RequestUnsubscribe) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RequestUnsubscribe)
+	if !ok {
+		that2, ok := that.(RequestUnsubscribe)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Query != that1.Query {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
 func (this *ResponsePing) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -326,14 +1135,14 @@ func (this *ResponsePing) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *ResponseBroadcastTx) Equal(that interface{}) bool {
+func (this *ResponseBroadcastTxSync) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*ResponseBroadcastTx)
+	that1, ok := that.(*ResponseBroadcastTxSync)
 	if !ok {
-		that2, ok := that.(ResponseBroadcastTx)
+		that2, ok := that.(ResponseBroadcastTxSync)
 		if ok {
 			that1 = &that2
 		} else {
@@ -345,10 +1154,241 @@ func (this *ResponseBroadcastTx) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
+	if !bytes.Equal(this.Hash, that1.Hash) {
+		return false
+	}
+	if !this.CheckTx.Equal(that1.CheckTx) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *ResponseBroadcastTxCommit) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ResponseBroadcastTxCommit)
+	if !ok {
+		that2, ok := that.(ResponseBroadcastTxCommit)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Hash, that1.Hash) {
+		return false
+	}
 	if !this.CheckTx.Equal(that1.CheckTx) {
 		return false
 	}
 	if !this.DeliverTx.Equal(that1.DeliverTx) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *ResponseBroadcastTxAsync) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ResponseBroadcastTxAsync)
+	if !ok {
+		that2, ok := that.(ResponseBroadcastTxAsync)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Hash, that1.Hash) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *ResponseTx) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ResponseTx)
+	if !ok {
+		that2, ok := that.(ResponseTx)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Hash, that1.Hash) {
+		return false
+	}
+	if this.Height != that1.Height {
+		return false
+	}
+	if this.Index != that1.Index {
+		return false
+	}
+	if !this.TxResult.Equal(that1.TxResult) {
+		return false
+	}
+	if !bytes.Equal(this.Tx, that1.Tx) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *ResponseTxSearch) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ResponseTxSearch)
+	if !ok {
+		that2, ok := that.(ResponseTxSearch)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if len(this.Txs) != len(that1.Txs) {
+		return false
+	}
+	for i := range this.Txs {
+		if !this.Txs[i].Equal(that1.Txs[i]) {
+			return false
+		}
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *EventItem) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*EventItem)
+	if !ok {
+		that2, ok := that.(EventItem)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if len(this.Event) != len(that1.Event) {
+		return false
+	}
+	for i := range this.Event {
+		if this.Event[i] != that1.Event[i] {
+			return false
+		}
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *ResponseSubscribe) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ResponseSubscribe)
+	if !ok {
+		that2, ok := that.(ResponseSubscribe)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Type != that1.Type {
+		return false
+	}
+	if this.Query != that1.Query {
+		return false
+	}
+	if len(this.Events) != len(that1.Events) {
+		return false
+	}
+	for i := range this.Events {
+		if !this.Events[i].Equal(that1.Events[i]) {
+			return false
+		}
+	}
+	if !this.NewBlockHeader.Equal(that1.NewBlockHeader) {
+		return false
+	}
+	if !this.NewBlock.Equal(that1.NewBlock) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *ResponseUnsubscribe) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ResponseUnsubscribe)
+	if !ok {
+		that2, ok := that.(ResponseUnsubscribe)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
@@ -365,111 +1405,391 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// BroadcastAPIClient is the client API for BroadcastAPI service.
+// GrpcAPIClient is the client API for GrpcAPI service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type BroadcastAPIClient interface {
+type GrpcAPIClient interface {
 	Ping(ctx context.Context, in *RequestPing, opts ...grpc.CallOption) (*ResponsePing, error)
-	BroadcastTx(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTx, error)
+	Tx(ctx context.Context, in *RequestTx, opts ...grpc.CallOption) (*ResponseTx, error)
+	TxSearch(ctx context.Context, in *RequestTxSearch, opts ...grpc.CallOption) (*ResponseTxSearch, error)
+	BroadcastTxSync(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTxSync, error)
+	BroadcastTxAsync(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTxAsync, error)
+	BroadcastTxCommit(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTxCommit, error)
+	Subscribe(ctx context.Context, in *RequestSubscribe, opts ...grpc.CallOption) (GrpcAPI_SubscribeClient, error)
+	Unubscribe(ctx context.Context, in *RequestUnsubscribe, opts ...grpc.CallOption) (*ResponseUnsubscribe, error)
+	UnubscribeAll(ctx context.Context, in *RequestUnsubscribe, opts ...grpc.CallOption) (*ResponseUnsubscribe, error)
 }
 
-type broadcastAPIClient struct {
+type grpcAPIClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewBroadcastAPIClient(cc *grpc.ClientConn) BroadcastAPIClient {
-	return &broadcastAPIClient{cc}
+func NewGrpcAPIClient(cc *grpc.ClientConn) GrpcAPIClient {
+	return &grpcAPIClient{cc}
 }
 
-func (c *broadcastAPIClient) Ping(ctx context.Context, in *RequestPing, opts ...grpc.CallOption) (*ResponsePing, error) {
+func (c *grpcAPIClient) Ping(ctx context.Context, in *RequestPing, opts ...grpc.CallOption) (*ResponsePing, error) {
 	out := new(ResponsePing)
-	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.BroadcastAPI/Ping", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/Ping", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *broadcastAPIClient) BroadcastTx(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTx, error) {
-	out := new(ResponseBroadcastTx)
-	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.BroadcastAPI/BroadcastTx", in, out, opts...)
+func (c *grpcAPIClient) Tx(ctx context.Context, in *RequestTx, opts ...grpc.CallOption) (*ResponseTx, error) {
+	out := new(ResponseTx)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/Tx", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// BroadcastAPIServer is the server API for BroadcastAPI service.
-type BroadcastAPIServer interface {
+func (c *grpcAPIClient) TxSearch(ctx context.Context, in *RequestTxSearch, opts ...grpc.CallOption) (*ResponseTxSearch, error) {
+	out := new(ResponseTxSearch)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/TxSearch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *grpcAPIClient) BroadcastTxSync(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTxSync, error) {
+	out := new(ResponseBroadcastTxSync)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/BroadcastTxSync", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *grpcAPIClient) BroadcastTxAsync(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTxAsync, error) {
+	out := new(ResponseBroadcastTxAsync)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/BroadcastTxAsync", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *grpcAPIClient) BroadcastTxCommit(ctx context.Context, in *RequestBroadcastTx, opts ...grpc.CallOption) (*ResponseBroadcastTxCommit, error) {
+	out := new(ResponseBroadcastTxCommit)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/BroadcastTxCommit", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *grpcAPIClient) Subscribe(ctx context.Context, in *RequestSubscribe, opts ...grpc.CallOption) (GrpcAPI_SubscribeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_GrpcAPI_serviceDesc.Streams[0], "/tendermint.rpc.grpc.GrpcAPI/Subscribe", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpcAPISubscribeClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type GrpcAPI_SubscribeClient interface {
+	Recv() (*ResponseSubscribe, error)
+	grpc.ClientStream
+}
+
+type grpcAPISubscribeClient struct {
+	grpc.ClientStream
+}
+
+func (x *grpcAPISubscribeClient) Recv() (*ResponseSubscribe, error) {
+	m := new(ResponseSubscribe)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *grpcAPIClient) Unubscribe(ctx context.Context, in *RequestUnsubscribe, opts ...grpc.CallOption) (*ResponseUnsubscribe, error) {
+	out := new(ResponseUnsubscribe)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/Unubscribe", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *grpcAPIClient) UnubscribeAll(ctx context.Context, in *RequestUnsubscribe, opts ...grpc.CallOption) (*ResponseUnsubscribe, error) {
+	out := new(ResponseUnsubscribe)
+	err := c.cc.Invoke(ctx, "/tendermint.rpc.grpc.GrpcAPI/UnubscribeAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GrpcAPIServer is the server API for GrpcAPI service.
+type GrpcAPIServer interface {
 	Ping(context.Context, *RequestPing) (*ResponsePing, error)
-	BroadcastTx(context.Context, *RequestBroadcastTx) (*ResponseBroadcastTx, error)
+	Tx(context.Context, *RequestTx) (*ResponseTx, error)
+	TxSearch(context.Context, *RequestTxSearch) (*ResponseTxSearch, error)
+	BroadcastTxSync(context.Context, *RequestBroadcastTx) (*ResponseBroadcastTxSync, error)
+	BroadcastTxAsync(context.Context, *RequestBroadcastTx) (*ResponseBroadcastTxAsync, error)
+	BroadcastTxCommit(context.Context, *RequestBroadcastTx) (*ResponseBroadcastTxCommit, error)
+	Subscribe(*RequestSubscribe, GrpcAPI_SubscribeServer) error
+	Unubscribe(context.Context, *RequestUnsubscribe) (*ResponseUnsubscribe, error)
+	UnubscribeAll(context.Context, *RequestUnsubscribe) (*ResponseUnsubscribe, error)
 }
 
-// UnimplementedBroadcastAPIServer can be embedded to have forward compatible implementations.
-type UnimplementedBroadcastAPIServer struct {
+// UnimplementedGrpcAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedGrpcAPIServer struct {
 }
 
-func (*UnimplementedBroadcastAPIServer) Ping(ctx context.Context, req *RequestPing) (*ResponsePing, error) {
+func (*UnimplementedGrpcAPIServer) Ping(ctx context.Context, req *RequestPing) (*ResponsePing, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
-func (*UnimplementedBroadcastAPIServer) BroadcastTx(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTx, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTx not implemented")
+func (*UnimplementedGrpcAPIServer) Tx(ctx context.Context, req *RequestTx) (*ResponseTx, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Tx not implemented")
+}
+func (*UnimplementedGrpcAPIServer) TxSearch(ctx context.Context, req *RequestTxSearch) (*ResponseTxSearch, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TxSearch not implemented")
+}
+func (*UnimplementedGrpcAPIServer) BroadcastTxSync(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxSync, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTxSync not implemented")
+}
+func (*UnimplementedGrpcAPIServer) BroadcastTxAsync(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxAsync, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTxAsync not implemented")
+}
+func (*UnimplementedGrpcAPIServer) BroadcastTxCommit(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxCommit, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTxCommit not implemented")
+}
+func (*UnimplementedGrpcAPIServer) Subscribe(req *RequestSubscribe, srv GrpcAPI_SubscribeServer) error {
+	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
+}
+func (*UnimplementedGrpcAPIServer) Unubscribe(ctx context.Context, req *RequestUnsubscribe) (*ResponseUnsubscribe, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Unubscribe not implemented")
+}
+func (*UnimplementedGrpcAPIServer) UnubscribeAll(ctx context.Context, req *RequestUnsubscribe) (*ResponseUnsubscribe, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnubscribeAll not implemented")
 }
 
-func RegisterBroadcastAPIServer(s *grpc.Server, srv BroadcastAPIServer) {
-	s.RegisterService(&_BroadcastAPI_serviceDesc, srv)
+func RegisterGrpcAPIServer(s *grpc.Server, srv GrpcAPIServer) {
+	s.RegisterService(&_GrpcAPI_serviceDesc, srv)
 }
 
-func _BroadcastAPI_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GrpcAPI_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RequestPing)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BroadcastAPIServer).Ping(ctx, in)
+		return srv.(GrpcAPIServer).Ping(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/tendermint.rpc.grpc.BroadcastAPI/Ping",
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/Ping",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BroadcastAPIServer).Ping(ctx, req.(*RequestPing))
+		return srv.(GrpcAPIServer).Ping(ctx, req.(*RequestPing))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BroadcastAPI_BroadcastTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GrpcAPI_Tx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestTx)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GrpcAPIServer).Tx(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/Tx",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GrpcAPIServer).Tx(ctx, req.(*RequestTx))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GrpcAPI_TxSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestTxSearch)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GrpcAPIServer).TxSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/TxSearch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GrpcAPIServer).TxSearch(ctx, req.(*RequestTxSearch))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GrpcAPI_BroadcastTxSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RequestBroadcastTx)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BroadcastAPIServer).BroadcastTx(ctx, in)
+		return srv.(GrpcAPIServer).BroadcastTxSync(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/tendermint.rpc.grpc.BroadcastAPI/BroadcastTx",
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/BroadcastTxSync",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BroadcastAPIServer).BroadcastTx(ctx, req.(*RequestBroadcastTx))
+		return srv.(GrpcAPIServer).BroadcastTxSync(ctx, req.(*RequestBroadcastTx))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _BroadcastAPI_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "tendermint.rpc.grpc.BroadcastAPI",
-	HandlerType: (*BroadcastAPIServer)(nil),
+func _GrpcAPI_BroadcastTxAsync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestBroadcastTx)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GrpcAPIServer).BroadcastTxAsync(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/BroadcastTxAsync",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GrpcAPIServer).BroadcastTxAsync(ctx, req.(*RequestBroadcastTx))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GrpcAPI_BroadcastTxCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestBroadcastTx)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GrpcAPIServer).BroadcastTxCommit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/BroadcastTxCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GrpcAPIServer).BroadcastTxCommit(ctx, req.(*RequestBroadcastTx))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GrpcAPI_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RequestSubscribe)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GrpcAPIServer).Subscribe(m, &grpcAPISubscribeServer{stream})
+}
+
+type GrpcAPI_SubscribeServer interface {
+	Send(*ResponseSubscribe) error
+	grpc.ServerStream
+}
+
+type grpcAPISubscribeServer struct {
+	grpc.ServerStream
+}
+
+func (x *grpcAPISubscribeServer) Send(m *ResponseSubscribe) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _GrpcAPI_Unubscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestUnsubscribe)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GrpcAPIServer).Unubscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/Unubscribe",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GrpcAPIServer).Unubscribe(ctx, req.(*RequestUnsubscribe))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GrpcAPI_UnubscribeAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestUnsubscribe)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GrpcAPIServer).UnubscribeAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tendermint.rpc.grpc.GrpcAPI/UnubscribeAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GrpcAPIServer).UnubscribeAll(ctx, req.(*RequestUnsubscribe))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _GrpcAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "tendermint.rpc.grpc.GrpcAPI",
+	HandlerType: (*GrpcAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Ping",
-			Handler:    _BroadcastAPI_Ping_Handler,
+			Handler:    _GrpcAPI_Ping_Handler,
 		},
 		{
-			MethodName: "BroadcastTx",
-			Handler:    _BroadcastAPI_BroadcastTx_Handler,
+			MethodName: "Tx",
+			Handler:    _GrpcAPI_Tx_Handler,
+		},
+		{
+			MethodName: "TxSearch",
+			Handler:    _GrpcAPI_TxSearch_Handler,
+		},
+		{
+			MethodName: "BroadcastTxSync",
+			Handler:    _GrpcAPI_BroadcastTxSync_Handler,
+		},
+		{
+			MethodName: "BroadcastTxAsync",
+			Handler:    _GrpcAPI_BroadcastTxAsync_Handler,
+		},
+		{
+			MethodName: "BroadcastTxCommit",
+			Handler:    _GrpcAPI_BroadcastTxCommit_Handler,
+		},
+		{
+			MethodName: "Unubscribe",
+			Handler:    _GrpcAPI_Unubscribe_Handler,
+		},
+		{
+			MethodName: "UnubscribeAll",
+			Handler:    _GrpcAPI_UnubscribeAll_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Subscribe",
+			Handler:       _GrpcAPI_Subscribe_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "rpc/grpc/types.proto",
 }
 
@@ -534,6 +1854,179 @@ func (m *RequestBroadcastTx) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *RequestTx) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RequestTx) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RequestTx) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Prove {
+		i--
+		if m.Prove {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Hash)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RequestTxSearch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RequestTxSearch) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RequestTxSearch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.OrderBy) > 0 {
+		i -= len(m.OrderBy)
+		copy(dAtA[i:], m.OrderBy)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.OrderBy)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.PerPage != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.PerPage))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Page != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Page))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Prove {
+		i--
+		if m.Prove {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Query) > 0 {
+		i -= len(m.Query)
+		copy(dAtA[i:], m.Query)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Query)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RequestSubscribe) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RequestSubscribe) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RequestSubscribe) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Query) > 0 {
+		i -= len(m.Query)
+		copy(dAtA[i:], m.Query)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Query)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RequestUnsubscribe) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RequestUnsubscribe) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RequestUnsubscribe) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Query) > 0 {
+		i -= len(m.Query)
+		copy(dAtA[i:], m.Query)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Query)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *ResponsePing) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -561,7 +2054,7 @@ func (m *ResponsePing) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ResponseBroadcastTx) Marshal() (dAtA []byte, err error) {
+func (m *ResponseBroadcastTxSync) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -571,12 +2064,58 @@ func (m *ResponseBroadcastTx) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ResponseBroadcastTx) MarshalTo(dAtA []byte) (int, error) {
+func (m *ResponseBroadcastTxSync) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ResponseBroadcastTx) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ResponseBroadcastTxSync) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.CheckTx != nil {
+		{
+			size, err := m.CheckTx.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Hash)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ResponseBroadcastTxCommit) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ResponseBroadcastTxCommit) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResponseBroadcastTxCommit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -595,7 +2134,7 @@ func (m *ResponseBroadcastTx) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintTypes(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x12
+		dAtA[i] = 0x1a
 	}
 	if m.CheckTx != nil {
 		{
@@ -607,7 +2146,306 @@ func (m *ResponseBroadcastTx) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintTypes(dAtA, i, uint64(size))
 		}
 		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Hash)))
+		i--
 		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ResponseBroadcastTxAsync) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ResponseBroadcastTxAsync) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResponseBroadcastTxAsync) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Hash)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ResponseTx) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ResponseTx) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResponseTx) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Tx) > 0 {
+		i -= len(m.Tx)
+		copy(dAtA[i:], m.Tx)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Tx)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.TxResult != nil {
+		{
+			size, err := m.TxResult.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Index != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Index))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Height != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Height))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Hash) > 0 {
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Hash)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ResponseTxSearch) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ResponseTxSearch) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResponseTxSearch) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Txs) > 0 {
+		for iNdEx := len(m.Txs) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Txs[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTypes(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventItem) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventItem) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventItem) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Event) > 0 {
+		for iNdEx := len(m.Event) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Event[iNdEx])
+			copy(dAtA[i:], m.Event[iNdEx])
+			i = encodeVarintTypes(dAtA, i, uint64(len(m.Event[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ResponseSubscribe) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ResponseSubscribe) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResponseSubscribe) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.NewBlock != nil {
+		{
+			size, err := m.NewBlock.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if m.NewBlockHeader != nil {
+		{
+			size, err := m.NewBlockHeader.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.Events) > 0 {
+		for k := range m.Events {
+			v := m.Events[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintTypes(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintTypes(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintTypes(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x32
+		}
+	}
+	if len(m.Query) > 0 {
+		i -= len(m.Query)
+		copy(dAtA[i:], m.Query)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Query)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Type) > 0 {
+		i -= len(m.Type)
+		copy(dAtA[i:], m.Type)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Type)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ResponseUnsubscribe) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ResponseUnsubscribe) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResponseUnsubscribe) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return len(dAtA) - i, nil
 }
@@ -644,6 +2482,57 @@ func NewPopulatedRequestBroadcastTx(r randyTypes, easy bool) *RequestBroadcastTx
 	return this
 }
 
+func NewPopulatedRequestTx(r randyTypes, easy bool) *RequestTx {
+	this := &RequestTx{}
+	v2 := r.Intn(100)
+	this.Hash = make([]byte, v2)
+	for i := 0; i < v2; i++ {
+		this.Hash[i] = byte(r.Intn(256))
+	}
+	this.Prove = bool(bool(r.Intn(2) == 0))
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 3)
+	}
+	return this
+}
+
+func NewPopulatedRequestTxSearch(r randyTypes, easy bool) *RequestTxSearch {
+	this := &RequestTxSearch{}
+	this.Query = string(randStringTypes(r))
+	this.Prove = bool(bool(r.Intn(2) == 0))
+	this.Page = int32(r.Int31())
+	if r.Intn(2) == 0 {
+		this.Page *= -1
+	}
+	this.PerPage = int32(r.Int31())
+	if r.Intn(2) == 0 {
+		this.PerPage *= -1
+	}
+	this.OrderBy = string(randStringTypes(r))
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 6)
+	}
+	return this
+}
+
+func NewPopulatedRequestSubscribe(r randyTypes, easy bool) *RequestSubscribe {
+	this := &RequestSubscribe{}
+	this.Query = string(randStringTypes(r))
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 2)
+	}
+	return this
+}
+
+func NewPopulatedRequestUnsubscribe(r randyTypes, easy bool) *RequestUnsubscribe {
+	this := &RequestUnsubscribe{}
+	this.Query = string(randStringTypes(r))
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 2)
+	}
+	return this
+}
+
 func NewPopulatedResponsePing(r randyTypes, easy bool) *ResponsePing {
 	this := &ResponsePing{}
 	if !easy && r.Intn(10) != 0 {
@@ -652,8 +2541,29 @@ func NewPopulatedResponsePing(r randyTypes, easy bool) *ResponsePing {
 	return this
 }
 
-func NewPopulatedResponseBroadcastTx(r randyTypes, easy bool) *ResponseBroadcastTx {
-	this := &ResponseBroadcastTx{}
+func NewPopulatedResponseBroadcastTxSync(r randyTypes, easy bool) *ResponseBroadcastTxSync {
+	this := &ResponseBroadcastTxSync{}
+	v3 := r.Intn(100)
+	this.Hash = make([]byte, v3)
+	for i := 0; i < v3; i++ {
+		this.Hash[i] = byte(r.Intn(256))
+	}
+	if r.Intn(5) != 0 {
+		this.CheckTx = types.NewPopulatedResponseCheckTx(r, easy)
+	}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 3)
+	}
+	return this
+}
+
+func NewPopulatedResponseBroadcastTxCommit(r randyTypes, easy bool) *ResponseBroadcastTxCommit {
+	this := &ResponseBroadcastTxCommit{}
+	v4 := r.Intn(100)
+	this.Hash = make([]byte, v4)
+	for i := 0; i < v4; i++ {
+		this.Hash[i] = byte(r.Intn(256))
+	}
 	if r.Intn(5) != 0 {
 		this.CheckTx = types.NewPopulatedResponseCheckTx(r, easy)
 	}
@@ -661,7 +2571,105 @@ func NewPopulatedResponseBroadcastTx(r randyTypes, easy bool) *ResponseBroadcast
 		this.DeliverTx = types.NewPopulatedResponseDeliverTx(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
-		this.XXX_unrecognized = randUnrecognizedTypes(r, 3)
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 4)
+	}
+	return this
+}
+
+func NewPopulatedResponseBroadcastTxAsync(r randyTypes, easy bool) *ResponseBroadcastTxAsync {
+	this := &ResponseBroadcastTxAsync{}
+	v5 := r.Intn(100)
+	this.Hash = make([]byte, v5)
+	for i := 0; i < v5; i++ {
+		this.Hash[i] = byte(r.Intn(256))
+	}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 2)
+	}
+	return this
+}
+
+func NewPopulatedResponseTx(r randyTypes, easy bool) *ResponseTx {
+	this := &ResponseTx{}
+	v6 := r.Intn(100)
+	this.Hash = make([]byte, v6)
+	for i := 0; i < v6; i++ {
+		this.Hash[i] = byte(r.Intn(256))
+	}
+	this.Height = int64(r.Int63())
+	if r.Intn(2) == 0 {
+		this.Height *= -1
+	}
+	this.Index = uint32(r.Uint32())
+	if r.Intn(5) != 0 {
+		this.TxResult = types.NewPopulatedResponseDeliverTx(r, easy)
+	}
+	v7 := r.Intn(100)
+	this.Tx = make([]byte, v7)
+	for i := 0; i < v7; i++ {
+		this.Tx[i] = byte(r.Intn(256))
+	}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 6)
+	}
+	return this
+}
+
+func NewPopulatedResponseTxSearch(r randyTypes, easy bool) *ResponseTxSearch {
+	this := &ResponseTxSearch{}
+	if r.Intn(5) != 0 {
+		v8 := r.Intn(5)
+		this.Txs = make([]*ResponseTx, v8)
+		for i := 0; i < v8; i++ {
+			this.Txs[i] = NewPopulatedResponseTx(r, easy)
+		}
+	}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 2)
+	}
+	return this
+}
+
+func NewPopulatedEventItem(r randyTypes, easy bool) *EventItem {
+	this := &EventItem{}
+	v9 := r.Intn(10)
+	this.Event = make([]string, v9)
+	for i := 0; i < v9; i++ {
+		this.Event[i] = string(randStringTypes(r))
+	}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 2)
+	}
+	return this
+}
+
+func NewPopulatedResponseSubscribe(r randyTypes, easy bool) *ResponseSubscribe {
+	this := &ResponseSubscribe{}
+	this.Type = string(randStringTypes(r))
+	this.Query = string(randStringTypes(r))
+	if r.Intn(5) != 0 {
+		v10 := r.Intn(10)
+		this.Events = make(map[string]*EventItem)
+		for i := 0; i < v10; i++ {
+			this.Events[randStringTypes(r)] = NewPopulatedEventItem(r, easy)
+		}
+	}
+	if r.Intn(5) != 0 {
+		this.NewBlockHeader = NewPopulatedEventNewBlockHeader(r, easy)
+	}
+	if r.Intn(5) != 0 {
+		this.NewBlock = NewPopulatedEventNewBlock(r, easy)
+	}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 12)
+	}
+	return this
+}
+
+func NewPopulatedResponseUnsubscribe(r randyTypes, easy bool) *ResponseUnsubscribe {
+	this := &ResponseUnsubscribe{}
+	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 1)
 	}
 	return this
 }
@@ -685,9 +2693,9 @@ func randUTF8RuneTypes(r randyTypes) rune {
 	return rune(ru + 61)
 }
 func randStringTypes(r randyTypes) string {
-	v2 := r.Intn(100)
-	tmps := make([]rune, v2)
-	for i := 0; i < v2; i++ {
+	v11 := r.Intn(100)
+	tmps := make([]rune, v11)
+	for i := 0; i < v11; i++ {
 		tmps[i] = randUTF8RuneTypes(r)
 	}
 	return string(tmps)
@@ -709,11 +2717,11 @@ func randFieldTypes(dAtA []byte, r randyTypes, fieldNumber int, wire int) []byte
 	switch wire {
 	case 0:
 		dAtA = encodeVarintPopulateTypes(dAtA, uint64(key))
-		v3 := r.Int63()
+		v12 := r.Int63()
 		if r.Intn(2) == 0 {
-			v3 *= -1
+			v12 *= -1
 		}
-		dAtA = encodeVarintPopulateTypes(dAtA, uint64(v3))
+		dAtA = encodeVarintPopulateTypes(dAtA, uint64(v12))
 	case 1:
 		dAtA = encodeVarintPopulateTypes(dAtA, uint64(key))
 		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
@@ -766,6 +2774,86 @@ func (m *RequestBroadcastTx) Size() (n int) {
 	return n
 }
 
+func (m *RequestTx) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Hash)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.Prove {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RequestTxSearch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Query)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.Prove {
+		n += 2
+	}
+	if m.Page != 0 {
+		n += 1 + sovTypes(uint64(m.Page))
+	}
+	if m.PerPage != 0 {
+		n += 1 + sovTypes(uint64(m.PerPage))
+	}
+	l = len(m.OrderBy)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RequestSubscribe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Query)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RequestUnsubscribe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Query)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *ResponsePing) Size() (n int) {
 	if m == nil {
 		return 0
@@ -778,12 +2866,36 @@ func (m *ResponsePing) Size() (n int) {
 	return n
 }
 
-func (m *ResponseBroadcastTx) Size() (n int) {
+func (m *ResponseBroadcastTxSync) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
+	l = len(m.Hash)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.CheckTx != nil {
+		l = m.CheckTx.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ResponseBroadcastTxCommit) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Hash)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
 	if m.CheckTx != nil {
 		l = m.CheckTx.Size()
 		n += 1 + l + sovTypes(uint64(l))
@@ -792,6 +2904,141 @@ func (m *ResponseBroadcastTx) Size() (n int) {
 		l = m.DeliverTx.Size()
 		n += 1 + l + sovTypes(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ResponseBroadcastTxAsync) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Hash)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ResponseTx) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Hash)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.Height != 0 {
+		n += 1 + sovTypes(uint64(m.Height))
+	}
+	if m.Index != 0 {
+		n += 1 + sovTypes(uint64(m.Index))
+	}
+	if m.TxResult != nil {
+		l = m.TxResult.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	l = len(m.Tx)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ResponseTxSearch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Txs) > 0 {
+		for _, e := range m.Txs {
+			l = e.Size()
+			n += 1 + l + sovTypes(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *EventItem) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Event) > 0 {
+		for _, s := range m.Event {
+			l = len(s)
+			n += 1 + l + sovTypes(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ResponseSubscribe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Type)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	l = len(m.Query)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if len(m.Events) > 0 {
+		for k, v := range m.Events {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovTypes(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovTypes(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovTypes(uint64(mapEntrySize))
+		}
+	}
+	if m.NewBlockHeader != nil {
+		l = m.NewBlockHeader.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.NewBlock != nil {
+		l = m.NewBlock.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ResponseUnsubscribe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -946,6 +3193,462 @@ func (m *RequestBroadcastTx) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *RequestTx) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RequestTx: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RequestTx: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hash = append(m.Hash[:0], dAtA[iNdEx:postIndex]...)
+			if m.Hash == nil {
+				m.Hash = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Prove", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Prove = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RequestTxSearch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RequestTxSearch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RequestTxSearch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Query", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Query = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Prove", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Prove = bool(v != 0)
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Page", wireType)
+			}
+			m.Page = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Page |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PerPage", wireType)
+			}
+			m.PerPage = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.PerPage |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OrderBy", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.OrderBy = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RequestSubscribe) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RequestSubscribe: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RequestSubscribe: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Query", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Query = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RequestUnsubscribe) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RequestUnsubscribe: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RequestUnsubscribe: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Query", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Query = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *ResponsePing) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1000,7 +3703,7 @@ func (m *ResponsePing) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ResponseBroadcastTx) Unmarshal(dAtA []byte) error {
+func (m *ResponseBroadcastTxSync) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1023,13 +3726,47 @@ func (m *ResponseBroadcastTx) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ResponseBroadcastTx: wiretype end group for non-group")
+			return fmt.Errorf("proto: ResponseBroadcastTxSync: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ResponseBroadcastTx: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ResponseBroadcastTxSync: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hash = append(m.Hash[:0], dAtA[iNdEx:postIndex]...)
+			if m.Hash == nil {
+				m.Hash = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field CheckTx", wireType)
 			}
@@ -1065,7 +3802,131 @@ func (m *ResponseBroadcastTx) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ResponseBroadcastTxCommit) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ResponseBroadcastTxCommit: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ResponseBroadcastTxCommit: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hash = append(m.Hash[:0], dAtA[iNdEx:postIndex]...)
+			if m.Hash == nil {
+				m.Hash = []byte{}
+			}
+			iNdEx = postIndex
 		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CheckTx", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CheckTx == nil {
+				m.CheckTx = &types.ResponseCheckTx{}
+			}
+			if err := m.CheckTx.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DeliverTx", wireType)
 			}
@@ -1101,6 +3962,837 @@ func (m *ResponseBroadcastTx) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ResponseBroadcastTxAsync) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ResponseBroadcastTxAsync: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ResponseBroadcastTxAsync: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hash = append(m.Hash[:0], dAtA[iNdEx:postIndex]...)
+			if m.Hash == nil {
+				m.Hash = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ResponseTx) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ResponseTx: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ResponseTx: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hash = append(m.Hash[:0], dAtA[iNdEx:postIndex]...)
+			if m.Hash == nil {
+				m.Hash = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Height", wireType)
+			}
+			m.Height = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Height |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
+			}
+			m.Index = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Index |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TxResult", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TxResult == nil {
+				m.TxResult = &types.ResponseDeliverTx{}
+			}
+			if err := m.TxResult.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tx", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Tx = append(m.Tx[:0], dAtA[iNdEx:postIndex]...)
+			if m.Tx == nil {
+				m.Tx = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ResponseTxSearch) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ResponseTxSearch: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ResponseTxSearch: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Txs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Txs = append(m.Txs, &ResponseTx{})
+			if err := m.Txs[len(m.Txs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventItem) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventItem: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventItem: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Event", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Event = append(m.Event, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ResponseSubscribe) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ResponseSubscribe: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ResponseSubscribe: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Type = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Query", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Query = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Events", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Events == nil {
+				m.Events = make(map[string]*EventItem)
+			}
+			var mapkey string
+			var mapvalue *EventItem
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowTypes
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTypes
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthTypes
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthTypes
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowTypes
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= int(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthTypes
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if postmsgIndex < 0 {
+						return ErrInvalidLengthTypes
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &EventItem{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipTypes(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthTypes
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Events[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NewBlockHeader", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.NewBlockHeader == nil {
+				m.NewBlockHeader = &EventNewBlockHeader{}
+			}
+			if err := m.NewBlockHeader.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NewBlock", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.NewBlock == nil {
+				m.NewBlock = &EventNewBlock{}
+			}
+			if err := m.NewBlock.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ResponseUnsubscribe) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ResponseUnsubscribe: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ResponseUnsubscribe: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTypes(dAtA[iNdEx:])

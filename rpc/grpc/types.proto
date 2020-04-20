@@ -4,6 +4,7 @@ option  go_package = "github.com/tendermint/tendermint/rpc/grpc;coregrpc";
 
 import "third_party/proto/gogoproto/gogo.proto";
 import "abci/types/types.proto";
+import "rpc/grpc/event_types.proto";
 
 option (gogoproto.marshaler_all)        = true;
 option (gogoproto.unmarshaler_all)      = true;
@@ -25,20 +26,94 @@ message RequestBroadcastTx {
   bytes tx = 1;
 }
 
+message RequestTx {
+  bytes hash = 1;
+  bool prove = 2;
+}
+
+message RequestTxSearch {
+  string query = 1;
+  bool prove = 2;
+  int32 page = 3;
+  int32 perPage = 4;
+  string orderBy = 5;
+}
+
+message RequestSubscribe {
+  string query = 1;
+}
+
+message RequestUnsubscribe {
+  string query = 1;
+}
+
 //----------------------------------------
 // Response types
 
 message ResponsePing {}
 
-message ResponseBroadcastTx {
-  tendermint.abci.types.ResponseCheckTx   check_tx   = 1;
-  tendermint.abci.types.ResponseDeliverTx deliver_tx = 2;
+message ResponseBroadcastTxSync {
+  bytes hash = 1;
+  tendermint.abci.types.ResponseCheckTx   check_tx   = 2;
+}
+
+message ResponseBroadcastTxCommit {
+  bytes hash = 1;
+  tendermint.abci.types.ResponseCheckTx   check_tx   = 2;
+  tendermint.abci.types.ResponseDeliverTx deliver_tx = 3;
+}
+
+message ResponseBroadcastTxAsync {
+  bytes hash = 1;
+}
+
+message ResponseTx {
+  bytes hash = 1;
+  int64 height = 2;
+  uint32 index = 3;
+  tendermint.abci.types.ResponseDeliverTx tx_result = 4;
+  bytes tx = 5;
+  //todo proof
+}
+
+message ResponseTxSearch {
+  repeated ResponseTx txs = 1;
+}
+
+message EventItem {
+  repeated string event = 1;
+}
+
+message ResponseSubscribe {
+  string type = 1;
+
+  string query = 5;
+  map<string, EventItem> events = 6;
+
+  //Block
+  EventNewBlockHeader new_block_header = 10;
+  EventNewBlock new_block = 11;
+
+}
+
+message ResponseUnsubscribe {
 }
 
 //----------------------------------------
 // Service Definition
 
-service BroadcastAPI {
+service GrpcAPI {
   rpc Ping(RequestPing) returns (ResponsePing);
-  rpc BroadcastTx(RequestBroadcastTx) returns (ResponseBroadcastTx);
+
+  rpc Tx(RequestTx) returns (ResponseTx);
+  rpc TxSearch(RequestTxSearch) returns (ResponseTxSearch);
+
+  rpc BroadcastTxSync(RequestBroadcastTx) returns (ResponseBroadcastTxSync);
+  rpc BroadcastTxAsync(RequestBroadcastTx) returns (ResponseBroadcastTxAsync);
+  rpc BroadcastTxCommit(RequestBroadcastTx) returns (ResponseBroadcastTxCommit);
+
+  rpc Subscribe(RequestSubscribe) returns (stream ResponseSubscribe);
+  rpc Unubscribe(RequestUnsubscribe) returns (ResponseUnsubscribe);
+  rpc UnubscribeAll(RequestUnsubscribe) returns (ResponseUnsubscribe);
+
 }

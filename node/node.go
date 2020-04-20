@@ -1014,6 +1014,7 @@ func (n *Node) startRPC() ([]net.Listener, error) {
 		if err != nil {
 			return nil, err
 		}
+		grpccore.SetLogger(n.Logger.With("module", "grpc"))
 		go grpccore.StartGRPCServer(listener)
 		listeners = append(listeners, listener)
 	}

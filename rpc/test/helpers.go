@@ -113,7 +113,7 @@ func GetConfig(forceCreate ...bool) *cfg.Config {
 	return globalConfig
 }
 
-func GetGRPCClient() core_grpc.BroadcastAPIClient {
+func GetGRPCClient() core_grpc.GrpcAPIClient {
 	grpcAddr := globalConfig.RPC.GRPCListenAddress
 	return core_grpc.StartGRPCClient(grpcAddr)
 }

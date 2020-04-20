@@ -1,0 +1,50 @@
+syntax = "proto3";
+package tendermint.rpc.grpc;
+option  go_package = "github.com/tendermint/tendermint/rpc/grpc;coregrpc";
+
+import "third_party/proto/gogoproto/gogo.proto";
+import "abci/types/types.proto";
+
+option (gogoproto.marshaler_all)        = true;
+option (gogoproto.unmarshaler_all)      = true;
+option (gogoproto.sizer_all)            = true;
+option (gogoproto.goproto_registration) = true;
+// Generate tests
+option (gogoproto.populate_all) = true;
+option (gogoproto.equal_all)    = true;
+option (gogoproto.testgen_all)  = true;
+//----------------------------------------
+// Message types
+
+
+message EventNewBlockHeader {
+    tendermint.abci.types.Header header = 1;
+
+    int64 num_txs = 2;
+    tendermint.abci.types.ResponseBeginBlock result_begin_block = 3;
+    tendermint.abci.types.ResponseEndBlock result_end_block = 4;
+}
+
+message BlockData {
+    repeated bytes data = 1;
+    bytes hash = 2; 
+}
+
+message EvidenceData {
+    repeated tendermint.abci.types.Evidence evidence = 1;
+    bytes hash = 2;
+}
+
+message Block {
+    tendermint.abci.types.Header header = 1;
+    BlockData data = 2;
+    EvidenceData evidence = 3;
+    //todo commit
+}
+
+message EventNewBlock {
+    Block block = 1;
+
+    tendermint.abci.types.ResponseBeginBlock result_begin_block = 3;
+    tendermint.abci.types.ResponseEndBlock result_end_block = 4;
+}

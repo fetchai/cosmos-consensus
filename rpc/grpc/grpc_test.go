@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestBroadcastTx(t *testing.T) {
-	res, err := rpctest.GetGRPCClient().BroadcastTx(
+	res, err := rpctest.GetGRPCClient().BroadcastTxCommit(
 		context.Background(),
 		&core_grpc.RequestBroadcastTx{Tx: []byte("this is a tx")},
 	)
