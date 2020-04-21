@@ -177,6 +177,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		dkg.checkTransition(blockHeight)
 		return
 	}
+	dkg.Logger.Debug("OnBlock: received transactions", "height", blockHeight)
 	// Process transactions
 	for _, trx := range trxs {
 		// Decode transaction
@@ -185,7 +186,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
 		if err := dkg.checkMsg(msg, index, val); err != nil {
-			dkg.Logger.Error("OnBlock: check msg", "index", dkg.index(), "height", blockHeight, "msg", msg, "err", err)
+			dkg.Logger.Error("OnBlock: check msg", "height", blockHeight, "msg", msg, "err", err)
 			continue
 		}
 
@@ -226,7 +227,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 			}
 			dkg.beaconService.OnReconstructionShares(msg.Data, uint(index))
 		default:
-			dkg.Logger.Error("OnBlock: unknown DKGMessage", "index", dkg.index(), "type", msg.Type)
+			dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 		}
 	}
 
@@ -264,10 +265,10 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		return
 	}
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {
-		dkg.Logger.Debug("checkTransition: state change triggered", "index", dkg.index(), "height", blockHeight, "state", dkg.currentState)
+		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", dkg.currentState)
 		if !dkg.states[dkg.currentState].onExit() {
 			// If exit functions fail then DKG has failed and we restart
-			dkg.Logger.Error("checkTransition: failed onExit", "index", dkg.index(), "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
+			dkg.Logger.Error("checkTransition: failed onExit", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
 			dkg.Stop()
 			dkg.Reset()
 			return
@@ -277,7 +278,7 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		// Run check transition again in case we can proceed to the next state already
 		dkg.checkTransition(blockHeight)
 	} else {
-		dkg.Logger.Debug("checkTransition: no state change", "index", dkg.index(), "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
+		dkg.Logger.Debug("checkTransition: no state change", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
 	}
 }
 
@@ -309,7 +310,7 @@ func (dkg *DistributedKeyGeneration) broadcastMsg(msgType types.DKGMessageType, 
 }
 
 func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
-	dkg.Logger.Debug("sendSharesAndCoefficients", "index", dkg.index(), "iteration", dkg.dkgIteration)
+	dkg.Logger.Debug("sendSharesAndCoefficients", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGCoefficient, dkg.beaconService.GetCoefficients(), nil)
 
 	for validator, index := range dkg.valToIndex {
@@ -320,34 +321,34 @@ func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 }
 
 func (dkg *DistributedKeyGeneration) sendComplaints() {
-	dkg.Logger.Debug("sendComplaints", "index", dkg.index(), "iteration", dkg.dkgIteration)
+	dkg.Logger.Debug("sendComplaints", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGComplaint, dkg.beaconService.GetComplaints(), nil)
 }
 
 func (dkg *DistributedKeyGeneration) sendComplaintAnswers() {
-	dkg.Logger.Debug("sendComplaintAnswers", "index", dkg.index(), "iteration", dkg.dkgIteration)
+	dkg.Logger.Debug("sendComplaintAnswers", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGComplaintAnswer, dkg.beaconService.GetComplaintAnswers(), nil)
 }
 
 func (dkg *DistributedKeyGeneration) sendQualCoefficients() {
-	dkg.Logger.Debug("sendQualCoefficients", "index", dkg.index(), "iteration", dkg.dkgIteration)
+	dkg.Logger.Debug("sendQualCoefficients", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGQualCoefficient, dkg.beaconService.GetQualCoefficients(), nil)
 }
 
 func (dkg *DistributedKeyGeneration) sendQualComplaints() {
-	dkg.Logger.Debug("sendQualComplaints", "index", dkg.index(), "iteration", dkg.dkgIteration)
+	dkg.Logger.Debug("sendQualComplaints", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGQualComplaint, dkg.beaconService.GetQualComplaints(), nil)
 }
 
 func (dkg *DistributedKeyGeneration) sendReconstructionShares() {
-	dkg.Logger.Debug("sendReconstructionShares", "index", dkg.index(), "iteration", dkg.dkgIteration)
+	dkg.Logger.Debug("sendReconstructionShares", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGReconstructionShare, dkg.beaconService.GetReconstructionShares(), nil)
 }
 
 func (dkg *DistributedKeyGeneration) buildQual() bool {
 	qualSize := dkg.beaconService.BuildQual()
 	if qualSize == 0 {
-		dkg.Logger.Info("buildQual: DKG failed", "index", dkg.index(), "iteration", dkg.dkgIteration)
+		dkg.Logger.Info("buildQual: DKG failed", "iteration", dkg.dkgIteration)
 		return false
 	}
 	return true

@@ -108,7 +108,7 @@ func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 		}
 		select {
 		case msg := <-subscription.Out():
-			dkgRunner.Logger.Debug("validatorUpdatesRoutine: received new block header")
+			dkgRunner.Logger.Debug("validatorUpdatesRoutine: new block header")
 			header, ok := msg.Data().(types.EventDataNewBlockHeader)
 			if ok {
 				abciValUpdates := header.ResultEndBlock.ValidatorUpdates
@@ -154,7 +154,9 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "aeon", aeon, "height", dkgRunner.height)
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
 		aeon, dkgRunner.privVal, dkgRunner.validators, dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay)
-	dkgRunner.activeDKG.SetLogger(dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID))
+	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgIteration)
+	dkgLogger.With("index", dkgRunner.activeDKG.index())
+	dkgRunner.activeDKG.SetLogger(dkgLogger)
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		dkgRunner.messageHandler.SubmitSpecialTx(msg)
 	})

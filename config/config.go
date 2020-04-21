@@ -790,6 +790,7 @@ type ConsensusConfig struct {
 	DKGStateDuration            int64         `mapstructure:"dkg_state_duration"`
 	DKGResetDelay               int64         `mapstructure:"dkg_reset_delay"`
 	AeonLength                  int64         `mapstructure:"aeon_length"`
+	RunDKG                      bool          `mapstructure:"run_dkg"`
 }
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
@@ -813,6 +814,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		DKGStateDuration:            3,
 		DKGResetDelay:               2,
 		AeonLength:                  50,
+		RunDKG:                      true,
 	}
 }
 
@@ -829,6 +831,7 @@ func TestConsensusConfig() *ConsensusConfig {
 	cfg.SkipTimeoutCommit = true
 	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
 	cfg.PeerQueryMaj23SleepDuration = 250 * time.Millisecond
+	cfg.RunDKG = false
 	return cfg
 }
 
