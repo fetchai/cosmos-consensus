@@ -25,8 +25,7 @@ type DKGRunner struct {
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 
-	mtx sync.Mutex
-	// closed when shutting down to unblock send to full channel
+	mtx  sync.Mutex
 	quit chan struct{}
 }
 
@@ -71,10 +70,6 @@ func (dkgRunner *DKGRunner) OnStart() error {
 		dkgRunner.startNewDKG()
 	}
 	if dkgRunner.eventBus != nil {
-		err := dkgRunner.eventBus.Start()
-		if err != nil {
-			return err
-		}
 		// Start go routine for subscription
 		go dkgRunner.validatorUpdatesRoutine()
 	}
@@ -102,16 +97,19 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage)
 func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 	subscription, err := dkgRunner.eventBus.Subscribe(context.Background(), "dkg_runner", types.EventQueryNewBlockHeader)
 	if err != nil {
+		dkgRunner.Logger.Error("validatorUpdatesRoutine: subscription error %v", err.Error())
 		return
 	}
 
 	for {
 		if !dkgRunner.IsRunning() {
+			dkgRunner.Logger.Debug("validatorUpdatesRoutine: exiting")
 			return
 		}
 		select {
 		case msg := <-subscription.Out():
-			header, ok := msg.Data().(*types.EventDataNewBlockHeader)
+			dkgRunner.Logger.Debug("validatorUpdatesRoutine: received new block header")
+			header, ok := msg.Data().(types.EventDataNewBlockHeader)
 			if ok {
 				abciValUpdates := header.ResultEndBlock.ValidatorUpdates
 				validatorUpdates, _ := types.PB2TM.ValidatorUpdates(abciValUpdates)
@@ -119,6 +117,8 @@ func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 				if err != nil {
 					dkgRunner.Logger.Error("validatorUpdatesRoutine: update error %v", err.Error())
 				}
+			} else {
+				dkgRunner.Logger.Error("validatorUpdatesRoutine: wrong data type", "expected", "EventDataNewBlockHeader", "got", msg.Data())
 			}
 		case <-dkgRunner.quit:
 			return
@@ -151,7 +151,7 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 		dkgRunner.Logger.Debug("startNewDKG: not in validators", "aeon", aeon, "height", dkgRunner.height)
 		return
 	}
-	dkgRunner.Logger.Debug("startNewDKG: sucessful", "aeon", aeon, "height", dkgRunner.height)
+	dkgRunner.Logger.Debug("startNewDKG: successful", "aeon", aeon, "height", dkgRunner.height)
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
 		aeon, dkgRunner.privVal, dkgRunner.validators, dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay)
 	dkgRunner.activeDKG.SetLogger(dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID))
