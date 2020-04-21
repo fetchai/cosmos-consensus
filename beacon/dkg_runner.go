@@ -26,6 +26,8 @@ type DKGRunner struct {
 	dkgCompletionCallback func(aeon *aeonDetails)
 
 	mtx sync.Mutex
+	// closed when shutting down to unblock send to full channel
+	quit chan struct{}
 }
 
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, val types.PrivValidator,
@@ -37,6 +39,7 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, val types.PrivValid
 		height:          blockHeight,
 		validators:      vals,
 		completedDKG:    false,
+		quit:            make(chan struct{}),
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -68,18 +71,18 @@ func (dkgRunner *DKGRunner) OnStart() error {
 		dkgRunner.startNewDKG()
 	}
 	if dkgRunner.eventBus != nil {
-		subscription, err := dkgRunner.eventBus.Subscribe(context.Background(), "dkg_runner", types.EventQueryNewBlockHeader)
-		if err != nil {
-			return err
-		}
-		err = dkgRunner.eventBus.Start()
+		err := dkgRunner.eventBus.Start()
 		if err != nil {
 			return err
 		}
 		// Start go routine for subscription
-		go dkgRunner.validatorUpdatesRoutine(subscription)
+		go dkgRunner.validatorUpdatesRoutine()
 	}
 	return nil
+}
+
+func (dkgRunner *DKGRunner) OnStop() {
+	close(dkgRunner.quit)
 }
 
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
@@ -96,21 +99,29 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage)
 	}
 }
 
-func (dkgRunner *DKGRunner) validatorUpdatesRoutine(subscription types.Subscription) {
+func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
+	subscription, err := dkgRunner.eventBus.Subscribe(context.Background(), "dkg_runner", types.EventQueryNewBlockHeader)
+	if err != nil {
+		return
+	}
 
 	for {
 		if !dkgRunner.IsRunning() {
 			return
 		}
-		msg := <-subscription.Out()
-		header, ok := msg.Data().(*types.EventDataNewBlockHeader)
-		if ok {
-			abciValUpdates := header.ResultEndBlock.ValidatorUpdates
-			validatorUpdates, _ := types.PB2TM.ValidatorUpdates(abciValUpdates)
-			err := dkgRunner.validators.UpdateWithChangeSet(validatorUpdates)
-			if err != nil {
-				dkgRunner.Logger.Error("validatorUpdatesRoutine: update error %v", err.Error())
+		select {
+		case msg := <-subscription.Out():
+			header, ok := msg.Data().(*types.EventDataNewBlockHeader)
+			if ok {
+				abciValUpdates := header.ResultEndBlock.ValidatorUpdates
+				validatorUpdates, _ := types.PB2TM.ValidatorUpdates(abciValUpdates)
+				err := dkgRunner.validators.UpdateWithChangeSet(validatorUpdates)
+				if err != nil {
+					dkgRunner.Logger.Error("validatorUpdatesRoutine: update error %v", err.Error())
+				}
 			}
+		case <-dkgRunner.quit:
+			return
 		}
 		dkgRunner.checkNextDKG()
 	}
