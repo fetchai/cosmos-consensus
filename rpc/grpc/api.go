@@ -128,6 +128,7 @@ func (bapi *grpcAPI) Subscribe(query *RequestSubscribe, stream GrpcAPI_Subscribe
 		select {
 		case msg := <-msgChan:
 			response := ResponseSubscribe{Query: msg.Query}
+			response.Events = make(map[string]*EventItem)
 			for key, values := range msg.Events {
 				v := EventItem{}
 				v.Event = values

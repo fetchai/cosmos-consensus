@@ -14,7 +14,7 @@ func blockHeaderToProto(header *types.Header) (res *abci.Header, err error) {
 		return
 	}
 	res = &abci.Header{}
-	err = json.Unmarshal(encoded, *res)
+	err = json.Unmarshal(encoded, res)
 	return
 }
 
@@ -37,7 +37,9 @@ func newBlockEventToProto(msg *types.EventDataNewBlock) (res *EventNewBlock, err
 		return
 	}
 	res = &EventNewBlock{}
+	res.Block = &Block{}
 	res.Block.Header = header
+	res.Block.Data = &BlockData{}
 	res.Block.Data.Data = make([][]byte, len(msg.Block.Data.Txs))
 	for i, v := range msg.Block.Data.Txs {
 		res.Block.Data.Data[i] = v
