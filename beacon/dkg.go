@@ -62,7 +62,7 @@ type DistributedKeyGeneration struct {
 
 	privValidator types.PrivValidator
 	valToIndex    map[string]uint // Need to convert crypto.Address into string for key
-	validators    *types.ValidatorSet
+	validators    types.ValidatorSet
 	threshold     int
 
 	startHeight   int64
@@ -76,7 +76,7 @@ type DistributedKeyGeneration struct {
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
-	privVal types.PrivValidator, vals *types.ValidatorSet, startH int64) *DistributedKeyGeneration {
+	privVal types.PrivValidator, vals types.ValidatorSet, startH int64) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
@@ -361,7 +361,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		// of the next aeon
 		currentAeon := (dkg.startHeight + dkg.duration()) / dkg.config.AeonLength
 		nextAeonStart := (currentAeon + 1) * dkg.config.AeonLength
-		aeonDetails := NewAeonDetails(dkg.validators, dkg.privValidator, aeonExecUnit,
+		aeonDetails := NewAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
 			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
 		dkg.dkgCompletionCallback(aeonDetails)
 	}

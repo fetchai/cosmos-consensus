@@ -263,6 +263,7 @@ func TestReactorWithDKG(t *testing.T) {
 
 	// Wait until dkg has completed
 	for nodesFinished := 0; nodesFinished < N; {
+		blockHeight++
 		for index, node := range dkgNodes {
 			for index1, node1 := range dkgNodes {
 				if index1 != index {
@@ -274,7 +275,6 @@ func TestReactorWithDKG(t *testing.T) {
 			node.clearMsgs()
 		}
 
-		blockHeight++
 		nodesFinished = 0
 
 		for _, node := range dkgNodes {

@@ -200,6 +200,7 @@ func TestDKGScenarios(t *testing.T) {
 			}
 
 			for nodesFinished := 0; nodesFinished < tc.completionSize; {
+				blockHeight++
 				for index, node := range nodes {
 					for index1, node1 := range nodes {
 						if index1 != index {
@@ -210,7 +211,6 @@ func TestDKGScenarios(t *testing.T) {
 				for _, node := range nodes {
 					node.clearMsgs()
 				}
-				blockHeight++
 
 				nodesFinished = 0
 				for _, node := range nodes {
@@ -271,7 +271,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], state.Validators, 10)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], *state.Validators, 10)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -287,7 +287,7 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, vals, 10),
+		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, *vals, 10),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),

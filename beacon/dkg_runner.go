@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"context"
 	"sync"
 
 	cfg "github.com/tendermint/tendermint/config"
@@ -11,13 +12,14 @@ import (
 
 type DKGRunner struct {
 	service.BaseService
+	eventBus        *types.EventBus
 	consensusConfig *cfg.ConsensusConfig
 	chainID         string
 	privVal         types.PrivValidator
 	messageHandler  tx_extensions.MessageHandler
 
 	height       int64
-	validators   *types.ValidatorSet
+	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
 
@@ -27,53 +29,99 @@ type DKGRunner struct {
 }
 
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, val types.PrivValidator,
-	handler tx_extensions.MessageHandler, blockHeight int64) *DKGRunner {
+	blockHeight int64, vals types.ValidatorSet) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		consensusConfig: config,
 		chainID:         chain,
 		privVal:         val,
-		messageHandler:  handler,
 		height:          blockHeight,
+		validators:      vals,
 		completedDKG:    false,
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
 
-	// When DKG TXs are seen, they should call OnBlock
-	dkgRunner.messageHandler.WhenChainTxSeen(dkgRunner.OnBlock)
-
 	return dkgRunner
-}
-
-func (dkgRunner *DKGRunner) OnStart() error {
-	if dkgRunner.height%dkgRunner.consensusConfig.AeonLength == 0 {
-		dkgRunner.startNewDKG(dkgRunner.height)
-	}
-	return nil
 }
 
 func (dkgRunner *DKGRunner) SetDKGCompletionCallback(callback func(aeon *aeonDetails)) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
-
 	dkgRunner.dkgCompletionCallback = callback
+}
+
+func (dkgRunner *DKGRunner) SetEventBus(eventBus *types.EventBus) {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+	dkgRunner.eventBus = eventBus
+}
+
+func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHandler) {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+	dkgRunner.messageHandler = handler
+	// When DKG TXs are seen, they should call OnBlock
+	dkgRunner.messageHandler.WhenChainTxSeen(dkgRunner.OnBlock)
+}
+
+func (dkgRunner *DKGRunner) OnStart() error {
+	if dkgRunner.height%dkgRunner.consensusConfig.AeonLength == 0 {
+		dkgRunner.startNewDKG()
+	}
+	if dkgRunner.eventBus != nil {
+		subscription, err := dkgRunner.eventBus.Subscribe(context.Background(), "dkg_runner", types.EventQueryNewBlockHeader)
+		if err != nil {
+			return err
+		}
+		err = dkgRunner.eventBus.Start()
+		if err != nil {
+			return err
+		}
+		// Start go routine for subscription
+		go dkgRunner.validatorUpdatesRoutine(subscription)
+	}
+	return nil
 }
 
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
-	defer dkgRunner.mtx.Unlock()
-
+	dkgRunner.height = blockHeight
 	if dkgRunner.activeDKG != nil {
+		dkgRunner.mtx.Unlock()
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
+	}
+	// Trigger next dkg from message handler if no event bus for validator
+	// updates
+	if dkgRunner.eventBus == nil {
+		dkgRunner.checkNextDKG()
 	}
 }
 
-func (dkgRunner *DKGRunner) OnValidatorUpdates(height int64, updates []*types.Validator) {
+func (dkgRunner *DKGRunner) validatorUpdatesRoutine(subscription types.Subscription) {
+
+	for {
+		if !dkgRunner.IsRunning() {
+			return
+		}
+		msg := <-subscription.Out()
+		header, ok := msg.Data().(*types.EventDataNewBlockHeader)
+		if ok {
+			abciValUpdates := header.ResultEndBlock.ValidatorUpdates
+			validatorUpdates, _ := types.PB2TM.ValidatorUpdates(abciValUpdates)
+			err := dkgRunner.validators.UpdateWithChangeSet(validatorUpdates)
+			if err != nil {
+				dkgRunner.Logger.Error("validatorUpdatesRoutine: update error %v", err.Error())
+			}
+		}
+		dkgRunner.checkNextDKG()
+	}
+}
+
+func (dkgRunner *DKGRunner) checkNextDKG() {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
 
-	err := dkgRunner.validators.UpdateWithChangeSet(updates)
-	if err == nil && height%dkgRunner.consensusConfig.AeonLength == 0 {
-		dkgRunner.startNewDKG(height)
+	if dkgRunner.height%dkgRunner.consensusConfig.AeonLength == 0 {
+		dkgRunner.startNewDKG()
 	}
 	// Reset completed DKG
 	if dkgRunner.completedDKG {
@@ -82,22 +130,27 @@ func (dkgRunner *DKGRunner) OnValidatorUpdates(height int64, updates []*types.Va
 	dkgRunner.completedDKG = false
 }
 
-func (dkgRunner *DKGRunner) startNewDKG(height int64) {
-	aeon := int(height % dkgRunner.consensusConfig.AeonLength)
+func (dkgRunner *DKGRunner) startNewDKG() {
+	aeon := int(dkgRunner.height % dkgRunner.consensusConfig.AeonLength)
 	if dkgRunner.activeDKG != nil {
-		dkgRunner.Logger.Error("startNewDKG: dkg already started", "aeon", aeon, "height", height)
+		dkgRunner.Logger.Error("startNewDKG: dkg already started", "aeon", aeon, "height", dkgRunner.height)
 		return
 	}
+	if index, _ := dkgRunner.validators.GetByAddress(dkgRunner.privVal.GetPubKey().Address()); index < 0 {
+		dkgRunner.Logger.Debug("startNewDKG: not in validators", "aeon", aeon, "height", dkgRunner.height)
+		return
+	}
+	dkgRunner.Logger.Debug("startNewDKG: sucessful", "aeon", aeon, "height", dkgRunner.height)
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
-		aeon, dkgRunner.privVal, dkgRunner.validators, height+dkgRunner.consensusConfig.DKGResetDelay)
+		aeon, dkgRunner.privVal, dkgRunner.validators, dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay)
+	dkgRunner.activeDKG.SetLogger(dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID))
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
-		dkgRunner.mtx.Lock()
-		defer dkgRunner.mtx.Unlock()
-
 		dkgRunner.messageHandler.SubmitSpecialTx(msg)
 	})
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
-		dkgRunner.dkgCompletionCallback(keys)
+		if dkgRunner.dkgCompletionCallback != nil {
+			dkgRunner.dkgCompletionCallback(keys)
+		}
 	})
 }
