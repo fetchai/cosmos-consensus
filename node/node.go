@@ -593,15 +593,14 @@ func createDKGRunner(
 	state sm.State,
 	privValidator types.PrivValidator,
 	logger log.Logger,
-	eventBus *types.EventBus,
+	db dbm.DB,
 	handler tx_extensions.MessageHandler,
 	entropyGen *beacon.EntropyGenerator) *beacon.DKGRunner {
 	if !config.Consensus.RunDKG {
 		return nil
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), privValidator, state.LastBlockHeight, *state.Validators)
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight, *state.Validators)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
-	dkgRunner.SetEventBus(eventBus)
 	dkgRunner.SetDKGCompletionCallback(entropyGen.AddNewAeonDetails)
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner
@@ -742,7 +741,7 @@ func NewNode(config *cfg.Config,
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
 
-	dkgRunner := createDKGRunner(config, state, privValidator, logger, eventBus, specialTxHandler, entropyGenerator)
+	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler, entropyGenerator)
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
