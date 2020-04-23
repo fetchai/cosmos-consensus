@@ -160,7 +160,14 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
 	// Reset start time
+	currentAeon := dkg.startHeight / dkg.config.AeonLength
 	dkg.startHeight = dkg.startHeight + dkg.duration() + dkg.config.DKGResetDelay
+	// If dkg runs into next aeon then reset start height to the normal dkg start
+	// in that aeon
+	dkgCompletionAeon := (dkg.startHeight + dkg.duration()) / dkg.config.AeonLength
+	if dkgCompletionAeon != currentAeon {
+		dkg.startHeight = dkg.config.AeonLength*(currentAeon+1) + dkg.config.DKGResetDelay
+	}
 	// Reset beaconService
 	index := dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]
 	DeleteBeaconSetupService(dkg.beaconService)
@@ -177,7 +184,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		dkg.checkTransition(blockHeight)
 		return
 	}
-	dkg.Logger.Debug("OnBlock: received transactions", "height", blockHeight)
+	dkg.Logger.Debug("OnBlock: received transactions", "height", blockHeight, "numTrx", len(trxs))
 	// Process transactions
 	for _, trx := range trxs {
 		// Decode transaction

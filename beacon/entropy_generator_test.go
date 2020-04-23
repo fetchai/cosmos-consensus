@@ -48,7 +48,7 @@ func TestEntropyGeneratorSetAeon(t *testing.T) {
 	newGen := testEntropyGenerator()
 	// Set be on the end of first aeon
 	lastBlockHeight := newGen.consensusConfig.AeonLength - 1
-	newGen.lastBlockHeight = lastBlockHeight
+	newGen.setLastBlockHeight(lastBlockHeight)
 
 	testCases := []struct {
 		testName string
@@ -90,7 +90,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		privVal := privVals[i]
 		index, _ := state.Validators.GetByAddress(privVal.GetPubKey().Address())
 		tempGen := testEntropyGen(state.Validators, privVal, index)
-		tempGen.sign(0)
+		tempGen.sign()
 
 		share := tempGen.entropyShares[1][index]
 		newGen.applyEntropyShare(&share)
@@ -106,22 +106,15 @@ func TestEntropyGeneratorSign(t *testing.T) {
 	index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
 	newGen := testEntropyGen(state.Validators, privVals[0], index)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 2, GroupSignature: []byte("Test Entropy")})
+	newGen.setLastBlockHeight(2)
 
 	assert.True(t, len(newGen.entropyShares) == 0)
-	t.Run("sign invalid height", func(t *testing.T) {
-		newGen.sign(-1)
-		assert.True(t, len(newGen.entropyShares) == 0)
-	})
-	t.Run("sign height too far ahead", func(t *testing.T) {
-		newGen.sign(3)
-		assert.True(t, len(newGen.entropyShares) == 0)
-	})
 	t.Run("sign valid", func(t *testing.T) {
-		newGen.sign(2)
+		newGen.sign()
 		assert.True(t, len(newGen.entropyShares[3]) == 1)
 	})
 	t.Run("sign valid repeated", func(t *testing.T) {
-		newGen.sign(2)
+		newGen.sign()
 		assert.True(t, len(newGen.entropyShares[3]) == 1)
 	})
 }
@@ -133,6 +126,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	// Set up non-validator
 	newGen := testEntropyGen(state.Validators, nil, -1)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+	newGen.setLastBlockHeight(1)
 
 	t.Run("applyShare non-validator", func(t *testing.T) {
 		_, privVal := types.RandValidator(false, 30)
@@ -154,8 +148,9 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+		otherGen.setLastBlockHeight(1)
 
-		otherGen.sign(0)
+		otherGen.sign()
 		share := otherGen.entropyShares[1][index]
 
 		newGen.applyEntropyShare(&share)
@@ -165,8 +160,9 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 3, GroupSignature: []byte("Test Entropy")})
+		otherGen.setLastBlockHeight(3)
 
-		otherGen.sign(3)
+		otherGen.sign()
 		share := otherGen.entropyShares[4][index]
 
 		newGen.applyEntropyShare(&share)
@@ -193,8 +189,9 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+		otherGen.setLastBlockHeight(1)
 
-		otherGen.sign(1)
+		otherGen.sign()
 		share := otherGen.entropyShares[2][index]
 		// Alter signature message
 		privVals[0].SignEntropy("wrong chain ID", &share)
@@ -206,8 +203,9 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+		otherGen.setLastBlockHeight(1)
 
-		otherGen.sign(1)
+		otherGen.sign()
 		share := otherGen.entropyShares[2][index]
 
 		newGen.applyEntropyShare(&share)
@@ -241,6 +239,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 	// Set up non-validator
 	newGen := testEntropyGen(state.Validators, nil, -1)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+	newGen.setLastBlockHeight(1)
 	newGen.Start()
 
 	t.Run("applyEntropy old height", func(t *testing.T) {
@@ -259,8 +258,9 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+		otherGen.setLastBlockHeight(1)
 
-		otherGen.sign(1)
+		otherGen.sign()
 		share := otherGen.getEntropyShares(2)[index]
 		entropyWrong := types.ComputedEntropy{Height: 2, GroupSignature: []byte(share.SignatureShare)}
 
@@ -278,8 +278,9 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 			tempIndex, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
 			tempGen := testEntropyGen(state.Validators, val, tempIndex)
 			tempGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 1, GroupSignature: []byte("Test Entropy")})
+			tempGen.setLastBlockHeight(1)
 
-			tempGen.sign(1)
+			tempGen.sign()
 			share := tempGen.getEntropyShares(2)[tempIndex]
 			otherGen.applyEntropyShare(&share)
 		}
@@ -289,6 +290,21 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		newGen.applyComputedEntropy(&entropyRight)
 		assert.True(t, bytes.Equal(newGen.getComputedEntropy(entropyRight.Height), entropyRight.GroupSignature))
 	})
+}
+
+func TestEntropyGeneratorChangeKeys(t *testing.T) {
+	newGen := testEntropyGenerator()
+	newGen.SetLogger(log.TestingLogger())
+
+	assert.True(t, !newGen.isSigningEntropy())
+
+	state, privVal := groupTestSetup(1)
+	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
+	aeonDetails := NewAeonDetails(state.Validators, privVal[0], aeonExecUnit, 5, 50)
+	newGen.AddNewAeonDetails(aeonDetails)
+
+	newGen.Start()
+	assert.Eventually(t, func() bool { return newGen.isSigningEntropy() }, time.Second, 100*time.Millisecond)
 }
 
 func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
@@ -313,7 +329,6 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 }
 
 func testEntropyGenerator() *EntropyGenerator {
-	baseConfig := cfg.TestBaseConfig()
-	consensusConfig := cfg.TestConsensusConfig()
-	return NewEntropyGenerator(&baseConfig, consensusConfig, 0)
+	config := cfg.ResetTestRoot("entropy_generator_test")
+	return NewEntropyGenerator(&config.BaseConfig, config.Consensus, 0)
 }

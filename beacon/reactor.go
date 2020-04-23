@@ -267,7 +267,7 @@ func (beaconR *Reactor) gossipEntropySharesRoutine(peer p2p.Peer, ps *PeerState)
 	logger := beaconR.Logger.With("peer", peer)
 	// Send peer most recent computed entropy if not fast syncing
 	if !beaconR.getFastSync() {
-		peer.Send(StateChannel, cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: beaconR.entropyGen.getLastComputedEntropyHeight()}))
+		peer.Send(StateChannel, cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: beaconR.entropyGen.getLastBlockHeight()}))
 	}
 
 OUTER_LOOP:
@@ -280,7 +280,7 @@ OUTER_LOOP:
 
 		nextEntropyHeight := ps.getLastComputedEntropyHeight() + 1
 		// Use block chain for entropy that has been included in block
-		if nextEntropyHeight < beaconR.entropyGen.getLastComputedEntropyHeight() {
+		if nextEntropyHeight < beaconR.entropyGen.getLastBlockHeight() {
 			block := beaconR.blockStore.LoadBlockMeta(nextEntropyHeight)
 			if block != nil && len(block.Header.Entropy) != 0 {
 				// Send peer entropy from block store

@@ -66,9 +66,7 @@ func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHa
 }
 
 func (dkgRunner *DKGRunner) OnStart() error {
-	if dkgRunner.height%dkgRunner.consensusConfig.AeonLength == 0 {
-		dkgRunner.startNewDKG()
-	}
+	dkgRunner.checkNextDKG()
 	if dkgRunner.eventBus != nil {
 		// Start go routine for subscription
 		go dkgRunner.validatorUpdatesRoutine()
@@ -82,9 +80,10 @@ func (dkgRunner *DKGRunner) OnStop() {
 
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+
 	dkgRunner.height = blockHeight
 	if dkgRunner.activeDKG != nil {
-		dkgRunner.mtx.Unlock()
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
 	}
 	// Trigger next dkg from message handler if no event bus for validator
@@ -103,17 +102,19 @@ func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 
 	for {
 		if !dkgRunner.IsRunning() {
-			dkgRunner.Logger.Debug("validatorUpdatesRoutine: exiting")
+			dkgRunner.Logger.Debug("validatorUpdatesRoutine: exiting", "height", dkgRunner.height)
 			return
 		}
 		select {
 		case msg := <-subscription.Out():
-			dkgRunner.Logger.Debug("validatorUpdatesRoutine: new block header")
+			dkgRunner.Logger.Debug("validatorUpdatesRoutine: new block header", "height", dkgRunner.height)
 			header, ok := msg.Data().(types.EventDataNewBlockHeader)
 			if ok {
 				abciValUpdates := header.ResultEndBlock.ValidatorUpdates
 				validatorUpdates, _ := types.PB2TM.ValidatorUpdates(abciValUpdates)
+				dkgRunner.mtx.Lock()
 				err := dkgRunner.validators.UpdateWithChangeSet(validatorUpdates)
+				dkgRunner.mtx.Unlock()
 				if err != nil {
 					dkgRunner.Logger.Error("validatorUpdatesRoutine: update error %v", err.Error())
 				}
@@ -123,14 +124,13 @@ func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 		case <-dkgRunner.quit:
 			return
 		}
+		dkgRunner.mtx.Lock()
 		dkgRunner.checkNextDKG()
+		dkgRunner.mtx.Unlock()
 	}
 }
 
 func (dkgRunner *DKGRunner) checkNextDKG() {
-	dkgRunner.mtx.Lock()
-	defer dkgRunner.mtx.Unlock()
-
 	if dkgRunner.height%dkgRunner.consensusConfig.AeonLength == 0 {
 		dkgRunner.startNewDKG()
 	}
@@ -142,7 +142,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 }
 
 func (dkgRunner *DKGRunner) startNewDKG() {
-	aeon := int(dkgRunner.height % dkgRunner.consensusConfig.AeonLength)
+	aeon := int(dkgRunner.height / dkgRunner.consensusConfig.AeonLength)
 	if dkgRunner.activeDKG != nil {
 		dkgRunner.Logger.Error("startNewDKG: dkg already started", "aeon", aeon, "height", dkgRunner.height)
 		return
@@ -154,7 +154,7 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "aeon", aeon, "height", dkgRunner.height)
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
 		aeon, dkgRunner.privVal, dkgRunner.validators, dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay)
-	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgIteration)
+	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {

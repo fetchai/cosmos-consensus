@@ -305,8 +305,8 @@ func execBlockOnProxyApp(
 		logger.Error("Error in proxyAppConn.EndBlock", "err", err)
 		return nil, err
 	}
-
-	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs, "entropy", tmbytes.HexBytes(tmhash.Sum(block.Entropy)))
+	logger.Info("Executed block", "height", block.Height, "validTxs", validTxs, "invalidTxs", invalidTxs,
+		"hasEntropy", len(block.Entropy) != 0, "entropy", tmbytes.HexBytes(tmhash.Sum(block.Entropy)))
 
 	return abciResponses, nil
 }

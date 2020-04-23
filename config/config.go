@@ -811,9 +811,9 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		EntropyChannelCapacity:      3,
 		ComputeEntropySleepDuration: 50 * time.Millisecond,
-		DKGStateDuration:            3,
+		DKGStateDuration:            5,
 		DKGResetDelay:               2,
-		AeonLength:                  50,
+		AeonLength:                  100,
 		RunDKG:                      true,
 	}
 }
