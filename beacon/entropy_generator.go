@@ -133,9 +133,8 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	// Check start is for the aeon needed for next entropy generation
-	if aeon.start/entropyGenerator.consensusConfig.AeonLength !=
-		(entropyGenerator.lastBlockHeight+1)/entropyGenerator.consensusConfig.AeonLength {
+	// Check entropy keys are not old
+	if entropyGenerator.lastBlockHeight+1 > aeon.end {
 		return
 	}
 	entropyGenerator.aeon = aeon
