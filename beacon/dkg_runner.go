@@ -12,6 +12,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
+// DKGRunner manages the starting of the DKG each aeon with new validator sets and forwards on
+// the output of the DKG. New DKGs are started at the beginning of every aeon assuming the previous
+// DKG completed on time.
 type DKGRunner struct {
 	service.BaseService
 	consensusConfig *cfg.ConsensusConfig
@@ -48,12 +51,15 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 	return dkgRunner
 }
 
+// SetDKGCompletionCallback for dispatching dkg output
 func (dkgRunner *DKGRunner) SetDKGCompletionCallback(callback func(aeon *aeonDetails)) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
 	dkgRunner.dkgCompletionCallback = callback
 }
 
+// AttachMessageHandler for sending DKG messages to the mempool and receiving DKG messages in
+// blocks
 func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHandler) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
@@ -62,6 +68,7 @@ func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHa
 	dkgRunner.messageHandler.WhenChainTxSeen(dkgRunner.OnBlock)
 }
 
+// OnStart overrides BaseService. Starts first DKG and fetching of validator updates
 func (dkgRunner *DKGRunner) OnStart() error {
 	dkgRunner.checkNextDKG()
 	// Start go routine for subscription
@@ -69,6 +76,7 @@ func (dkgRunner *DKGRunner) OnStart() error {
 	return nil
 }
 
+// OnBlock is callback in messageHandler for DKG messages included in a particular block
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
@@ -80,6 +88,7 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage)
 	}
 }
 
+// Routine for fetching validator updates from the state DB
 func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 
 	for {
@@ -93,6 +102,8 @@ func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 	}
 }
 
+// Fetches validators for most recent block height from state DB and updates local validators. After updates
+// checks if a new DKG should be started with the new validators
 func (dkgRunner *DKGRunner) updateValidators() {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
@@ -117,8 +128,8 @@ func (dkgRunner *DKGRunner) updateValidators() {
 	}
 }
 
+// Resets completed DKG and starts new one at the beginning of every aeon
 func (dkgRunner *DKGRunner) checkNextDKG() {
-	// Reset completed DKG
 	if dkgRunner.completedDKG {
 		dkgRunner.activeDKG = nil
 		dkgRunner.completedDKG = false
@@ -128,6 +139,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 	}
 }
 
+// Starts new DKG if old one has completed for those in the current validator set
 func (dkgRunner *DKGRunner) startNewDKG() {
 	aeon := int(dkgRunner.height / dkgRunner.consensusConfig.AeonLength)
 	if dkgRunner.activeDKG != nil {
@@ -139,14 +151,18 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 		return
 	}
 	dkgRunner.Logger.Debug("startNewDKG: successful", "aeon", aeon, "height", dkgRunner.height)
+	// Create new dkg with dkgID = aeon. New dkg starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
 		aeon, dkgRunner.privVal, dkgRunner.validators, dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay)
+	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
+	// Set message handler for sending DKG transactions
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		dkgRunner.messageHandler.SubmitSpecialTx(msg)
 	})
+	// Mark dkg completion so so that activeDKG can be reset
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
 		if dkgRunner.dkgCompletionCallback != nil {
