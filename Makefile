@@ -187,6 +187,11 @@ build-linux: tools
 	GOOS=linux GOARCH=amd64 $(MAKE) build
 .PHONY: build-linux
 
+build-linux-docker: tools
+	docker build -t tendermint-builder ./tools/build/utils/
+	docker run -it -v `pwd`:/source tendermint-builder
+.PHONY: build-linux-docker
+ 
 build-docker-localnode:
 	@cd networks/local && make
 .PHONY: build-docker-localnode
