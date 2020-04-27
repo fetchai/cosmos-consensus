@@ -2,8 +2,8 @@ package tx_extensions
 
 import (
 	"bytes"
-	"fmt"
 	"errors"
+	"fmt"
 
 	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/types"
@@ -58,10 +58,10 @@ func IsDKGRelated(tx []byte) bool {
 }
 
 type MessageHandler interface {
-	SubmitSpecialTx(message interface{}) // DKG calls this to send away messages
-	ToSubmitTx(cb func([]byte))          // Set the callback to dispatch raw TXs to mempool
-	SpecialTxSeen(tx []byte)             // Chain watcher calls this to notify of TXs seen
-	EndBlock(blockHeight int64)          // Call this to send the block TXs to the DKG
+	SubmitSpecialTx(message interface{})                 // DKG calls this to send away messages
+	ToSubmitTx(cb func([]byte))                          // Set the callback to dispatch raw TXs to mempool
+	SpecialTxSeen(tx []byte)                             // Chain watcher calls this to notify of TXs seen
+	EndBlock(blockHeight int64)                          // Call this to send the block TXs to the DKG
 	WhenChainTxSeen(cb func(int64, []*types.DKGMessage)) // Set the callback for an end block
 }
 
@@ -81,8 +81,8 @@ var _ MessageHandler = &SpecialTxHandler{}
 // Submit a special TX to the chain
 func (txHandler *SpecialTxHandler) SubmitSpecialTx(message interface{}) {
 	switch v := message.(type) {
-	case types.DKGMessage:
-		to_send := AsBytes(&v)
+	case *types.DKGMessage:
+		to_send := AsBytes(v)
 		if txHandler.cb_submit_special_tx != nil {
 			txHandler.cb_submit_special_tx(to_send)
 		}

@@ -209,6 +209,7 @@ type Node struct {
 	entropyGenerator   *beacon.EntropyGenerator
 	beaconReactor      *beacon.Reactor // reactor for signature shares
 	nativeLogCollector *beacon.NativeLoggingCollector
+	dkgRunner          *beacon.DKGRunner
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -587,6 +588,24 @@ func createBeaconReactor(
 	return entropyChannel, entropyGenerator, reactor
 }
 
+func createDKGRunner(
+	config *cfg.Config,
+	state sm.State,
+	privValidator types.PrivValidator,
+	logger log.Logger,
+	db dbm.DB,
+	handler tx_extensions.MessageHandler,
+	entropyGen *beacon.EntropyGenerator) *beacon.DKGRunner {
+	if !config.Consensus.RunDKG {
+		return nil
+	}
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight, *state.Validators)
+	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
+	dkgRunner.SetDKGCompletionCallback(entropyGen.AddNewAeonDetails)
+	dkgRunner.AttachMessageHandler(handler)
+	return dkgRunner
+}
+
 // NewNode returns a new, ready to go, Tendermint Node.
 func NewNode(config *cfg.Config,
 	privValidator types.PrivValidator,
@@ -722,6 +741,8 @@ func NewNode(config *cfg.Config,
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
 
+	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler, entropyGenerator)
+
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add peers from persistent_peers field")
@@ -788,6 +809,7 @@ func NewNode(config *cfg.Config,
 		entropyGenerator:   entropyGenerator,
 		beaconReactor:      beaconReactor,
 		nativeLogCollector: nativeLogger,
+		dkgRunner:          dkgRunner,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -868,6 +890,9 @@ func (n *Node) OnStart() error {
 		}()
 	}
 
+	if n.dkgRunner != nil {
+		n.dkgRunner.Start()
+	}
 	return nil
 }
 
@@ -914,6 +939,9 @@ func (n *Node) OnStop() {
 		}
 	}
 
+	if n.dkgRunner != nil {
+		n.dkgRunner.Stop()
+	}
 	n.nativeLogCollector.Stop()
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
@@ -18,7 +19,7 @@ import (
 
 func TestMain(m *testing.M) {
 	InitialiseMcl()
-	config = ResetConfig("beacon_reactor_test")
+	config = cfg.ResetTestRoot("beacon_reactor_test")
 	code := m.Run()
 	os.RemoveAll(config.RootDir)
 	os.Exit(code)
@@ -106,18 +107,30 @@ func TestReactorEntropy(t *testing.T) {
 	N := 4
 	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", false)
 	defer cleanup()
+
+	// Add second set of keys so entropy generations has patten ON, OFF, ON
+	aeonKeys := setCrypto(N)
+	for i := 0; i < N; i++ {
+		existingAeon := entropyGenerators[i].aeon
+		aeonDetails := NewAeonDetails(existingAeon.validators, existingAeon.privValidator, aeonKeys[i], 20, 29)
+		entropyGenerators[i].AddNewAeonDetails(aeonDetails)
+	}
+
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
 	// Wait for everyone to generate 3 rounds of entropy
 	assert.Eventually(t, func() bool {
 		for i := 0; i < N; i++ {
-			if entropyGenerators[i].getLastComputedEntropyHeight() < 3 {
+			if entropyGenerators[i].getLastBlockHeight() < 30 {
 				return false
 			}
 		}
 		return true
-	}, 3*time.Second, 100*time.Millisecond)
+	}, 30*time.Second, 500*time.Millisecond)
+	for i := 0; i < N; i++ {
+		assert.True(t, entropyGenerators[i].getLastComputedEntropyHeight() == 29)
+	}
 }
 
 func TestReactorReceiveDoesNotPanicIfAddPeerHasntBeenCalledYet(t *testing.T) {
@@ -238,7 +251,7 @@ func TestReactorWithDKG(t *testing.T) {
 
 	aeonStart := int64(20)
 
-	dkgNodes, fakeHandler := exampleDKGNetwork(N, false)
+	dkgNodes := exampleDKGNetwork(N, false)
 
 	for index := 0; index < N; index++ {
 		entropyGen := entropyGenerators[index]
@@ -258,13 +271,23 @@ func TestReactorWithDKG(t *testing.T) {
 	blockHeight := int64(10)
 	for _, node := range dkgNodes {
 		node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+		node.clearMsgs()
 	}
 
 	// Wait until dkg has completed
 	for nodesFinished := 0; nodesFinished < N; {
-		fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
-
 		blockHeight++
+		for index, node := range dkgNodes {
+			for index1, node1 := range dkgNodes {
+				if index1 != index {
+					node1.dkg.OnBlock(blockHeight, node.currentMsgs)
+				}
+			}
+		}
+		for _, node := range dkgNodes {
+			node.clearMsgs()
+		}
+
 		nodesFinished = 0
 
 		for _, node := range dkgNodes {

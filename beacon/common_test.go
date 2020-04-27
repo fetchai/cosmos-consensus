@@ -40,10 +40,6 @@ func ensureDir(dir string, mode os.FileMode) {
 	}
 }
 
-func ResetConfig(name string) *cfg.Config {
-	return cfg.ResetTestRoot(name)
-}
-
 func beaconLogger() log.Logger {
 	return log.TestingLoggerWithColorFn(func(keyvals ...interface{}) term.FgBgColor {
 		for i := 0; i < len(keyvals)-1; i += 2 {
@@ -107,7 +103,6 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 	logger := beaconLogger()
 	configRootDirs := make([]string, 0, nValidators)
 	aeonExecUnits := make([]AeonExecUnit, nValidators)
-	entropyChannels := make([]chan types.ComputedEntropy, nValidators)
 
 	if nValidators == 4 {
 		aeonExecUnits = setCrypto(nValidators)
@@ -118,34 +113,36 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 	}
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 
+	var entropyChannels []chan types.ComputedEntropy
 	if withConsensus {
+		entropyChannels = make([]chan types.ComputedEntropy, nValidators)
 		css = make([]*consensus.State, nValidators)
 	}
 
 	for i := 0; i < nValidators; i++ {
 		stateDB := dbm.NewMemDB() // each state needs its own db
 		state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
-		thisConfig := ResetConfig(fmt.Sprintf("%s_%d", testName, i))
+		thisConfig := cfg.ResetTestRoot(fmt.Sprintf("%s_%d", testName, i))
 		configRootDirs = append(configRootDirs, thisConfig.RootDir)
 
 		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 
-		// Initialise entropy channel
-		entropyChannels[i] = make(chan types.ComputedEntropy, thisConfig.Consensus.EntropyChannelCapacity)
-
-		aeonDetails := NewAeonDetails(state.Validators, privVals[i], aeonExecUnits[index], 1, 50)
+		aeonDetails := NewAeonDetails(state.Validators, privVals[i], aeonExecUnits[index], 1, 9)
 		entropyGenerators[i] = NewEntropyGenerator(&thisConfig.BaseConfig, thisConfig.Consensus, 0)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(*types.NewComputedEntropy(0, state.LastComputedEntropy, true))
 		entropyGenerators[i].SetAeonDetails(aeonDetails)
-		entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
 
 		if withConsensus {
 			ensureDir(filepath.Dir(thisConfig.Consensus.WalFile()), 0700) // dir for wal
+			// Initialise entropy channel
+			entropyChannels[i] = make(chan types.ComputedEntropy, thisConfig.Consensus.EntropyChannelCapacity)
+
 			css[i] = newStateWithConfigAndBlockStore(thisConfig, state, privVals[i], stateDB)
 			css[i].SetLogger(logger.With("validator", i, "module", "consensus"))
 			css[i].SetEntropyChannel(entropyChannels[i])
+			entropyGenerators[i].SetComputedEntropyChannel(entropyChannels[i])
 		}
 	}
 	return css, entropyGenerators, blockStores, func() {

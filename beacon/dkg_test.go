@@ -1,11 +1,8 @@
 package beacon
 
 import (
-	"sync"
 	"testing"
 	"time"
-
-	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
@@ -179,15 +176,14 @@ func TestDKGScenarios(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
-			nodes, fakeHandler := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
+			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
 
-			outputs := make([]*aeonDetails, 0)
-			var mtx sync.Mutex
+			outputs := make([]*aeonDetails, tc.completionSize)
 			for index := 0; index < tc.completionSize; index++ {
+				output := &outputs[index]
+				_ = output // dummy assignment
 				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
-					mtx.Lock()
-					defer mtx.Unlock()
-					outputs = append(outputs, aeon)
+					*output = aeon
 				})
 			}
 
@@ -200,12 +196,21 @@ func TestDKGScenarios(t *testing.T) {
 				assert.True(t, !node.dkg.IsRunning())
 				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
 				assert.True(t, node.dkg.IsRunning())
+				node.clearMsgs()
 			}
 
-			// Wait until dkg has completed
 			for nodesFinished := 0; nodesFinished < tc.completionSize; {
-				fakeHandler.EndBlock(blockHeight) // All nodes get all TXs
 				blockHeight++
+				for index, node := range nodes {
+					for index1, node1 := range nodes {
+						if index1 != index {
+							node1.dkg.OnBlock(blockHeight, node.currentMsgs)
+						}
+					}
+				}
+				for _, node := range nodes {
+					node.clearMsgs()
+				}
 
 				nodesFinished = 0
 				for _, node := range nodes {
@@ -231,9 +236,11 @@ func TestDKGScenarios(t *testing.T) {
 			}, 1*time.Second, 100*time.Millisecond)
 
 			// Check outputs have been set
-			if len(outputs) != tc.completionSize {
-				t.Logf("Test failed: incorrect number of dkg outputs. Expected: %v Got: %v", tc.completionSize, len(outputs))
-				t.FailNow()
+			for _, aeon := range outputs {
+				if aeon == nil {
+					t.Logf("Test failed: received nil dkg output")
+					t.FailNow()
+				}
 			}
 
 			// Check all outputs of expected completed nodes agree
@@ -264,13 +271,15 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], state.Validators, 10)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], *state.Validators, 10)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
 
 type testNode struct {
 	dkg          *DistributedKeyGeneration
+	currentMsgs  []*types.DKGMessage
+	nextMsgs     []*types.DKGMessage
 	failures     []dkgFailure
 	sentBadShare bool
 }
@@ -278,21 +287,31 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, vals, 10),
+		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, *vals, 10),
+		currentMsgs:  make([]*types.DKGMessage, 0),
+		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
 		sentBadShare: false,
 	}
 	node.dkg.SetLogger(log.TestingLogger())
 
-	node.dkg.SetTxPreprocessing(func(tx *types.DKGMessage) error {
-		node.mutateTrx(tx)
-		return nil
+	node.dkg.SetSendMsgCallback(func(msg *types.DKGMessage) {
+		node.mutateMsg(msg)
+		node.nextMsgs = append(node.nextMsgs, msg)
+		if sendDuplicates {
+			node.nextMsgs = append(node.nextMsgs, msg)
+		}
 	})
 
 	return node
 }
 
-func (node *testNode) mutateTrx(msg *types.DKGMessage) {
+func (node *testNode) clearMsgs() {
+	node.currentMsgs = node.nextMsgs
+	node.nextMsgs = make([]*types.DKGMessage, 0)
+}
+
+func (node *testNode) mutateMsg(msg *types.DKGMessage) {
 	if len(node.failures) != 0 {
 		for i := 0; i < len(node.failures); i++ {
 			if node.failures[i] == mutateData {
@@ -312,7 +331,7 @@ func (node *testNode) mutateTrx(msg *types.DKGMessage) {
 	}
 }
 
-func exampleDKGNetwork(nVals int, sendDuplicates bool) ([]*testNode, tx_extensions.MessageHandler) {
+func exampleDKGNetwork(nVals int, sendDuplicates bool) []*testNode {
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
@@ -322,13 +341,5 @@ func exampleDKGNetwork(nVals int, sendDuplicates bool) ([]*testNode, tx_extensio
 	for i := 0; i < nVals; i++ {
 		nodes[i] = newTestNode(config, genDoc.ChainID, privVals[i], state.Validators, sendDuplicates)
 	}
-
-	// Create shared communication channel that represents the chain
-	fakeHandler := tx_extensions.NewFakeMessageHandler()
-
-	// Attach to all nodes
-	for _, node := range nodes {
-		node.dkg.AttachMessageHandler(fakeHandler)
-	}
-	return nodes, fakeHandler
+	return nodes
 }

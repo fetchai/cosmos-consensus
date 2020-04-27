@@ -356,6 +356,7 @@ compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
 dkg_state_duration = "{{ .Consensus.DKGStateDuration }}"
 dkg_reset_delay = "{{ .Consensus.DKGResetDelay }}"
 aeon_length = "{{ .Consensus.AeonLength }}"
+run_dkg = "{{ .Consensus.RunDKG }}"
 
 ##### transactions indexer configuration options #####
 [tx_index]

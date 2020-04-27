@@ -53,7 +53,7 @@ public:
 
   bool CanSign() const;
   bool CheckIndex(CabinetIndex index) const;
-  bool WriteToFile(std::string const &filename) const;
+  void WriteToFile(std::string const &filename) const;
   bool InQual(CabinetIndex index) const;
   std::string GroupPublicKey() const;
 

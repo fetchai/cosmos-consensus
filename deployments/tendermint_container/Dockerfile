@@ -31,6 +31,9 @@ RUN export CGO_ENABLED=1 && \
 # ######### Finished building tendermint executbales ##############
 FROM debian:buster
 
+RUN apt update && \
+	apt install -y libboost-all-dev
+
 WORKDIR /tendermint
 
 # Copy over binaries from the build-env

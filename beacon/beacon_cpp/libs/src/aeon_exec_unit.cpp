@@ -167,7 +167,7 @@ bool AeonExecUnit::CheckIndex(CabinetIndex index) const {
   return Verify(test_message, sig, index);
 }
 
-bool AeonExecUnit::WriteToFile(std::string const &filename) const {
+void AeonExecUnit::WriteToFile(std::string const &filename) const {
   std::ofstream new_file;
   new_file.open(filename);
   new_file << "Qual size, generator, group public key, private key, list of public key shares, qual" << std::endl;
