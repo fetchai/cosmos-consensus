@@ -19,7 +19,7 @@ func GRPCSubscribe(ctx *context.Context, addr, query string) (chan *ctypes.Resul
 		return nil, nil, fmt.Errorf("max_subscriptions_per_client %d reached", config.MaxSubscriptionsPerClient)
 	}
 
-	logger.Info("Subscribe to query", "remote", addr, "query", query)
+	logger.Info("GRPCSubscribe", "remote", addr, "query", query)
 
 	q, err := tmquery.New(query)
 	if err != nil {
@@ -61,10 +61,9 @@ func GRPCSubscribe(ctx *context.Context, addr, query string) (chan *ctypes.Resul
 	return resultChan, errorChan, nil
 }
 
-
 // Unsubscribe from events via GRPC.
 func GRPCUnsubscribe(ctx *context.Context, addr, query string) (*ctypes.ResultUnsubscribe, error) {
-	logger.Info("Unsubscribe from query", "remote", addr, "query", query)
+	logger.Info("GRPCUnsubscribe", "remote", addr, "query", query)
 	q, err := tmquery.New(query)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse query")

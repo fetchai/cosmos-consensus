@@ -23,11 +23,12 @@ func newBlockHeaderEventToProto(msg *types.EventDataNewBlockHeader) (res *EventN
 	if err != nil {
 		return
 	}
-	res = &EventNewBlockHeader{}
-	res.Header = header
-	res.NumTxs = msg.NumTxs
-	res.ResultBeginBlock = &msg.ResultBeginBlock
-	res.ResultEndBlock = &msg.ResultEndBlock
+	res = &EventNewBlockHeader{
+		Header:           header,
+		NumTxs:           msg.NumTxs,
+		ResultBeginBlock: &msg.ResultBeginBlock,
+		ResultEndBlock:   &msg.ResultEndBlock,
+	}
 	return
 }
 
@@ -36,11 +37,14 @@ func newBlockEventToProto(msg *types.EventDataNewBlock) (res *EventNewBlock, err
 	if err != nil {
 		return
 	}
-	res = &EventNewBlock{}
-	res.Block = &Block{}
-	res.Block.Header = header
-	res.Block.Data = &BlockData{}
-	res.Block.Data.Data = make([][]byte, len(msg.Block.Data.Txs))
+	res = &EventNewBlock{
+		Block: &Block{
+			Header: header,
+			Data: &BlockData{
+				Data: make([][]byte, len(msg.Block.Data.Txs)),
+			},
+		},
+	}
 	for i, v := range msg.Block.Data.Txs {
 		res.Block.Data.Data[i] = v
 	}

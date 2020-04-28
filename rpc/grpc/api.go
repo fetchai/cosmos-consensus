@@ -15,12 +15,12 @@ import (
 type grpcAPI struct {
 }
 
-func (bapi *grpcAPI) Ping(ctx context.Context, req *RequestPing) (*ResponsePing, error) {
+func (gapi *grpcAPI) Ping(ctx context.Context, req *RequestPing) (*ResponsePing, error) {
 	// kvstore so we can check if the server is up
 	return &ResponsePing{}, nil
 }
 
-func (bapi *grpcAPI) BroadcastTxCommit(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxCommit, error) {
+func (gapi *grpcAPI) BroadcastTxCommit(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxCommit, error) {
 	// NOTE: there's no way to get client's remote address
 	// see https://stackoverflow.com/questions/33684570/session-and-remote-ip-address-in-grpc-go
 	res, err := core.BroadcastTxCommit(&rpctypes.Context{}, req.Tx)
@@ -43,7 +43,7 @@ func (bapi *grpcAPI) BroadcastTxCommit(ctx context.Context, req *RequestBroadcas
 	}, nil
 }
 
-func (bapi *grpcAPI) BroadcastTxSync(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxSync, error) {
+func (gapi *grpcAPI) BroadcastTxSync(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxSync, error) {
 	res, err := core.BroadcastTxSync(&rpctypes.Context{}, req.Tx)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (bapi *grpcAPI) BroadcastTxSync(ctx context.Context, req *RequestBroadcastT
 	}, nil
 }
 
-func (bapi *grpcAPI) BroadcastTxAsync(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxAsync, error) {
+func (gapi *grpcAPI) BroadcastTxAsync(ctx context.Context, req *RequestBroadcastTx) (*ResponseBroadcastTxAsync, error) {
 	res, err := core.BroadcastTxAsync(&rpctypes.Context{}, req.Tx)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func responseTxConvert(res *ctypes.ResultTx) *ResponseTx {
 	}
 }
 
-func (bapi *grpcAPI) Tx(ctx context.Context, req *RequestTx) (*ResponseTx, error) {
+func (gapi *grpcAPI) Tx(ctx context.Context, req *RequestTx) (*ResponseTx, error) {
 	res, err := core.Tx(&rpctypes.Context{}, req.Hash, req.Prove)
 	if err != nil {
 		return nil, err
@@ -89,7 +89,7 @@ func (bapi *grpcAPI) Tx(ctx context.Context, req *RequestTx) (*ResponseTx, error
 	return responseTxConvert(res), nil
 }
 
-func (bapi *grpcAPI) TxSearch(ctx context.Context, req *RequestTxSearch) (*ResponseTxSearch, error) {
+func (gapi *grpcAPI) TxSearch(ctx context.Context, req *RequestTxSearch) (*ResponseTxSearch, error) {
 	res, err := core.TxSearch(&rpctypes.Context{}, req.Query, req.Prove, int(req.Page), int(req.PerPage), req.OrderBy)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func getAddress(ctx *context.Context) (string, error) {
 	return peer.Addr.String(), nil
 }
 
-func (bapi *grpcAPI) Subscribe(query *RequestSubscribe, stream GrpcAPI_SubscribeServer) error {
+func (gapi *grpcAPI) Subscribe(query *RequestSubscribe, stream GrpcAPI_SubscribeServer) error {
 	ctx := stream.Context()
 	addr, err := getAddress(&ctx)
 	if err != nil {
@@ -130,8 +130,7 @@ func (bapi *grpcAPI) Subscribe(query *RequestSubscribe, stream GrpcAPI_Subscribe
 			response := ResponseSubscribe{Query: msg.Query}
 			response.Events = make(map[string]*EventItem)
 			for key, values := range msg.Events {
-				v := EventItem{}
-				v.Event = values
+				v := EventItem{Event: values}
 				response.Events[key] = &v
 			}
 			switch msgTyped := (msg.Data).(type) {
@@ -163,7 +162,7 @@ func (bapi *grpcAPI) Subscribe(query *RequestSubscribe, stream GrpcAPI_Subscribe
 	return nil
 }
 
-func (bapi *grpcAPI) Unubscribe(ctx context.Context, req *RequestUnsubscribe) (*ResponseUnsubscribe, error) {
+func (gapi *grpcAPI) Unubscribe(ctx context.Context, req *RequestUnsubscribe) (*ResponseUnsubscribe, error) {
 	addr, err := getAddress(&ctx)
 	if err != nil {
 		return nil, err
@@ -175,7 +174,7 @@ func (bapi *grpcAPI) Unubscribe(ctx context.Context, req *RequestUnsubscribe) (*
 	return &ResponseUnsubscribe{}, nil
 }
 
-func (bapi *grpcAPI) UnubscribeAll(ctx context.Context, req *RequestUnsubscribe) (*ResponseUnsubscribe, error) {
+func (gapi *grpcAPI) UnubscribeAll(ctx context.Context, req *RequestUnsubscribe) (*ResponseUnsubscribe, error) {
 	addr, err := getAddress(&ctx)
 	if err != nil {
 		return nil, err
