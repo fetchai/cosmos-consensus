@@ -4,7 +4,10 @@ GOTOOLS = \
 	github.com/gogo/protobuf/protoc-gen-gogo \
 	github.com/square/certstrap
 GOBIN?=${GOPATH}/bin
-PACKAGES=$(shell go list ./...)
+
+# Exclude go package inside mcl
+PACKAGES=$(shell find . -name "*_test.go" -not -path "./vendor/*" -not -path "./beacon/beacon_cpp/*" | xargs -I {} dirname {}  | uniq)
+
 OUTPUT?=build/tendermint
 
 INCLUDE = -I=. -I=${GOPATH}/src -I=${GOPATH}/src/github.com/gogo/protobuf/protobuf
@@ -13,6 +16,7 @@ LD_FLAGS = -X github.com/tendermint/tendermint/version.GitCommit=`git rev-parse 
 BUILD_FLAGS = -mod=readonly -ldflags "$(LD_FLAGS)"
 
 all: check build test install
+.PHONY: all
 
 # The below include contains the tools.
 include tools.mk
@@ -22,18 +26,24 @@ include tests.mk
 ### Build Tendermint
 
 build:
-	CGO_ENABLED=0 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
+	make build_cpp
+	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
+.PHONY: build
 
 build_c:
+	make build_cpp
 	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" -o $(OUTPUT) ./cmd/tendermint/
 
 build_race:
+	make build_cpp
 	CGO_ENABLED=1 go build -race $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint
 
 install:
-	CGO_ENABLED=0 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
+	make build_cpp
+	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
 
 install_c:
+	make build_cpp
 	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" ./cmd/tendermint
 
 ########################################

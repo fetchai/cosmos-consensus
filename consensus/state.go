@@ -2,7 +2,9 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
@@ -133,6 +136,11 @@ type ConsensusState struct {
 
 	// for reporting metrics
 	metrics *Metrics
+
+	// Last entropy and channel for receiving entropy
+	newEntropy             *types.ComputedEntropy
+	computedEntropyChannel <-chan types.ComputedEntropy
+	haveSetComputedEntropyChannel bool
 }
 
 // StateOption sets an optional parameter on the ConsensusState.
@@ -194,6 +202,14 @@ func (cs *ConsensusState) SetLogger(l log.Logger) {
 func (cs *ConsensusState) SetEventBus(b *types.EventBus) {
 	cs.eventBus = b
 	cs.blockExec.SetEventBus(b)
+}
+
+// SetEntropyChannel sets channel along which to receive entropy
+func (cs *ConsensusState) SetEntropyChannel(channel <-chan types.ComputedEntropy) {
+	if cs.computedEntropyChannel == nil {
+		cs.haveSetComputedEntropyChannel = true
+		cs.computedEntropyChannel = channel
+	}
 }
 
 // StateMetrics sets the metrics.
@@ -928,24 +944,89 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 	}
 	logger.Debug("This node is a validator")
 
-	if cs.isProposer(address) {
+	nextProposer := cs.getProposer(height, round)
+	if bytes.Equal(nextProposer.Address, address) {
 		logger.Info("enterPropose: Our turn to propose",
 			"proposer",
-			cs.Validators.GetProposer().Address,
+			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
 		cs.decideProposal(height, round)
 	} else {
 		logger.Info("enterPropose: Not our turn to propose",
 			"proposer",
-			cs.Validators.GetProposer().Address,
+			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
 	}
 }
 
-func (cs *ConsensusState) isProposer(address []byte) bool {
-	return bytes.Equal(cs.Validators.GetProposer().Address, address)
+func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
+
+	// Get entropy for this round if not already set
+	newEntropy := cs.getNewEntropy()
+	entropyEnabled := newEntropy.Enabled
+
+	// Use normal tendermint proposer selection when there is no entropy
+	if entropyEnabled == false {
+		return cs.Validators.GetProposer()
+	}
+
+	index := round
+	if round >= cs.Validators.Size() {
+		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round",  round, "validator size", cs.Validators.Size())
+		index = round % cs.Validators.Size()
+	}
+
+	if newEntropy.Height != height {
+		panic(fmt.Sprintf("getProposer(%v/%v), invalid entropy height %v", height, round, newEntropy.Height))
+	}
+	entropy := tmhash.Sum(newEntropy.GroupSignature)
+	proposer := cs.shuffledCabinet(entropy)[index]
+	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	return proposer
+}
+
+// Allows entropy to be received from any stage it is required, which is necessary for
+// catch up via WAL. Entropy is reset to empty at start and after every committed block.
+// Note that this function can block as long as it takes for the network to generate entropy
+// (possibly forever)
+func (cs *ConsensusState) getNewEntropy() (*types.ComputedEntropy) {
+
+	// Only during test cases should the entropy channel not be set.
+	if cs.haveSetComputedEntropyChannel == false {
+		cs.newEntropy = &types.ComputedEntropy{}
+		cs.newEntropy.Enabled = false
+	} else if cs.newEntropy == nil {
+
+		newEntropy := <-cs.computedEntropyChannel
+		if err := newEntropy.ValidateBasic(); err != nil {
+			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
+		}
+		cs.newEntropy = &newEntropy
+	}
+
+	return cs.newEntropy
+}
+
+// TODO: Check that rand.Shuffle is same across different platforms
+func (cs *ConsensusState) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
+	if len(entropy) < 8 {
+		cs.Logger.Error("Entropy byte array too small for int64 for random seed", "size", len(entropy))
+		return nil
+	}
+	seed := int64(binary.BigEndian.Uint64(entropy))
+	source := rand.NewSource(seed)
+	random := rand.New(source)
+
+	// Shuffle validators
+	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
+	random.Shuffle(len(sortedValidators), func(i, j int) {
+		sortedValidators.Swap(i, j)
+	})
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
+	return sortedValidators
 }
 
 func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
@@ -959,6 +1040,10 @@ func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
 		block, blockParts = cs.createProposalBlock()
+		// Add entropy and reset blockParts
+
+		block.Header.Entropy = cs.getNewEntropy().GroupSignature
+		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
 		}
@@ -1023,8 +1108,9 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 		return
 	}
 
+	entropyEnabled := cs.getNewEntropy().Enabled
 	proposerAddr := cs.privValidator.GetPubKey().Address()
-	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr)
+	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, entropyEnabled)
 }
 
 // Enter: `timeoutPropose` after entering Propose.
@@ -1072,6 +1158,12 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	if cs.ProposalBlock == nil {
 		logger.Info("enterPrevote: ProposalBlock is nil")
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
+	// Check block entropy (note this can be empty in fallback mode which is fine)
+	if !bytes.Equal(cs.ProposalBlock.Header.Entropy, cs.getNewEntropy().GroupSignature) {
+		logger.Error("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v", cs.getNewEntropy().Enabled)
 		return
 	}
 
@@ -1376,8 +1468,11 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 		panic(fmt.Sprintf("+2/3 committed an invalid block: %v", err))
 	}
 
-	cs.Logger.Info(fmt.Sprintf("Finalizing commit of block with %d txs", block.NumTxs),
-		"height", block.Height, "hash", block.Hash(), "root", block.AppHash)
+	cs.Logger.Info("Finalizing commit of block with N txs",
+		"height", block.Height,
+		"hash", block.Hash(),
+		"root", block.AppHash,
+		"N", len(block.Txs))
 	cs.Logger.Info(fmt.Sprintf("%v", block))
 
 	fail.Fail() // XXX
@@ -1444,6 +1539,9 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
 
+	// Reset entropy. Important that this is only done here!
+	cs.newEntropy = nil
+
 	fail.Fail() // XXX
 
 	// cs.StartTime is already set.
@@ -1461,28 +1559,42 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 	cs.metrics.ValidatorsPower.Set(float64(cs.Validators.TotalVotingPower()))
 
 	var (
-		missingValidators      = 0
+		missingValidators      int
 		missingValidatorsPower int64
 	)
-	for i, val := range cs.Validators.Validators {
-		var vote *types.CommitSig
-		if i < len(block.LastCommit.Precommits) {
-			vote = block.LastCommit.Precommits[i]
-		}
-		if vote == nil {
-			missingValidators++
-			missingValidatorsPower += val.VotingPower
+	// height=0 -> MissingValidators and MissingValidatorsPower are both 0.
+	// Remember that the first LastCommit is intentionally empty, so it's not
+	// fair to increment missing validators number.
+	if height > 1 {
+		// Sanity check that commit size matches validator set size - only applies
+		// after first block.
+		var (
+			commitSize = block.LastCommit.Size()
+			valSetLen  = len(cs.LastValidators.Validators)
+		)
+		if commitSize != valSetLen {
+			panic(fmt.Sprintf("commit size (%d) doesn't match valset length (%d) at height %d\n\n%v\n\n%v",
+				commitSize, valSetLen, block.Height, block.LastCommit.Precommits, cs.LastValidators.Validators))
 		}
 
-		if cs.privValidator != nil && bytes.Equal(val.Address, cs.privValidator.GetPubKey().Address()) {
-			label := []string{
-				"validator_address", val.Address.String(),
+		for i, val := range cs.LastValidators.Validators {
+			commitSig := block.LastCommit.Precommits[i]
+			if commitSig == nil {
+				missingValidators++
+				missingValidatorsPower += val.VotingPower
 			}
-			cs.metrics.ValidatorPower.With(label...).Set(float64(val.VotingPower))
-			if vote != nil {
-				cs.metrics.ValidatorLastSignedHeight.With(label...).Set(float64(height))
-			} else {
-				cs.metrics.ValidatorMissedBlocks.With(label...).Add(float64(1))
+
+			if cs.privValidator != nil && bytes.Equal(val.Address, cs.privValidator.GetPubKey().Address()) {
+				label := []string{
+					"validator_address", val.Address.String(),
+				}
+				cs.metrics.ValidatorPower.With(label...).Set(float64(val.VotingPower))
+
+				if commitSig != nil {
+					cs.metrics.ValidatorLastSignedHeight.With(label...).Set(float64(height))
+				} else {
+					cs.metrics.ValidatorMissedBlocks.With(label...).Add(float64(1))
+				}
 			}
 		}
 	}
@@ -1505,9 +1617,9 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 		)
 	}
 
-	cs.metrics.NumTxs.Set(float64(block.NumTxs))
+	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
+	cs.metrics.TotalTxs.Add(float64(len(block.Data.Txs)))
 	cs.metrics.BlockSizeBytes.Set(float64(block.Size()))
-	cs.metrics.TotalTxs.Set(float64(block.TotalTxs))
 	cs.metrics.CommittedHeight.Set(float64(block.Height))
 }
 
@@ -1532,7 +1644,7 @@ func (cs *ConsensusState) defaultSetProposal(proposal *types.Proposal) error {
 	}
 
 	// Verify signature
-	if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
+	if !cs.getProposer(proposal.Height, proposal.Round).PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
 		return ErrInvalidProposalSignature
 	}
 
@@ -1626,6 +1738,7 @@ func (cs *ConsensusState) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, err
 		// If the vote height is off, we'll just ignore it,
 		// But if it's a conflicting sig, add it to the cs.evpool.
 		// If it's otherwise invalid, punish peer.
+		// nolint: gocritic
 		if err == ErrVoteHeightMismatch {
 			return added, err
 		} else if voteErr, ok := err.(*types.ErrVoteConflictingVotes); ok {
@@ -1633,13 +1746,18 @@ func (cs *ConsensusState) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, err
 			if bytes.Equal(vote.ValidatorAddress, addr) {
 				cs.Logger.Error(
 					"Found conflicting vote from ourselves. Did you unsafe_reset a validator?",
-					"height", vote.Height,
-					"round", vote.Round,
-					"type", vote.Type)
+					"height",
+					vote.Height,
+					"round",
+					vote.Round,
+					"type",
+					vote.Type)
 				return added, err
 			}
 			cs.evpool.AddEvidence(voteErr.DuplicateVoteEvidence)
 			return added, err
+		} else if err == types.ErrVoteNonDeterministicSignature {
+			cs.Logger.Debug("Vote has non-deterministic signature", "err", err)
 		} else {
 			// Either
 			// 1) bad peer OR
@@ -1660,10 +1778,15 @@ func (cs *ConsensusState) addVote(
 	peerID p2p.ID) (added bool, err error) {
 	cs.Logger.Debug(
 		"addVote",
-		"voteHeight", vote.Height,
-		"voteType", vote.Type,
-		"valIndex", vote.ValidatorIndex,
-		"csHeight", cs.Height)
+		"voteHeight",
+		vote.Height,
+		"voteType",
+		vote.Type,
+		"valIndex",
+		vote.ValidatorIndex,
+		"csHeight",
+		cs.Height,
+	)
 
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit

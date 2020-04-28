@@ -71,6 +71,16 @@ vagrant_test:
 	vagrant up
 	vagrant ssh -c 'make test_integrations'
 
+build_cpp:
+	cd beacon/beacon_cpp && \
+	mkdir -p build && \
+	cd build && \
+	cmake .. && \
+	make -j8 && \
+	cp lib/libmcl.a libs/libmcl.a && \
+	cd ..
+.PHONY: build_cpp
+
 ### go tests
 test:
 	@echo "--> Running go test"

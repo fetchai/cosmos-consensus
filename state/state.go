@@ -81,6 +81,8 @@ type State struct {
 
 	// the latest AppHash we've received from calling abci.Commit()
 	AppHash []byte
+
+	LastComputedEntropy types.ThresholdSignature
 }
 
 // Copy makes a copy of the State for mutating.
@@ -105,6 +107,8 @@ func (state State) Copy() State {
 		AppHash: state.AppHash,
 
 		LastResultsHash: state.LastResultsHash,
+
+		LastComputedEntropy: state.LastComputedEntropy,
 	}
 }
 
@@ -166,7 +170,6 @@ func (state State) MakeBlock(
 // the votes sent by honest processes, i.e., a faulty processes can not arbitrarily increase or decrease the
 // computed value.
 func MedianTime(commit *types.Commit, validators *types.ValidatorSet) time.Time {
-
 	weightedTimes := make([]*tmtime.WeightedTime, len(commit.Precommits))
 	totalVotingPower := int64(0)
 
@@ -246,5 +249,6 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		LastHeightConsensusParamsChanged: 1,
 
 		AppHash: genDoc.AppHash,
+		LastComputedEntropy: []byte(genDoc.Entropy),
 	}, nil
 }

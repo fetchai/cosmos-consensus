@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	"testing"
 	"time"
 
@@ -224,6 +225,61 @@ func TestStateBadProposal(t *testing.T) {
 	ensurePrecommit(voteCh, height, round)
 	validatePrecommit(t, cs1, round, -1, vss[0], nil, nil)
 	signAddVotes(cs1, types.PrecommitType, propBlock.Hash(), propBlock.MakePartSet(partSize).Header(), vs2)
+}
+
+func TestStateBeaconProposerSelection(t *testing.T) {
+	cs1, _ := randConsensusState(4)
+
+	computedEntropyChannel := make(chan types.ComputedEntropy, cs1.config.EntropyChannelCapacity)
+	cs1.SetEntropyChannel(computedEntropyChannel)
+
+	computedEntropyChannel <- *types.NewComputedEntropy(1, []byte{0, 0, 0, 0, 1, 2, 3, 4}, true)
+	computedEntropyChannel <- *types.NewComputedEntropy(2, []byte{0, 0, 0, 0, 5, 6, 7, 8}, true)
+
+	// Check validators for height 1
+	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})
+	shuffledCabinet := cs1.shuffledCabinet(entropy)
+	shuffledCabinetTest := cs1.shuffledCabinet(entropy)
+	for a := 0; a < 4; a++ {
+		assert.True(t, bytes.Equal(shuffledCabinet[a].Address, shuffledCabinetTest[a].Address))
+		assert.True(t, shuffledCabinet[a].PubKey.Equals(shuffledCabinetTest[a].PubKey))
+		assert.True(t, shuffledCabinet[a].VotingPower == shuffledCabinetTest[a].VotingPower)
+		assert.True(t, shuffledCabinet[a].ProposerPriority == shuffledCabinetTest[a].ProposerPriority)
+	}
+
+	countEqual := 0
+	for i := 0; i < 4; i++ {
+		prop := cs1.getProposer(1, i)
+		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet[i].Address))
+		if bytes.Equal(prop.Address, cs1.Validators.GetProposer().Address) {
+			countEqual++
+		}
+	}
+
+	// Reset entropy
+	cs1.newEntropy = nil
+
+	// Check validators for height 2
+	entropy2 := tmhash.Sum([]byte{0, 0, 0, 0, 5, 6, 7, 8})
+	shuffledCabinet2 := cs1.shuffledCabinet(entropy2)
+	for i := 0; i < 4; i++ {
+		prop := cs1.getProposer(2, i)
+		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet2[i].Address))
+		if bytes.Equal(prop.Address, cs1.Validators.GetProposer().Address) {
+			countEqual++
+		}
+	}
+
+	// Check shuffled cabinets are different
+	for j := 0; j < 4; j++ {
+		assert.True(t, bytes.Equal(shuffledCabinet[j].Address, shuffledCabinetTest[j].Address))
+		assert.True(t, shuffledCabinet[j].PubKey.Equals(shuffledCabinetTest[j].PubKey))
+		assert.True(t, shuffledCabinet[j].VotingPower == shuffledCabinetTest[j].VotingPower)
+		assert.True(t, shuffledCabinet[j].ProposerPriority == shuffledCabinetTest[j].ProposerPriority)
+	}
+
+	// Check that validators are computed using entropy
+	assert.True(t, countEqual != 8)
 }
 
 //----------------------------------------------------------------------------------------------------

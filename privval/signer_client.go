@@ -129,3 +129,45 @@ func (sc *SignerClient) SignProposal(chainID string, proposal *types.Proposal) e
 
 	return nil
 }
+
+// SignEntropy requests a remote signer to sign entropy
+func (sc *SignerClient) SignEntropy(chainID string, entropy *types.EntropyShare) error {
+	response, err := sc.endpoint.SendRequest(&SignEntropyRequest{Entropy: entropy})
+	if err != nil {
+		sc.endpoint.Logger.Error("SignerClient::SignEntropy", "err", err)
+		return err
+	}
+
+	resp, ok := response.(*SignedEntropyResponse)
+	if !ok {
+		sc.endpoint.Logger.Error("SignerClient::SignEntropy", "err", "response != SignedEntropyResponse")
+		return ErrUnexpectedResponse
+	}
+	if resp.Error != nil {
+		return resp.Error
+	}
+	*entropy = *resp.Entropy
+
+	return nil
+}
+
+// SignDKGMessage requests a remote signer to sign a DKG message
+func (sc *SignerClient) SignDKGMessage(chainID string, msg *types.DKGMessage) error {
+	response, err := sc.endpoint.SendRequest(&SignDKGRequest{DKGMessage: msg})
+	if err != nil {
+		sc.endpoint.Logger.Error("SignerClient::SignDKGMessage", "err", err)
+		return err
+	}
+
+	resp, ok := response.(*SignedDKGResponse)
+	if !ok {
+		sc.endpoint.Logger.Error("SignerClient::SignDKGMessage", "err", "response != SignedDKGResponse")
+		return ErrUnexpectedResponse
+	}
+	if resp.Error != nil {
+		return resp.Error
+	}
+	*msg = *resp.DKGMessage
+
+	return nil
+}
