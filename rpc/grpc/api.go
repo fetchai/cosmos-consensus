@@ -167,7 +167,7 @@ func (gapi *grpcAPI) Unubscribe(ctx context.Context, req *RequestUnsubscribe) (*
 	if err != nil {
 		return nil, err
 	}
-	_, err = core.GRPCUnsubscribe(&ctx, addr, req.Query)
+	_, err = core.GRPCUnsubscribe(addr, req.Query)
 	if err != nil {
 		return nil, err
 	}

@@ -62,7 +62,7 @@ func GRPCSubscribe(ctx *context.Context, addr, query string) (chan *ctypes.Resul
 }
 
 // Unsubscribe from events via GRPC.
-func GRPCUnsubscribe(ctx *context.Context, addr, query string) (*ctypes.ResultUnsubscribe, error) {
+func GRPCUnsubscribe(addr, query string) (*ctypes.ResultUnsubscribe, error) {
 	logger.Info("GRPCUnsubscribe", "remote", addr, "query", query)
 	q, err := tmquery.New(query)
 	if err != nil {
