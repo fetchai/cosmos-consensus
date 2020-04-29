@@ -162,14 +162,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
 	// Reset start time
-	currentAeon := dkg.startHeight / dkg.config.AeonLength
 	dkg.startHeight = dkg.startHeight + dkg.duration() + dkg.config.DKGResetDelay
-	// If dkg runs into next aeon then reset start height to the normal dkg start
-	// in that aeon
-	dkgCompletionAeon := (dkg.startHeight + dkg.duration()) / dkg.config.AeonLength
-	if dkgCompletionAeon != currentAeon {
-		dkg.startHeight = dkg.config.AeonLength*(currentAeon+1) + dkg.config.DKGResetDelay
-	}
 	// Reset beaconService
 	index := dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]
 	DeleteBeaconSetupService(dkg.beaconService)
@@ -369,13 +362,10 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	if dkg.dkgCompletionCallback != nil {
 		// Create new aeon details - start height either the start
 		// of the next aeon or immediately (with some delay)
+		nextAeonStart := dkg.currentAeonEnd + 1
 		dkgEnd := (dkg.startHeight + dkg.duration())
-		var nextAeonStart int64
-		if dkgEnd > dkg.currentAeonEnd {
+		if dkgEnd >= nextAeonStart {
 			nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
-		} else {
-			currentAeon := dkgEnd / dkg.config.AeonLength
-			nextAeonStart = (currentAeon + 1) * dkg.config.AeonLength
 		}
 		aeonDetails := newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
 			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)

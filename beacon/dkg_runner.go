@@ -98,7 +98,9 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage)
 	if dkgRunner.activeDKG != nil {
 		dkgRunner.mtx.Unlock()
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
+		return
 	}
+	dkgRunner.mtx.Unlock()
 }
 
 // Routine for fetching validator updates from the state DB
