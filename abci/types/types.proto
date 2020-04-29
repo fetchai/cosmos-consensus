@@ -332,6 +332,8 @@ message Header {
   // consensus info
   bytes evidence_hash    = 13;  // evidence included in the block
   bytes proposer_address = 14;  // original proposer of the block
+
+  bytes entropy = 15;
 }
 
 message Version {

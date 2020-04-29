@@ -24,12 +24,42 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestBroadcastTx(t *testing.T) {
-	res, err := rpctest.GetGRPCClient().BroadcastTx(
+func TestBroadcastTxCommit(t *testing.T) {
+	res, err := rpctest.GetGRPCClient().BroadcastTxCommit(
 		context.Background(),
 		&core_grpc.RequestBroadcastTx{Tx: []byte("this is a tx")},
 	)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, res.CheckTx.Code)
 	require.EqualValues(t, 0, res.DeliverTx.Code)
+}
+
+func TestBroadcastTxSync(t *testing.T) {
+	res, err := rpctest.GetGRPCClient().BroadcastTxSync(
+		context.Background(),
+		&core_grpc.RequestBroadcastTx{Tx: []byte("this is a tx 2")},
+	)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, res.CheckTx.Code)
+}
+
+func TestSubscribe(t *testing.T) {
+	client := rpctest.GetGRPCClient()
+	_, err := client.Subscribe(
+		context.Background(),
+		&core_grpc.RequestSubscribe{Query: "tm.event='NewBlock'"},
+	)
+	require.NoError(t, err)
+
+	_, err = client.BroadcastTxSync(
+		context.Background(),
+		&core_grpc.RequestBroadcastTx{Tx: []byte("this is a tx 3")},
+	)
+	require.NoError(t, err)
+
+	_, err = client.Unubscribe(
+		context.Background(),
+		&core_grpc.RequestUnsubscribe{Query: "tm.event='NewBlock'"},
+	)
+	require.NoError(t, err)
 }
