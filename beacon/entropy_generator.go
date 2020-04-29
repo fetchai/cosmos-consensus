@@ -213,7 +213,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		entropyGenerator.aeon = newAeon.Value.(*aeonDetails)
 		entropyGenerator.aeonQueue.Remove(newAeon)
 		// Save keys for crash recovery
-		entropyGenerator.aeon.aeonExecUnit.WriteToFile(entropyGenerator.baseConfig.EntropyKeyFile())
+		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
 
 		// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
 		// only be the case one for first DKG after genesis)
