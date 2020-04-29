@@ -16,8 +16,8 @@ type aeonDetails struct {
 	threshold     int
 	aeonExecUnit  AeonExecUnit
 	// start and end are inclusive
-	start int64
-	end   int64
+	Start int64
+	End   int64
 }
 
 // LoadAeonDetails creates aeonDetails from keys saved in file
@@ -90,8 +90,8 @@ func newAeonDetails(
 		validators:    newVals,
 		aeonExecUnit:  aeonKeys,
 		threshold:     validators.Size()/2 + 1,
-		start:         startHeight,
-		end:           endHeight,
+		Start:         startHeight,
+		End:           endHeight,
 	}
 
 	return ad
@@ -104,8 +104,8 @@ func (aeon *aeonDetails) save(filePath string) {
 		Generator:       aeon.aeonExecUnit.Generator(),
 		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
 		Qual:            make([]uint, len(aeon.validators.Validators)),
-		Start:           aeon.start,
-		End:             aeon.end,
+		Start:           aeon.Start,
+		End:             aeon.End,
 	}
 
 	publicKeyShares := aeon.aeonExecUnit.PublicKeyShares()

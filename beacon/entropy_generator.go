@@ -134,7 +134,7 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 	defer entropyGenerator.mtx.Unlock()
 
 	// Check entropy keys are not old
-	if entropyGenerator.lastBlockHeight+1 > aeon.end {
+	if entropyGenerator.lastBlockHeight+1 > aeon.End {
 		return
 	}
 	entropyGenerator.aeon = aeon
@@ -174,13 +174,13 @@ func (entropyGenerator *EntropyGenerator) AddNewAeonDetails(aeon *aeonDetails) {
 	lastInQueue := entropyGenerator.aeonQueue.Back()
 	if lastInQueue != nil {
 		lastAeon := lastInQueue.Value.(*aeonDetails)
-		if aeon.start <= lastAeon.end {
+		if aeon.Start <= lastAeon.End {
 			panic(fmt.Errorf("AddNewAeonDetails: incompatible new aeon received. New aeon start %v, existing aeon end %v",
-				aeon.start, lastAeon.end))
+				aeon.Start, lastAeon.End))
 		}
 	}
 	entropyGenerator.aeonQueue.PushBack(aeon)
-	entropyGenerator.Logger.Debug("AddNewAeonDetails: aeon received", "start", aeon.start, "end", aeon.end)
+	entropyGenerator.Logger.Debug("AddNewAeonDetails: aeon received", "start", aeon.Start, "end", aeon.End)
 }
 
 func (entropyGenerator *EntropyGenerator) changeKeys() bool {
@@ -188,16 +188,16 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 	defer entropyGenerator.mtx.Unlock()
 
 	// Reset aeon to nil at the end of its time
-	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.aeon.end {
+	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.aeon.End {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
-			"end", entropyGenerator.aeon.end)
+			"end", entropyGenerator.aeon.End)
 		entropyGenerator.aeon = nil
 	}
 
 	// Find next relevant aeon in queue or nothing
 	newAeon := entropyGenerator.aeonQueue.Front()
-	for newAeon != nil && entropyGenerator.lastBlockHeight+1 > newAeon.Value.(*aeonDetails).start {
-		if entropyGenerator.lastBlockHeight+1 < newAeon.Value.(*aeonDetails).end {
+	for newAeon != nil && entropyGenerator.lastBlockHeight+1 > newAeon.Value.(*aeonDetails).Start {
+		if entropyGenerator.lastBlockHeight+1 < newAeon.Value.(*aeonDetails).End {
 			panic(fmt.Errorf("changeKeys: Did not receive keys in time for aeon start! Height %v", entropyGenerator.lastBlockHeight+1))
 		}
 		entropyGenerator.aeonQueue.Remove(newAeon)
@@ -205,9 +205,9 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 	}
 
 	if newAeon != nil {
-		if entropyGenerator.lastBlockHeight+1 != newAeon.Value.(*aeonDetails).start {
+		if entropyGenerator.lastBlockHeight+1 != newAeon.Value.(*aeonDetails).Start {
 			entropyGenerator.Logger.Debug("changeKeys: Found keys not yet ready", "blockHeight", entropyGenerator.lastBlockHeight,
-				"start", newAeon.Value.(*aeonDetails).start)
+				"start", newAeon.Value.(*aeonDetails).Start)
 			return false
 		}
 		entropyGenerator.aeon = newAeon.Value.(*aeonDetails)
@@ -223,7 +223,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 				[]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey())
 		}
 		entropyGenerator.Logger.Debug("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
-			"start", entropyGenerator.aeon.start)
+			"start", entropyGenerator.aeon.Start)
 		return true
 	}
 	entropyGenerator.Logger.Debug("changeKeys: No new keys", "blockHeight", entropyGenerator.lastBlockHeight)
