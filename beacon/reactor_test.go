@@ -112,7 +112,7 @@ func TestReactorEntropy(t *testing.T) {
 	aeonKeys := setCrypto(N)
 	for i := 0; i < N; i++ {
 		existingAeon := entropyGenerators[i].aeon
-		aeonDetails := NewAeonDetails(existingAeon.validators, existingAeon.privValidator, aeonKeys[i], 20, 29)
+		aeonDetails := newAeonDetails(existingAeon.validators, existingAeon.privValidator, aeonKeys[i], 20, 29)
 		entropyGenerators[i].AddNewAeonDetails(aeonDetails)
 	}
 

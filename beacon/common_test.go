@@ -128,7 +128,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 
-		aeonDetails := NewAeonDetails(state.Validators, privVals[i], aeonExecUnits[index], 1, 9)
+		aeonDetails := newAeonDetails(state.Validators, privVals[i], aeonExecUnits[index], 1, 9)
 		entropyGenerators[i] = NewEntropyGenerator(&thisConfig.BaseConfig, thisConfig.Consensus, 0)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(*types.NewComputedEntropy(0, state.LastComputedEntropy, true))
