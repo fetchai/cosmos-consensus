@@ -65,6 +65,8 @@ type DistributedKeyGeneration struct {
 	validators     types.ValidatorSet
 	threshold      int
 	currentAeonEnd int64
+	aeonLength     int64
+	stateDuration  int64
 
 	startHeight   int64
 	states        map[dkgState]*state
@@ -77,7 +79,7 @@ type DistributedKeyGeneration struct {
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
-	privVal types.PrivValidator, vals types.ValidatorSet, startH int64, aeonEnd int64) *DistributedKeyGeneration {
+	privVal types.PrivValidator, vals types.ValidatorSet, startH int64, aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
@@ -92,20 +94,26 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 		valToIndex:     make(map[string]uint),
 		validators:     vals,
 		currentAeonEnd: aeonEnd,
+		aeonLength:     aeonLength,
 		threshold:      dkgThreshold,
 		startHeight:    startH,
 		states:         make(map[dkgState]*state),
 		currentState:   dkgStart,
 		beaconService:  NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
 	}
+	// When computing dkg duration allow buffer for run ahead on entropy generation so that
+	// dkg does not complete right at the end of the aeon
+	dkgDuration := (aeonLength - dkg.config.EntropyChannelCapacity - 1) / dkg.config.DKGAttemptsInAeon
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
-
+	// Divide by number of states to get the duration of each state
+	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / 6
 	// Set validator address to index
 	for index, val := range dkg.validators.Validators {
 		dkg.valToIndex[string(val.PubKey.Address())] = uint(index)
 	}
 
 	dkg.setStates()
+	dkg.Logger.Info("New dkg", "startHeight", dkg.startHeight, "aeonLength", dkg.aeonLength, "stateDuration", dkg.stateDuration)
 
 	return dkg
 }
@@ -130,27 +138,27 @@ func (dkg *DistributedKeyGeneration) setStates() {
 		err := dkg.Start()
 		return err == nil
 	}, nil)
-	dkg.states[waitForCoefficientsAndShares] = newState(dkg.config.DKGStateDuration,
+	dkg.states[waitForCoefficientsAndShares] = newState(dkg.stateDuration,
 		dkg.sendSharesAndCoefficients,
 		nil,
 		dkg.beaconService.ReceivedAllCoefficientsAndShares)
-	dkg.states[waitForComplaints] = newState(dkg.config.DKGStateDuration,
+	dkg.states[waitForComplaints] = newState(dkg.stateDuration,
 		dkg.sendComplaints,
 		nil,
 		dkg.beaconService.ReceivedAllComplaints)
-	dkg.states[waitForComplaintAnswers] = newState(dkg.config.DKGStateDuration,
+	dkg.states[waitForComplaintAnswers] = newState(dkg.stateDuration,
 		dkg.sendComplaintAnswers,
 		dkg.buildQual,
 		dkg.beaconService.ReceivedAllComplaintAnswers)
-	dkg.states[waitForQualCoefficients] = newState(dkg.config.DKGStateDuration,
+	dkg.states[waitForQualCoefficients] = newState(dkg.stateDuration,
 		dkg.sendQualCoefficients,
 		nil,
 		dkg.beaconService.ReceivedAllQualCoefficients)
-	dkg.states[waitForQualComplaints] = newState(dkg.config.DKGStateDuration,
+	dkg.states[waitForQualComplaints] = newState(dkg.stateDuration,
 		dkg.sendQualComplaints,
 		dkg.beaconService.CheckQualComplaints,
 		dkg.beaconService.ReceivedAllQualComplaints)
-	dkg.states[waitForReconstructionShares] = newState(dkg.config.DKGStateDuration,
+	dkg.states[waitForReconstructionShares] = newState(dkg.stateDuration,
 		dkg.sendReconstructionShares,
 		dkg.beaconService.RunReconstruction,
 		dkg.beaconService.ReceivedAllReconstructionShares)
@@ -368,7 +376,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 			nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
 		}
 		aeonDetails := newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
-			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
+			nextAeonStart, nextAeonStart+dkg.aeonLength-1)
 		dkg.dkgCompletionCallback(aeonDetails)
 	}
 
