@@ -75,7 +75,7 @@ func init() {
 		"P2P Port")
 	TestnetFilesCmd.Flags().BoolVar(&randomMonikers, "random-monikers", false,
 		"Randomize the moniker for each generated node")
-	TestnetFilesCmd.Flags().BoolVar(&setEntropyFiles, "set-entropy-files", true, "Enforce existence of entropy key files")
+	TestnetFilesCmd.Flags().BoolVar(&setEntropyFiles, "set-entropy-files", false, "Enforce existence of entropy key files")
 }
 
 // TestnetFilesCmd allows initialisation of files for a Tendermint testnet.
@@ -254,7 +254,7 @@ func moveEntropyFile(entropyIndex int, nodeIndex int) error {
 	if nodeIndex >= nValidators {
 		relevantIndex = nodeIndex
 	}
-	oldEntropyFile := filepath.Join(outputDir, fmt.Sprintf("%d.txt", relevantIndex))
+	oldEntropyFile := filepath.Join(outputDir, fmt.Sprintf("%d.json", relevantIndex))
 	_, findFileErr := os.Stat(oldEntropyFile)
 	if os.IsNotExist(findFileErr) {
 		return fmt.Errorf("entropy key file %v does not exist", oldEntropyFile)
