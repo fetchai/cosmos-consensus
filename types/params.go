@@ -150,7 +150,7 @@ func (params *ConsensusParams) Validate() error {
 		}
 	}
 
-	if params.Entropy.AeonLength < 0 {
+	if params.Entropy.AeonLength <= 0 {
 		return errors.Errorf("entropyParams.AeonLength must be greater than 0. Got %v", params.Entropy.AeonLength)
 	}
 
