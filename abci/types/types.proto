@@ -219,6 +219,7 @@ message ConsensusParams {
   BlockParams     block     = 1;
   EvidenceParams  evidence  = 2;
   ValidatorParams validator = 3;
+  EntropyParams   entropy   = 4;
 }
 
 // BlockParams contains limits on the block size.
@@ -239,6 +240,12 @@ message EvidenceParams {
 // ValidatorParams contains limits on validators.
 message ValidatorParams {
   repeated string pub_key_types = 1;
+}
+
+// EntropyParams contains config for DKG and entropy generation
+message EntropyParams {
+  // Note: must be greater than 0
+  int64 aeon_length = 1;
 }
 
 message LastCommitInfo {
