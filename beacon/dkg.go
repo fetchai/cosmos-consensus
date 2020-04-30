@@ -101,24 +101,23 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 		currentState:   dkgStart,
 		beaconService:  NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
 	}
-	// When computing dkg duration allow buffer for run ahead on entropy generation so that
-	// dkg does not complete right at the end of the aeon
-	dkgDuration := (aeonLength - dkg.config.EntropyChannelCapacity - 1) / dkg.config.DKGAttemptsInAeon
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
-	// Divide by number of states to get the duration of each state
-	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / 6
 	// Set validator address to index
 	for index, val := range dkg.validators.Validators {
 		dkg.valToIndex[string(val.PubKey.Address())] = uint(index)
 	}
 
+	// When computing dkg duration allow buffer for run ahead on entropy generation so that
+	// dkg does not complete right at the end of the aeon
+	dkgDuration := (aeonLength - dkg.config.EntropyChannelCapacity - 1) / dkg.config.DKGAttemptsInAeon
+	// Divide by number of states to get the duration of each state
+	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / 6
 	dkg.setStates()
-	dkg.Logger.Info("New dkg", "startHeight", dkg.startHeight, "aeonLength", dkg.aeonLength, "stateDuration", dkg.stateDuration)
 
 	return dkg
 }
 
-// AttachMessageHandler sets the function for the DKG to send transactions to the mempool
+// SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
 func (dkg *DistributedKeyGeneration) SetSendMsgCallback(callback func(msg *types.DKGMessage)) {
 	dkg.mtx.Lock()
 	defer dkg.mtx.Unlock()

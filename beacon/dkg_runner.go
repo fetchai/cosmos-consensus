@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -87,6 +88,9 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
 
 // OnStart overrides BaseService. Starts first DKG and fetching of validator updates
 func (dkgRunner *DKGRunner) OnStart() error {
+	if !dkgRunner.validAeonLength(dkgRunner.nextAeonLength) {
+		panic(fmt.Errorf("OnStart: invalid aeon length %v", dkgRunner.nextAeonLength))
+	}
 	dkgRunner.checkNextDKG()
 	// Start go routine for subscription
 	go dkgRunner.validatorUpdatesRoutine()
@@ -136,25 +140,41 @@ func (dkgRunner *DKGRunner) updateValidatorsAndParams() {
 	// have been updated to that of the latest state
 	if err1 != nil {
 		switch err1.(type) {
-		case *sm.ErrNoConsensusParamsForHeight:
+		case sm.ErrNoConsensusParamsForHeight:
 			dkgRunner.Logger.Debug("updateValidatorsAndParams: ", "error", err1.Error())
 		default:
 			dkgRunner.Logger.Error("updateValidatorsAndParams: unknown error loading params", "error", err1.Error())
 		}
 	} else if err2 != nil {
 		switch err2.(type) {
-		case *sm.ErrNoValSetForHeight:
+		case sm.ErrNoValSetForHeight:
 			dkgRunner.Logger.Debug("updateValidatorsAndParams: ", "error", err2.Error())
 		default:
 			dkgRunner.Logger.Error("updateValidatorsAndParams: unknown error loading vals", "error", err2.Error())
 		}
 	} else {
 		dkgRunner.Logger.Debug("updateValidators: vals and params updated", "height", dkgRunner.height)
-		dkgRunner.nextAeonLength = newParams.Entropy.AeonLength
+		nextAeonLength := newParams.Entropy.AeonLength
+		if dkgRunner.validAeonLength(nextAeonLength) {
+			dkgRunner.nextAeonLength = nextAeonLength
+		} else {
+			dkgRunner.Logger.Error("updateValidatorsAndParams: invalid state duration", "height", dkgRunner.height, "aeonLength", nextAeonLength)
+		}
 		dkgRunner.validators = *newVals
 		dkgRunner.valsAndParamsUpdated = true
 		dkgRunner.checkNextDKG()
 	}
+}
+
+// validAeonLength checks whether new aeon length is consistent with other DKG parameters before it is yet.
+// Must give dkg state length of at least 1 block to be valid
+func (dkgRunner *DKGRunner) validAeonLength(aeonLength int64) bool {
+	// When computing dkg duration allow buffer for run ahead on entropy generation so that
+	// dkg does not complete right at the end of the aeon
+	dkgDuration := (aeonLength - dkgRunner.consensusConfig.EntropyChannelCapacity - 1) / dkgRunner.consensusConfig.DKGAttemptsInAeon
+	// Divide by number of states to get the duration of each state
+	stateDuration := (dkgDuration - dkgRunner.consensusConfig.DKGResetDelay) / 6
+	return stateDuration > 0
 }
 
 // Resets completed DKG and starts new one at the beginning of every aeon

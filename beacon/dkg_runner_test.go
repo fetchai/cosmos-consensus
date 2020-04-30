@@ -62,7 +62,7 @@ func TestDKGRunnerValidatorUpdates(t *testing.T) {
 		LastBlockHeight:                  2,
 		LastHeightConsensusParamsChanged: 3,
 	}
-	newState2.ConsensusParams.Entropy.AeonLength = int64(13)
+	newState2.ConsensusParams.Entropy.AeonLength = int64(120)
 	sm.SaveState(dkgRunner[0].stateDB, newState)
 	sm.SaveState(dkgRunner[0].stateDB, newState2)
 
@@ -71,14 +71,14 @@ func TestDKGRunnerValidatorUpdates(t *testing.T) {
 	assert.Equal(t, 2, len(savedVals.Validators))
 	savedParams, err := sm.LoadConsensusParams(dkgRunner[0].stateDB, 3)
 	assert.True(t, err == nil)
-	assert.Equal(t, int64(13), savedParams.Entropy.AeonLength)
+	assert.Equal(t, int64(120), savedParams.Entropy.AeonLength)
 
 	assert.Eventually(t, func() bool { return len(dkgRunner[0].validators.Validators) == 2 }, 1*time.Second, 100*time.Millisecond)
 	dkgRunner[0].Stop()
 	assert.True(t, dkgRunner[0].valsAndParamsUpdated)
 	index, _ := dkgRunner[0].validators.GetByAddress(newVals[0].PubKey.Address())
 	assert.True(t, index >= 0)
-	assert.True(t, dkgRunner[0].nextAeonLength == 13)
+	assert.True(t, dkgRunner[0].nextAeonLength == 120)
 }
 
 func testDKGRunners(nVals int) ([]*DKGRunner, tx_extensions.MessageHandler) {
