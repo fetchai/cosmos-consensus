@@ -11,6 +11,7 @@ services:
       PRIVPEERS:  ""
       RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
       PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"
 
   node1:
     image: tendermint_drb
@@ -22,6 +23,7 @@ services:
       PRIVPEERS:  ""
       RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
       PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"
 
   node2:
     image: tendermint_drb
@@ -33,6 +35,7 @@ services:
       PRIVPEERS:  ""
       RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
       PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"
 
   node3:
     image: tendermint_drb
@@ -44,3 +47,4 @@ services:
       PRIVPEERS:  ""
       RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
       PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"

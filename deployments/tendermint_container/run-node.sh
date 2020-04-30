@@ -34,4 +34,4 @@ fi
 ## Run binary with all parameters
 ##
 
-"${BINARY}"  node  --home "${TMHOMEDIR}" ${RPCLADDR} ${P2PPEX} ${PERSPEERS} ${PRIVPEERS} ${PROXYAPP}
+"${BINARY}"  node  --home "${TMHOMEDIR}" ${RPCLADDR} ${P2PPEX} ${PERSPEERS} ${PRIVPEERS} ${PROXYAPP} ${LOGLEVEL}
