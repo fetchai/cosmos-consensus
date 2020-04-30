@@ -40,10 +40,12 @@ class AeonExecUnit {
 public:
   using MessagePayload     = std::string;
   using Signature          = std::string;
-  using Generator          = std::string;
   using CabinetIndex       = uint32_t;
 
+  // Called externally in go
   AeonExecUnit(std::string const &filename);
+  AeonExecUnit(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
+  // Constructor used beacon manager
   AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
 
   Signature Sign(MessagePayload const &message) const;
@@ -56,10 +58,14 @@ public:
   void WriteToFile(std::string const &filename) const;
   bool InQual(CabinetIndex index) const;
   std::string GroupPublicKey() const;
+  std::string PrivateKey() const;
+  std::vector<std::string> PublicKeyShares() const;
+  std::vector<CabinetIndex> Qual() const;
+  std::string Generator() const;
 
 private:
   DKGKeyInformation aeon_keys_;
-  Generator generator_;
+  std::string generator_;
   std::set<CabinetIndex> qual_;
 
   void CheckKeys() const;

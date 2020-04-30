@@ -25,10 +25,13 @@ type DKGRunner struct {
 	messageHandler  tx_extensions.MessageHandler
 
 	height       int64
+	aeonStart    int64 // next entropy generation start
+	aeonEnd      int64 // next entropy generation end
 	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
 	valsUpdated  bool
+	dkgCounter   int
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 
@@ -43,9 +46,12 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		stateDB:         db,
 		privVal:         val,
 		height:          blockHeight,
+		aeonStart:       -1,
+		aeonEnd:         -1,
 		validators:      vals,
 		completedDKG:    false,
 		valsUpdated:     true,
+		dkgCounter:      0,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -69,6 +75,14 @@ func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHa
 	dkgRunner.messageHandler.WhenChainTxSeen(dkgRunner.OnBlock)
 }
 
+// SetCurrentAeon sets the entropy generation aeon currently active
+func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+	dkgRunner.aeonStart = start
+	dkgRunner.aeonEnd = end
+}
+
 // OnStart overrides BaseService. Starts first DKG and fetching of validator updates
 func (dkgRunner *DKGRunner) OnStart() error {
 	dkgRunner.checkNextDKG()
@@ -80,13 +94,14 @@ func (dkgRunner *DKGRunner) OnStart() error {
 // OnBlock is callback in messageHandler for DKG messages included in a particular block
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
-	defer dkgRunner.mtx.Unlock()
-
 	dkgRunner.height = blockHeight
 	dkgRunner.valsUpdated = false
 	if dkgRunner.activeDKG != nil {
+		dkgRunner.mtx.Unlock()
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
+		return
 	}
+	dkgRunner.mtx.Unlock()
 }
 
 // Routine for fetching validator updates from the state DB
@@ -135,26 +150,29 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 		dkgRunner.activeDKG = nil
 		dkgRunner.completedDKG = false
 	}
-	if dkgRunner.height%dkgRunner.consensusConfig.AeonLength == 0 {
+	// Start new dkg if there is currently no aeon active or if we are at the
+	// beginning of a new aeon
+	if dkgRunner.aeonStart == -1 || dkgRunner.height == dkgRunner.aeonStart {
 		dkgRunner.startNewDKG()
 	}
 }
 
 // Starts new DKG if old one has completed for those in the current validator set
 func (dkgRunner *DKGRunner) startNewDKG() {
-	aeon := int(dkgRunner.height / dkgRunner.consensusConfig.AeonLength)
 	if dkgRunner.activeDKG != nil {
-		dkgRunner.Logger.Error("startNewDKG: dkg already started", "aeon", aeon, "height", dkgRunner.height)
+		dkgRunner.Logger.Error("startNewDKG: dkg already started", "height", dkgRunner.height)
 		return
 	}
 	if index, _ := dkgRunner.validators.GetByAddress(dkgRunner.privVal.GetPubKey().Address()); index < 0 {
-		dkgRunner.Logger.Debug("startNewDKG: not in validators", "aeon", aeon, "height", dkgRunner.height)
+		dkgRunner.Logger.Debug("startNewDKG: not in validators", "height", dkgRunner.height)
 		return
 	}
-	dkgRunner.Logger.Debug("startNewDKG: successful", "aeon", aeon, "height", dkgRunner.height)
+	dkgRunner.Logger.Debug("startNewDKG: successful", "height", dkgRunner.height)
 	// Create new dkg with dkgID = aeon. New dkg starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
-		aeon, dkgRunner.privVal, dkgRunner.validators, dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay)
+		dkgRunner.dkgCounter, dkgRunner.privVal, dkgRunner.validators,
+		dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay, dkgRunner.aeonEnd)
+	dkgRunner.dkgCounter++
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())
@@ -163,9 +181,11 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		dkgRunner.messageHandler.SubmitSpecialTx(msg)
 	})
-	// Mark dkg completion so so that activeDKG can be reset
+	// Mark dkg completion so so that activeDKG can be reset and set start and end
+	// of next entropy aeon
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
+		dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
 		}

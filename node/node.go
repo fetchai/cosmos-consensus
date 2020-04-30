@@ -566,18 +566,26 @@ func createBeaconReactor(
 	state sm.State,
 	privValidator types.PrivValidator,
 	beaconLogger log.Logger, fastSync bool,
-	blockStore sm.BlockStore) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
+	blockStore sm.BlockStore,
+	dkgRunner *beacon.DKGRunner) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
 
 	beacon.InitialiseMcl()
 	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Consensus, state.LastBlockHeight)
 	entropyChannel := make(chan types.ComputedEntropy, config.Consensus.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
+	if dkgRunner != nil {
+		dkgRunner.SetDKGCompletionCallback(entropyGenerator.AddNewAeonDetails)
+	}
 
 	if cmn.FileExists(config.EntropyKeyFile()) {
-		aeonKeys := beacon.NewAeonExecUnit(config.BaseConfig.EntropyKeyFile())
-		aeonDetails := beacon.NewAeonDetails(state.Validators, privValidator, aeonKeys, 1, config.Consensus.AeonLength-1)
-		entropyGenerator.SetAeonDetails(aeonDetails)
+		err, aeonDetails := beacon.LoadAeonDetails(config.BaseConfig.EntropyKeyFile(), state.Validators, privValidator)
+		if err == nil {
+			entropyGenerator.SetAeonDetails(aeonDetails)
+			if dkgRunner != nil {
+				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+			}
+		}
 	}
 	if len(state.LastComputedEntropy) != 0 {
 		entropyGenerator.SetLastComputedEntropy(types.ComputedEntropy{Height: state.LastBlockHeight, GroupSignature: state.LastComputedEntropy})
@@ -595,14 +603,12 @@ func createDKGRunner(
 	privValidator types.PrivValidator,
 	logger log.Logger,
 	db dbm.DB,
-	handler tx_extensions.MessageHandler,
-	entropyGen *beacon.EntropyGenerator) *beacon.DKGRunner {
+	handler tx_extensions.MessageHandler) *beacon.DKGRunner {
 	if !config.Consensus.RunDKG {
 		return nil
 	}
 	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight, *state.Validators)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
-	dkgRunner.SetDKGCompletionCallback(entropyGen.AddNewAeonDetails)
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner
 }
@@ -736,13 +742,15 @@ func NewNode(config *cfg.Config,
 	// create the native log collector
 	nativeLogger := beacon.NewNativeLoggingCollector(logger)
 
+	// Create DKGRunner
+	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+
 	// Make BeaconReactor
 	beaconLogger := logger.With("module", "beacon")
-	entropyChannel, entropyGenerator, beaconReactor := createBeaconReactor(config, state, privValidator, beaconLogger, fastSync, blockStore)
+	entropyChannel, entropyGenerator, beaconReactor := createBeaconReactor(config, state, privValidator,
+		beaconLogger, fastSync, blockStore, dkgRunner)
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
-
-	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler, entropyGenerator)
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
