@@ -23,6 +23,9 @@ type aeonDetails struct {
 // LoadAeonDetails creates aeonDetails from keys saved in file
 func LoadAeonDetails(filePath string, validators *types.ValidatorSet, privVal types.PrivValidator) (error, *aeonDetails) {
 	err, aeonDetailsFile := loadAeonDetailsFile(filePath)
+	if err != nil {
+		return err, nil
+	}
 
 	keys := NewDKGKeyInformation()
 	keys.SetGroup_public_key(aeonDetailsFile.GroupPublicKey)
@@ -39,7 +42,7 @@ func LoadAeonDetails(filePath string, validators *types.ValidatorSet, privVal ty
 
 	aeonExecUnit := NewAeonExecUnit(aeonDetailsFile.Generator, keys, qual)
 	aeonDetails := newAeonDetails(validators, privVal, aeonExecUnit, aeonDetailsFile.Start, aeonDetailsFile.End)
-	return err, aeonDetails
+	return nil, aeonDetails
 }
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
