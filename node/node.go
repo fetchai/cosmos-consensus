@@ -607,7 +607,8 @@ func createDKGRunner(
 	if !config.Consensus.RunDKG {
 		return nil
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight, *state.Validators)
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight,
+		*state.Validators, state.ConsensusParams.Entropy.AeonLength)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner

@@ -47,7 +47,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 func TestEntropyGeneratorSetAeon(t *testing.T) {
 	newGen := testEntropyGenerator()
 	// Set be on the end of first aeon
-	lastBlockHeight := newGen.consensusConfig.AeonLength - 1
+	lastBlockHeight := int64(99)
 	newGen.setLastBlockHeight(lastBlockHeight)
 
 	testCases := []struct {
