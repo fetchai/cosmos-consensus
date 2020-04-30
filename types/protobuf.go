@@ -143,6 +143,9 @@ func (tm2pb) ConsensusParams(params *ConsensusParams) *abci.ConsensusParams {
 		Validator: &abci.ValidatorParams{
 			PubKeyTypes: params.Validator.PubKeyTypes,
 		},
+		Entropy: &abci.EntropyParams{
+			AeonLength: params.Entropy.AeonLength,
+		},
 	}
 }
 
