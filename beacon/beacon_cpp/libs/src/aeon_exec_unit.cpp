@@ -73,6 +73,20 @@ AeonExecUnit::AeonExecUnit(std::string generator, DKGKeyInformation keys, std::s
   CheckKeys();
 }
 
+AeonExecUnit::AeonExecUnit(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual) 
+{
+  std::set<CabinetIndex> qual_set;
+  for (auto const &index : qual) {
+    qual_set.insert(index);
+  }
+  aeon_keys_ = keys;
+  generator_ = generator;
+  qual_ = std::move(qual_set);
+  assert(aeon_keys_.public_key_shares.size() == qual_.size());
+  CheckKeys();
+}
+
+
 /**
  * Check strings from file are correct for initialising the corresponding 
  * mcl type
@@ -193,5 +207,20 @@ std::string AeonExecUnit::GroupPublicKey() const {
   return aeon_keys_.group_public_key;
 }
 
+ std::string AeonExecUnit::PrivateKey() const {
+   return aeon_keys_.private_key;
+ }
+
+std::vector<std::string> AeonExecUnit::PublicKeyShares() const {
+  return aeon_keys_.public_key_shares;
+}
+
+std::vector<CabinetIndex> AeonExecUnit::Qual() const {
+  return {qual_.begin(), qual_.end()};
+}
+
+std::string AeonExecUnit::Generator() const {
+  return generator_;
+}
 }  // namespace crypto
 }  // namespace fetch

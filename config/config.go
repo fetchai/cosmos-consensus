@@ -39,7 +39,7 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
-	defaultEntropyKeyName = "entropy_key.txt"
+	defaultEntropyKeyName = "entropy_key.json"
 
 	defaultNodeKeyName  = "node_key.json"
 	defaultAddrBookName = "addrbook.json"

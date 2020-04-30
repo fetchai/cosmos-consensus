@@ -112,7 +112,7 @@ func TestReactorEntropy(t *testing.T) {
 	aeonKeys := setCrypto(N)
 	for i := 0; i < N; i++ {
 		existingAeon := entropyGenerators[i].aeon
-		aeonDetails := NewAeonDetails(existingAeon.validators, existingAeon.privValidator, aeonKeys[i], 20, 29)
+		aeonDetails := newAeonDetails(existingAeon.validators, existingAeon.privValidator, aeonKeys[i], 20, 29)
 		entropyGenerators[i].AddNewAeonDetails(aeonDetails)
 	}
 
@@ -261,8 +261,8 @@ func TestReactorWithDKG(t *testing.T) {
 		entropyGen.entropyComputed = make(map[int64][]byte)
 		entropyGen.lastComputedEntropyHeight = -1
 		dkgNodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
-			aeon.start = aeonStart
-			aeon.end = 30
+			aeon.Start = aeonStart
+			aeon.End = 30
 			entropyGen.AddNewAeonDetails(aeon)
 		})
 	}

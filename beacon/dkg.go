@@ -60,10 +60,11 @@ type DistributedKeyGeneration struct {
 	dkgID        int
 	dkgIteration int
 
-	privValidator types.PrivValidator
-	valToIndex    map[string]uint // Need to convert crypto.Address into string for key
-	validators    types.ValidatorSet
-	threshold     int
+	privValidator  types.PrivValidator
+	valToIndex     map[string]uint // Need to convert crypto.Address into string for key
+	validators     types.ValidatorSet
+	threshold      int
+	currentAeonEnd int64
 
 	startHeight   int64
 	states        map[dkgState]*state
@@ -76,25 +77,26 @@ type DistributedKeyGeneration struct {
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
-	privVal types.PrivValidator, vals types.ValidatorSet, startH int64) *DistributedKeyGeneration {
+	privVal types.PrivValidator, vals types.ValidatorSet, startH int64, aeonEnd int64) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
 	}
 	dkgThreshold := len(vals.Validators)/2 + 1
 	dkg := &DistributedKeyGeneration{
-		config:        csConfig,
-		chainID:       chain,
-		dkgID:         dkgRunID,
-		dkgIteration:  0,
-		privValidator: privVal,
-		valToIndex:    make(map[string]uint),
-		validators:    vals,
-		threshold:     dkgThreshold,
-		startHeight:   startH,
-		states:        make(map[dkgState]*state),
-		currentState:  dkgStart,
-		beaconService: NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
+		config:         csConfig,
+		chainID:        chain,
+		dkgID:          dkgRunID,
+		dkgIteration:   0,
+		privValidator:  privVal,
+		valToIndex:     make(map[string]uint),
+		validators:     vals,
+		currentAeonEnd: aeonEnd,
+		threshold:      dkgThreshold,
+		startHeight:    startH,
+		states:         make(map[dkgState]*state),
+		currentState:   dkgStart,
+		beaconService:  NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
 	}
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
@@ -160,14 +162,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
 	// Reset start time
-	currentAeon := dkg.startHeight / dkg.config.AeonLength
 	dkg.startHeight = dkg.startHeight + dkg.duration() + dkg.config.DKGResetDelay
-	// If dkg runs into next aeon then reset start height to the normal dkg start
-	// in that aeon
-	dkgCompletionAeon := (dkg.startHeight + dkg.duration()) / dkg.config.AeonLength
-	if dkgCompletionAeon != currentAeon {
-		dkg.startHeight = dkg.config.AeonLength*(currentAeon+1) + dkg.config.DKGResetDelay
-	}
 	// Reset beaconService
 	index := dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]
 	DeleteBeaconSetupService(dkg.beaconService)
@@ -365,11 +360,14 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	aeonExecUnit := dkg.beaconService.ComputePublicKeys()
 
 	if dkg.dkgCompletionCallback != nil {
-		// Create new aeon details - start height at the moment is always set to be the start
-		// of the next aeon
-		currentAeon := (dkg.startHeight + dkg.duration()) / dkg.config.AeonLength
-		nextAeonStart := (currentAeon + 1) * dkg.config.AeonLength
-		aeonDetails := NewAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
+		// Create new aeon details - start height either the start
+		// of the next aeon or immediately (with some delay)
+		nextAeonStart := dkg.currentAeonEnd + 1
+		dkgEnd := (dkg.startHeight + dkg.duration())
+		if dkgEnd >= nextAeonStart {
+			nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
+		}
+		aeonDetails := newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
 			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
 		dkg.dkgCompletionCallback(aeonDetails)
 	}
