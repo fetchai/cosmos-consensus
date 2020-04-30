@@ -1,7 +1,7 @@
 package beacon
 
 /*
-#cgo CXXFLAGS: -std=c++14
-#cgo LDFLAGS: -Lbeacon_cpp/build/libs -lCryptoMcl -lmcl -lboost_serialization
+#cgo LDFLAGS: -lmcl -lgmp -lboost_serialization
+#cgo CXXFLAGS: -fPIC -g -O2 -std=c++14
 */
 import "C"

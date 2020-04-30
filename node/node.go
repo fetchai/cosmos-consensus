@@ -876,6 +876,9 @@ func (n *Node) OnStart() error {
 	if n.dkgRunner != nil {
 		n.dkgRunner.Start()
 	}
+
+	n.nativeLogCollector.Start();
+
 	return nil
 }
 

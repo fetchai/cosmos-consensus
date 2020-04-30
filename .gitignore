@@ -47,4 +47,4 @@ terraform.tfstate.d
 
 profile\.out
 
-beacon/beacon_cpp/build
+beacon/build
