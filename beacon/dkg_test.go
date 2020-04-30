@@ -29,6 +29,7 @@ const (
 
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
+	assert.Equal(t, int64(5), dkg.stateDuration)
 
 	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.stateDuration)
 	// DKG is set to start at block height 10
