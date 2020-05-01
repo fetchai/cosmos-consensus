@@ -124,6 +124,9 @@ priv_validator_state_file = "{{ js .BaseConfig.PrivValidatorState }}"
 # connections from an external PrivValidator process
 priv_validator_laddr = "{{ .BaseConfig.PrivValidatorListenAddr }}"
 
+# Path to the txt file containing the dkg output for entropy generation
+entropy_key_file = "{{ .BaseConfig.EntropyKey }}"
+
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node_key_file = "{{ js .BaseConfig.NodeKey }}"
 
@@ -337,6 +340,14 @@ create_empty_blocks_interval = "{{ .Consensus.CreateEmptyBlocksInterval }}"
 peer_gossip_sleep_duration = "{{ .Consensus.PeerGossipSleepDuration }}"
 peer_query_maj23_sleep_duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 
+# DKG/DRB parameters
+entropy_channel_capacity = "{{ .Consensus.EntropyChannelCapacity }}"
+compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
+dkg_state_duration = "{{ .Consensus.DKGStateDuration }}"
+dkg_reset_delay = "{{ .Consensus.DKGResetDelay }}"
+aeon_length = "{{ .Consensus.AeonLength }}"
+run_dkg = "{{ .Consensus.RunDKG }}"
+
 ##### transactions indexer configuration options #####
 [tx_index]
 
@@ -430,6 +441,10 @@ func ResetTestRootWithChainID(testName string, chainID string) *Config {
 	return config
 }
 
+func AddTestEntropyKey(config *Config) {
+	cmn.MustWriteFile(config.EntropyKeyFile(), []byte(testEntropyKey), 0644)
+}
+
 var testGenesisFmt = `{
   "genesis_time": "2018-10-10T08:20:13.695936996Z",
   "chain_id": "%s",
@@ -443,7 +458,8 @@ var testGenesisFmt = `{
       "name": ""
     }
   ],
-  "app_hash": ""
+  "app_hash": "",
+  "entropy": "Fetch.ai Test Genesis Entropy"
 }`
 
 var testPrivValidatorKey = `{
@@ -463,3 +479,17 @@ var testPrivValidatorState = `{
   "round": "0",
   "step": 0
 }`
+
+var testEntropyKey = `{
+	"group_public_key": "1 2026563075167321751303287933136142119654895410063863109691953686582106474353 6492156318367139320160294528433128667245366911995934919129916941389850390190 8434188539914602853671538958141780908100949601214616651655155746952801613849 16756532377134331153725528555190341961938770255093689077297145415599023947224",
+	"private_key": "2481649606198358079594057270698228636667080111529003598319736637285692275896",
+	"public_key_shares": [
+	  "1 2026563075167321751303287933136142119654895410063863109691953686582106474353 6492156318367139320160294528433128667245366911995934919129916941389850390190 8434188539914602853671538958141780908100949601214616651655155746952801613849 16756532377134331153725528555190341961938770255093689077297145415599023947224"
+	],
+	"generator": "1 7065782774699555473178924241967400091572766385588406296923143582341664658461 11380418709522048912342576720583458209102443168633659966558370083738089018824 10528814700875036406714721728728112433089526214485874098015356183490094596845 3502464979781453377189876888285806457223958070556177496853191383712204250491",
+	"qual": [
+	  "0"
+	],
+	"start": "1",
+	"end": "100"
+  }`

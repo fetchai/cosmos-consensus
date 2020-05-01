@@ -257,6 +257,30 @@ func (pv *FilePV) SignProposal(chainID string, proposal *types.Proposal) error {
 	return nil
 }
 
+// SignEntropy signs a canonical representation of the entropy, along with
+// the chainID. Implements PrivValidator.
+func (pv *FilePV) SignEntropy(chainID string, entropy *types.EntropyShare) error {
+	signBytes := entropy.SignBytes(chainID)
+	sig, err := pv.Key.PrivKey.Sign(signBytes)
+	if err != nil {
+		return err
+	}
+	entropy.Signature = sig
+	return nil
+}
+
+// SignDKGMessage signs a canonical representation of the DKG message, along with
+// the chainID. Implements PrivValidator.
+func (pv *FilePV) SignDKGMessage(chainID string, msg *types.DKGMessage) error {
+	signBytes := msg.SignBytes(chainID)
+	sig, err := pv.Key.PrivKey.Sign(signBytes)
+	if err != nil {
+		return err
+	}
+	msg.Signature = sig
+	return nil
+}
+
 // Save persists the FilePV to disk.
 func (pv *FilePV) Save() {
 	pv.Key.Save()

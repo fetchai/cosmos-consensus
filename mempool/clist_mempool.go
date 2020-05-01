@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/tendermint/tendermint/tx_extensions"
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	auto "github.com/tendermint/tendermint/libs/autofile"
@@ -23,6 +24,8 @@ import (
 )
 
 //--------------------------------------------------------------------------------
+
+type OnDKGFunc func(types.Tx) error
 
 // CListMempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
@@ -277,6 +280,10 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		return err
 	}
 
+	if tx_extensions.IsDKGRelated(tx) {
+		fmt.Printf("dkg tx added to mempool. %+v\n", tx)
+	}
+
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
 	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
 
@@ -467,7 +474,7 @@ func (mem *CListMempool) notifyTxsAvailable() {
 	}
 }
 
-func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
+func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
 
@@ -484,6 +491,11 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	txs := make([]types.Tx, 0, mem.txs.Len())
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
+
+		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
+			continue
+		}
+
 		// Check total size requirement
 		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
 		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {

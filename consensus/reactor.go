@@ -31,6 +31,11 @@ const (
 	votesToContributeToBecomeGoodPeer  = 10000
 )
 
+type beaconReactor interface {
+	// for when we switch from fast sync to the consensus machine
+	SwitchToConsensus(sm.State)
+}
+
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -100,6 +105,13 @@ func (conR *ConsensusReactor) OnStop() {
 // It resets the state, turns off fast_sync, and starts the consensus state-machine
 func (conR *ConsensusReactor) SwitchToConsensus(state sm.State, blocksSynced int) {
 	conR.Logger.Info("SwitchToConsensus")
+
+	// Tell beacon reactor to switch to consensus
+	beaconR, ok := conR.Switch.Reactor("BEACON").(beaconReactor)
+	if ok {
+		beaconR.SwitchToConsensus(state)
+	}
+
 	conR.conS.reconstructLastCommit(state)
 	// NOTE: The line below causes broadcastNewRoundStepRoutine() to
 	// broadcast a NewRoundStepMessage.
