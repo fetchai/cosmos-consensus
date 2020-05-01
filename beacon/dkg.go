@@ -65,8 +65,11 @@ type DistributedKeyGeneration struct {
 	validators     types.ValidatorSet
 	threshold      int
 	currentAeonEnd int64
+<<<<<<< HEAD
 	aeonLength     int64
 	stateDuration  int64
+=======
+>>>>>>> master
 
 	startHeight   int64
 	states        map[dkgState]*state
@@ -79,7 +82,11 @@ type DistributedKeyGeneration struct {
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
+<<<<<<< HEAD
 	privVal types.PrivValidator, vals types.ValidatorSet, startH int64, aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
+=======
+	privVal types.PrivValidator, vals types.ValidatorSet, startH int64, aeonEnd int64) *DistributedKeyGeneration {
+>>>>>>> master
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
@@ -94,7 +101,10 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 		valToIndex:     make(map[string]uint),
 		validators:     vals,
 		currentAeonEnd: aeonEnd,
+<<<<<<< HEAD
 		aeonLength:     aeonLength,
+=======
+>>>>>>> master
 		threshold:      dkgThreshold,
 		startHeight:    startH,
 		states:         make(map[dkgState]*state),
@@ -375,7 +385,11 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 			nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
 		}
 		aeonDetails := newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
+<<<<<<< HEAD
 			nextAeonStart, nextAeonStart+dkg.aeonLength-1)
+=======
+			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
+>>>>>>> master
 		dkg.dkgCompletionCallback(aeonDetails)
 	}
 

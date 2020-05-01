@@ -24,6 +24,7 @@ type DKGRunner struct {
 	privVal         types.PrivValidator
 	messageHandler  tx_extensions.MessageHandler
 
+<<<<<<< HEAD
 	height               int64
 	aeonStart            int64 // next entropy generation start
 	aeonEnd              int64 // next entropy generation end
@@ -33,6 +34,16 @@ type DKGRunner struct {
 	valsAndParamsUpdated bool
 	dkgCounter           int
 	nextAeonLength       int64
+=======
+	height       int64
+	aeonStart    int64 // next entropy generation start
+	aeonEnd      int64 // next entropy generation end
+	validators   types.ValidatorSet
+	activeDKG    *DistributedKeyGeneration
+	completedDKG bool
+	valsUpdated  bool
+	dkgCounter   int
+>>>>>>> master
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 
@@ -43,6 +54,7 @@ type DKGRunner struct {
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val types.PrivValidator,
 	blockHeight int64, vals types.ValidatorSet, aeonLength int64) *DKGRunner {
 	dkgRunner := &DKGRunner{
+<<<<<<< HEAD
 		consensusConfig:      config,
 		chainID:              chain,
 		stateDB:              db,
@@ -55,6 +67,19 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		valsAndParamsUpdated: true,
 		dkgCounter:           0,
 		nextAeonLength:       aeonLength,
+=======
+		consensusConfig: config,
+		chainID:         chain,
+		stateDB:         db,
+		privVal:         val,
+		height:          blockHeight,
+		aeonStart:       -1,
+		aeonEnd:         -1,
+		validators:      vals,
+		completedDKG:    false,
+		valsUpdated:     true,
+		dkgCounter:      0,
+>>>>>>> master
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -204,7 +229,11 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 	// Create new dkg with dkgID = aeon. New dkg starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
 		dkgRunner.dkgCounter, dkgRunner.privVal, dkgRunner.validators,
+<<<<<<< HEAD
 		dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay, dkgRunner.aeonEnd, dkgRunner.nextAeonLength)
+=======
+		dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay, dkgRunner.aeonEnd)
+>>>>>>> master
 	dkgRunner.dkgCounter++
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
