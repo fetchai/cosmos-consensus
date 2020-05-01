@@ -23,22 +23,12 @@ type aeonDetails struct {
 // LoadAeonDetails creates aeonDetails from keys saved in file
 func LoadAeonDetails(filePath string, validators *types.ValidatorSet, privVal types.PrivValidator) (error, *aeonDetails) {
 	err, aeonDetailsFile := loadAeonDetailsFile(filePath)
-<<<<<<< HEAD
-	fmt.Sprintf("File group public key %v", aeonDetailsFile.GroupPublicKey)
-
-	keys := NewDKGKeyInformation()
-	keys.SetGroup_public_key(aeonDetailsFile.GroupPublicKey)
-	if aeonDetailsFile.GroupPublicKey != keys.GetGroup_public_key() {
-		panic(fmt.Sprintf("1. Group public key not set"))
-	}
-=======
 	if err != nil {
 		return err, nil
 	}
 
 	keys := NewDKGKeyInformation()
 	keys.SetGroup_public_key(aeonDetailsFile.GroupPublicKey)
->>>>>>> master
 	keys.SetPrivate_key(aeonDetailsFile.PrivateKey)
 	keyShares := NewStringVector()
 	for i := 0; i < len(aeonDetailsFile.PublicKeyShares); i++ {
@@ -51,19 +41,8 @@ func LoadAeonDetails(filePath string, validators *types.ValidatorSet, privVal ty
 	}
 
 	aeonExecUnit := NewAeonExecUnit(aeonDetailsFile.Generator, keys, qual)
-<<<<<<< HEAD
-	if aeonDetailsFile.GroupPublicKey != aeonExecUnit.GroupPublicKey() {
-		panic(fmt.Sprintf("2. Group public key not set"))
-	}
-	aeonDetails := newAeonDetails(validators, privVal, aeonExecUnit, aeonDetailsFile.Start, aeonDetailsFile.End)
-	if aeonDetailsFile.GroupPublicKey != aeonDetails.aeonExecUnit.GroupPublicKey() {
-		panic(fmt.Sprintf("3. Group public key not set"))
-	}
-	return err, aeonDetails
-=======
 	aeonDetails := newAeonDetails(validators, privVal, aeonExecUnit, aeonDetailsFile.Start, aeonDetailsFile.End)
 	return nil, aeonDetails
->>>>>>> master
 }
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
