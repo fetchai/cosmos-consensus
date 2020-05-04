@@ -43,17 +43,8 @@ WORKDIR /tendermint
 
 # Copy over binaries from the build-env
 COPY --from=build-env /project/build/tendermint /usr/bin/tendermint
-#COPY --from=build-env /usr/lib /usr/lib
-#COPY --from=build-env /project/beacon/beacon_cpp/build/apps/TrustedDealer /usr/bin/TrustedDealer
-
-#COPY ./deployments/tendermint_container/run-node.sh /usr/bin/run-node.sh
-
-#WORKDIR /tm_data
-#COPY ./deployments/tendermint_container/tm_data/ .
 
 EXPOSE 26655-26658
 
 COPY ./mytestnet/node0/data/priv_validator_state.json .
 COPY run.sh .
-
-#ENTRYPOINT ["/usr/bin/tendermint"]

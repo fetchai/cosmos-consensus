@@ -12,6 +12,4 @@ cp config_ro/* config
 
 echo "Executing command tendermint $@"
 
-#sleep 10000
-
 tendermint $@
