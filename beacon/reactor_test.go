@@ -113,7 +113,7 @@ func TestReactorEntropy(t *testing.T) {
 	for i := 0; i < N; i++ {
 		existingAeon := entropyGenerators[i].aeon
 		aeonDetails := newAeonDetails(existingAeon.validators, existingAeon.privValidator, aeonKeys[i], 20, 29)
-		entropyGenerators[i].AddNewAeonDetails(aeonDetails)
+		entropyGenerators[i].SetNextAeonDetails(aeonDetails)
 	}
 
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
@@ -263,7 +263,7 @@ func TestReactorWithDKG(t *testing.T) {
 		dkgNodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
 			aeon.Start = aeonStart
 			aeon.End = 30
-			entropyGen.AddNewAeonDetails(aeon)
+			entropyGen.SetNextAeonDetails(aeon)
 		})
 	}
 
@@ -314,7 +314,7 @@ func TestReactorWithDKG(t *testing.T) {
 
 	// Change keys over
 	for _, entropyGen := range entropyGenerators {
-		assert.True(t, entropyGen.aeonQueue.Len() == 1)
+		assert.True(t, entropyGen.nextAeon != nil)
 		assert.True(t, entropyGen.changeKeys())
 	}
 

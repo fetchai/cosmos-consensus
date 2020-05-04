@@ -576,13 +576,23 @@ func createBeaconReactor(
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetComputedEntropyChannel(entropyChannel)
 	if dkgRunner != nil {
-		dkgRunner.SetDKGCompletionCallback(entropyGenerator.AddNewAeonDetails)
+		dkgRunner.SetDKGCompletionCallback(entropyGenerator.SetNextAeonDetails)
 	}
 
 	if cmn.FileExists(config.EntropyKeyFile()) {
 		aeonDetails, err := beacon.LoadAeonDetails(config.BaseConfig.EntropyKeyFile(), state.Validators, privValidator)
 		if err == nil {
 			entropyGenerator.SetAeonDetails(aeonDetails)
+			if dkgRunner != nil {
+				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+			}
+		}
+	}
+	if cmn.FileExists(config.NextEntropyKeyFile()) {
+		aeonDetails, err := beacon.LoadAeonDetails(config.BaseConfig.NextEntropyKeyFile(), state.Validators, privValidator)
+		if err == nil {
+			entropyGenerator.SetNextAeonDetails(aeonDetails)
+			// Set dkg runner to most recent aeon which we generated keys for
 			if dkgRunner != nil {
 				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 			}

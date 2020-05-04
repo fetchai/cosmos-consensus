@@ -301,7 +301,7 @@ func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	state, privVal := groupTestSetup(1)
 	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
 	aeonDetails := newAeonDetails(state.Validators, privVal[0], aeonExecUnit, 5, 50)
-	newGen.AddNewAeonDetails(aeonDetails)
+	newGen.SetNextAeonDetails(aeonDetails)
 
 	newGen.Start()
 	assert.Eventually(t, func() bool { return newGen.isSigningEntropy() }, time.Second, 100*time.Millisecond)
