@@ -8,9 +8,6 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	cmn "github.com/tendermint/tendermint/libs/common"
-	"github.com/tendermint/tendermint/libs/service"
-
-	//"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -104,7 +101,7 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 		currentState:   dkgStart,
 		beaconService:  NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
 	}
-	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
+	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
 	// Set validator address to index
 	for index, val := range dkg.validators.Validators {
 		dkg.valToIndex[string(val.PubKey.Address())] = uint(index)
