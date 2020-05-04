@@ -1,0 +1,76 @@
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: {node}
+spec:
+  selector:
+    app: {node}
+  ports:
+    - name: p2p-port
+      port: 26656
+    - name: prom-port
+      port: 26660
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {node}
+spec:
+  serviceName: {node}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {node}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port:   '26660'
+        prometheus.io/path:   '/metrics'
+      labels:
+        app: {node}
+    spec:
+      volumes:
+        - name: config-toml-volume
+          configMap:
+            name: config-{node}
+        - name: data-persist-{node}
+          persistentVolumeClaim:
+            claimName: data-persist-{node}
+
+      containers:
+        - name: cosmosledger
+          image: tendermint_drb_tst
+          imagePullPolicy: {pull_policy}
+          command: [ "/tendermint/run.sh" ]
+
+          args:
+            - node
+            - --home
+            - ./
+            - --proxy_app=kvstore
+
+          ports:
+            - name: p2p-port
+              containerPort: 26656
+            - name: prom-port
+              containerPort: 26660
+
+          volumeMounts:
+           - name: config-toml-volume
+             mountPath: /tendermint/config_ro
+           - name: data-persist-{node}
+             mountPath: /tendermint/data
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: data-persist-{node}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,10 @@
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: prom
+spec:
+  selector:
+    app: prom
+  ports:
+    - name: http
+      port: 9090
