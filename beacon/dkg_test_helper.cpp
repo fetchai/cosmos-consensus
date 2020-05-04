@@ -190,6 +190,9 @@ std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure)
   case DKGMessageType::RECONSTRUCTION_SHARE:
     MutateReconstructionShare(msg, failure);
     break;
+  case DKGMessageType::DRY_RUN:
+  case DKGMessageType::DKG_COMPLETION:
+    break;
   default:
     assert(false);  
   }  

@@ -391,13 +391,13 @@ func (ps *PeerState) sendEntropy(nextEntropyHeight int64, entropy types.Threshol
 }
 
 // pickSendEntropyShare sends all entropy shares that peer needs
-func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares map[int]types.EntropyShare, numValidators int) {
+func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares map[uint]types.EntropyShare, numValidators int) {
 	for {
 		if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
 			msg := &EntropyShareMessage{value}
 			if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
 				ps.logger.Debug("pickSendEntropyShare succeeded", "ps", ps, "height", value.Height, "share index", key)
-				ps.hasEntropyShare(nextEntropyHeight, key, numValidators)
+				ps.hasEntropyShare(nextEntropyHeight, int(key), numValidators)
 			}
 		} else {
 			return
@@ -405,7 +405,7 @@ func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares
 	}
 }
 
-func (ps *PeerState) pickEntropyShare(nextEntropyHeight int64, entropyShares map[int]types.EntropyShare) (int, *types.EntropyShare, bool) {
+func (ps *PeerState) pickEntropyShare(nextEntropyHeight int64, entropyShares map[uint]types.EntropyShare) (uint, *types.EntropyShare, bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -422,7 +422,7 @@ func (ps *PeerState) pickEntropyShare(nextEntropyHeight int64, entropyShares map
 	peerEntropyShares := ps.entropyShares[nextEntropyHeight]
 
 	for key, value := range entropyShares {
-		if !peerEntropyShares.GetIndex(key) {
+		if !peerEntropyShares.GetIndex(int(key)) {
 			return key, &value, true
 		}
 	}

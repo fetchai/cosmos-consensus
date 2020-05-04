@@ -20,28 +20,28 @@ type aeonDetails struct {
 }
 
 // LoadAeonDetails creates aeonDetails from keys saved in file
-func LoadAeonDetails(filePath string, validators *types.ValidatorSet, privVal types.PrivValidator) (error, *aeonDetails) {
-	err, aeonDetailsFile := loadAeonDetailsFile(filePath)
+func LoadAeonDetails(filePath string, validators *types.ValidatorSet, privVal types.PrivValidator) (*aeonDetails, error) {
+	aeonDetailsFile, err := loadAeonDetailsFile(filePath)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	keys := NewDKGKeyInformation()
-	keys.SetGroup_public_key(aeonDetailsFile.GroupPublicKey)
+	keys.SetGroup_public_key(aeonDetailsFile.PublicInfo.GroupPublicKey)
 	keys.SetPrivate_key(aeonDetailsFile.PrivateKey)
 	keyShares := NewStringVector()
-	for i := 0; i < len(aeonDetailsFile.PublicKeyShares); i++ {
-		keyShares.Add(aeonDetailsFile.PublicKeyShares[i])
+	for i := 0; i < len(aeonDetailsFile.PublicInfo.PublicKeyShares); i++ {
+		keyShares.Add(aeonDetailsFile.PublicInfo.PublicKeyShares[i])
 	}
 	keys.SetPublic_key_shares(keyShares)
 	qual := NewIntVector()
-	for i := 0; i < len(aeonDetailsFile.Qual); i++ {
-		qual.Add(aeonDetailsFile.Qual[i])
+	for i := 0; i < len(aeonDetailsFile.PublicInfo.Qual); i++ {
+		qual.Add(aeonDetailsFile.PublicInfo.Qual[i])
 	}
 
-	aeonExecUnit := NewAeonExecUnit(aeonDetailsFile.Generator, keys, qual)
-	aeonDetails := newAeonDetails(validators, privVal, aeonExecUnit, aeonDetailsFile.Start, aeonDetailsFile.End)
-	return nil, aeonDetails
+	aeonExecUnit := NewAeonExecUnit(aeonDetailsFile.PublicInfo.Generator, keys, qual)
+	aeonDetails := newAeonDetails(validators, privVal, aeonExecUnit, aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
+	return aeonDetails, nil
 }
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
@@ -93,37 +93,38 @@ func newAeonDetails(
 	return ad
 }
 
-func (aeon *aeonDetails) save(filePath string) {
-	aeonFile := AeonDetailsFile{
+func (aeon *aeonDetails) dkgOutput() *DKGOutput {
+	output := DKGOutput{
 		GroupPublicKey:  aeon.aeonExecUnit.GroupPublicKey(),
-		PrivateKey:      aeon.aeonExecUnit.PrivateKey(),
 		Generator:       aeon.aeonExecUnit.Generator(),
 		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
 		Qual:            make([]uint, len(aeon.validators.Validators)),
 		Start:           aeon.Start,
 		End:             aeon.End,
 	}
-
 	publicKeyShares := aeon.aeonExecUnit.PublicKeyShares()
 	for i := 0; i < int(publicKeyShares.Size()); i++ {
-		aeonFile.PublicKeyShares[i] = publicKeyShares.Get(i)
+		output.PublicKeyShares[i] = publicKeyShares.Get(i)
 	}
 	qual := aeon.aeonExecUnit.Qual()
 	for i := 0; i < int(qual.Size()); i++ {
-		aeonFile.Qual[i] = qual.Get(i)
+		output.Qual[i] = qual.Get(i)
+	}
+	return &output
+}
+
+func (aeon *aeonDetails) save(filePath string) {
+	aeonFile := AeonDetailsFile{
+		PublicInfo: *aeon.dkgOutput(),
+		PrivateKey: aeon.aeonExecUnit.PrivateKey(),
 	}
 	aeonFile.save(filePath)
 }
 
 // AeonDetailsFile is struct for saving aeon keys to file
 type AeonDetailsFile struct {
-	GroupPublicKey  string   `json:"group_public_key"`
-	PrivateKey      string   `json:"private_key"`
-	PublicKeyShares []string `json:"public_key_shares"`
-	Generator       string   `json:"generator"`
-	Qual            []uint   `json:"qual"`
-	Start           int64    `json:"start"`
-	End             int64    `json:"end"`
+	PublicInfo DKGOutput `json:"public_info"`
+	PrivateKey string    `json:"private_key"`
 }
 
 // Save creates json with aeon details
@@ -139,7 +140,7 @@ func (aeonFile *AeonDetailsFile) save(outFile string) {
 }
 
 // LoadAeonDetailsFile creates AeonDetailsFile from json
-func loadAeonDetailsFile(filePath string) (error, *AeonDetailsFile) {
+func loadAeonDetailsFile(filePath string) (*AeonDetailsFile, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		cmn.Exit(err.Error())
@@ -150,21 +151,41 @@ func loadAeonDetailsFile(filePath string) (error, *AeonDetailsFile) {
 		cmn.Exit(fmt.Sprintf("Error reading AeonDetailsFile from %v: %v\n", filePath, err))
 	}
 	err = aeonFile.ValidateBasic()
-	return err, &aeonFile
+	return &aeonFile, err
 }
 
+// ValidateBasic for basic validity checking of aeon file
 func (aeonFile *AeonDetailsFile) ValidateBasic() error {
-	if len(aeonFile.GroupPublicKey) == 0 {
+	err := aeonFile.PublicInfo.ValidateBasic()
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+	return nil
+}
+
+// DKGOutput is struct for broadcasting dkg completion info
+type DKGOutput struct {
+	GroupPublicKey  string   `json:"group_public_key"`
+	PublicKeyShares []string `json:"public_key_shares"`
+	Generator       string   `json:"generator"`
+	Qual            []uint   `json:"qual"`
+	Start           int64    `json:"start"`
+	End             int64    `json:"end"`
+}
+
+// ValidateBasic for basic validity checking of dkg output
+func (output *DKGOutput) ValidateBasic() error {
+	if len(output.GroupPublicKey) == 0 {
 		return fmt.Errorf("Empty group public key")
 	}
-	if len(aeonFile.Generator) == 0 {
+	if len(output.Generator) == 0 {
 		return fmt.Errorf("Empty generator")
 	}
-	if len(aeonFile.Qual) == 0 || len(aeonFile.Qual) != len(aeonFile.PublicKeyShares) {
-		return fmt.Errorf("Mismatch in qual size %v and public key shares %v", len(aeonFile.Qual), len(aeonFile.PublicKeyShares))
+	if len(output.Qual) == 0 || len(output.Qual) != len(output.PublicKeyShares) {
+		return fmt.Errorf("Mismatch in qual size %v and public key shares %v", len(output.Qual), len(output.PublicKeyShares))
 	}
-	if aeonFile.Start <= 0 || aeonFile.End < aeonFile.Start {
-		return fmt.Errorf("Invalid start %v or end %v", aeonFile.Start, aeonFile.End)
+	if output.Start <= 0 || output.End < output.Start {
+		return fmt.Errorf("Invalid start %v or end %v", output.Start, output.End)
 	}
 	return nil
 }

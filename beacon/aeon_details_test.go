@@ -77,7 +77,7 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 
 	newAeon.save(config.EntropyKeyFile())
 
-	err, duplicateAeon := LoadAeonDetails(config.EntropyKeyFile(), state.Validators, privVals[0])
+	duplicateAeon, err := LoadAeonDetails(config.EntropyKeyFile(), state.Validators, privVals[0])
 	assert.Equal(t, nil, err)
 	assert.Equal(t, newAeon.Start, duplicateAeon.Start)
 	assert.Equal(t, newAeon.End, duplicateAeon.End)

@@ -50,7 +50,7 @@ public:
 
   Signature Sign(MessagePayload const &message) const;
   bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const;
-  Signature ComputeGroupSignature(std::map <int, Signature> const &signature_shares) const;
+  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature) const;
 
   bool CanSign() const;

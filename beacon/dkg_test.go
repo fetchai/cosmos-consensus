@@ -255,7 +255,7 @@ func TestDKGScenarios(t *testing.T) {
 						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, node.dkg.index()))
 					}
 				}
-				sigShares.Set(int(node.dkg.index()), signature)
+				sigShares.Set(node.dkg.index(), signature)
 			}
 			groupSig := outputs[0].aeonExecUnit.ComputeGroupSignature(sigShares)
 			for index := 0; index < tc.completionSize; index++ {

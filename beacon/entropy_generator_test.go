@@ -92,7 +92,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		tempGen := testEntropyGen(state.Validators, privVal, index)
 		tempGen.sign()
 
-		share := tempGen.entropyShares[1][index]
+		share := tempGen.entropyShares[1][uint(index)]
 		newGen.applyEntropyShare(&share)
 	}
 
@@ -151,7 +151,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[1][index]
+		share := otherGen.entropyShares[1][uint(index)]
 
 		newGen.applyEntropyShare(&share)
 		assert.True(t, len(newGen.entropyShares[1]) == 0)
@@ -163,7 +163,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(3)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[4][index]
+		share := otherGen.entropyShares[4][uint(index)]
 
 		newGen.applyEntropyShare(&share)
 		assert.True(t, len(newGen.entropyShares[4]) == 0)
@@ -192,7 +192,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[2][index]
+		share := otherGen.entropyShares[2][uint(index)]
 		// Alter signature message
 		privVals[0].SignEntropy("wrong chain ID", &share)
 
@@ -206,7 +206,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[2][index]
+		share := otherGen.entropyShares[2][uint(index)]
 
 		newGen.applyEntropyShare(&share)
 		assert.True(t, len(newGen.entropyShares[2]) == 1)
@@ -261,7 +261,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.getEntropyShares(2)[index]
+		share := otherGen.getEntropyShares(2)[uint(index)]
 		entropyWrong := types.ComputedEntropy{Height: 2, GroupSignature: []byte(share.SignatureShare)}
 
 		newGen.applyComputedEntropy(&entropyWrong)
@@ -281,7 +281,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 			tempGen.setLastBlockHeight(1)
 
 			tempGen.sign()
-			share := tempGen.getEntropyShares(2)[tempIndex]
+			share := tempGen.getEntropyShares(2)[uint(tempIndex)]
 			otherGen.applyEntropyShare(&share)
 		}
 

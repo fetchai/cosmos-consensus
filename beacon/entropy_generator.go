@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	cmn "github.com/tendermint/tendermint/libs/common"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
+
 	//"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
@@ -27,7 +28,7 @@ type EntropyGenerator struct {
 
 	mtx sync.RWMutex
 
-	entropyShares             map[int64]map[int]types.EntropyShare
+	entropyShares             map[int64]map[uint]types.EntropyShare
 	entropyComputed           map[int64]types.ThresholdSignature
 	lastBlockHeight           int64 // last block height
 	lastComputedEntropyHeight int64 // last non-trivial entropy
@@ -56,7 +57,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig,
 		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/consensusConfig can not be nil"))
 	}
 	es := &EntropyGenerator{
-		entropyShares:             make(map[int64]map[int]types.EntropyShare),
+		entropyShares:             make(map[int64]map[uint]types.EntropyShare),
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
@@ -288,10 +289,10 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 	entropyGenerator.Logger.Debug("applyEntropyShare: valid share received", "height", share.Height, "validator index", index)
 	if entropyGenerator.entropyShares[share.Height] == nil {
-		entropyGenerator.entropyShares[share.Height] = make(map[int]types.EntropyShare)
+		entropyGenerator.entropyShares[share.Height] = make(map[uint]types.EntropyShare)
 	}
 
-	entropyGenerator.entropyShares[share.Height][index] = share.Copy()
+	entropyGenerator.entropyShares[share.Height][uint(index)] = share.Copy()
 	return
 }
 
@@ -317,10 +318,10 @@ func (entropyGenerator *EntropyGenerator) getComputedEntropy(height int64) types
 }
 
 // GetEntropyShares gets entropy shares at a particular height
-func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int]types.EntropyShare {
+func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[uint]types.EntropyShare {
 	entropyGenerator.mtx.RLock()
 	defer entropyGenerator.mtx.RUnlock()
-	sharesCopy := make(map[int]types.EntropyShare)
+	sharesCopy := make(map[uint]types.EntropyShare)
 	for key, share := range entropyGenerator.entropyShares[height] {
 		sharesCopy[key] = share.Copy()
 	}
@@ -337,7 +338,7 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 	if height > entropyGenerator.lastBlockHeight+1 {
 		return fmt.Errorf("missing previous entropy at height %v", height-1)
 	}
-	if len(entropyGenerator.entropyShares[height][index].SignatureShare) != 0 {
+	if len(entropyGenerator.entropyShares[height][uint(index)].SignatureShare) != 0 {
 		return fmt.Errorf("already have entropy share at height %v index %v", height, index)
 	}
 	return nil
@@ -366,7 +367,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[blockHeight] == nil {
-		entropyGenerator.entropyShares[blockHeight] = make(map[int]types.EntropyShare)
+		entropyGenerator.entropyShares[blockHeight] = make(map[uint]types.EntropyShare)
 	}
 	share := types.EntropyShare{
 		Height:         blockHeight,
@@ -379,7 +380,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		entropyGenerator.Logger.Error(err.Error())
 		return
 	}
-	entropyGenerator.entropyShares[blockHeight][index] = share
+	entropyGenerator.entropyShares[blockHeight][uint(index)] = share
 }
 
 // OnBlock form pubsub that updates last block height

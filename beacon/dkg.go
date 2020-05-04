@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	cfg "github.com/tendermint/tendermint/config"
-	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/crypto"
+	cmn "github.com/tendermint/tendermint/libs/common"
+
 	//"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
@@ -22,6 +23,7 @@ const (
 	waitForQualCoefficients
 	waitForQualComplaints
 	waitForReconstructionShares
+	waitForDryRun
 	dkgFinish
 )
 
@@ -66,11 +68,15 @@ type DistributedKeyGeneration struct {
 	validators     types.ValidatorSet
 	threshold      int
 	currentAeonEnd int64
+	aeonKeys       *aeonDetails
 
 	startHeight   int64
 	states        map[dkgState]*state
 	currentState  dkgState
 	beaconService BeaconSetupService
+
+	dryRunsReceived      map[uint]string
+	dryRunGroupSignature string
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
@@ -85,19 +91,20 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 	}
 	dkgThreshold := len(vals.Validators)/2 + 1
 	dkg := &DistributedKeyGeneration{
-		config:         csConfig,
-		chainID:        chain,
-		dkgID:          dkgRunID,
-		dkgIteration:   0,
-		privValidator:  privVal,
-		valToIndex:     make(map[string]uint),
-		validators:     vals,
-		currentAeonEnd: aeonEnd,
-		threshold:      dkgThreshold,
-		startHeight:    startH,
-		states:         make(map[dkgState]*state),
-		currentState:   dkgStart,
-		beaconService:  NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
+		config:          csConfig,
+		chainID:         chain,
+		dkgID:           dkgRunID,
+		dkgIteration:    0,
+		privValidator:   privVal,
+		valToIndex:      make(map[string]uint),
+		validators:      vals,
+		currentAeonEnd:  aeonEnd,
+		threshold:       dkgThreshold,
+		startHeight:     startH,
+		states:          make(map[dkgState]*state),
+		currentState:    dkgStart,
+		beaconService:   NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
+		dryRunsReceived: make(map[uint]string),
 	}
 	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
 
@@ -155,7 +162,11 @@ func (dkg *DistributedKeyGeneration) setStates() {
 		dkg.sendReconstructionShares,
 		dkg.beaconService.RunReconstruction,
 		dkg.beaconService.ReceivedAllReconstructionShares)
-	dkg.states[dkgFinish] = newState(0, dkg.computeKeys, nil, nil)
+	dkg.states[waitForDryRun] = newState(dkg.config.DKGStateDuration,
+		dkg.computeKeys,
+		dkg.checkDryRuns,
+		dkg.receivedAllDryRuns)
+	dkg.states[dkgFinish] = newState(0, dkg.dispatchKeys, nil, nil)
 }
 
 //OnReset overrides BaseService
@@ -229,6 +240,11 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 				continue
 			}
 			dkg.beaconService.OnReconstructionShares(msg.Data, uint(index))
+		case types.DKGDryRun:
+			if dkg.currentState > waitForDryRun {
+				continue
+			}
+			dkg.onDryRun(msg.Data, uint(index))
 		default:
 			dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 		}
@@ -359,19 +375,34 @@ func (dkg *DistributedKeyGeneration) buildQual() bool {
 
 func (dkg *DistributedKeyGeneration) computeKeys() {
 	aeonExecUnit := dkg.beaconService.ComputePublicKeys()
-
-	if dkg.dkgCompletionCallback != nil {
-		// Create new aeon details - start height either the start
-		// of the next aeon or immediately (with some delay)
-		nextAeonStart := dkg.currentAeonEnd + 1
-		dkgEnd := (dkg.startHeight + dkg.duration())
-		if dkgEnd >= nextAeonStart {
-			nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
-		}
-		aeonDetails := newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
-			nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
-		dkg.dkgCompletionCallback(aeonDetails)
+	// Create new aeon details - start height either the start
+	// of the next aeon or immediately (with some delay)
+	nextAeonStart := dkg.currentAeonEnd + 1
+	dkgEnd := (dkg.startHeight + dkg.duration())
+	if dkgEnd >= nextAeonStart {
+		nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
 	}
+	dkg.aeonKeys = newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
+		nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
+
+	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)
+	msgToSign := cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput())
+	signature := dkg.aeonKeys.aeonExecUnit.Sign(string(msgToSign))
+	dkg.broadcastMsg(types.DKGDryRun, signature, nil)
+	dkg.dryRunsReceived[dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]] = signature
+}
+
+func (dkg *DistributedKeyGeneration) dispatchKeys() {
+	if dkg.dkgCompletionCallback != nil {
+		dkg.dkgCompletionCallback(dkg.aeonKeys)
+	}
+	// Broadcast message to notify everyone of completion
+	dkgCompletionMsg := DKGCompletionMsg{
+		PublicInfo:     *dkg.aeonKeys.dkgOutput(),
+		GroupSignature: dkg.dryRunGroupSignature,
+	}
+	msg := cdc.MustMarshalBinaryBare(&dkgCompletionMsg)
+	dkg.broadcastMsg(types.DKGCompletion, string(msg), nil)
 
 	// Stop service so we do not process more blocks
 	dkg.Stop()
@@ -391,4 +422,52 @@ func (dkg *DistributedKeyGeneration) duration() int64 {
 		dkgLength += state.duration
 	}
 	return dkgLength
+}
+
+func (dkg *DistributedKeyGeneration) onDryRun(signature string, index uint) {
+	if !dkg.aeonKeys.aeonExecUnit.InQual(index) {
+		return
+	}
+	if _, ok := dkg.dryRunsReceived[index]; !ok {
+		dkg.dryRunsReceived[index] = signature
+	}
+}
+
+func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
+	return len(dkg.dryRunsReceived) == len(dkg.aeonKeys.validators.Validators)
+}
+
+func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
+	signatureShares := NewIntStringMap()
+	defer DeleteIntStringMap(signatureShares)
+
+	dryRunMsg := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))
+	for key, value := range dkg.dryRunsReceived {
+		if dkg.aeonKeys.aeonExecUnit.Verify(dryRunMsg, value, key) {
+			signatureShares.Set(key, value)
+		}
+	}
+	if int(signatureShares.Size()) < dkg.aeonKeys.threshold {
+		return false
+	}
+	dkg.dryRunGroupSignature = dkg.aeonKeys.aeonExecUnit.ComputeGroupSignature(signatureShares)
+	return dkg.aeonKeys.aeonExecUnit.VerifyGroupSignature(dryRunMsg, dkg.dryRunGroupSignature)
+}
+
+// DKGCompletionMsg is struct publishing public dkg output with group signature
+type DKGCompletionMsg struct {
+	PublicInfo     DKGOutput `json:"public_info"`
+	GroupSignature string    `json:"group_signature"`
+}
+
+// ValidateBasic for basic validity checking of aeon file
+func (dkgCompletion *DKGCompletionMsg) ValidateBasic() error {
+	err := dkgCompletion.PublicInfo.ValidateBasic()
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+	if len(dkgCompletion.GroupSignature) == 0 || len(dkgCompletion.GroupSignature) > types.MaxThresholdSignatureSize {
+		return fmt.Errorf("Invalid GroupSignature size %v", len(dkgCompletion.GroupSignature))
+	}
+	return nil
 }

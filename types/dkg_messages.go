@@ -17,6 +17,8 @@ const (
 	DKGQualCoefficient
 	DKGQualComplaint
 	DKGReconstructionShare
+	DKGDryRun
+	DKGCompletion
 
 	MaxDKGDataSize = 32000 // Max value calculated for committee size of 200
 )
@@ -58,7 +60,7 @@ func (m DKGMessage) SignBytes(chainID string) []byte {
 
 // ValidateBasic performs basic validation
 func (m *DKGMessage) ValidateBasic() error {
-	if m.Type < 0 || m.Type > DKGReconstructionShare {
+	if m.Type < 0 || m.Type > DKGCompletion {
 		return fmt.Errorf("invalid Type")
 	}
 	if len(m.FromAddress) != crypto.AddressSize {

@@ -32,7 +32,7 @@ enum class Failure : uint8_t
   EMPTY_COMPLAINT_ANSWER,
   BAD_QUAL_COEFFICIENT,
   FALSE_QUAL_COMPLAINT,
-  WITHHOLD_RECONSTRUCTION_SHARE
+  WITHHOLD_RECONSTRUCTION_SHARE,
 };
 
 // Needs to match with tendermint/types/dkg_messages.go
@@ -45,6 +45,8 @@ enum class DKGMessageType : uint8_t
   QUAL_COEFFICIENT,
   QUAL_COMPLAINT,
   RECONSTRUCTION_SHARE,
+  DRY_RUN,
+  DKG_COMPLETION,
 };
 
 std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure);

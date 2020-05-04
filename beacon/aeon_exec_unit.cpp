@@ -144,12 +144,12 @@ AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, Cabin
 }
 
 AeonExecUnit::Signature
-AeonExecUnit::ComputeGroupSignature(std::map <int, Signature> const &shares) const {
+AeonExecUnit::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &shares) const {
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
-    assert(static_cast<CabinetIndex>(share.first) < aeon_keys_.public_key_shares.size());
+    assert(share.first < aeon_keys_.public_key_shares.size());
     mcl::Signature sig{share.second};
-    signature_shares.insert({static_cast<CabinetIndex>(share.first), sig});
+    signature_shares.insert({share.first, sig});
   }
 
   mcl::Signature group_sig = mcl::LagrangeInterpolation(signature_shares);

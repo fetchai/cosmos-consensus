@@ -16,7 +16,7 @@ using namespace fetch::beacon;
 
 namespace std {
  %template(StringVector) vector<string>;
- %template(IntStringMap) map<int, string>;
+ %template(IntStringMap) map<uint32_t, string>;
  %template(IntVector) vector<uint32_t>;
 }
 

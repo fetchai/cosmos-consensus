@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tendermint/tendermint/beacon"
-	"github.com/tendermint/tendermint/tx_extensions"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/tendermint/tendermint/beacon"
+	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -187,21 +188,21 @@ type Node struct {
 	isListening bool
 
 	// services
-	eventBus         *types.EventBus // pub/sub for services
-	stateDB          dbm.DB
-	blockStore       *store.BlockStore // store the blockchain to disk
-	bcReactor        p2p.Reactor       // for fast-syncing
-	mempoolReactor   *mempl.Reactor    // for gossipping transactions
-	mempool          mempl.Mempool
-	consensusState   *cs.ConsensusState     // latest consensus state
-	consensusReactor *cs.ConsensusReactor   // for participating in the consensus
-	pexReactor       *pex.PEXReactor        // for exchanging peer addresses
-	evidencePool     *evidence.EvidencePool // tracking evidence
-	proxyApp         proxy.AppConns         // connection to the application
-	rpcListeners     []net.Listener         // rpc servers
-	txIndexer        txindex.TxIndexer
-	indexerService   *txindex.IndexerService
-	prometheusSrv    *http.Server
+	eventBus           *types.EventBus // pub/sub for services
+	stateDB            dbm.DB
+	blockStore         *store.BlockStore // store the blockchain to disk
+	bcReactor          p2p.Reactor       // for fast-syncing
+	mempoolReactor     *mempl.Reactor    // for gossipping transactions
+	mempool            mempl.Mempool
+	consensusState     *cs.ConsensusState     // latest consensus state
+	consensusReactor   *cs.ConsensusReactor   // for participating in the consensus
+	pexReactor         *pex.PEXReactor        // for exchanging peer addresses
+	evidencePool       *evidence.EvidencePool // tracking evidence
+	proxyApp           proxy.AppConns         // connection to the application
+	rpcListeners       []net.Listener         // rpc servers
+	txIndexer          txindex.TxIndexer
+	indexerService     *txindex.IndexerService
+	prometheusSrv      *http.Server
 	specialTxHandler   *tx_extensions.SpecialTxHandler
 	entropyGenerator   *beacon.EntropyGenerator
 	beaconReactor      *beacon.Reactor // reactor for signature shares
@@ -579,7 +580,7 @@ func createBeaconReactor(
 	}
 
 	if cmn.FileExists(config.EntropyKeyFile()) {
-		err, aeonDetails := beacon.LoadAeonDetails(config.BaseConfig.EntropyKeyFile(), state.Validators, privValidator)
+		aeonDetails, err := beacon.LoadAeonDetails(config.BaseConfig.EntropyKeyFile(), state.Validators, privValidator)
 		if err == nil {
 			entropyGenerator.SetAeonDetails(aeonDetails)
 			if dkgRunner != nil {
@@ -796,19 +797,19 @@ func NewNode(config *cfg.Config,
 		nodeInfo:  nodeInfo,
 		nodeKey:   nodeKey,
 
-		stateDB:          stateDB,
-		blockStore:       blockStore,
-		bcReactor:        bcReactor,
-		mempoolReactor:   mempoolReactor,
-		mempool:          mempool,
-		consensusState:   consensusState,
-		consensusReactor: consensusReactor,
-		pexReactor:       pexReactor,
-		evidencePool:     evidencePool,
-		proxyApp:         proxyApp,
-		txIndexer:        txIndexer,
-		indexerService:   indexerService,
-		eventBus:         eventBus,
+		stateDB:            stateDB,
+		blockStore:         blockStore,
+		bcReactor:          bcReactor,
+		mempoolReactor:     mempoolReactor,
+		mempool:            mempool,
+		consensusState:     consensusState,
+		consensusReactor:   consensusReactor,
+		pexReactor:         pexReactor,
+		evidencePool:       evidencePool,
+		proxyApp:           proxyApp,
+		txIndexer:          txIndexer,
+		indexerService:     indexerService,
+		eventBus:           eventBus,
 		specialTxHandler:   specialTxHandler,
 		entropyGenerator:   entropyGenerator,
 		beaconReactor:      beaconReactor,
@@ -885,7 +886,7 @@ func (n *Node) OnStart() error {
 		n.dkgRunner.Start()
 	}
 
-	n.nativeLogCollector.Start();
+	n.nativeLogCollector.Start()
 
 	return nil
 }
