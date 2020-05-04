@@ -43,9 +43,9 @@ func TestDKGRunnerValidatorUpdates(t *testing.T) {
 	nVals := 1
 	dkgRunner, _ := testDKGRunners(nVals)
 	dkgRunner[0].Start()
-	dkgRunner[0].OnBlock(1, nil)
-	dkgRunner[0].OnBlock(2, nil)
-	dkgRunner[0].OnBlock(3, nil)
+	dkgRunner[0].OnBlock(1, []byte{}, nil)
+	dkgRunner[0].OnBlock(2, []byte{}, nil)
+	dkgRunner[0].OnBlock(3, []byte{}, nil)
 
 	// Create state after execution of block 1
 	newVals := make([]*types.Validator, 2)
