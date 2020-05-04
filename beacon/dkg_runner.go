@@ -151,18 +151,14 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 		dkgRunner.completedDKG = false
 	}
 	// Start new dkg if there is currently no aeon active or if we are at the
-	// beginning of a new aeon
-	if dkgRunner.aeonStart == -1 || dkgRunner.height == dkgRunner.aeonStart {
+	// past the beginning of a new aeon
+	if dkgRunner.activeDKG == nil && (dkgRunner.aeonStart == -1 || dkgRunner.height >= dkgRunner.aeonStart) {
 		dkgRunner.startNewDKG()
 	}
 }
 
 // Starts new DKG if old one has completed for those in the current validator set
 func (dkgRunner *DKGRunner) startNewDKG() {
-	if dkgRunner.activeDKG != nil {
-		dkgRunner.Logger.Error("startNewDKG: dkg already started", "height", dkgRunner.height)
-		return
-	}
 	if index, _ := dkgRunner.validators.GetByAddress(dkgRunner.privVal.GetPubKey().Address()); index < 0 {
 		dkgRunner.Logger.Debug("startNewDKG: not in validators", "height", dkgRunner.height)
 		return
