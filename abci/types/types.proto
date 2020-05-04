@@ -274,8 +274,10 @@ message Header {
   bytes last_results_hash = 14;// root hash of all results from the txs from the previous block
 
   // consensus info
-  bytes evidence_hash = 15;    // evidence included in the block
-  bytes proposer_address = 16; // original proposer of the block
+  bytes evidence_hash    = 15;  // evidence included in the block
+  bytes proposer_address = 16;  // original proposer of the block
+
+  bytes entropy = 17; // entropy in block 
 }
 
 message Version {

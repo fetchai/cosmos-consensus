@@ -4,8 +4,9 @@ import (
 	"sync"
 	"time"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
 	cfg "github.com/tendermint/tendermint/config"
+	cmn "github.com/tendermint/tendermint/libs/common"
+
 	//"github.com/tendermint/tendermint/libs/service"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
@@ -92,11 +93,17 @@ func (dkgRunner *DKGRunner) OnStart() error {
 }
 
 // OnBlock is callback in messageHandler for DKG messages included in a particular block
-func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
+func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSignature, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
 	dkgRunner.height = blockHeight
 	dkgRunner.valsUpdated = false
-	if dkgRunner.activeDKG != nil {
+
+	// Check if DKG is stale
+	if len(entropy) != 0 && blockHeight > dkgRunner.aeonEnd {
+		dkgRunner.activeDKG.Stop()
+		dkgRunner.activeDKG = nil
+		// TODO: Find aeonDetails for succeeded DKG
+	} else if dkgRunner.activeDKG != nil {
 		dkgRunner.mtx.Unlock()
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
 		return

@@ -9,10 +9,10 @@ import (
 
 // Fake representation of the chain, for testing.
 // Allows messages to be submitted by different parties (thread safe)
-// and dispatches these messages to everyone 
+// and dispatches these messages to everyone
 type FakeMessageHandler struct {
-	mtx sync.RWMutex
-	cb_confirmed_message []func(int64, []*types.DKGMessage)
+	mtx                  sync.RWMutex
+	cb_confirmed_message []func(int64, types.ThresholdSignature, []*types.DKGMessage)
 	cb_submit_special_tx func([]byte)
 
 	currentlyPending []*types.DKGMessage
@@ -25,7 +25,7 @@ func NewFakeMessageHandler() (ret *FakeMessageHandler) {
 	ret = &FakeMessageHandler{}
 	// Default such that TXs are submitted to the pending pool
 	// (rather than the chain)
-	ret.ToSubmitTx(func(tx []byte) { ret.SpecialTxSeen(tx)  })
+	ret.ToSubmitTx(func(tx []byte) { ret.SpecialTxSeen(tx) })
 	return
 }
 
@@ -46,7 +46,7 @@ func (txHandler *FakeMessageHandler) SubmitSpecialTx(message interface{}) {
 func (txHandler *FakeMessageHandler) SubmitTx(tx types.DKGMessage) {
 	txHandler.mtx.Lock()
 	defer txHandler.mtx.Unlock()
-	
+
 	txHandler.currentlyPending = append(txHandler.currentlyPending, &tx)
 }
 
@@ -55,6 +55,8 @@ func (txHandler *FakeMessageHandler) SubmitTx(tx types.DKGMessage) {
 func (txHandler *FakeMessageHandler) ToSubmitTx(cb func([]byte)) {
 	txHandler.cb_submit_special_tx = cb
 }
+
+func (txHandler *FakeMessageHandler) BeginBlock(types.ThresholdSignature) {}
 
 func (txHandler *FakeMessageHandler) EndBlock(blockHeight int64) {
 	txHandler.mtx.Lock()
@@ -65,12 +67,12 @@ func (txHandler *FakeMessageHandler) EndBlock(blockHeight int64) {
 	// Call without the lock to avoid deadlock if toExecute can somehow submit
 	// TXs to this struct
 	for _, toExecute := range txHandler.cb_confirmed_message {
-		toExecute(blockHeight, currentlyPending)
+		toExecute(blockHeight, []byte{}, currentlyPending)
 	}
 }
 
 // Set the closure to be triggered when special Txs are seen on the chain
-func (txHandler *FakeMessageHandler) WhenChainTxSeen(cb func(int64, []*types.DKGMessage)) {
+func (txHandler *FakeMessageHandler) WhenChainTxSeen(cb func(int64, types.ThresholdSignature, []*types.DKGMessage)) {
 	txHandler.cb_confirmed_message = append(txHandler.cb_confirmed_message, cb)
 }
 

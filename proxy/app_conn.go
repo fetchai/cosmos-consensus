@@ -45,13 +45,13 @@ type AppConnQuery interface {
 // Implements AppConnConsensus (subset of abcicli.Client)
 
 type appConnConsensus struct {
-	appConn abcicli.Client
+	appConn          abcicli.Client
 	specialTxHandler *tx_extensions.SpecialTxHandler
 }
 
 func NewAppConnConsensus(appConn abcicli.Client, handler *tx_extensions.SpecialTxHandler) *appConnConsensus {
 	return &appConnConsensus{
-		appConn: appConn,
+		appConn:          appConn,
 		specialTxHandler: handler,
 	}
 }
@@ -69,6 +69,10 @@ func (app *appConnConsensus) InitChainSync(req types.RequestInitChain) (*types.R
 }
 
 func (app *appConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
+	if app.specialTxHandler != nil {
+		app.specialTxHandler.BeginBlock(req.Header.Entropy)
+	}
+
 	return app.appConn.BeginBlockSync(req)
 }
 

@@ -58,21 +58,23 @@ func IsDKGRelated(tx []byte) bool {
 }
 
 type MessageHandler interface {
-	SubmitSpecialTx(message interface{})                 // DKG calls this to send away messages
-	ToSubmitTx(cb func([]byte))                          // Set the callback to dispatch raw TXs to mempool
-	SpecialTxSeen(tx []byte)                             // Chain watcher calls this to notify of TXs seen
-	EndBlock(blockHeight int64)                          // Call this to send the block TXs to the DKG
-	WhenChainTxSeen(cb func(int64, []*types.DKGMessage)) // Set the callback for an end block
+	SubmitSpecialTx(message interface{})                                           // DKG calls this to send away messages
+	ToSubmitTx(cb func([]byte))                                                    // Set the callback to dispatch raw TXs to mempool
+	SpecialTxSeen(tx []byte)                                                       // Chain watcher calls this to notify of TXs seen
+	BeginBlock(entropy types.ThresholdSignature)                                   // Call this to get entropy from block
+	EndBlock(blockHeight int64)                                                    // Call this to send the block TXs to the DKG
+	WhenChainTxSeen(cb func(int64, types.ThresholdSignature, []*types.DKGMessage)) // Set the callback for an end block
 }
 
 // The struct designed to handle sending and receiving messages via the chain
 type SpecialTxHandler struct {
 	// Trigger this when new DKG messages are seen by the chain
-	cb_confirmed_message func(int64, []*types.DKGMessage)
+	cb_confirmed_message func(int64, types.ThresholdSignature, []*types.DKGMessage)
 
 	// Trigger this to send DKG TX to the mempool
 	cb_submit_special_tx func([]byte)
 
+	currentEntropy   types.ThresholdSignature
 	currentlyPending []*types.DKGMessage
 }
 
@@ -101,7 +103,7 @@ func (txHandler *SpecialTxHandler) ToSubmitTx(cb func([]byte)) {
 }
 
 // Set the closure to be triggered when special Txs are seen on the chain
-func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(int64, []*types.DKGMessage)) {
+func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(int64, types.ThresholdSignature, []*types.DKGMessage)) {
 	txHandler.cb_confirmed_message = cb
 }
 
@@ -117,10 +119,15 @@ func (txHandler *SpecialTxHandler) SpecialTxSeen(tx []byte) {
 	}
 }
 
+// BeginBlock give handler the entropy for the current block
+func (txHandler *SpecialTxHandler) BeginBlock(entropy types.ThresholdSignature) {
+	txHandler.currentEntropy = entropy
+}
+
 // Submit TXs and clear
 func (txHandler *SpecialTxHandler) EndBlock(blockHeight int64) {
 	if txHandler.cb_confirmed_message != nil {
-		txHandler.cb_confirmed_message(blockHeight, txHandler.currentlyPending)
+		txHandler.cb_confirmed_message(blockHeight, txHandler.currentEntropy, txHandler.currentlyPending)
 	}
 
 	txHandler.currentlyPending = make([]*types.DKGMessage, 0)
