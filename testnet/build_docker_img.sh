@@ -1,22 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
-if [[ $# -ne 3 ]]; then
-    echo "Provide: docker_name docker_tag num_validators"
+if [[ $# -ne 2 ]]; then
+    echo "Provide: docker_name docker_tag"
     exit 1
 fi
 
 CONTAINER_NAME="$1"
 CONTAINER_TAG="$2"
-NUM_VALIDATORS="$3"
 
 # Archive the project so docker can build it
 echo "Archiving the project"
 git-archive-all project.tar.gz --prefix project
 echo "done."
-
-echo "Preparing configuration files for docker image"
-tendermint testnet --v $3
 
 # Required for the docker container
 if [[ ! -f ./go1.14.2.linux-amd64.tar.gz ]]; then
