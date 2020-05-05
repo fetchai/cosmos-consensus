@@ -167,7 +167,7 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 	}
 }
 
-// validAeonLength checks whether new aeon length is consistent with other DKG parameters before it is yet.
+// validAeonLength checks whether new aeon length is consistent with other DKG parameters before it is set.
 // Must give dkg state length of at least 1 block to be valid
 func (dkgRunner *DKGRunner) validAeonLength(aeonLength int64) bool {
 	// When computing dkg duration allow buffer for run ahead on entropy generation so that
