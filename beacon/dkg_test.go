@@ -51,9 +51,17 @@ func TestDKGCheckTransition(t *testing.T) {
 	}{
 		{"No state change", func(dkg *DistributedKeyGeneration) {}, 9, dkgStart},
 		{"Proceed to next state", func(dkg *DistributedKeyGeneration) {}, 10, dkgStart + 1},
-		{"Reset to start", func(dkg *DistributedKeyGeneration) {
+		{"Skip to dry run", func(dkg *DistributedKeyGeneration) {
+			dkg.currentState = dkgStart
 			dkg.states[dkgStart].onExit = func() bool { return false }
-		}, 10, dkgStart},
+		}, 10, waitForDryRun},
+		{"Reset to start", func(dkg *DistributedKeyGeneration) {
+			dkg.currentState = waitForDryRun
+			dkg.states[waitForDryRun].onExit = func() bool {
+				dkg.Start()
+				return false
+			}
+		}, 45, dkgStart},
 	}
 	for _, tc := range testCases {
 		tc := tc
@@ -69,12 +77,12 @@ func TestDKGCheckTransition(t *testing.T) {
 func TestDKGReset(t *testing.T) {
 	dkg := exampleDKG(4)
 	oldStartHeight := dkg.startHeight
-	dkg.states[dkgStart].onExit = func() bool {
-		dkg.Start()
+	dkg.states[waitForDryRun].onExit = func() bool {
 		return false
 	}
+	dkg.Start()
 	// Trigger a failed transition
-	dkg.checkTransition(dkg.startHeight)
+	dkg.checkTransition(oldStartHeight + dkg.duration())
 
 	assert.True(t, !dkg.IsRunning())
 	assert.True(t, dkg.startHeight == oldStartHeight+dkg.duration()+dkg.config.DKGResetDelay)
@@ -178,8 +186,8 @@ func TestDKGScenarios(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
 
-			outputs := make([]*aeonDetails, tc.completionSize)
-			for index := 0; index < tc.completionSize; index++ {
+			outputs := make([]*aeonDetails, tc.nVals)
+			for index := 0; index < tc.nVals; index++ {
 				output := &outputs[index]
 				_ = output // dummy assignment
 				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
@@ -199,7 +207,7 @@ func TestDKGScenarios(t *testing.T) {
 				node.clearMsgs()
 			}
 
-			for nodesFinished := 0; nodesFinished < tc.completionSize; {
+			for nodesFinished := 0; nodesFinished < tc.nVals; {
 				blockHeight++
 				for index, node := range nodes {
 					for index1, node1 := range nodes {
@@ -227,7 +235,7 @@ func TestDKGScenarios(t *testing.T) {
 			// Wait for all dkgs to stop running
 			assert.Eventually(t, func() bool {
 				running := 0
-				for index := 0; index < tc.completionSize; index++ {
+				for index := 0; index < tc.nVals; index++ {
 					if nodes[index].dkg.IsRunning() {
 						running++
 					}
@@ -250,7 +258,7 @@ func TestDKGScenarios(t *testing.T) {
 			for index := 0; index < tc.completionSize; index++ {
 				node := nodes[index]
 				signature := outputs[index].aeonExecUnit.Sign(message)
-				for index1 := 0; index1 < tc.completionSize; index1++ {
+				for index1 := 0; index1 < tc.nVals; index1++ {
 					if index != index1 {
 						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, node.dkg.index()))
 					}
@@ -258,7 +266,7 @@ func TestDKGScenarios(t *testing.T) {
 				sigShares.Set(node.dkg.index(), signature)
 			}
 			groupSig := outputs[0].aeonExecUnit.ComputeGroupSignature(sigShares)
-			for index := 0; index < tc.completionSize; index++ {
+			for index := 0; index < tc.nVals; index++ {
 				assert.True(t, outputs[index].aeonExecUnit.VerifyGroupSignature(message, groupSig))
 			}
 		})

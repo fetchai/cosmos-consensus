@@ -76,8 +76,9 @@ type DistributedKeyGeneration struct {
 	currentState  dkgState
 	beaconService BeaconSetupService
 
-	dryRunsReceived      map[uint]string
-	dryRunGroupSignature string
+	dryRunKeys       map[string]DKGOutput
+	dryRunSignatures map[string]map[uint]string
+	dryRunCount      int
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
@@ -92,21 +93,22 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 	}
 	dkgThreshold := len(vals.Validators)/2 + 1
 	dkg := &DistributedKeyGeneration{
-		config:          csConfig,
-		chainID:         chain,
-		dkgID:           dkgRunID,
-		dkgIteration:    0,
-		privValidator:   privVal,
-		validatorHeight: validatorHeight,
-		valToIndex:      make(map[string]uint),
-		validators:      vals,
-		currentAeonEnd:  aeonEnd,
-		threshold:       dkgThreshold,
-		startHeight:     validatorHeight + csConfig.DKGResetDelay,
-		states:          make(map[dkgState]*state),
-		currentState:    dkgStart,
-		beaconService:   NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
-		dryRunsReceived: make(map[uint]string),
+		config:           csConfig,
+		chainID:          chain,
+		dkgID:            dkgRunID,
+		dkgIteration:     0,
+		privValidator:    privVal,
+		validatorHeight:  validatorHeight,
+		valToIndex:       make(map[string]uint),
+		validators:       vals,
+		currentAeonEnd:   aeonEnd,
+		threshold:        dkgThreshold,
+		startHeight:      validatorHeight + csConfig.DKGResetDelay,
+		states:           make(map[dkgState]*state),
+		currentState:     dkgStart,
+		beaconService:    NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
+		dryRunKeys:       make(map[string]DKGOutput),
+		dryRunSignatures: make(map[string]map[uint]string),
 	}
 	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
 
@@ -288,10 +290,17 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {
 		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", dkg.currentState)
 		if !dkg.states[dkg.currentState].onExit() {
-			// If exit functions fail then DKG has failed and we restart
 			dkg.Logger.Error("checkTransition: failed onExit", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
-			dkg.Stop()
-			dkg.Reset()
+			if dkg.currentState == waitForDryRun {
+				// If exit function for dry run failed then reset and restart DKG
+				dkg.Stop()
+				dkg.Reset()
+			} else {
+				// If exit function failed before dry run then skip intermediate states and
+				// wait to see if DKG passes for everyone else
+				dkg.currentState = waitForDryRun
+				dkg.checkTransition(blockHeight)
+			}
 			return
 		}
 		dkg.currentState++
@@ -388,23 +397,28 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
 
 	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)
-	msgToSign := cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput())
-	signature := dkg.aeonKeys.aeonExecUnit.Sign(string(msgToSign))
-	dkg.broadcastMsg(types.DKGDryRun, signature, nil)
-	dkg.dryRunsReceived[dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]] = signature
+	msgToSign := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))
+	signature := dkg.aeonKeys.aeonExecUnit.Sign(msgToSign)
+	// Broadcast message to notify everyone of completion
+	dryRun := DryRunSignature{
+		PublicInfo:     *dkg.aeonKeys.dkgOutput(),
+		SignatureShare: signature,
+	}
+	if _, haveKeys := dkg.dryRunKeys[msgToSign]; !haveKeys {
+		dkg.dryRunKeys[msgToSign] = *dkg.aeonKeys.dkgOutput()
+		dkg.dryRunSignatures[msgToSign] = make(map[uint]string)
+	}
+	dkg.dryRunSignatures[msgToSign][dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]] = signature
+	dkg.dryRunCount++
+
+	msg := cdc.MustMarshalBinaryBare(&dryRun)
+	dkg.broadcastMsg(types.DKGDryRun, string(msg), nil)
 }
 
 func (dkg *DistributedKeyGeneration) dispatchKeys() {
 	if dkg.dkgCompletionCallback != nil {
 		dkg.dkgCompletionCallback(dkg.aeonKeys)
 	}
-	// Broadcast message to notify everyone of completion
-	dkgCompletionMsg := DKGCompletionMsg{
-		PublicInfo:     *dkg.aeonKeys.dkgOutput(),
-		GroupSignature: dkg.dryRunGroupSignature,
-	}
-	msg := cdc.MustMarshalBinaryBare(&dkgCompletionMsg)
-	dkg.broadcastMsg(types.DKGCompletion, string(msg), nil)
 
 	// Stop service so we do not process more blocks
 	dkg.Stop()
@@ -426,50 +440,100 @@ func (dkg *DistributedKeyGeneration) duration() int64 {
 	return dkgLength
 }
 
-func (dkg *DistributedKeyGeneration) onDryRun(signature string, index uint) {
-	if !dkg.aeonKeys.aeonExecUnit.InQual(index) {
+func (dkg *DistributedKeyGeneration) onDryRun(data string, index uint) {
+	if dkg.aeonKeys != nil && !dkg.aeonKeys.aeonExecUnit.InQual(index) {
 		return
 	}
-	if _, ok := dkg.dryRunsReceived[index]; !ok {
-		dkg.dryRunsReceived[index] = signature
+	dryRun := DryRunSignature{}
+	err := cdc.UnmarshalBinaryBare([]byte(data), &dryRun)
+	if err != nil {
+		dkg.Logger.Error("onDryRun: error decoding msg", "error", err.Error())
+		return
+	}
+	err = dryRun.ValidateBasic()
+	if err != nil {
+		dkg.Logger.Error("onDryRun: error validating msg", "error", err.Error())
+		return
+	}
+	msgSigned := string(cdc.MustMarshalBinaryBare(&dryRun.PublicInfo))
+	if _, haveKeys := dkg.dryRunKeys[msgSigned]; !haveKeys {
+		dkg.dryRunKeys[msgSigned] = dryRun.PublicInfo
+		dkg.dryRunSignatures[msgSigned] = make(map[uint]string)
+	}
+	if _, haveSignature := dkg.dryRunSignatures[msgSigned][index]; !haveSignature {
+		dkg.dryRunSignatures[msgSigned][index] = dryRun.SignatureShare
+		dkg.dryRunCount++
 	}
 }
 
 func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
-	return len(dkg.dryRunsReceived) == len(dkg.aeonKeys.validators.Validators)
+	// For those who have failed and not set keys wait for everyone except self.
+	// Otherwise wait for those in aeon keys
+	numValidators := len(dkg.validators.Validators) - 1
+	if dkg.aeonKeys != nil {
+		numValidators = len(dkg.aeonKeys.validators.Validators)
+	}
+	return dkg.dryRunCount == numValidators
 }
 
 func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
-	signatureShares := NewIntStringMap()
-	defer DeleteIntStringMap(signatureShares)
-
-	dryRunMsg := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))
-	for key, value := range dkg.dryRunsReceived {
-		if dkg.aeonKeys.aeonExecUnit.Verify(dryRunMsg, value, key) {
-			signatureShares.Set(key, value)
+	encodedOutput := ""
+	for encodedKeys, signatures := range dkg.dryRunSignatures {
+		if len(signatures) >= dkg.threshold {
+			encodedOutput = encodedKeys
+			// Should only be one set of keys which gets threshold signatures
+			// if double messages are forbidden
+			break
 		}
 	}
-	if int(signatureShares.Size()) < dkg.aeonKeys.threshold {
+
+	if len(encodedOutput) == 0 {
 		return false
 	}
-	dkg.dryRunGroupSignature = dkg.aeonKeys.aeonExecUnit.ComputeGroupSignature(signatureShares)
-	return dkg.aeonKeys.aeonExecUnit.VerifyGroupSignature(dryRunMsg, dkg.dryRunGroupSignature)
+
+	// Check signatures with keys that have over threshold signature shares
+	signatureShares := NewIntStringMap()
+	defer DeleteIntStringMap(signatureShares)
+	aeonFile := &AeonDetailsFile{
+		PublicInfo: dkg.dryRunKeys[encodedOutput],
+	}
+	tempKeys := LoadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
+	for index, signature := range dkg.dryRunSignatures[encodedOutput] {
+		if tempKeys.aeonExecUnit.Verify(encodedOutput, signature, index) {
+			signatureShares.Set(index, signature)
+		}
+	}
+	if int(signatureShares.Size()) < dkg.threshold {
+		return false
+	}
+	dryRunGroupSignature := tempKeys.aeonExecUnit.ComputeGroupSignature(signatureShares)
+	if !tempKeys.aeonExecUnit.VerifyGroupSignature(encodedOutput, dryRunGroupSignature) {
+		return false
+	}
+
+	// Reset our aeon keys if they do not match output
+	if dkg.aeonKeys == nil || string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput())) != encodedOutput {
+		dkg.aeonKeys = tempKeys
+	}
+	return true
 }
 
-// DKGCompletionMsg is struct publishing public dkg output with group signature
-type DKGCompletionMsg struct {
+//-------------------------------------------------------------------------------------------
+
+// DryRunSignature is struct publishing public dkg output with group signature
+type DryRunSignature struct {
 	PublicInfo     DKGOutput `json:"public_info"`
-	GroupSignature string    `json:"group_signature"`
+	SignatureShare string    `json:"group_signature"`
 }
 
 // ValidateBasic for basic validity checking of aeon file
-func (dkgCompletion *DKGCompletionMsg) ValidateBasic() error {
-	err := dkgCompletion.PublicInfo.ValidateBasic()
+func (dryRun *DryRunSignature) ValidateBasic() error {
+	err := dryRun.PublicInfo.ValidateBasic()
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
-	if len(dkgCompletion.GroupSignature) == 0 || len(dkgCompletion.GroupSignature) > types.MaxThresholdSignatureSize {
-		return fmt.Errorf("Invalid GroupSignature size %v", len(dkgCompletion.GroupSignature))
+	if len(dryRun.SignatureShare) == 0 || len(dryRun.SignatureShare) > types.MaxThresholdSignatureSize {
+		return fmt.Errorf("Invalid signature share size %v", len(dryRun.SignatureShare))
 	}
 	return nil
 }
