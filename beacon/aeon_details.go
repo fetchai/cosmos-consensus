@@ -11,7 +11,7 @@ import (
 // aeonDetails stores entropy generation details for each aeon
 type aeonDetails struct {
 	privValidator   types.PrivValidator
-	ValidatorHeight int64 // Height at which validator set obtained
+	validatorHeight int64 // Height at which validator set obtained
 	validators      *types.ValidatorSet
 	threshold       int
 	aeonExecUnit    AeonExecUnit
@@ -83,7 +83,7 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 
 	ad := &aeonDetails{
 		privValidator:   newPrivValidator,
-		ValidatorHeight: valHeight,
+		validatorHeight: valHeight,
 		validators:      newVals,
 		aeonExecUnit:    aeonKeys,
 		threshold:       validators.Size()/2 + 1,
@@ -99,7 +99,7 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 		GroupPublicKey:  aeon.aeonExecUnit.GroupPublicKey(),
 		Generator:       aeon.aeonExecUnit.Generator(),
 		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
-		ValidatorHeight: aeon.ValidatorHeight,
+		ValidatorHeight: aeon.validatorHeight,
 		Qual:            make([]uint, len(aeon.validators.Validators)),
 		Start:           aeon.Start,
 		End:             aeon.End,
