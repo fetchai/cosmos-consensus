@@ -82,9 +82,6 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 		"aeon", entropyGenerator.isSigningEntropy(), "lastEntropyHeight", entropyGenerator.lastComputedEntropyHeight)
 
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
-		if entropyGenerator.lastComputedEntropyHeight != entropyGenerator.lastBlockHeight {
-			return fmt.Errorf("OnStart: mistmatch between block and entropy heights")
-		}
 		// Notify peers of starting entropy
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		// Sign entropy

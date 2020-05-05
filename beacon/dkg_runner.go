@@ -32,10 +32,10 @@ type DKGRunner struct {
 	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
-	valsUpdated  bool
 	dkgCounter   int
 
 	dkgCompletionCallback func(aeon *aeonDetails)
+	fastSync              bool
 
 	mtx sync.Mutex
 }
@@ -52,6 +52,7 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		aeonEnd:         -1,
 		completedDKG:    false,
 		dkgCounter:      0,
+		fastSync:        false,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -83,6 +84,41 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
 	dkgRunner.aeonEnd = end
 }
 
+// FastSync runs a dkg from block messages up to current block height
+// for catch up
+func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStoreRPC) error {
+	if dkgRunner.IsRunning() {
+		return fmt.Errorf("FastSync: dkgRunner running!")
+	}
+
+	dkgHeight := dkgRunner.aeonStart
+	if dkgHeight < 0 {
+		dkgHeight = 1
+	}
+	if dkgRunner.height > dkgHeight {
+		dkgRunner.fastSync = true
+		dkgRunner.checkNextDKG()
+		for dkgRunner.height > dkgHeight {
+			// Load transactions from block
+			block := blockStore.LoadBlock(dkgHeight)
+			// Play transactions to DKG
+			if block == nil {
+				return fmt.Errorf("FastSync: nil block returned at height %v", dkgHeight)
+			}
+			dkgRunner.messageHandler.BeginBlock(block.Header.Entropy)
+			for _, trx := range block.Data.Txs {
+				if tx_extensions.IsDKGRelated(trx) {
+					dkgRunner.messageHandler.SpecialTxSeen(trx)
+				}
+			}
+			dkgRunner.messageHandler.EndBlock(block.Header.Height)
+			dkgHeight++
+		}
+		dkgRunner.fastSync = false
+	}
+	return nil
+}
+
 // OnStart overrides BaseService. Starts first DKG.
 func (dkgRunner *DKGRunner) OnStart() error {
 	dkgRunner.checkNextDKG()
@@ -92,8 +128,6 @@ func (dkgRunner *DKGRunner) OnStart() error {
 // OnBlock is callback in messageHandler for DKG messages included in a particular block
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSignature, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
-	dkgRunner.height = blockHeight
-	dkgRunner.valsUpdated = false
 
 	if len(entropy) != 0 && blockHeight > dkgRunner.aeonEnd {
 		// DKG should not be stale
@@ -103,7 +137,12 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
 		dkgRunner.mtx.Lock()
 	}
-	dkgRunner.checkNextDKG()
+
+	if !dkgRunner.fastSync {
+		dkgRunner.height = blockHeight
+		dkgRunner.checkNextDKG()
+	}
+
 	dkgRunner.mtx.Unlock()
 }
 

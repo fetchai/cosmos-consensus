@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	amino "github.com/tendermint/go-amino"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -76,9 +77,17 @@ type SpecialTxHandler struct {
 
 	currentEntropy   types.ThresholdSignature
 	currentlyPending []*types.DKGMessage
+
+	logger tmlog.Logger
 }
 
 var _ MessageHandler = &SpecialTxHandler{}
+
+func NewSpecialTxHandler(logger tmlog.Logger) *SpecialTxHandler {
+	return &SpecialTxHandler{
+		logger: logger.With("module", "specialTxHandler"),
+	}
+}
 
 // Submit a special TX to the chain
 func (txHandler *SpecialTxHandler) SubmitSpecialTx(message interface{}) {
@@ -92,7 +101,7 @@ func (txHandler *SpecialTxHandler) SubmitSpecialTx(message interface{}) {
 		if as_dkg_msg, error := AsDKG(message); error == nil {
 			txHandler.cb_submit_special_tx(AsBytes(&as_dkg_msg))
 		} else {
-			fmt.Printf("Unknown type %T attempted to submit to the chain!\n", v)
+			txHandler.logger.Debug("Unknown type attempted to submit to the chain!", "type", v)
 		}
 	}
 }
@@ -109,13 +118,13 @@ func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(int64, types.Threshol
 
 // Call this when new special Txs are seen on the chain
 func (txHandler *SpecialTxHandler) SpecialTxSeen(tx []byte) {
-	fmt.Printf("Recieved DKG TX in the chain \n")
+	txHandler.logger.Debug("Recieved DKG TX in the chain")
 	resp, err := FromBytes(tx)
 	if err == nil {
-		fmt.Printf("Note: data is: %v\n", string(resp.Data))
+		txHandler.logger.Debug(fmt.Sprintf("Note: data is: %v", string(resp.Data)))
 		txHandler.currentlyPending = append(txHandler.currentlyPending, resp)
 	} else {
-		fmt.Printf("Failed to decode DKG tx!\n")
+		txHandler.logger.Error("Failed to decode DKG tx!")
 	}
 }
 

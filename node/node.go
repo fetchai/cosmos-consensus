@@ -589,7 +589,6 @@ func createBeaconReactor(
 		if err1 != nil {
 			return nil, nil, nil, errors.Wrap(err1, "error loading validators for aeon keys")
 		}
-
 		aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
 		entropyGenerator.SetAeonDetails(aeonDetails)
 		if dkgRunner != nil {
@@ -659,7 +658,7 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 
-	specialTxHandler := &tx_extensions.SpecialTxHandler{}
+	specialTxHandler := tx_extensions.NewSpecialTxHandler(logger)
 
 	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
 	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger, specialTxHandler)
@@ -779,6 +778,14 @@ func NewNode(config *cfg.Config,
 	}
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
+
+	// Catch up dkg on messages it has missed for the current aeon
+	if dkgRunner != nil {
+		err = dkgRunner.FastSync(blockStore)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
+		}
+	}
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
