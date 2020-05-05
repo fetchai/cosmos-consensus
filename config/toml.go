@@ -343,9 +343,8 @@ peer_query_maj23_sleep_duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 # DKG/DRB parameters
 entropy_channel_capacity = "{{ .Consensus.EntropyChannelCapacity }}"
 compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
-dkg_state_duration = "{{ .Consensus.DKGStateDuration }}"
+dkg_attempts_in_aeon = "{{ .Consensus.DKGAttemptsInAeon }}"
 dkg_reset_delay = "{{ .Consensus.DKGResetDelay }}"
-aeon_length = "{{ .Consensus.AeonLength }}"
 run_dkg = "{{ .Consensus.RunDKG }}"
 
 ##### transactions indexer configuration options #####

@@ -1,12 +1,12 @@
 package beacon
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
 	cfg "github.com/tendermint/tendermint/config"
-	//"github.com/tendermint/tendermint/libs/service"
+	cmn "github.com/tendermint/tendermint/libs/common"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
@@ -24,34 +24,37 @@ type DKGRunner struct {
 	privVal         types.PrivValidator
 	messageHandler  tx_extensions.MessageHandler
 
-	height       int64
-	aeonStart    int64 // next entropy generation start
-	aeonEnd      int64 // next entropy generation end
-	validators   types.ValidatorSet
-	activeDKG    *DistributedKeyGeneration
-	completedDKG bool
-	valsUpdated  bool
-	dkgCounter   int
+	height               int64
+	aeonStart            int64 // next entropy generation start
+	aeonEnd              int64 // next entropy generation end
+	validators           types.ValidatorSet
+	activeDKG            *DistributedKeyGeneration
+	completedDKG         bool
+	valsAndParamsUpdated bool
+	dkgCounter           int
+	nextAeonLength       int64
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 
 	mtx sync.Mutex
 }
 
+// NewDKGRunner creates struct for starting new DKGs
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val types.PrivValidator,
-	blockHeight int64, vals types.ValidatorSet) *DKGRunner {
+	blockHeight int64, vals types.ValidatorSet, aeonLength int64) *DKGRunner {
 	dkgRunner := &DKGRunner{
-		consensusConfig: config,
-		chainID:         chain,
-		stateDB:         db,
-		privVal:         val,
-		height:          blockHeight,
-		aeonStart:       -1,
-		aeonEnd:         -1,
-		validators:      vals,
-		completedDKG:    false,
-		valsUpdated:     true,
-		dkgCounter:      0,
+		consensusConfig:      config,
+		chainID:              chain,
+		stateDB:              db,
+		privVal:              val,
+		height:               blockHeight,
+		aeonStart:            -1,
+		aeonEnd:              -1,
+		validators:           vals,
+		completedDKG:         false,
+		valsAndParamsUpdated: true,
+		dkgCounter:           0,
+		nextAeonLength:       aeonLength,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -85,6 +88,9 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
 
 // OnStart overrides BaseService. Starts first DKG and fetching of validator updates
 func (dkgRunner *DKGRunner) OnStart() error {
+	if !dkgRunner.validAeonLength(dkgRunner.nextAeonLength) {
+		panic(fmt.Errorf("OnStart: invalid aeon length %v", dkgRunner.nextAeonLength))
+	}
 	dkgRunner.checkNextDKG()
 	// Start go routine for subscription
 	go dkgRunner.validatorUpdatesRoutine()
@@ -95,7 +101,7 @@ func (dkgRunner *DKGRunner) OnStart() error {
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
 	dkgRunner.height = blockHeight
-	dkgRunner.valsUpdated = false
+	dkgRunner.valsAndParamsUpdated = false
 	if dkgRunner.activeDKG != nil {
 		dkgRunner.mtx.Unlock()
 		dkgRunner.activeDKG.OnBlock(blockHeight, trxs)
@@ -113,35 +119,62 @@ func (dkgRunner *DKGRunner) validatorUpdatesRoutine() {
 			return
 		}
 
-		dkgRunner.updateValidators()
+		dkgRunner.updateValidatorsAndParams()
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 // Fetches validators for most recent block height from state DB and updates local validators. After updates
 // checks if a new DKG should be started with the new validators
-func (dkgRunner *DKGRunner) updateValidators() {
+func (dkgRunner *DKGRunner) updateValidatorsAndParams() {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
 
-	if dkgRunner.valsUpdated {
+	if dkgRunner.valsAndParamsUpdated {
 		return
 	}
 
-	newVals, err := sm.LoadValidators(dkgRunner.stateDB, dkgRunner.height)
-	if err != nil {
-		switch err.(type) {
-		case *sm.ErrNoValSetForHeight:
-			dkgRunner.Logger.Debug("updateValidators: ", "error", err.Error())
+	newParams, err1 := sm.LoadConsensusParams(dkgRunner.stateDB, dkgRunner.height)
+	newVals, err2 := sm.LoadValidators(dkgRunner.stateDB, dkgRunner.height)
+	// Only update and check for next DKG when both the validators and aeon length
+	// have been updated to that of the latest state
+	if err1 != nil {
+		switch err1.(type) {
+		case sm.ErrNoConsensusParamsForHeight:
+			dkgRunner.Logger.Debug("updateValidatorsAndParams: ", "error", err1.Error())
 		default:
-			dkgRunner.Logger.Error("updateValidators: unknown error loading vals", "error", err.Error())
+			dkgRunner.Logger.Error("updateValidatorsAndParams: unknown error loading params", "error", err1.Error())
+		}
+	} else if err2 != nil {
+		switch err2.(type) {
+		case sm.ErrNoValSetForHeight:
+			dkgRunner.Logger.Debug("updateValidatorsAndParams: ", "error", err2.Error())
+		default:
+			dkgRunner.Logger.Error("updateValidatorsAndParams: unknown error loading vals", "error", err2.Error())
 		}
 	} else {
-		dkgRunner.Logger.Debug("updateValidators: vals updated", "height", dkgRunner.height)
+		dkgRunner.Logger.Debug("updateValidators: vals and params updated", "height", dkgRunner.height)
+		nextAeonLength := newParams.Entropy.AeonLength
+		if dkgRunner.validAeonLength(nextAeonLength) {
+			dkgRunner.nextAeonLength = nextAeonLength
+		} else {
+			dkgRunner.Logger.Error("updateValidatorsAndParams: invalid state duration", "height", dkgRunner.height, "aeonLength", nextAeonLength)
+		}
 		dkgRunner.validators = *newVals
-		dkgRunner.valsUpdated = true
+		dkgRunner.valsAndParamsUpdated = true
 		dkgRunner.checkNextDKG()
 	}
+}
+
+// validAeonLength checks whether new aeon length is consistent with other DKG parameters before it is yet.
+// Must give dkg state length of at least 1 block to be valid
+func (dkgRunner *DKGRunner) validAeonLength(aeonLength int64) bool {
+	// When computing dkg duration allow buffer for run ahead on entropy generation so that
+	// dkg does not complete right at the end of the aeon
+	dkgDuration := (aeonLength - dkgRunner.consensusConfig.EntropyChannelCapacity - 1) / dkgRunner.consensusConfig.DKGAttemptsInAeon
+	// Divide by number of states to get the duration of each state
+	stateDuration := (dkgDuration - dkgRunner.consensusConfig.DKGResetDelay) / 6
+	return stateDuration > 0
 }
 
 // Resets completed DKG and starts new one at the beginning of every aeon
@@ -171,7 +204,7 @@ func (dkgRunner *DKGRunner) startNewDKG() {
 	// Create new dkg with dkgID = aeon. New dkg starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
 		dkgRunner.dkgCounter, dkgRunner.privVal, dkgRunner.validators,
-		dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay, dkgRunner.aeonEnd)
+		dkgRunner.height+dkgRunner.consensusConfig.DKGResetDelay, dkgRunner.aeonEnd, dkgRunner.nextAeonLength)
 	dkgRunner.dkgCounter++
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)

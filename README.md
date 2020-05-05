@@ -25,12 +25,11 @@ make build
 cd build
 ./tendermint init
 ```
-This creates genesis and validator information. To provide the entropy generation key file and start the node
+This creates genesis and validator information. To start the node
 ```bash
-cp ../node/test_key/single_validator.txt ~/.tendermint/config/entropy_key.txt
 ./tendermint node --proxy_app=kvstore
 ```
-The logs should show the node executing blocks, which contain the entropy in hex format, as well as committing state.
+The logs should show the node running the DKG and executing blocks, which contain the entropy in hex format after DKG completion.
 
 For creating testnet with 4 validator nodes first build the trusted dealer executable
 ```bash
@@ -44,11 +43,9 @@ cd beacon/beacon_cpp && \
 ```
 Now run
 ```bash
-mkdir mytestnet
-./../beacon/beacon_cpp/build/TrustedDealer 4 3 0 mytestnet/
 ./tendermint testnet
 ```
-This will create the required tendermint files for each node, as well as a file containing their individual outputs from the DKG.
+This will create the required tendermint files for each node.
 
 Second, determine the IDs for each node by running. We will denote the IDs as ID0, ID1, ID2, ID3.
 ```bash
