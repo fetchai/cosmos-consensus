@@ -1,7 +1,7 @@
 FROM ubuntu:18.04 AS build-env
 
 # Set up dependencies
-ENV PACKAGES curl make git libc-dev bash gcc python cmake g++ swig libboost-all-dev wget
+ENV PACKAGES curl make git libc-dev bash gcc python cmake g++ swig libboost-all-dev wget libgmp-dev
 
 # Install minimum necessary dependencies, build tendermint DRB, remove packages
 RUN apt update && \
@@ -13,14 +13,9 @@ WORKDIR /project
 # add the pre-generated project to /project
 ADD project.tar.gz /
 
-# Compile C++ Library
-RUN cd beacon/beacon_cpp && \
-    #rm -Rf build && \
-    mkdir -p build && \
-    cd build && \
-    cmake .. && \
-    make && \
-    cp lib/libmcl.a libs/libmcl.a
+# Need to install MCL
+RUN git clone https://github.com/herumi/mcl
+RUN cd mcl && make install
 
 # Compile tendermint
 WORKDIR /project
