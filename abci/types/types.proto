@@ -4,8 +4,8 @@ package types;
 // For more information on gogo.proto, see:
 // https://github.com/gogo/protobuf/blob/master/extensions.md
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
-import "github.com/tendermint/tendermint/crypto/merkle/merkle.proto";
-import "github.com/tendermint/tendermint/libs/common/types.proto";
+import "crypto/merkle/merkle.proto";
+import "libs/common/types.proto";
 import "google/protobuf/timestamp.proto";
 
 // This file is copied from http://github.com/tendermint/abci
@@ -216,6 +216,7 @@ message ConsensusParams {
   BlockParams block = 1;
   EvidenceParams evidence = 2;
   ValidatorParams validator = 3;
+  EntropyParams   entropy   = 4;
 }
 
 // BlockParams contains limits on the block size.
@@ -235,6 +236,12 @@ message EvidenceParams {
 // ValidatorParams contains limits on validators.
 message ValidatorParams {
   repeated string pub_key_types = 1;
+}
+
+// EntropyParams contains config for DKG and entropy generation
+message EntropyParams {
+  // Note: must be greater than 0
+  int64 aeon_length = 1;
 }
 
 message LastCommitInfo {

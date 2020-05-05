@@ -29,14 +29,15 @@ const (
 
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
+	assert.Equal(t, int64(4), dkg.stateDuration)
 
-	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.config.DKGStateDuration)
+	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.stateDuration)
 	// DKG is set to start at block height 10
 	assert.False(t, dkg.stateExpired(dkg.startHeight-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight))
 	dkg.currentState = waitForCoefficientsAndShares
 	assert.False(t, dkg.stateExpired(dkg.startHeight))
-	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.config.DKGStateDuration))
+	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.stateDuration))
 	dkg.currentState = dkgFinish
 	assert.False(t, dkg.stateExpired(dkg.startHeight+dkg.duration()-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.duration()))
@@ -279,7 +280,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], 8, *state.Validators, 20)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], 8, *state.Validators, 20, 100)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -295,7 +296,7 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, 8, *vals, 20),
+		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, 8, *vals, 20, 100),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
