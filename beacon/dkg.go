@@ -63,12 +63,13 @@ type DistributedKeyGeneration struct {
 	dkgID        int
 	dkgIteration int
 
-	privValidator  types.PrivValidator
-	valToIndex     map[string]uint // Need to convert crypto.Address into string for key
-	validators     types.ValidatorSet
-	threshold      int
-	currentAeonEnd int64
-	aeonKeys       *aeonDetails
+	privValidator   types.PrivValidator
+	validatorHeight int64
+	valToIndex      map[string]uint // Need to convert crypto.Address into string for key
+	validators      types.ValidatorSet
+	threshold       int
+	currentAeonEnd  int64
+	aeonKeys        *aeonDetails
 
 	startHeight   int64
 	states        map[dkgState]*state
@@ -84,7 +85,7 @@ type DistributedKeyGeneration struct {
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
-	privVal types.PrivValidator, vals types.ValidatorSet, startH int64, aeonEnd int64) *DistributedKeyGeneration {
+	privVal types.PrivValidator, validatorHeight int64, vals types.ValidatorSet, aeonEnd int64) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
@@ -96,11 +97,12 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 		dkgID:           dkgRunID,
 		dkgIteration:    0,
 		privValidator:   privVal,
+		validatorHeight: validatorHeight,
 		valToIndex:      make(map[string]uint),
 		validators:      vals,
 		currentAeonEnd:  aeonEnd,
 		threshold:       dkgThreshold,
-		startHeight:     startH,
+		startHeight:     validatorHeight + csConfig.DKGResetDelay,
 		states:          make(map[dkgState]*state),
 		currentState:    dkgStart,
 		beaconService:   NewBeaconSetupService(uint(len(vals.Validators)), uint(dkgThreshold), uint(index)),
@@ -382,7 +384,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	if dkgEnd >= nextAeonStart {
 		nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
 	}
-	dkg.aeonKeys = newAeonDetails(&dkg.validators, dkg.privValidator, aeonExecUnit,
+	dkg.aeonKeys = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,
 		nextAeonStart, nextAeonStart+dkg.config.AeonLength-1)
 
 	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)

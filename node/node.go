@@ -568,7 +568,8 @@ func createBeaconReactor(
 	privValidator types.PrivValidator,
 	beaconLogger log.Logger, fastSync bool,
 	blockStore sm.BlockStore,
-	dkgRunner *beacon.DKGRunner) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor) {
+	dkgRunner *beacon.DKGRunner,
+	db dbm.DB) (chan types.ComputedEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
 	beacon.InitialiseMcl()
 	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Consensus, state.LastBlockHeight)
@@ -580,22 +581,35 @@ func createBeaconReactor(
 	}
 
 	if cmn.FileExists(config.EntropyKeyFile()) {
-		aeonDetails, err := beacon.LoadAeonDetails(config.BaseConfig.EntropyKeyFile(), state.Validators, privValidator)
-		if err == nil {
-			entropyGenerator.SetAeonDetails(aeonDetails)
-			if dkgRunner != nil {
-				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
-			}
+		aeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.EntropyKeyFile())
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "error loading aeon file")
+		}
+		vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+		if err1 != nil {
+			return nil, nil, nil, errors.Wrap(err1, "error loading validators for aeon keys")
+		}
+
+		aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
+		entropyGenerator.SetAeonDetails(aeonDetails)
+		if dkgRunner != nil {
+			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 		}
 	}
 	if cmn.FileExists(config.NextEntropyKeyFile()) {
-		aeonDetails, err := beacon.LoadAeonDetails(config.BaseConfig.NextEntropyKeyFile(), state.Validators, privValidator)
-		if err == nil {
-			entropyGenerator.SetNextAeonDetails(aeonDetails)
-			// Set dkg runner to most recent aeon which we generated keys for
-			if dkgRunner != nil {
-				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
-			}
+		aeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.NextEntropyKeyFile())
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "error loading next aeon file")
+		}
+		vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+		if err1 != nil {
+			return nil, nil, nil, errors.Wrap(err1, "error loading validators for next aeon keys")
+		}
+		aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
+		entropyGenerator.SetNextAeonDetails(aeonDetails)
+		// Set dkg runner to most recent aeon which we generated keys for
+		if dkgRunner != nil {
+			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 		}
 	}
 	if len(state.LastComputedEntropy) != 0 {
@@ -605,7 +619,7 @@ func createBeaconReactor(
 	reactor := beacon.NewReactor(entropyGenerator, fastSync, blockStore)
 	reactor.SetLogger(beaconLogger)
 
-	return entropyChannel, entropyGenerator, reactor
+	return entropyChannel, entropyGenerator, reactor, nil
 }
 
 func createDKGRunner(
@@ -618,7 +632,7 @@ func createDKGRunner(
 	if !config.Consensus.RunDKG {
 		return nil
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight, *state.Validators)
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner
@@ -758,8 +772,11 @@ func NewNode(config *cfg.Config,
 
 	// Make BeaconReactor
 	beaconLogger := logger.With("module", "beacon")
-	entropyChannel, entropyGenerator, beaconReactor := createBeaconReactor(config, state, privValidator,
-		beaconLogger, fastSync, blockStore, dkgRunner)
+	entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
+		beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not load aeon keys from file")
+	}
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
 
