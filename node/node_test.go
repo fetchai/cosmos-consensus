@@ -31,44 +31,66 @@ import (
 )
 
 func TestNodeStartStop(t *testing.T) {
-	config := cfg.ResetTestRoot("node_node_test")
-	defer os.RemoveAll(config.RootDir)
-
-	// create & start node
-	n, err := DefaultNewNode(config, log.TestingLogger())
-	require.NoError(t, err)
-	err = n.Start()
-	require.NoError(t, err)
-
-	t.Logf("Started node %v", n.sw.NodeInfo())
-
-	// wait for the node to produce a block
-	blocksSub, err := n.EventBus().Subscribe(context.Background(), "node_test", types.EventQueryNewBlock)
-	require.NoError(t, err)
-	select {
-	case <-blocksSub.Out():
-	case <-blocksSub.Cancelled():
-		t.Fatal("blocksSub was cancelled")
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for the node to produce a block")
+	testCases := []struct {
+		testName        string
+		modifyConfig    func(*cfg.Config)
+		blockHasEntropy bool
+	}{
+		{"Original tendermint", func(*cfg.Config) {}, false},
+		{"With entropy keys", func(config *cfg.Config) {
+			cfg.AddTestEntropyKey(config)
+		}, true},
+		{"With dkg", func(config *cfg.Config) {
+			config.Consensus.RunDKG = true
+		}, false},
 	}
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			config := cfg.ResetTestRoot("node_node_test")
+			tc.modifyConfig(config)
+			defer os.RemoveAll(config.RootDir)
 
-	// stop the node
-	go func() {
-		n.Stop()
-	}()
+			// create & start node
+			n, err := DefaultNewNode(config, log.TestingLogger())
+			require.NoError(t, err)
+			err = n.Start()
+			require.NoError(t, err)
 
-	select {
-	case <-n.Quit():
-	case <-time.After(5 * time.Second):
-		pid := os.Getpid()
-		p, err := os.FindProcess(pid)
-		if err != nil {
-			panic(err)
-		}
-		err = p.Signal(syscall.SIGABRT)
-		fmt.Println(err)
-		t.Fatal("timed out waiting for shutdown")
+			t.Logf("Started node %v", n.sw.NodeInfo())
+
+			// wait for the node to produce a block
+			blocksSub, err := n.EventBus().Subscribe(context.Background(), "node_test", types.EventQueryNewBlock)
+			require.NoError(t, err)
+			select {
+			case <-blocksSub.Out():
+			case <-blocksSub.Cancelled():
+				t.Fatal("blocksSub was cancelled")
+			case <-time.After(10 * time.Second):
+				t.Fatal("timed out waiting for the node to produce a block")
+			}
+
+			// block should contain no entropy
+			block := n.blockStore.LoadBlock(1)
+			assert.Equal(t, tc.blockHasEntropy, len(block.Entropy) != 0)
+
+			// stop the node
+			go func() {
+				n.Stop()
+			}()
+
+			select {
+			case <-n.Quit():
+			case <-time.After(5 * time.Second):
+				pid := os.Getpid()
+				p, err := os.FindProcess(pid)
+				if err != nil {
+					panic(err)
+				}
+				err = p.Signal(syscall.SIGABRT)
+				fmt.Println(err)
+				t.Fatal("timed out waiting for shutdown")
+			}
+		})
 	}
 }
 
