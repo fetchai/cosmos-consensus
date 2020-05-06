@@ -18,6 +18,8 @@ const (
 type Metrics struct {
 	// Number of DKG messages seen in the chain
 	DKGMessagesInChain metrics.Counter
+	// Number of completed DKGs
+	DKGsCompleted metrics.Counter
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -34,6 +36,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "dkg_messages_in_chain",
 			Help:      "Number of DKG messages seen in the chain.",
+		}, labels).With(labelsAndValues...),
+		DKGsCompleted: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "dkgs_completed",
+			Help:      "Number of DKG completed.",
 		}, labels).With(labelsAndValues...),
 	}
 }
