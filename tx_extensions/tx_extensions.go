@@ -107,10 +107,8 @@ func (txHandler *SpecialTxHandler) WhenChainTxSeen(cb func(int64, []*types.DKGMe
 
 // Call this when new special Txs are seen on the chain
 func (txHandler *SpecialTxHandler) SpecialTxSeen(tx []byte) {
-	fmt.Printf("Recieved DKG TX in the chain \n")
 	resp, err := FromBytes(tx)
 	if err == nil {
-		fmt.Printf("Note: data is: %v\n", string(resp.Data))
 		txHandler.currentlyPending = append(txHandler.currentlyPending, resp)
 	} else {
 		fmt.Printf("Failed to decode DKG tx!\n")
