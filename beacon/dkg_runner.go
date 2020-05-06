@@ -203,6 +203,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 			// Should only return nil if dkg runner is stopped and not in fast sync
 			dkgRunner.Logger.Debug("findValidatorsAndParams return nil vals", "fastSync",
 				dkgRunner.fastSync, "dkgRunner running", dkgRunner.IsRunning())
+			return
 		}
 		dkgRunner.startNewDKG(validatorHeight, vals, aeonLength)
 	}
