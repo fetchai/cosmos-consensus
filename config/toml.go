@@ -124,8 +124,11 @@ priv_validator_state_file = "{{ js .BaseConfig.PrivValidatorState }}"
 # connections from an external PrivValidator process
 priv_validator_laddr = "{{ .BaseConfig.PrivValidatorListenAddr }}"
 
-# Path to the txt file containing the dkg output for entropy generation
+# Path to the JSON file containing the dkg output for entropy generation
 entropy_key_file = "{{ .BaseConfig.EntropyKey }}"
+
+# Path to the JSON file containing the dkg output for next aeon entropy generation
+next_entropy_key_file = "{{ .BaseConfig.NextEntropyKey }}"
 
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node_key_file = "{{ js .BaseConfig.NodeKey }}"
@@ -343,9 +346,8 @@ peer_query_maj23_sleep_duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 # DKG/DRB parameters
 entropy_channel_capacity = "{{ .Consensus.EntropyChannelCapacity }}"
 compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
-dkg_state_duration = "{{ .Consensus.DKGStateDuration }}"
+dkg_attempts_in_aeon = "{{ .Consensus.DKGAttemptsInAeon }}"
 dkg_reset_delay = "{{ .Consensus.DKGResetDelay }}"
-aeon_length = "{{ .Consensus.AeonLength }}"
 run_dkg = "{{ .Consensus.RunDKG }}"
 
 ##### transactions indexer configuration options #####

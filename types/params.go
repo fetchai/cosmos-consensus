@@ -25,6 +25,7 @@ type ConsensusParams struct {
 	Block     BlockParams     `json:"block"`
 	Evidence  EvidenceParams  `json:"evidence"`
 	Validator ValidatorParams `json:"validator"`
+	Entropy   EntropyParams   `json:"entropy"`
 }
 
 // HashedParams is a subset of ConsensusParams.
@@ -56,12 +57,18 @@ type ValidatorParams struct {
 	PubKeyTypes []string `json:"pub_key_types"`
 }
 
+// EntropyParams determine configuration of DKG and entropy generation
+type EntropyParams struct {
+	AeonLength int64 `json:"aeon_length"`
+}
+
 // DefaultConsensusParams returns a default ConsensusParams.
 func DefaultConsensusParams() *ConsensusParams {
 	return &ConsensusParams{
 		DefaultBlockParams(),
 		DefaultEvidenceParams(),
 		DefaultValidatorParams(),
+		DefaultEntropyParams(),
 	}
 }
 
@@ -85,6 +92,13 @@ func DefaultEvidenceParams() EvidenceParams {
 // only ed25519 pubkeys.
 func DefaultValidatorParams() ValidatorParams {
 	return ValidatorParams{[]string{ABCIPubKeyTypeEd25519}}
+}
+
+// DefaultEntropyParams returns a default EntropyParams.
+func DefaultEntropyParams() EntropyParams {
+	return EntropyParams{
+		AeonLength: 100,
+	}
 }
 
 func (params *ValidatorParams) IsValidPubkeyType(pubkeyType string) bool {
@@ -136,6 +150,10 @@ func (params *ConsensusParams) Validate() error {
 		}
 	}
 
+	if params.Entropy.AeonLength <= 0 {
+		return errors.Errorf("entropyParams.AeonLength must be greater than 0. Got %v", params.Entropy.AeonLength)
+	}
+
 	return nil
 }
 
@@ -159,7 +177,8 @@ func (params *ConsensusParams) Hash() []byte {
 func (params *ConsensusParams) Equals(params2 *ConsensusParams) bool {
 	return params.Block == params2.Block &&
 		params.Evidence == params2.Evidence &&
-		cmn.StringSliceEqual(params.Validator.PubKeyTypes, params2.Validator.PubKeyTypes)
+		cmn.StringSliceEqual(params.Validator.PubKeyTypes, params2.Validator.PubKeyTypes) &&
+		params.Entropy == params2.Entropy
 }
 
 // Update returns a copy of the params with updates from the non-zero fields of p2.
@@ -183,6 +202,9 @@ func (params ConsensusParams) Update(params2 *abci.ConsensusParams) ConsensusPar
 		// Copy params2.Validator.PubkeyTypes, and set result's value to the copy.
 		// This avoids having to initialize the slice to 0 values, and then write to it again.
 		res.Validator.PubKeyTypes = append([]string{}, params2.Validator.PubKeyTypes...)
+	}
+	if params2.Entropy != nil {
+		res.Entropy.AeonLength = params2.Entropy.AeonLength
 	}
 	return res
 }

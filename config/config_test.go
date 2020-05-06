@@ -151,9 +151,8 @@ func TestConsensusConfigValidateBasic(t *testing.T) {
 		"PeerQueryMaj23SleepDuration",
 		"EntropyChannelCapacity",
 		"ComputeEntropySleepDuration",
-		"DKGStateDuration",
+		"DKGAttemptsInAeon",
 		"DKGResetDelay",
-		"AeonLength",
 	}
 
 	for _, fieldName := range fieldsToTest {

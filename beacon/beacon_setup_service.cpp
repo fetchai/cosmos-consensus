@@ -18,16 +18,18 @@
 
 #include "beacon_manager.hpp"
 #include "beacon_setup_service.hpp"
+#include "logging.hpp"
 #include "serialisers.hpp"
 #include "set_intersection.hpp"
 
 #include <assert.h>
-#include <iostream>
 #include <mutex>
 #include <utility>
 
 namespace fetch {
 namespace beacon {
+
+static constexpr char const *LOGGING_NAME = "BeaconSetupService";
 
 BeaconSetupService::BeaconSetupService(Identifier cabinet_size, CabinetIndex threshold,
                                        Identifier index)
@@ -226,7 +228,8 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualComplaints()
   {
     qual_complaints_manager_.AddComplaintAgainst(mem.first);
   }
-  std::cout << "GetQualComplaints (" << beacon_->cabinet_index() << "): complaints size " << complaints.size() << std::endl;
+  Log(LogLevel::DEBUG, LOGGING_NAME, "GetQualComplaints(" + std::to_string(beacon_->cabinet_index()) + 
+    "): size " + std::to_string(complaints.size()));
   return serialisers::Serialise(complaints);
 }
 
@@ -305,7 +308,8 @@ void BeaconSetupService::OnComplaints(SerialisedMsg const &msg, Identifier const
 
   std::set<Identifier>          complaints;
   serialisers::Deserialise(msg, complaints);
-  std::cout << "OnComplaints (" << from << "->" << beacon_->cabinet_index() << "): complaints size " << complaints.size() << std::endl;
+  Log(LogLevel::DEBUG, LOGGING_NAME, "OnComplaints(" + std::to_string(from) + "->" + 
+    std::to_string(beacon_->cabinet_index()) + "): size " + std::to_string(complaints.size()));
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
 
@@ -323,7 +327,8 @@ void BeaconSetupService::OnComplaintAnswers(SerialisedMsg const &msg, Identifier
 
   SharesExposedMap              answer;
   serialisers::Deserialise(msg, answer);
-  std::cout << "OnComplaintsAnswer (" << from << "->" << beacon_->cabinet_index() << "): complaint answer size " << answer.size() << std::endl;
+  Log(LogLevel::DEBUG, LOGGING_NAME, "OnComplaintsAnswer(" + std::to_string(from) + "->" +
+    std::to_string(beacon_->cabinet_index()) + "): size " + std::to_string(answer.size()));
   complaint_answers_manager_.AddComplaintAnswerFrom(from, answer);
 }
 
@@ -362,7 +367,8 @@ void BeaconSetupService::OnQualComplaints(SerialisedMsg const &msg, Identifier c
 
   SharesExposedMap              shares;
   serialisers::Deserialise(msg, shares);
-  std::cout << "OnQualComplaints (" << from << "->" << beacon_->cabinet_index() << "): complaint size " << shares.size() << std::endl;
+  Log(LogLevel::DEBUG, LOGGING_NAME, "OnQualComplaints(" + std::to_string(from) + "->" + 
+    std::to_string(beacon_->cabinet_index()) + "): size " + std::to_string(shares.size()));
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
 
@@ -382,7 +388,8 @@ void BeaconSetupService::OnReconstructionShares(SerialisedMsg const &msg, Identi
   {
     SharesExposedMap              shares;
     serialisers::Deserialise(msg, shares);
-    std::cout << "OnReconstructionShares (" << from << "->" << beacon_->cabinet_index() << "): shares size " << shares.size() << std::endl;
+    Log(LogLevel::DEBUG, LOGGING_NAME, "OnReconstructionShares(" + std::to_string(from) + "->" +
+      std::to_string(beacon_->cabinet_index()) + "): size " + std::to_string(shares.size()));
     reconstruction_shares_received_.insert({from, shares});
   }
 }
@@ -420,7 +427,8 @@ std::set<BeaconSetupService::Identifier> BeaconSetupService::ComputeComplaints()
   {
     complaints_manager_.AddComplaintAgainst(cab);
   }
-  std::cout << "ComputeComplaints (" << beacon_->cabinet_index() << "): complaint size " << complaints_local.size() << std::endl;
+  Log(LogLevel::DEBUG, LOGGING_NAME, "ComputeComplaints(" + std::to_string(beacon_->cabinet_index()) +
+    "): size " + std::to_string(complaints_local.size()));
   return complaints_local;
 }
 

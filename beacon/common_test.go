@@ -14,8 +14,8 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
-	"github.com/tendermint/tendermint/libs/log"
 	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
@@ -128,7 +128,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 
-		aeonDetails := newAeonDetails(state.Validators, privVals[i], aeonExecUnits[index], 1, 9)
+		aeonDetails := newAeonDetails(privVals[i], 1, state.Validators, aeonExecUnits[index], 1, 9)
 		entropyGenerators[i] = NewEntropyGenerator(&thisConfig.BaseConfig, thisConfig.Consensus, 0)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(*types.NewComputedEntropy(0, state.LastComputedEntropy, true))

@@ -29,14 +29,15 @@ const (
 
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
+	assert.Equal(t, int64(4), dkg.stateDuration)
 
-	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.config.DKGStateDuration)
+	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.stateDuration)
 	// DKG is set to start at block height 10
 	assert.False(t, dkg.stateExpired(dkg.startHeight-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight))
 	dkg.currentState = waitForCoefficientsAndShares
 	assert.False(t, dkg.stateExpired(dkg.startHeight))
-	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.config.DKGStateDuration))
+	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.stateDuration))
 	dkg.currentState = dkgFinish
 	assert.False(t, dkg.stateExpired(dkg.startHeight+dkg.duration()-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.duration()))
@@ -51,9 +52,17 @@ func TestDKGCheckTransition(t *testing.T) {
 	}{
 		{"No state change", func(dkg *DistributedKeyGeneration) {}, 9, dkgStart},
 		{"Proceed to next state", func(dkg *DistributedKeyGeneration) {}, 10, dkgStart + 1},
-		{"Reset to start", func(dkg *DistributedKeyGeneration) {
+		{"Skip to dry run", func(dkg *DistributedKeyGeneration) {
+			dkg.currentState = dkgStart
 			dkg.states[dkgStart].onExit = func() bool { return false }
-		}, 10, dkgStart},
+		}, 10, waitForDryRun},
+		{"Reset to start", func(dkg *DistributedKeyGeneration) {
+			dkg.currentState = waitForDryRun
+			dkg.states[waitForDryRun].onExit = func() bool {
+				dkg.Start()
+				return false
+			}
+		}, 45, dkgStart},
 	}
 	for _, tc := range testCases {
 		tc := tc
@@ -69,12 +78,12 @@ func TestDKGCheckTransition(t *testing.T) {
 func TestDKGReset(t *testing.T) {
 	dkg := exampleDKG(4)
 	oldStartHeight := dkg.startHeight
-	dkg.states[dkgStart].onExit = func() bool {
-		dkg.Start()
+	dkg.states[waitForDryRun].onExit = func() bool {
 		return false
 	}
+	dkg.Start()
 	// Trigger a failed transition
-	dkg.checkTransition(dkg.startHeight)
+	dkg.checkTransition(oldStartHeight + dkg.duration())
 
 	assert.True(t, !dkg.IsRunning())
 	assert.True(t, dkg.startHeight == oldStartHeight+dkg.duration()+dkg.config.DKGResetDelay)
@@ -177,9 +186,11 @@ func TestDKGScenarios(t *testing.T) {
 		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
+			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
+			cppLogger.Start()
 
-			outputs := make([]*aeonDetails, tc.completionSize)
-			for index := 0; index < tc.completionSize; index++ {
+			outputs := make([]*aeonDetails, tc.nVals)
+			for index := 0; index < tc.nVals; index++ {
 				output := &outputs[index]
 				_ = output // dummy assignment
 				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
@@ -199,7 +210,7 @@ func TestDKGScenarios(t *testing.T) {
 				node.clearMsgs()
 			}
 
-			for nodesFinished := 0; nodesFinished < tc.completionSize; {
+			for nodesFinished := 0; nodesFinished < tc.nVals; {
 				blockHeight++
 				for index, node := range nodes {
 					for index1, node1 := range nodes {
@@ -227,7 +238,7 @@ func TestDKGScenarios(t *testing.T) {
 			// Wait for all dkgs to stop running
 			assert.Eventually(t, func() bool {
 				running := 0
-				for index := 0; index < tc.completionSize; index++ {
+				for index := 0; index < tc.nVals; index++ {
 					if nodes[index].dkg.IsRunning() {
 						running++
 					}
@@ -250,17 +261,19 @@ func TestDKGScenarios(t *testing.T) {
 			for index := 0; index < tc.completionSize; index++ {
 				node := nodes[index]
 				signature := outputs[index].aeonExecUnit.Sign(message)
-				for index1 := 0; index1 < tc.completionSize; index1++ {
+				for index1 := 0; index1 < tc.nVals; index1++ {
 					if index != index1 {
 						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, node.dkg.index()))
 					}
 				}
-				sigShares.Set(int(node.dkg.index()), signature)
+				sigShares.Set(node.dkg.index(), signature)
 			}
 			groupSig := outputs[0].aeonExecUnit.ComputeGroupSignature(sigShares)
-			for index := 0; index < tc.completionSize; index++ {
+			for index := 0; index < tc.nVals; index++ {
 				assert.True(t, outputs[index].aeonExecUnit.VerifyGroupSignature(message, groupSig))
 			}
+
+			cppLogger.Stop()
 		})
 	}
 }
@@ -271,7 +284,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], *state.Validators, 10, 20)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], 8, *state.Validators, 20, 100)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -287,13 +300,14 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, *vals, 10, 20),
+		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, 8, *vals, 20, 100),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
 		sentBadShare: false,
 	}
-	node.dkg.SetLogger(log.TestingLogger())
+	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
+	node.dkg.SetLogger(log.TestingLogger().With("dkgIndex", index))
 
 	node.dkg.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		node.mutateMsg(msg)

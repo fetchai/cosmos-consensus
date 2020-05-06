@@ -63,6 +63,8 @@ func (tm2pb) Header(header *Header) abci.Header {
 
 		EvidenceHash:    header.EvidenceHash,
 		ProposerAddress: header.ProposerAddress,
+
+		Entropy: header.Entropy,
 	}
 }
 
@@ -134,6 +136,9 @@ func (tm2pb) ConsensusParams(params *ConsensusParams) *abci.ConsensusParams {
 		},
 		Validator: &abci.ValidatorParams{
 			PubKeyTypes: params.Validator.PubKeyTypes,
+		},
+		Entropy: &abci.EntropyParams{
+			AeonLength: params.Entropy.AeonLength,
 		},
 	}
 }

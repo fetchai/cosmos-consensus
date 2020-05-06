@@ -28,7 +28,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 			nValidators := 4
 			state, _ := groupTestSetup(nValidators)
 			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
-			aeonDetails := newAeonDetails(state.Validators, nil, aeonExecUnit, 1, 10)
+			aeonDetails := newAeonDetails(nil, 1, state.Validators, aeonExecUnit, 1, 10)
 			eg.SetAeonDetails(aeonDetails)
 		}},
 	}
@@ -47,7 +47,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 func TestEntropyGeneratorSetAeon(t *testing.T) {
 	newGen := testEntropyGenerator()
 	// Set be on the end of first aeon
-	lastBlockHeight := newGen.consensusConfig.AeonLength - 1
+	lastBlockHeight := int64(99)
 	newGen.setLastBlockHeight(lastBlockHeight)
 
 	testCases := []struct {
@@ -65,7 +65,7 @@ func TestEntropyGeneratorSetAeon(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			state, _ := groupTestSetup(4)
 			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
-			aeonDetails := newAeonDetails(state.Validators, nil, aeonExecUnit, tc.start, tc.end)
+			aeonDetails := newAeonDetails(nil, 1, state.Validators, aeonExecUnit, tc.start, tc.end)
 			newGen.SetAeonDetails(aeonDetails)
 			assert.Equal(t, newGen.isSigningEntropy(), tc.aeonSet)
 		})
@@ -92,7 +92,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		tempGen := testEntropyGen(state.Validators, privVal, index)
 		tempGen.sign()
 
-		share := tempGen.entropyShares[1][index]
+		share := tempGen.entropyShares[1][uint(index)]
 		newGen.applyEntropyShare(&share)
 	}
 
@@ -151,7 +151,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[1][index]
+		share := otherGen.entropyShares[1][uint(index)]
 
 		newGen.applyEntropyShare(&share)
 		assert.True(t, len(newGen.entropyShares[1]) == 0)
@@ -163,7 +163,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(3)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[4][index]
+		share := otherGen.entropyShares[4][uint(index)]
 
 		newGen.applyEntropyShare(&share)
 		assert.True(t, len(newGen.entropyShares[4]) == 0)
@@ -192,7 +192,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[2][index]
+		share := otherGen.entropyShares[2][uint(index)]
 		// Alter signature message
 		privVals[0].SignEntropy("wrong chain ID", &share)
 
@@ -206,7 +206,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.entropyShares[2][index]
+		share := otherGen.entropyShares[2][uint(index)]
 
 		newGen.applyEntropyShare(&share)
 		assert.True(t, len(newGen.entropyShares[2]) == 1)
@@ -220,7 +220,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
-	aeonDetails := newAeonDetails(state.Validators, privVal[0], aeonExecUnit, 1, 50)
+	aeonDetails := newAeonDetails(privVal[0], 1, state.Validators, aeonExecUnit, 1, 50)
 	newGen.SetAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
 	newGen.Start()
@@ -261,7 +261,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		otherGen.setLastBlockHeight(1)
 
 		otherGen.sign()
-		share := otherGen.getEntropyShares(2)[index]
+		share := otherGen.getEntropyShares(2)[uint(index)]
 		entropyWrong := types.ComputedEntropy{Height: 2, GroupSignature: []byte(share.SignatureShare)}
 
 		newGen.applyComputedEntropy(&entropyWrong)
@@ -281,7 +281,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 			tempGen.setLastBlockHeight(1)
 
 			tempGen.sign()
-			share := tempGen.getEntropyShares(2)[tempIndex]
+			share := tempGen.getEntropyShares(2)[uint(tempIndex)]
 			otherGen.applyEntropyShare(&share)
 		}
 
@@ -300,8 +300,8 @@ func TestEntropyGeneratorChangeKeys(t *testing.T) {
 
 	state, privVal := groupTestSetup(1)
 	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
-	aeonDetails := newAeonDetails(state.Validators, privVal[0], aeonExecUnit, 5, 50)
-	newGen.AddNewAeonDetails(aeonDetails)
+	aeonDetails := newAeonDetails(privVal[0], 1, state.Validators, aeonExecUnit, 5, 50)
+	newGen.SetNextAeonDetails(aeonDetails)
 
 	newGen.Start()
 	assert.Eventually(t, func() bool { return newGen.isSigningEntropy() }, time.Second, 100*time.Millisecond)
@@ -322,7 +322,7 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 	if index >= 0 {
 		aeonExecUnit = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(index)) + ".txt")
 	}
-	aeonDetails := newAeonDetails(validators, privVal, aeonExecUnit, 1, 50)
+	aeonDetails := newAeonDetails(privVal, 1, validators, aeonExecUnit, 1, 50)
 	newGen.SetAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(types.ComputedEntropy{Height: 0, GroupSignature: []byte("Test Entropy")})
 	return newGen

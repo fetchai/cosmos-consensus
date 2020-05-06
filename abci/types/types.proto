@@ -216,6 +216,7 @@ message ConsensusParams {
   BlockParams block = 1;
   EvidenceParams evidence = 2;
   ValidatorParams validator = 3;
+  EntropyParams   entropy   = 4;
 }
 
 // BlockParams contains limits on the block size.
@@ -235,6 +236,12 @@ message EvidenceParams {
 // ValidatorParams contains limits on validators.
 message ValidatorParams {
   repeated string pub_key_types = 1;
+}
+
+// EntropyParams contains config for DKG and entropy generation
+message EntropyParams {
+  // Note: must be greater than 0
+  int64 aeon_length = 1;
 }
 
 message LastCommitInfo {
@@ -274,8 +281,10 @@ message Header {
   bytes last_results_hash = 14;// root hash of all results from the txs from the previous block
 
   // consensus info
-  bytes evidence_hash = 15;    // evidence included in the block
-  bytes proposer_address = 16; // original proposer of the block
+  bytes evidence_hash    = 15;  // evidence included in the block
+  bytes proposer_address = 16;  // original proposer of the block
+
+  bytes entropy = 17; // entropy in block 
 }
 
 message Version {

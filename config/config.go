@@ -39,16 +39,18 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
-	defaultEntropyKeyName = "entropy_key.json"
+	defaultEntropyKeyName     = "entropy_key.json"
+	defaultNextEntropyKeyName = "next_entropy_key.json"
 
 	defaultNodeKeyName  = "node_key.json"
 	defaultAddrBookName = "addrbook.json"
 
-	defaultConfigFilePath   = filepath.Join(defaultConfigDir, defaultConfigFileName)
-	defaultGenesisJSONPath  = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
-	defaultPrivValKeyPath   = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
-	defaultPrivValStatePath = filepath.Join(defaultDataDir, defaultPrivValStateName)
-	defaultEntropyKeyPath   = filepath.Join(defaultConfigDir, defaultEntropyKeyName)
+	defaultConfigFilePath     = filepath.Join(defaultConfigDir, defaultConfigFileName)
+	defaultGenesisJSONPath    = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
+	defaultPrivValKeyPath     = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
+	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
+	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
+	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
 
 	defaultNodeKeyPath  = filepath.Join(defaultConfigDir, defaultNodeKeyName)
 	defaultAddrBookPath = filepath.Join(defaultConfigDir, defaultAddrBookName)
@@ -199,8 +201,11 @@ type BaseConfig struct { //nolint: maligned
 	// connections from an external PrivValidator process
 	PrivValidatorListenAddr string `mapstructure:"priv_validator_laddr"`
 
-	// Path to the txt file containing the dkg output for entropy generation
+	// Path to the JSON file containing the dkg output for entropy generation
 	EntropyKey string `mapstructure:"entropy_key_file"`
+
+	// Path to the JSON file containing the dkg output for next aeon entropy generation
+	NextEntropyKey string `mapstructure:"next_entropy_key_file"`
 
 	// A JSON file containing the private key to use for p2p authenticated encryption
 	NodeKey string `mapstructure:"node_key_file"`
@@ -223,6 +228,7 @@ func DefaultBaseConfig() BaseConfig {
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
 		EntropyKey:         defaultEntropyKeyPath,
+		NextEntropyKey:     defaultNextEntropyKeyPath,
 		NodeKey:            defaultNodeKeyPath,
 		Moniker:            defaultMoniker,
 		ProxyApp:           "tcp://127.0.0.1:26658",
@@ -266,9 +272,14 @@ func (cfg BaseConfig) PrivValidatorStateFile() string {
 	return rootify(cfg.PrivValidatorState, cfg.RootDir)
 }
 
-// EntropyKeyFile returns the full path to the entropy_key.txt file
+// EntropyKeyFile returns the full path to the entropy_key.json file
 func (cfg BaseConfig) EntropyKeyFile() string {
 	return rootify(cfg.EntropyKey, cfg.RootDir)
+}
+
+// NextEntropyKeyFile returns the full path to the next_entropy_key.json file
+func (cfg BaseConfig) NextEntropyKeyFile() string {
+	return rootify(cfg.NextEntropyKey, cfg.RootDir)
 }
 
 // OldPrivValidatorFile returns the full path of the priv_validator.json from pre v0.28.0.
@@ -773,9 +784,8 @@ type ConsensusConfig struct {
 	// computeEntropySleepDuration so that peer does not send entropy for next height
 	// before the current height has been computed
 	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
-	DKGStateDuration            int64         `mapstructure:"dkg_state_duration"`
+	DKGAttemptsInAeon           int64         `mapstructure:"dkg_state_duration"`
 	DKGResetDelay               int64         `mapstructure:"dkg_reset_delay"`
-	AeonLength                  int64         `mapstructure:"aeon_length"`
 	RunDKG                      bool          `mapstructure:"run_dkg"`
 }
 
@@ -797,9 +807,8 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		EntropyChannelCapacity:      3,
 		ComputeEntropySleepDuration: 50 * time.Millisecond,
-		DKGStateDuration:            5,
+		DKGAttemptsInAeon:           3,
 		DKGResetDelay:               2,
-		AeonLength:                  100,
 		RunDKG:                      true,
 	}
 }
@@ -905,14 +914,11 @@ func (cfg *ConsensusConfig) ValidateBasic() error {
 	if cfg.ComputeEntropySleepDuration < 0 {
 		return errors.New("compute_entropy_sleep_duration can't be negative")
 	}
-	if cfg.DKGStateDuration < 0 {
-		return errors.New("dkg_state_duration can't be negative")
+	if cfg.DKGAttemptsInAeon < 0 {
+		return errors.New("dkg_attempts_in_aeon can't be negative")
 	}
 	if cfg.DKGResetDelay < 0 {
 		return errors.New("dkg_reset_delay can't be negative")
-	}
-	if cfg.AeonLength < 0 {
-		return errors.New("aeon_length can't be negative")
 	}
 	return nil
 }
