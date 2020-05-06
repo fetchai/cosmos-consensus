@@ -18,23 +18,23 @@ func TestAeonDetailsNew(t *testing.T) {
 
 	// Panic with no validator set
 	assert.Panics(t, func() {
-		newAeonDetails(nil, privVals[0], aeonSigning, 1, 10)
+		newAeonDetails(privVals[0], 1, nil, aeonSigning, 1, 10)
 	})
 
 	// Panic with no aeon execution unit
 	assert.Panics(t, func() {
-		newAeonDetails(state.Validators, privVals[0], nil, 1, 10)
+		newAeonDetails(privVals[0], 1, state.Validators, nil, 1, 10)
 	})
 
 	// Panic if can sign and no priv validator
 	assert.Panics(t, func() {
-		newAeonDetails(state.Validators, nil, aeonSigning, 1, 10)
+		newAeonDetails(nil, 1, state.Validators, aeonSigning, 1, 10)
 	})
 
 	// Panic if can sign and not in validators
 	_, privVal := types.RandValidator(false, 30)
 	assert.Panics(t, func() {
-		newAeonDetails(state.Validators, privVal, aeonSigning, 1, 10)
+		newAeonDetails(privVal, 1, state.Validators, aeonSigning, 1, 10)
 	})
 
 	// Panic if validator index does not match dkg index
@@ -42,7 +42,7 @@ func TestAeonDetailsNew(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
 		if index != 0 {
 			assert.Panics(t, func() {
-				newAeonDetails(state.Validators, val, aeonSigning, 1, 10)
+				newAeonDetails(val, 1, state.Validators, aeonSigning, 1, 10)
 			})
 			break
 		}
@@ -51,7 +51,7 @@ func TestAeonDetailsNew(t *testing.T) {
 	// Does not panic if priv validator is invalid if can not sign
 	var newAeon *aeonDetails
 	assert.NotPanics(t, func() {
-		newAeon = newAeonDetails(state.Validators, nil, aeonNonSigning, 1, 10)
+		newAeon = newAeonDetails(nil, 1, state.Validators, aeonNonSigning, 1, 10)
 	})
 	assert.True(t, newAeon.threshold == nValidators/2+1)
 
@@ -60,7 +60,7 @@ func TestAeonDetailsNew(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
 		if index == 0 {
 			assert.NotPanics(t, func() {
-				newAeonDetails(state.Validators, val, aeonSigning, 1, 10)
+				newAeonDetails(val, 1, state.Validators, aeonSigning, 1, 10)
 			})
 			break
 		}
@@ -73,12 +73,14 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 	aeonKeys := NewAeonExecUnit("test_keys/0.txt")
-	newAeon := newAeonDetails(state.Validators, privVals[0], aeonKeys, 1, 10)
+	newAeon := newAeonDetails(privVals[0], 1, state.Validators, aeonKeys, 1, 10)
 
 	newAeon.save(config.EntropyKeyFile())
 
-	err, duplicateAeon := LoadAeonDetails(config.EntropyKeyFile(), state.Validators, privVals[0])
+	aeonDetailsFile, err := LoadAeonDetailsFile(config.EntropyKeyFile())
 	assert.Equal(t, nil, err)
+	duplicateAeon := LoadAeonDetails(aeonDetailsFile, state.Validators, privVals[0])
+	assert.Equal(t, newAeon.validatorHeight, duplicateAeon.validatorHeight)
 	assert.Equal(t, newAeon.Start, duplicateAeon.Start)
 	assert.Equal(t, newAeon.End, duplicateAeon.End)
 	assert.Equal(t, newAeon.aeonExecUnit.GroupPublicKey(), duplicateAeon.aeonExecUnit.GroupPublicKey())

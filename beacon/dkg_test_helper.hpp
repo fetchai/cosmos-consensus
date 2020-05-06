@@ -45,6 +45,7 @@ enum class DKGMessageType : uint8_t
   QUAL_COEFFICIENT,
   QUAL_COMPLAINT,
   RECONSTRUCTION_SHARE,
+  DRY_RUN
 };
 
 std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure);

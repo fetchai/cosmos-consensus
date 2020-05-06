@@ -35,7 +35,7 @@ func TestCryptoSign(t *testing.T) {
 		assert.True(t, len([]byte(signatureTemp)) <= types.MaxEntropyShareSize)
 		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i))
 
-		signatureShares.Set(int(i), signatureTemp)
+		signatureShares.Set(i, signatureTemp)
 	}
 	groupSignature := aeonExecUnit.ComputeGroupSignature(signatureShares)
 	assert.True(t, len([]byte(groupSignature)) <= types.MaxThresholdSignatureSize)
@@ -166,7 +166,7 @@ func TestHonestDkg(t *testing.T) {
 				assert.True(t, outputs[index1].Verify(message, signature, index))
 			}
 		}
-		sigShares.Set(int(index), signature)
+		sigShares.Set(index, signature)
 	}
 	groupSig := outputs[0].ComputeGroupSignature(sigShares)
 	for index := uint(0); index < cabinetSize; index++ {

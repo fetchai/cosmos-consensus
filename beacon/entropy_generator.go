@@ -1,7 +1,6 @@
 package beacon
 
 import (
-	"container/list"
 	"fmt"
 	"sync"
 	"time"
@@ -26,14 +25,14 @@ type EntropyGenerator struct {
 
 	mtx sync.RWMutex
 
-	entropyShares             map[int64]map[int]types.EntropyShare
+	entropyShares             map[int64]map[uint]types.EntropyShare
 	entropyComputed           map[int64]types.ThresholdSignature
 	lastBlockHeight           int64 // last block height
 	lastComputedEntropyHeight int64 // last non-trivial entropy
 
 	// Channel for sending off entropy for receiving elsewhere
 	computedEntropyChannel chan<- types.ComputedEntropy
-	aeonQueue              *list.List
+	nextAeon               *aeonDetails
 	aeon                   *aeonDetails
 
 	baseConfig      *cfg.BaseConfig
@@ -55,11 +54,10 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig,
 		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/consensusConfig can not be nil"))
 	}
 	es := &EntropyGenerator{
-		entropyShares:             make(map[int64]map[int]types.EntropyShare),
+		entropyShares:             make(map[int64]map[uint]types.EntropyShare),
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
-		aeonQueue:                 list.New(),
 		baseConfig:                bConfig,
 		consensusConfig:           csConfig,
 		evsw:                      tmevents.NewEventSwitch(),
@@ -82,9 +80,6 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 		"aeon", entropyGenerator.isSigningEntropy(), "lastEntropyHeight", entropyGenerator.lastComputedEntropyHeight)
 
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
-		if entropyGenerator.lastComputedEntropyHeight != entropyGenerator.lastBlockHeight {
-			return fmt.Errorf("OnStart: mistmatch between block and entropy heights")
-		}
 		// Notify peers of starting entropy
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		// Sign entropy
@@ -165,22 +160,32 @@ func (entropyGenerator *EntropyGenerator) setLastBlockHeight(height int64) {
 	}
 }
 
-// AddNewAeonDetails adds new AeonDetails from DKG into the queue
-func (entropyGenerator *EntropyGenerator) AddNewAeonDetails(aeon *aeonDetails) {
+// SetNextAeonDetails adds new AeonDetails from DKG into the queue
+func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
+	// Check no existing nextAeon
+	if entropyGenerator.nextAeon != nil {
+		panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
+			entropyGenerator.nextAeon.Start, aeon.Start))
+	}
+	// Check entropy keys are not old
+	if entropyGenerator.lastBlockHeight+1 > aeon.End {
+		return
+	}
 	// Check start and ends are compatible
-	lastInQueue := entropyGenerator.aeonQueue.Back()
-	if lastInQueue != nil {
-		lastAeon := lastInQueue.Value.(*aeonDetails)
-		if aeon.Start <= lastAeon.End {
-			panic(fmt.Errorf("AddNewAeonDetails: incompatible new aeon received. New aeon start %v, existing aeon end %v",
-				aeon.Start, lastAeon.End))
+	if entropyGenerator.aeon != nil {
+		if aeon.Start <= entropyGenerator.aeon.End {
+			entropyGenerator.Logger.Error("SetNextAeonDetails: incompatible new aeon received", "new aeon start", aeon.Start,
+				"existing aeon end", entropyGenerator.aeon.End)
+			return
 		}
 	}
-	entropyGenerator.aeonQueue.PushBack(aeon)
-	entropyGenerator.Logger.Debug("AddNewAeonDetails: aeon received", "start", aeon.Start, "end", aeon.End)
+	entropyGenerator.nextAeon = aeon
+	// Save keys for crash recovery
+	entropyGenerator.nextAeon.save(entropyGenerator.baseConfig.NextEntropyKeyFile())
+	entropyGenerator.Logger.Debug("SetNextAeonDetails: next aeon received", "start", aeon.Start, "end", aeon.End)
 }
 
 func (entropyGenerator *EntropyGenerator) changeKeys() bool {
@@ -194,24 +199,14 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		entropyGenerator.aeon = nil
 	}
 
-	// Find next relevant aeon in queue or nothing
-	newAeon := entropyGenerator.aeonQueue.Front()
-	for newAeon != nil && entropyGenerator.lastBlockHeight+1 > newAeon.Value.(*aeonDetails).Start {
-		if entropyGenerator.lastBlockHeight+1 < newAeon.Value.(*aeonDetails).End {
-			panic(fmt.Errorf("changeKeys: Did not receive keys in time for aeon start! Height %v", entropyGenerator.lastBlockHeight+1))
-		}
-		entropyGenerator.aeonQueue.Remove(newAeon)
-		newAeon = entropyGenerator.aeonQueue.Front()
-	}
-
-	if newAeon != nil {
-		if entropyGenerator.lastBlockHeight+1 != newAeon.Value.(*aeonDetails).Start {
+	if entropyGenerator.nextAeon != nil {
+		if entropyGenerator.lastBlockHeight+1 < entropyGenerator.nextAeon.Start {
 			entropyGenerator.Logger.Debug("changeKeys: Found keys not yet ready", "blockHeight", entropyGenerator.lastBlockHeight,
-				"start", newAeon.Value.(*aeonDetails).Start)
+				"start", entropyGenerator.nextAeon.Start)
 			return false
 		}
-		entropyGenerator.aeon = newAeon.Value.(*aeonDetails)
-		entropyGenerator.aeonQueue.Remove(newAeon)
+		entropyGenerator.aeon = entropyGenerator.nextAeon
+		entropyGenerator.nextAeon = nil
 		// Save keys for crash recovery
 		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
 
@@ -287,10 +282,10 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 	entropyGenerator.Logger.Debug("applyEntropyShare: valid share received", "height", share.Height, "validator index", index)
 	if entropyGenerator.entropyShares[share.Height] == nil {
-		entropyGenerator.entropyShares[share.Height] = make(map[int]types.EntropyShare)
+		entropyGenerator.entropyShares[share.Height] = make(map[uint]types.EntropyShare)
 	}
 
-	entropyGenerator.entropyShares[share.Height][index] = share.Copy()
+	entropyGenerator.entropyShares[share.Height][uint(index)] = share.Copy()
 	return
 }
 
@@ -316,10 +311,10 @@ func (entropyGenerator *EntropyGenerator) getComputedEntropy(height int64) types
 }
 
 // GetEntropyShares gets entropy shares at a particular height
-func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[int]types.EntropyShare {
+func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[uint]types.EntropyShare {
 	entropyGenerator.mtx.RLock()
 	defer entropyGenerator.mtx.RUnlock()
-	sharesCopy := make(map[int]types.EntropyShare)
+	sharesCopy := make(map[uint]types.EntropyShare)
 	for key, share := range entropyGenerator.entropyShares[height] {
 		sharesCopy[key] = share.Copy()
 	}
@@ -336,7 +331,7 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 	if height > entropyGenerator.lastBlockHeight+1 {
 		return fmt.Errorf("missing previous entropy at height %v", height-1)
 	}
-	if len(entropyGenerator.entropyShares[height][index].SignatureShare) != 0 {
+	if len(entropyGenerator.entropyShares[height][uint(index)].SignatureShare) != 0 {
 		return fmt.Errorf("already have entropy share at height %v index %v", height, index)
 	}
 	return nil
@@ -365,7 +360,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[blockHeight] == nil {
-		entropyGenerator.entropyShares[blockHeight] = make(map[int]types.EntropyShare)
+		entropyGenerator.entropyShares[blockHeight] = make(map[uint]types.EntropyShare)
 	}
 	share := types.EntropyShare{
 		Height:         blockHeight,
@@ -378,11 +373,11 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		entropyGenerator.Logger.Error(err.Error())
 		return
 	}
-	entropyGenerator.entropyShares[blockHeight][index] = share
+	entropyGenerator.entropyShares[blockHeight][uint(index)] = share
 }
 
 // OnBlock form pubsub that updates last block height
-// While aeon = nil have checkTransition on aeonQueue (no computeEntropyRoutine running)
+// While aeon = nil have checkTransition on nextAeon (no computeEntropyRoutine running)
 // While aeon != nil start computeEntropyRoutine
 
 func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {

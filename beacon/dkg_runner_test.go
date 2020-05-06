@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
@@ -39,13 +38,13 @@ func TestDKGRunnerOnGenesis(t *testing.T) {
 	}
 }
 
-func TestDKGRunnerValidatorUpdates(t *testing.T) {
+func TestDKGRunnerFindValidators(t *testing.T) {
 	nVals := 1
 	dkgRunner, _ := testDKGRunners(nVals)
 	dkgRunner[0].Start()
-	dkgRunner[0].OnBlock(1, nil)
-	dkgRunner[0].OnBlock(2, nil)
-	dkgRunner[0].OnBlock(3, nil)
+	dkgRunner[0].OnBlock(1, []byte{}, nil)
+	dkgRunner[0].OnBlock(2, []byte{}, nil)
+	dkgRunner[0].OnBlock(3, []byte{}, nil)
 
 	// Create state after execution of block 1
 	newVals := make([]*types.Validator, 2)
@@ -73,25 +72,23 @@ func TestDKGRunnerValidatorUpdates(t *testing.T) {
 	assert.True(t, err == nil)
 	assert.Equal(t, int64(120), savedParams.Entropy.AeonLength)
 
-	assert.Eventually(t, func() bool { return len(dkgRunner[0].validators.Validators) == 2 }, 1*time.Second, 100*time.Millisecond)
-	dkgRunner[0].Stop()
-	assert.True(t, dkgRunner[0].valsAndParamsUpdated)
-	index, _ := dkgRunner[0].validators.GetByAddress(newVals[0].PubKey.Address())
+	vals, aeonLength := dkgRunner[0].findValidatorsAndParams(3)
+	index, _ := vals.GetByAddress(newVals[0].PubKey.Address())
 	assert.True(t, index >= 0)
-	assert.True(t, dkgRunner[0].nextAeonLength == 120)
+	assert.True(t, aeonLength == 120)
 }
 
 func testDKGRunners(nVals int) ([]*DKGRunner, tx_extensions.MessageHandler) {
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
-	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
+	sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 	logger := log.TestingLogger()
 
 	fakeHandler := tx_extensions.NewFakeMessageHandler()
 	dkgRunners := make([]*DKGRunner, nVals)
 	for index := 0; index < nVals; index++ {
-		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], 0, *state.Validators, 100)
+		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], 0)
 		dkgRunners[index].SetLogger(logger.With("index", index))
 		dkgRunners[index].AttachMessageHandler(fakeHandler)
 	}
