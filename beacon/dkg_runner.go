@@ -59,8 +59,8 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 	return dkgRunner
 }
 
-func (dkgrunner *DKGRunner) AttachMetrics(metrics *Metrics) {
-	dkgrunner.metrics = metrics
+func (dkgRunner *DKGRunner) AttachMetrics(metrics *Metrics) {
+	dkgRunner.metrics = metrics
 }
 
 // SetDKGCompletionCallback for dispatching dkg output
@@ -99,6 +99,7 @@ func (dkgRunner *DKGRunner) OnStart() error {
 // OnBlock is callback in messageHandler for DKG messages included in a particular block
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
+	dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
 	dkgRunner.height = blockHeight
 	dkgRunner.valsUpdated = false
 	if dkgRunner.activeDKG != nil {
