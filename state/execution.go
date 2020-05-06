@@ -220,11 +220,20 @@ func (blockExec *BlockExecutor) Commit(
 	}
 	// ResponseCommit has no error code - just data
 
+	// evaluate the if entropy is present in this block
+	entropyStatus := "NotPresent"
+	if len(block.Entropy) > 0 {
+		entropyStatus = "Present";
+	}
+
+	block.Entropy
+
 	blockExec.logger.Info(
 		"Committed state",
 		"height", block.Height,
 		"txs", block.NumTxs,
 		"appHash", fmt.Sprintf("%X", res.Data),
+		"entropy", entropyStatus,
 	)
 
 	// Update mempool.
