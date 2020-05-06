@@ -100,6 +100,7 @@ func (dkgRunner *DKGRunner) OnStart() error {
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
 	dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
+	fmt.Printf("adding messages %v\n", float64(len(trxs)))
 	dkgRunner.height = blockHeight
 	dkgRunner.valsUpdated = false
 	if dkgRunner.activeDKG != nil {

@@ -21,9 +21,9 @@ GRAFANA_DIR = "monitoring"
 def parse_commandline():
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--validators', type=int, default=3, help='The number of validators for the network')
-    parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image')
-    parser.add_argument('-p', '--push-docker-img', action='store_false', help='Whether to push the docker image')
-    parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana also')
+    parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image then quit')
+    parser.add_argument('-p', '--push-docker-img', action='store_true', help='Whether to push the docker image')
+    parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana')
     return parser.parse_args()
 
 def get_docker_img_name():
@@ -135,13 +135,15 @@ def main():
 
     get_docker_img_name()
 
-    # first build the docker image
+    # build the docker image
     if args.build_docker:
         build_docker_image(args)
 
         # optionally push
         if args.push_docker_img:
+            print("pushing docker image")
             push_docker_image(args)
+        sys.exit(0)
 
     populate_node_yaml(args.validators)
     deploy_nodes()
@@ -151,9 +153,4 @@ def main():
         deploy_grafana(args)
 
 if __name__ == '__main__':
-    try:
-        main()
-    except:
-        extype, value, tb = sys.exc_info()
-        traceback.print_exc()
-        ipdb.post_mortem(tb)
+    main()
