@@ -43,7 +43,7 @@ spec:
 
       containers:
         - name: cosmosledger
-          image: tendermint_drb_tst
+          image: {container}
           imagePullPolicy: Never
           command: [ "/tendermint/run.sh" ]
 

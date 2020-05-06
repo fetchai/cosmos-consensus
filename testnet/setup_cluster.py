@@ -18,6 +18,9 @@ DOCKER_IMG_PULL_POLICY="Never"
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
 
+THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
+os.chdir(THIS_FILE_DIR)
+
 def parse_commandline():
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--validators', type=int, default=3, help='The number of validators for the network')
@@ -36,7 +39,7 @@ def build_docker_image(args):
 
     executable_full_path = os.path.abspath("build_docker_img.sh")
 
-    exit_code = subprocess.call([executable_full_path, DOCKER_IMG_NAME, DOCKER_IMG_TAG], cwd=os.getcwd())
+    exit_code = subprocess.call([executable_full_path, DOCKER_IMG_NAME, DOCKER_IMG_TAG], cwd=THIS_FILE_DIR)
 
     if exit_code:
         print(exit_code)
@@ -44,7 +47,7 @@ def build_docker_image(args):
         sys.exit(1)
 
 def push_docker_image(args):
-    exit_code = subprocess.call(["docker", "push", DOCKER_IMG_NAME+":"+DOCKER_IMG_TAG], cwd=os.getcwd())
+    exit_code = subprocess.call(["docker", "push", DOCKER_IMG_NAME+":"+DOCKER_IMG_TAG], cwd=THIS_FILE_DIR)
 
     if exit_code:
         print(exit_code)
@@ -76,7 +79,7 @@ def deploy_grafana(args):
 def create_files_for_validators(validators: int):
 
     # Ask tendermint to create the desired files
-    exit_code = subprocess.call(["tendermint", "testnet", "--v", str(validators)], cwd=os.getcwd())
+    exit_code = subprocess.call(["tendermint", "testnet", "--v", str(validators)], cwd=THIS_FILE_DIR)
 
     if exit_code:
         print(exit_code)
@@ -111,8 +114,11 @@ def populate_node_yaml(validators: int):
         node_template = "".join(node_template)
 
         node_name = "node"+str(i)
+        container_name = DOCKER_IMG_NAME+":"+DOCKER_IMG_TAG
 
-        node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY)
+        print(container_name)
+
+        node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name)
 
         if not os.path.exists(YAML_DIR):
                 os.makedirs(YAML_DIR)
