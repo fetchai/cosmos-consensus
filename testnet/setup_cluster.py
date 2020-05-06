@@ -7,6 +7,7 @@ import os
 import traceback
 import ipdb
 import fileinput
+import shutil
 from pathlib import Path
 
 DOCKER_IMG_NAME="gcr.io/fetch-ai-sandbox/tendermint-drb"
@@ -107,6 +108,14 @@ def create_network(validators: int):
     deploy_nodes()
 
 def populate_node_yaml(validators: int):
+
+    # Wipe the directory
+    if not os.path.exists(YAML_DIR):
+        os.makedirs(YAML_DIR)
+    else:
+        shutil.rmtree(YAML_DIR)
+        os.makedirs(YAML_DIR)
+
     # Now create the yaml for each node
     for i in range(0, validators):
         node_template = open("yaml_templates/node_yaml_template.txt").readlines()
@@ -119,9 +128,6 @@ def populate_node_yaml(validators: int):
         print(container_name)
 
         node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name)
-
-        if not os.path.exists(YAML_DIR):
-                os.makedirs(YAML_DIR)
 
         with open("{}/{}.yaml".format(YAML_DIR, node_name), mode="w") as f:
             f.write(node_template)
