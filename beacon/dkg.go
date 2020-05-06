@@ -23,6 +23,9 @@ const (
 	waitForReconstructionShares
 	waitForDryRun
 	dkgFinish
+
+	// Number of dkg states with non-zero duration
+	dkgStatesWithDuration = int64(dkgFinish) - 1
 )
 
 type state struct {
@@ -121,7 +124,7 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dk
 	// dkg does not complete right at the end of the aeon
 	dkgDuration := (aeonLength - dkg.config.EntropyChannelCapacity - 1) / dkg.config.DKGAttemptsInAeon
 	// Divide by number of states to get the duration of each state
-	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / 7
+	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / dkgStatesWithDuration
 	dkg.setStates()
 
 	return dkg
