@@ -186,6 +186,8 @@ func TestDKGScenarios(t *testing.T) {
 		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
+			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
+			cppLogger.Start()
 
 			outputs := make([]*aeonDetails, tc.nVals)
 			for index := 0; index < tc.nVals; index++ {
@@ -270,6 +272,8 @@ func TestDKGScenarios(t *testing.T) {
 			for index := 0; index < tc.nVals; index++ {
 				assert.True(t, outputs[index].aeonExecUnit.VerifyGroupSignature(message, groupSig))
 			}
+
+			cppLogger.Stop()
 		})
 	}
 }
@@ -302,7 +306,8 @@ func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.Priv
 		failures:     make([]dkgFailure, 0),
 		sentBadShare: false,
 	}
-	node.dkg.SetLogger(log.TestingLogger())
+	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
+	node.dkg.SetLogger(log.TestingLogger().With("dkgIndex", index))
 
 	node.dkg.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		node.mutateMsg(msg)

@@ -16,6 +16,7 @@
 //
 //------------------------------------------------------------------------------
 
+#include "logging.hpp"
 #include "serialisers.hpp"
 
 #include <boost/archive/text_iarchive.hpp>
@@ -25,11 +26,12 @@
 #include <boost/serialization/unordered_map.hpp>
 #include <boost/serialization/utility.hpp>
 #include <boost/serialization/vector.hpp>
-#include <iostream>
 #include <sstream>
 
 namespace fetch {
 namespace serialisers {
+
+static constexpr char const *LOGGING_NAME = "Serialisers";
 
 std::string Serialise(std::vector<std::string> const &coeff) {
   std::ostringstream            ss;
@@ -68,7 +70,7 @@ bool Deserialise(std::string const &msg, std::vector<std::string> &coeff) {
   } 
   catch (boost::archive::archive_exception ex) 
   {
-    std::cerr << "Error deserialising coefficients: " << ex.what() << std::endl;
+    Log(LogLevel::ERROR, LOGGING_NAME, "Coefficients: " + std::string(ex.what()));
     coeff.clear();
     return false;
   }
@@ -84,7 +86,7 @@ bool Deserialise(std::string const &msg, std::pair<std::string, std::string> &sh
   } 
   catch (boost::archive::archive_exception ex) 
   {
-    std::cerr << "Error deserialising shares: " << ex.what() << std::endl;
+    Log(LogLevel::ERROR, LOGGING_NAME, "Shares: " + std::string(ex.what()));
     shares = {};
     return false;
   }
@@ -100,7 +102,7 @@ bool Deserialise(std::string const &msg, std::set<uint32_t> &complaints) {
   } 
   catch (boost::archive::archive_exception ex) 
   {
-    std::cerr << "Error deserialising complaints: " << ex.what() << std::endl;
+    Log(LogLevel::ERROR, LOGGING_NAME, "Complaints: " + std::string(ex.what()));
     complaints.clear();
     return false;
   }
@@ -116,7 +118,7 @@ bool Deserialise(std::string const &msg, std::unordered_map<uint32_t, std::pair<
   } 
   catch (boost::archive::archive_exception ex) 
   {
-    std::cerr << "Error deserialising exposed shares: " << ex.what() << std::endl;
+    Log(LogLevel::ERROR, LOGGING_NAME, "Exposed shares: " + std::string(ex.what()));
     shares.clear();
     return false;
   }
