@@ -22,7 +22,6 @@ WORKDIR /project
 
 # install go - note we do NOT want to use FROM golang:buster as we need to build and run in the same environment
 COPY go1.14.2.linux-amd64.tar.gz .
-#RUN wget https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.14.2.linux-amd64.tar.gz
 
 RUN export CGO_ENABLED=1 && \
@@ -38,6 +37,8 @@ WORKDIR /tendermint
 
 # Copy over binaries from the build-env
 COPY --from=build-env /project/build/tendermint /usr/bin/tendermint
+COPY --from=build-env /usr/local/lib/libmcl.so /usr/lib/libmcl.so
+COPY --from=build-env /usr/local/lib/libmcl.a /usr/lib/libmcl.a
 
 EXPOSE 26655-26658
 
