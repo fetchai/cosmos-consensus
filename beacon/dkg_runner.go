@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"fmt"
 
 	cfg "github.com/tendermint/tendermint/config"
 	cmn "github.com/tendermint/tendermint/libs/common"
