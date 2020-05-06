@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/beacon"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/evidence"
@@ -92,6 +93,33 @@ func TestNodeStartStop(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNodeDKGFastSync(t *testing.T) {
+	config := cfg.ResetTestRoot("node_node_test")
+	config.Consensus.RunDKG = true
+	defer os.RemoveAll(config.RootDir)
+
+	// Use node to generate DKG messages in chain
+	n, _ := DefaultNewNode(config, log.NewNopLogger())
+	_ = n.Start()
+	assert.Eventually(t, func() bool { return cmn.FileExists(config.NextEntropyKeyFile()) }, 5*time.Second, 500*time.Millisecond)
+	n.Stop()
+
+	// Get rough estimate of last block height
+	blockHeight := int64(10)
+	for blockHeight > 0 && n.BlockStore().LoadBlock(blockHeight) == nil {
+		blockHeight--
+	}
+	assert.True(t, blockHeight != 0)
+
+	// Create dkgRunner to run FastSync using chain from node
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), blockHeight)
+	dkgRunner.SetLogger(log.TestingLogger())
+	dkgRunner.AttachMessageHandler(n.specialTxHandler)
+	dkgRunner.SetCurrentAeon(-1, -1)
+	err := dkgRunner.FastSync(n.blockStore)
+	assert.True(t, err == nil)
 }
 
 func TestSplitAndTrimEmpty(t *testing.T) {

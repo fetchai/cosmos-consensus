@@ -95,8 +95,12 @@ func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStoreRPC) error {
 		dkgHeight = 1
 	}
 	if dkgRunner.height > dkgHeight {
+		dkgRunner.Logger.Debug("FastSync: starting", "blockHeight", dkgRunner.height, "dkgStartHeight", dkgHeight)
 		dkgRunner.fastSync = true
 		dkgRunner.checkNextDKG()
+		if dkgRunner.activeDKG == nil {
+			return fmt.Errorf("FastSync: failed to start new dkg")
+		}
 		for dkgRunner.height > dkgHeight {
 			// Load transactions from block
 			block := blockStore.LoadBlock(dkgHeight)
@@ -148,7 +152,7 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 // Returns validators for height from state DB
 func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, int64) {
 	for {
-		if !dkgRunner.IsRunning() {
+		if !dkgRunner.fastSync && !dkgRunner.IsRunning() {
 			dkgRunner.Logger.Debug("findValidators: exiting", "height", dkgRunner.height)
 			return nil, 0
 		}
@@ -195,9 +199,12 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 			validatorHeight = 1
 		}
 		vals, aeonLength := dkgRunner.findValidatorsAndParams(validatorHeight)
-		if vals != nil {
-			dkgRunner.startNewDKG(validatorHeight, vals, aeonLength)
+		if vals == nil {
+			// Should only return nil if dkg runner is stopped and not in fast sync
+			dkgRunner.Logger.Debug("findValidatorsAndParams return nil vals", "fastSync",
+				dkgRunner.fastSync, "dkgRunner running", dkgRunner.IsRunning())
 		}
+		dkgRunner.startNewDKG(validatorHeight, vals, aeonLength)
 	}
 }
 
