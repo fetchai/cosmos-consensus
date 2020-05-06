@@ -61,7 +61,10 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 }
 
 func (dkgRunner *DKGRunner) AttachMetrics(metrics *Metrics) {
-	dkgRunner.metrics = metrics
+
+	if dkgRunner != nil {
+		dkgRunner.metrics = metrics
+	}
 }
 
 // SetDKGCompletionCallback for dispatching dkg output
