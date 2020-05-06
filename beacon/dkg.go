@@ -195,7 +195,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
 		if err := dkg.checkMsg(msg, index, val); err != nil {
-			dkg.Logger.Error("OnBlock: check msg", "height", blockHeight, "msg", msg, "err", err)
+			dkg.Logger.Debug("OnBlock: check msg", "height", blockHeight, "from", msg.FromAddress, "err", err)
 			continue
 		}
 
