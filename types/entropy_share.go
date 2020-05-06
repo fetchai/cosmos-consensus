@@ -18,17 +18,96 @@ type ThresholdSignature = []byte
 
 //-----------------------------------------------------------------------------
 
-type ComputedEntropy struct {
-	Height         int64
-	GroupSignature ThresholdSignature
-	Enabled        bool
+// BlockEntropy struct for entropy in block
+type BlockEntropy struct {
+	GroupSignature ThresholdSignature `json:"group_signature"`
+	Round          int64              `json:"round"`
+	AeonLength     int64              `json:"aeon_length"`
+	DKGID          int64              `json:"dkg_id"`
 }
 
-func NewComputedEntropy(height int64, sig ThresholdSignature, enabled bool) *ComputedEntropy {
-	return &ComputedEntropy{
-		Height:         height,
+// EmptyBlockEntropy for constructing BlockEntropy for empty group signature
+func EmptyBlockEntropy() *BlockEntropy {
+	return &BlockEntropy{
+		GroupSignature: []byte{},
+		Round:          -1,
+		AeonLength:     -1,
+		DKGID:          -1,
+	}
+}
+
+// NewBlockEntropy for constructing BlockEntropy
+func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64) *BlockEntropy {
+	return &BlockEntropy{
 		GroupSignature: sig,
-		Enabled:        enabled,
+		Round:          round,
+		AeonLength:     aeonLength,
+		DKGID:          dkgID,
+	}
+}
+
+// ValidateBasic performs basic validation on block entropy
+func (blockEntropy *BlockEntropy) ValidateBasic() error {
+	// If entropy is empty then all other values should be -1
+	if len(blockEntropy.GroupSignature) == 0 {
+		if blockEntropy.Round != -1 || blockEntropy.AeonLength != -1 || blockEntropy.DKGID != -1 {
+			return fmt.Errorf("expected EmptyBlockEntropy, got: round %d, aeon length %v, dkg id %v",
+				blockEntropy.Round, blockEntropy.AeonLength, blockEntropy.DKGID)
+		}
+		return nil
+	}
+
+	if len(blockEntropy.GroupSignature) > MaxThresholdSignatureSize {
+		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
+			MaxThresholdSignatureSize,
+			len(blockEntropy.GroupSignature),
+		)
+	}
+	if blockEntropy.Round < 0 {
+		return fmt.Errorf("expected Round >= 0, got %d", blockEntropy.Round)
+	}
+	if blockEntropy.AeonLength <= 0 {
+		return fmt.Errorf("expected AeonLength > 0, got %d", blockEntropy.AeonLength)
+	}
+	if blockEntropy.DKGID < 0 {
+		return fmt.Errorf("expected DKG ID >= 0, got %d", blockEntropy.DKGID)
+	}
+	return nil
+}
+
+// String returns a string representation of the BlockEntropy
+func (blockEntropy *BlockEntropy) String() string {
+	return blockEntropy.StringIndented("")
+}
+
+// StringIndented returns a string representation of the BlockEntropy
+func (blockEntropy *BlockEntropy) StringIndented(indent string) string {
+	return fmt.Sprintf(`BlockEntropy{
+%s  Round/AeonLength: %v/%v
+%s  DKGID:			  %v 
+%s  GroupSignature:	  %v
+%s}`,
+		indent, blockEntropy.Round, blockEntropy.AeonLength,
+		indent, blockEntropy.DKGID,
+		indent, blockEntropy.GroupSignature,
+		indent)
+}
+
+//-----------------------------------------------------------------------------
+
+// ComputedEntropy struct for sending entropy from entropy generator to consensus
+type ComputedEntropy struct {
+	Height  int64
+	Entropy BlockEntropy
+	Enabled bool
+}
+
+// NewComputedEntropy for constructing ComputedEntropy
+func NewComputedEntropy(height int64, entropy BlockEntropy, enabled bool) *ComputedEntropy {
+	return &ComputedEntropy{
+		Height:  height,
+		Entropy: entropy,
+		Enabled: enabled,
 	}
 }
 
@@ -38,28 +117,12 @@ func (ce *ComputedEntropy) ValidateBasic() error {
 		return fmt.Errorf("invalid Height")
 	}
 
-	if len(ce.GroupSignature) > MaxThresholdSignatureSize {
-		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
-			MaxThresholdSignatureSize,
-			len(ce.GroupSignature),
-		)
+	err := ce.Entropy.ValidateBasic()
+	if err != nil {
+		return err
 	}
 
 	return nil
-}
-
-// String returns a string representation of the PeerRoundState
-func (ce *ComputedEntropy) String() string {
-	return ce.StringIndented("")
-}
-
-// StringIndented returns a string representation of the PeerRoundState
-func (ce *ComputedEntropy) StringIndented(indent string) string {
-	return fmt.Sprintf(`ComputedEntropy{
-%s  %v/%v
-%s}`,
-		indent, ce.Height, ce.GroupSignature,
-		indent)
 }
 
 //-----------------------------------------------------------------------------
