@@ -226,8 +226,6 @@ func (blockExec *BlockExecutor) Commit(
 		entropyStatus = "Present";
 	}
 
-	block.Entropy
-
 	blockExec.logger.Info(
 		"Committed state",
 		"height", block.Height,
