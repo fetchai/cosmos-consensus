@@ -3,6 +3,7 @@ package beacon
 import (
 	"sync"
 	"time"
+	"fmt"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
 	cfg "github.com/tendermint/tendermint/config"
