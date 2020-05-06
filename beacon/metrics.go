@@ -50,5 +50,6 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 func NopMetrics() *Metrics {
 	return &Metrics{
 		DKGMessagesInChain: discard.NewCounter(),
+		DKGsCompleted:      discard.NewCounter(),
 	}
 }
