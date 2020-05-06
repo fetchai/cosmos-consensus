@@ -21,7 +21,7 @@ GRAFANA_DIR = "monitoring"
 def parse_commandline():
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--validators', type=int, default=3, help='The number of validators for the network')
-    parser.add_argument('-n', '--no-build-docker', action='store_true', help='Do not build the docker image')
+    parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image')
     parser.add_argument('-p', '--push-docker-img', action='store_false', help='Whether to push the docker image')
     parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana also')
     return parser.parse_args()
@@ -136,7 +136,7 @@ def main():
     get_docker_img_name()
 
     # first build the docker image
-    if not args.no_build_docker:
+    if args.build_docker:
         build_docker_image(args)
 
         # optionally push

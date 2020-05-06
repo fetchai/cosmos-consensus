@@ -6,7 +6,6 @@ import (
 
 	cmn "github.com/tendermint/tendermint/libs/common"
 	cfg "github.com/tendermint/tendermint/config"
-	//"github.com/tendermint/tendermint/libs/service"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
@@ -36,6 +35,7 @@ type DKGRunner struct {
 	dkgCompletionCallback func(aeon *aeonDetails)
 
 	mtx sync.Mutex
+	metrics *Metrics
 }
 
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val types.PrivValidator,
@@ -52,10 +52,15 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		completedDKG:    false,
 		valsUpdated:     true,
 		dkgCounter:      0,
+		metrics:         NopMetrics(),
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
 	return dkgRunner
+}
+
+func (dkgrunner *DKGRunner) AttachMetrics(metrics *Metrics) {
+	dkgrunner.metrics = metrics
 }
 
 // SetDKGCompletionCallback for dispatching dkg output

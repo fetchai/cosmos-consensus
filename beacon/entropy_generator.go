@@ -11,7 +11,6 @@ import (
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
-	//"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
 
