@@ -14,7 +14,7 @@ DOCKER_IMG_NAME="gcr.io/fetch-ai-sandbox/tendermint-drb"
 DOCKER_IMG_TAG="no-tag-found"
 
 # If this is true, deployments use :latest rather than the commit tag
-USE_LATEST_TAG = False
+USE_LATEST_TAG = True
 
 #DOCKER_IMG_PULL_POLICY="Never"
 DOCKER_IMG_PULL_POLICY="Always"
@@ -104,11 +104,11 @@ def create_files_for_validators(validators: int):
 
     # perform a search and replace on the genesis file to
     # extend the dkg length for bigger node sizes
-    pathlist = Path("mytestnet").glob('**/genesis.json')
-    for path in pathlist:
-        with fileinput.FileInput(path, inplace=True) as file:
-            for line in file:
-                if validators >= 8:
+    if validators >= 8:
+        pathlist = Path("mytestnet").glob('**/genesis.json')
+        for path in pathlist:
+            with fileinput.FileInput(path, inplace=True) as file:
+                for line in file:
                     print(line.replace('"aeon_length": "200"', '"aeon_length": "200"'), end='')
 
 def create_network(validators: int):
