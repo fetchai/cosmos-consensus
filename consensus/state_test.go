@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tendermint/tendermint/crypto/tmhash"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -230,11 +231,11 @@ func TestStateBadProposal(t *testing.T) {
 func TestStateBeaconProposerSelection(t *testing.T) {
 	cs1, _ := randConsensusState(4)
 
-	computedEntropyChannel := make(chan types.ComputedEntropy, cs1.config.EntropyChannelCapacity)
-	cs1.SetEntropyChannel(computedEntropyChannel)
+	entropyChannel := make(chan types.ChannelEntropy, cs1.config.EntropyChannelCapacity)
+	cs1.SetEntropyChannel(entropyChannel)
 
-	computedEntropyChannel <- *types.NewComputedEntropy(1, []byte{0, 0, 0, 0, 1, 2, 3, 4}, true)
-	computedEntropyChannel <- *types.NewComputedEntropy(2, []byte{0, 0, 0, 0, 5, 6, 7, 8}, true)
+	entropyChannel <- *types.NewChannelEntropy(1, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 1, 2, 3, 4}, 0, 100, 0), true)
+	entropyChannel <- *types.NewChannelEntropy(2, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 5, 6, 7, 8}, 0, 100, 0), true)
 
 	// Check validators for height 1
 	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})

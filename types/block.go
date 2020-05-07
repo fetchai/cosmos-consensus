@@ -154,9 +154,8 @@ func (b *Block) ValidateBasic() error {
 			crypto.AddressSize, len(b.ProposerAddress))
 	}
 
-	if len(b.Entropy) > MaxThresholdSignatureSize {
-		return fmt.Errorf("expected len(Header.Entropy) to be max %d, got %d",
-			MaxThresholdSignatureSize, len(b.Entropy))
+	if err := b.Entropy.ValidateBasic(); err != nil {
+		return fmt.Errorf("Wrong Header.Entropy: %v", err)
 	}
 
 	return nil
@@ -366,7 +365,8 @@ type Header struct {
 	// consensus info
 	EvidenceHash    cmn.HexBytes `json:"evidence_hash"`    // evidence included in the block
 	ProposerAddress Address      `json:"proposer_address"` // original proposer of the block
-	Entropy ThresholdSignature `json:"entropy"` // group signature for this block height
+
+	Entropy BlockEntropy `json:"entropy"` // group signature for this block height
 }
 
 // Populate the Header with state-derived data.
@@ -462,7 +462,7 @@ func (h *Header) StringIndented(indent string) string {
 		indent, h.LastResultsHash,
 		indent, h.EvidenceHash,
 		indent, h.ProposerAddress,
-		indent, h.Entropy,
+		indent, h.Entropy.StringIndented(indent),
 		indent, h.Hash())
 }
 

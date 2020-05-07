@@ -284,7 +284,7 @@ message Header {
   bytes evidence_hash    = 15;  // evidence included in the block
   bytes proposer_address = 16;  // original proposer of the block
 
-  bytes entropy = 17; // entropy in block 
+  BlockEntropy entropy = 17 [(gogoproto.nullable)=false];; // entropy in block 
 }
 
 message Version {
@@ -296,6 +296,13 @@ message Version {
 message BlockID {
   bytes hash = 1;
   PartSetHeader parts_header = 2 [(gogoproto.nullable)=false];
+}
+
+message BlockEntropy {
+  bytes group_signature = 1;
+  int64 round = 2;
+  int64 aeon_length = 3;
+  int64 dkg_id = 4;
 }
 
 message PartSetHeader {

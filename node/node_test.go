@@ -70,9 +70,9 @@ func TestNodeStartStop(t *testing.T) {
 				t.Fatal("timed out waiting for the node to produce a block")
 			}
 
-			// block should contain no entropy
+			// Check block entropy is as expected
 			block := n.blockStore.LoadBlock(1)
-			assert.Equal(t, tc.blockHasEntropy, len(block.Entropy) != 0)
+			assert.Equal(t, tc.blockHasEntropy, !block.Entropy.Equal(types.EmptyBlockEntropy()))
 
 			// stop the node
 			go func() {

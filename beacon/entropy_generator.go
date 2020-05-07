@@ -31,7 +31,7 @@ type EntropyGenerator struct {
 	lastComputedEntropyHeight int64 // last non-trivial entropy
 
 	// Channel for sending off entropy for receiving elsewhere
-	computedEntropyChannel chan<- types.ComputedEntropy
+	computedEntropyChannel chan<- types.ChannelEntropy
 	nextAeon               *aeonDetails
 	aeon                   *aeonDetails
 
@@ -108,8 +108,8 @@ func (entropyGenerator *EntropyGenerator) wait() {
 	}
 }
 
-// SetComputedEntropyChannel sets the channel along which entropy should be dispatched
-func (entropyGenerator *EntropyGenerator) SetComputedEntropyChannel(entropyChannel chan<- types.ComputedEntropy) {
+// SetEntropyChannel sets the channel along which entropy should be dispatched
+func (entropyGenerator *EntropyGenerator) SetEntropyChannel(entropyChannel chan<- types.ChannelEntropy) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
@@ -136,18 +136,18 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 }
 
 // SetLastComputedEntropy sets the most recent entropy from catchup
-func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(entropy types.ComputedEntropy) {
+func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, entropy types.ThresholdSignature) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	if entropyGenerator.entropyComputed[entropy.Height] != nil {
-		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", entropy.Height)
+	if entropyGenerator.entropyComputed[height] != nil {
+		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", height)
 		return
 	}
-	entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
+	entropyGenerator.entropyComputed[height] = entropy
 	// If new entropy is more recent that our last computed entropy then update
-	if entropy.Height > entropyGenerator.lastComputedEntropyHeight {
-		entropyGenerator.lastComputedEntropyHeight = entropy.Height
+	if height > entropyGenerator.lastComputedEntropyHeight {
+		entropyGenerator.lastComputedEntropyHeight = height
 	}
 }
 
@@ -226,7 +226,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 }
 
 // ApplyComputedEntropy processes completed entropy from peer
-func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.ComputedEntropy) {
+func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, entropy types.ThresholdSignature) {
 	// Should not be called in entropy generator is not running
 	if !entropyGenerator.isSigningEntropy() {
 		panic(fmt.Errorf("applyEntropyShare while entropy generator stopped"))
@@ -234,13 +234,13 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(entropy *types.Co
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	entropyGenerator.Logger.Debug("applyComputedEntropy", "height", entropy.Height)
+	entropyGenerator.Logger.Debug("applyComputedEntropy", "height", height)
 
 	// Only process if corresponds to next entropy
-	if entropyGenerator.entropyComputed[entropy.Height] == nil && entropy.Height == entropyGenerator.lastBlockHeight+1 {
+	if entropyGenerator.entropyComputed[height] == nil && height == entropyGenerator.lastBlockHeight+1 {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-		if entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, string(entropy.GroupSignature)) {
-			entropyGenerator.entropyComputed[entropy.Height] = entropy.GroupSignature
+		if entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, string(entropy)) {
+			entropyGenerator.entropyComputed[height] = entropy
 		} else {
 			entropyGenerator.Logger.Error("received invalid computed entropy")
 		}
@@ -423,7 +423,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 	}
 }
 
-func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.ComputedEntropy) {
+func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.ChannelEntropy) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
@@ -432,7 +432,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Com
 		entropyGenerator.lastBlockHeight++
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
-		return true, types.NewComputedEntropy(height, nil, false)
+		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
 	}
 
 	if entropyGenerator.entropyComputed[height] != nil {
@@ -442,7 +442,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Com
 
 		// Notify peers of of new entropy height
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
-		return true, types.NewComputedEntropy(height, entropyGenerator.entropyComputed[height], true)
+		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
@@ -464,9 +464,17 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Com
 
 		// Notify peers of of new entropy height
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
-		return true, types.NewComputedEntropy(height, entropyGenerator.entropyComputed[height], true)
+		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
 	}
 	return false, nil
+}
+
+func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.BlockEntropy {
+	return *types.NewBlockEntropy(
+		entropyGenerator.entropyComputed[height],
+		height-entropyGenerator.aeon.Start,
+		entropyGenerator.aeon.End-entropyGenerator.aeon.Start,
+		dkgID(entropyGenerator.aeon.validatorHeight))
 }
 
 func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
