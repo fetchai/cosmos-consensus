@@ -33,6 +33,7 @@ def parse_commandline():
     parser.add_argument('-p', '--push-docker-img', action='store_true', help='Whether to push the docker image')
     parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana')
     parser.add_argument('-r', '--remove-network', action='store_true', help='Unapply the network (yaml files)')
+    parser.add_argument('-u', '--update-img-tag', action='store_true', help='Update the latest docker image with our commit tag (and push)')
     return parser.parse_args()
 
 def get_docker_img_name():
@@ -163,17 +164,31 @@ def remove_network():
         print("quitting due to exit code")
         sys.exit(1)
 
+def update_img_tag():
+    exit_code = subprocess.call(f"docker tag {DOCKER_IMG_NAME} {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}".split())
+
+    if exit_code:
+        print(exit_code)
+        print("quitting due to exit code")
+        sys.exit(1)
+
 def main():
     args = parse_commandline()
+
+    get_docker_img_name()
 
     if args.remove_network:
         remove_network()
         sys.exit(0)
 
+    if args.update_img_tag:
+        update_img_tag()
+        print("pushing docker image")
+        push_docker_image(args)
+        sys.exit(0)
+
     # Note: the docker build needs files created here
     create_files_for_validators(args.validators)
-
-    get_docker_img_name()
 
     # build the docker image
     if args.build_docker:
