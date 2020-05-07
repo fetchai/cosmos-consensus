@@ -66,6 +66,16 @@ def push_docker_image(args):
 
 def deploy_nodes():
 
+    # Note: important to load the config before anything else
+    pathlist = Path(YAML_DIR).glob('**/*config*.yaml')
+    for path in pathlist:
+        exit_code = subprocess.call(["kubectl", "apply", "-f", path])
+
+        if exit_code:
+            print(exit_code)
+            print("quitting due to exit code")
+            sys.exit(1)
+
     pathlist = Path(YAML_DIR).glob('**/*.yaml')
     for path in pathlist:
         exit_code = subprocess.call(["kubectl", "apply", "-f", path])

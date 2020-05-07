@@ -135,6 +135,10 @@ AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) const 
  */
 bool
 AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
+  if(!(sender < aeon_keys_.public_key_shares.size()))
+  {
+    std::cerr << "about to fail! " << sender << " " <<  aeon_keys_.public_key_shares.size() << std::endl; // DELETEME_NH
+  }
   assert(sender < aeon_keys_.public_key_shares.size());
   mcl::Signature signature{sign};
   mcl::PublicKey public_key{aeon_keys_.public_key_shares[sender]};
