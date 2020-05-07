@@ -44,7 +44,7 @@ spec:
       containers:
         - name: cosmosledger
           image: {container}
-          imagePullPolicy: Never
+          imagePullPolicy: {pull_policy}
           command: [ "/tendermint/run.sh" ]
 
           args:

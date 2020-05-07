@@ -13,8 +13,11 @@ from pathlib import Path
 DOCKER_IMG_NAME="gcr.io/fetch-ai-sandbox/tendermint-drb"
 DOCKER_IMG_TAG="no-tag-found"
 
-DOCKER_IMG_PULL_POLICY="Never"
-#DOCKER_IMG_PULL_POLICY="Always"
+# If this is true, deployments use :latest rather than the commit tag
+USE_LATEST_TAG = True
+
+#DOCKER_IMG_PULL_POLICY="Never"
+DOCKER_IMG_PULL_POLICY="Always"
 
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
@@ -28,13 +31,17 @@ def parse_commandline():
     parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image then quit')
     parser.add_argument('-p', '--push-docker-img', action='store_true', help='Whether to push the docker image')
     parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana')
+    parser.add_argument('-r', '--remove-network', action='store_true', help='Unapply the network (yaml files)')
     return parser.parse_args()
 
 def get_docker_img_name():
     version = subprocess.check_output("git describe --always --dirty=_wip".split()).decode().strip()
 
     global DOCKER_IMG_TAG
-    DOCKER_IMG_TAG = version
+    if USE_LATEST_TAG:
+        DOCKER_IMG_TAG = "latest"
+    else:
+        DOCKER_IMG_TAG = version
 
 def build_docker_image(args):
 
@@ -95,6 +102,14 @@ def create_files_for_validators(validators: int):
             for line in file:
                 print(line.replace("prometheus = false", "prometheus = true"), end='')
 
+    # perform a search and replace on the genesis file to
+    # extend the dkg length for bigger node sizes
+    pathlist = Path("mytestnet").glob('**/genesis.json')
+    for path in pathlist:
+        with fileinput.FileInput(path, inplace=True) as file:
+            for line in file:
+                if validators >= 8:
+                    print(line.replace('"aeon_length": "200"', '"aeon_length": "200"'), end='')
 
 def create_network(validators: int):
     """Create a network of N validators
@@ -138,9 +153,22 @@ def populate_node_yaml(validators: int):
 
             f.write(files_config)
 
+def remove_network():
+    pathlist = Path(YAML_DIR).glob('**/*.yaml')
+    for path in pathlist:
+        exit_code = subprocess.call(["kubectl", "delete", "-f", path])
+
+        if exit_code:
+            print(exit_code)
+            print("quitting due to exit code")
+            sys.exit(1)
 
 def main():
     args = parse_commandline()
+
+    if args.remove_network:
+        remove_network()
+        sys.exit(0)
 
     # Note: the docker build needs files created here
     create_files_for_validators(args.validators)
