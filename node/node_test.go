@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/beacon"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/evidence"
@@ -31,45 +32,94 @@ import (
 )
 
 func TestNodeStartStop(t *testing.T) {
+	testCases := []struct {
+		testName        string
+		modifyConfig    func(*cfg.Config)
+		blockHasEntropy bool
+	}{
+		{"Original tendermint", func(*cfg.Config) {}, false},
+		{"With entropy keys", func(config *cfg.Config) {
+			cfg.AddTestEntropyKey(config)
+		}, true},
+		{"With dkg", func(config *cfg.Config) {
+			config.Consensus.RunDKG = true
+		}, false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			config := cfg.ResetTestRoot("node_node_test")
+			tc.modifyConfig(config)
+			defer os.RemoveAll(config.RootDir)
+
+			// create & start node
+			n, err := DefaultNewNode(config, log.TestingLogger())
+			require.NoError(t, err)
+			err = n.Start()
+			require.NoError(t, err)
+
+			t.Logf("Started node %v", n.sw.NodeInfo())
+
+			// wait for the node to produce a block
+			blocksSub, err := n.EventBus().Subscribe(context.Background(), "node_test", types.EventQueryNewBlock)
+			require.NoError(t, err)
+			select {
+			case <-blocksSub.Out():
+			case <-blocksSub.Cancelled():
+				t.Fatal("blocksSub was cancelled")
+			case <-time.After(10 * time.Second):
+				t.Fatal("timed out waiting for the node to produce a block")
+			}
+
+			// block should contain no entropy
+			block := n.blockStore.LoadBlock(1)
+			assert.Equal(t, tc.blockHasEntropy, len(block.Entropy) != 0)
+
+			// stop the node
+			go func() {
+				n.Stop()
+			}()
+
+			select {
+			case <-n.Quit():
+			case <-time.After(5 * time.Second):
+				pid := os.Getpid()
+				p, err := os.FindProcess(pid)
+				if err != nil {
+					panic(err)
+				}
+				err = p.Signal(syscall.SIGABRT)
+				fmt.Println(err)
+				t.Fatal("timed out waiting for shutdown")
+			}
+		})
+	}
+}
+
+func TestNodeDKGFastSync(t *testing.T) {
 	config := cfg.ResetTestRoot("node_node_test")
+	config.Consensus.RunDKG = true
 	defer os.RemoveAll(config.RootDir)
 
-	// create & start node
-	n, err := DefaultNewNode(config, log.TestingLogger())
-	require.NoError(t, err)
-	err = n.Start()
-	require.NoError(t, err)
+	// Use node to generate DKG messages in chain
+	n, _ := DefaultNewNode(config, log.NewNopLogger())
+	_ = n.Start()
+	assert.Eventually(t, func() bool { return cmn.FileExists(config.NextEntropyKeyFile()) }, 5*time.Second, 500*time.Millisecond)
+	n.Stop()
 
-	t.Logf("Started node %v", n.sw.NodeInfo())
-
-	// wait for the node to produce a block
-	blocksSub, err := n.EventBus().Subscribe(context.Background(), "node_test", types.EventQueryNewBlock)
-	require.NoError(t, err)
-	select {
-	case <-blocksSub.Out():
-	case <-blocksSub.Cancelled():
-		t.Fatal("blocksSub was cancelled")
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for the node to produce a block")
+	// Get rough estimate of last block height
+	blockHeight := int64(10)
+	for blockHeight > 0 && n.BlockStore().LoadBlock(blockHeight) == nil {
+		blockHeight--
 	}
+	assert.True(t, blockHeight != 0)
 
-	// stop the node
-	go func() {
-		n.Stop()
-	}()
-
-	select {
-	case <-n.Quit():
-	case <-time.After(5 * time.Second):
-		pid := os.Getpid()
-		p, err := os.FindProcess(pid)
-		if err != nil {
-			panic(err)
-		}
-		err = p.Signal(syscall.SIGABRT)
-		fmt.Println(err)
-		t.Fatal("timed out waiting for shutdown")
-	}
+	// Create dkgRunner to run FastSync using chain from node
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), blockHeight)
+	dkgRunner.SetLogger(log.TestingLogger())
+	dkgRunner.AttachMessageHandler(n.specialTxHandler)
+	dkgRunner.SetCurrentAeon(-1, -1)
+	err := dkgRunner.FastSync(n.blockStore)
+	assert.True(t, err == nil)
 }
 
 func TestSplitAndTrimEmpty(t *testing.T) {
