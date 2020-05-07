@@ -155,7 +155,7 @@ def populate_node_yaml(validators: int):
 
 # Delete statefulsets and persistentVolumeClaims with the tendermint-drb label (so only stuff we have deployed)
 def remove_network():
-    exit_code = subprocess.call(["kubectl", "delete", "sts,pvc", "-l", "networkName=tendermint-drb"])
+    exit_code = subprocess.call(["kubectl", "delete", "sts,pods,pvc,svc", "-l", "networkName=tendermint-drb"])
 
     if exit_code:
         print(exit_code)

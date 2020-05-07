@@ -14,6 +14,7 @@ else
     cp priv_validator_state.json ./data
 fi
 
+echo "Copying config."
 mkdir -p config
 cp config_ro/* config
 
