@@ -14,7 +14,7 @@ DOCKER_IMG_NAME="gcr.io/fetch-ai-sandbox/tendermint-drb"
 DOCKER_IMG_TAG="no-tag-found"
 
 # If this is true, deployments use :latest rather than the commit tag
-USE_LATEST_TAG = True
+USE_LATEST_TAG = False
 
 #DOCKER_IMG_PULL_POLICY="Never"
 DOCKER_IMG_PULL_POLICY="Always"
