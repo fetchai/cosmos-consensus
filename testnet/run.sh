@@ -7,9 +7,8 @@ set -e
 rm -rf ./data/lost+found
 
 if [ "$(ls -A ./data)" ]; then
-     echo "Dir not empty - doing nothing"
+     echo "Dir not empty - doing nothing!"
      ls ./data
-     cat ./data/*
 else
     cp priv_validator_state.json ./data
 fi
