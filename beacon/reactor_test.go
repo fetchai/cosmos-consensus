@@ -251,7 +251,7 @@ func TestReactorWithDKG(t *testing.T) {
 
 	aeonStart := int64(20)
 
-	dkgNodes := exampleDKGNetwork(N, false)
+	dkgNodes := exampleDKGNetwork(N, 0, false)
 
 	for index := 0; index < N; index++ {
 		entropyGen := entropyGenerators[index]

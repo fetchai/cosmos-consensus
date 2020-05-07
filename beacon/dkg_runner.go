@@ -209,10 +209,6 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 
 // Starts new DKG if old one has completed for those in the current validator set
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, aeonLength int64) {
-	if index, _ := validators.GetByAddress(dkgRunner.privVal.GetPubKey().Address()); index < 0 {
-		dkgRunner.Logger.Debug("startNewDKG: not in validators", "height", validatorHeight)
-		return
-	}
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
