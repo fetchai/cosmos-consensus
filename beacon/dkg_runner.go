@@ -30,7 +30,6 @@ type DKGRunner struct {
 	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
-	dkgCounter   int
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
@@ -50,7 +49,6 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		aeonStart:       -1,
 		aeonEnd:         -1,
 		completedDKG:    false,
-		dkgCounter:      0,
 		fastSync:        false,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
@@ -104,7 +102,7 @@ func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStoreRPC) error {
 			if block == nil {
 				return fmt.Errorf("FastSync: nil block returned at height %v", dkgHeight)
 			}
-			dkgRunner.messageHandler.BeginBlock(block.Header.Entropy)
+			dkgRunner.messageHandler.BeginBlock(block.Header.Entropy.GroupSignature)
 			for _, trx := range block.Data.Txs {
 				if tx_extensions.IsDKGRelated(trx) {
 					dkgRunner.messageHandler.SpecialTxSeen(trx)
@@ -208,10 +206,9 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		return
 	}
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
-	// Create new dkg with dkgID = aeon. New dkg starts DKGResetDelay after most recent block height
+	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
-		dkgRunner.dkgCounter, dkgRunner.privVal, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
-	dkgRunner.dkgCounter++
+		dkgRunner.privVal, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())

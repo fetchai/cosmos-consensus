@@ -54,6 +54,12 @@ func newState(dur int64, entry func(), exit func() bool, transition func() bool)
 	return ns
 }
 
+// For now set id equal to validator height but can be a function of other
+// dkg parameters as well
+func dkgID(validatorHeight int64) int64 {
+	return validatorHeight
+}
+
 //DistributedKeyGeneration handles dkg messages inside block for one dkg run
 type DistributedKeyGeneration struct {
 	cmn.BaseService
@@ -61,14 +67,14 @@ type DistributedKeyGeneration struct {
 
 	config       *cfg.ConsensusConfig
 	chainID      string
-	dkgID        int
-	dkgIteration int
+	dkgID        int64
+	dkgIteration int64
 
 	privValidator   types.PrivValidator
 	validatorHeight int64
 	valToIndex      map[string]uint // Need to convert crypto.Address into string for key
 	validators      types.ValidatorSet
-	threshold       int
+	threshold       uint
 	currentAeonEnd  int64
 	aeonLength      int64
 	stateDuration   int64
@@ -81,24 +87,24 @@ type DistributedKeyGeneration struct {
 
 	dryRunKeys       map[string]DKGOutput
 	dryRunSignatures map[string]map[uint]string
-	dryRunCount      int
+	dryRunCount      int64
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
-func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string, dkgRunID int,
+func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 	privVal types.PrivValidator, validatorHeight int64, vals types.ValidatorSet, aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
 	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
 	if index < 0 {
 		panic(fmt.Sprintf("NewDKG: privVal not in validator set"))
 	}
-	dkgThreshold := len(vals.Validators)/2 + 1
+	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
 		config:           csConfig,
 		chainID:          chain,
-		dkgID:            dkgRunID,
+		dkgID:            dkgID(validatorHeight),
 		dkgIteration:     0,
 		privValidator:    privVal,
 		validatorHeight:  validatorHeight,
@@ -190,7 +196,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	// Reset beaconService
 	index := dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]
 	DeleteBeaconSetupService(dkg.beaconService)
-	dkg.beaconService = NewBeaconSetupService(uint(len(dkg.valToIndex)), uint(dkg.threshold), uint(index))
+	dkg.beaconService = NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(index))
 	return nil
 }
 
@@ -481,13 +487,13 @@ func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
 	if dkg.aeonKeys != nil {
 		numValidators = len(dkg.aeonKeys.validators.Validators)
 	}
-	return dkg.dryRunCount == numValidators
+	return dkg.dryRunCount == int64(numValidators)
 }
 
 func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	encodedOutput := ""
 	for encodedKeys, signatures := range dkg.dryRunSignatures {
-		if len(signatures) >= dkg.threshold {
+		if uint(len(signatures)) >= dkg.threshold {
 			encodedOutput = encodedKeys
 			// Should only be one set of keys which gets threshold signatures
 			// if double messages are forbidden
@@ -511,7 +517,7 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 			signatureShares.Set(index, signature)
 		}
 	}
-	if int(signatureShares.Size()) < dkg.threshold {
+	if uint(signatureShares.Size()) < dkg.threshold {
 		return false
 	}
 	dryRunGroupSignature := tempKeys.aeonExecUnit.ComputeGroupSignature(signatureShares)
