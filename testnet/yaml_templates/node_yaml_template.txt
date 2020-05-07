@@ -32,6 +32,7 @@ spec:
         prometheus.io/path:   '/metrics'
       labels:
         app: {node}
+        networkName: tendermint-drb
     spec:
       volumes:
         - name: config-toml-volume
@@ -78,3 +79,5 @@ spec:
   resources:
     requests:
       storage: 2Gi
+  labels:
+    networkName: tendermint-drb
