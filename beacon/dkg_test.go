@@ -65,7 +65,6 @@ func TestDKGCheckTransition(t *testing.T) {
 		}, 45, dkgStart},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			dkg := exampleDKG(4)
 			tc.changeDKG(dkg)
@@ -130,7 +129,6 @@ func TestDKGCheckMessage(t *testing.T) {
 		}, false},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			msg := dkg.newDKGMessage(types.DKGShare, "data", nil)
 			tc.changeMsg(msg)
@@ -185,7 +183,6 @@ func TestDKGScenarios(t *testing.T) {
 		}, false, 2, 1, 2, 2},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, tc.sendDuplicates)
 			cppLogger := NewNativeLoggingCollector(log.TestingLogger())

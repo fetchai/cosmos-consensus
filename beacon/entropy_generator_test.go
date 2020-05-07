@@ -33,7 +33,6 @@ func TestEntropyGeneratorStart(t *testing.T) {
 		}},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			newGen := testEntropyGenerator()
 			tc.setup(newGen)
@@ -61,7 +60,6 @@ func TestEntropyGeneratorSetAeon(t *testing.T) {
 		{"Correct aeon", lastBlockHeight + 1, lastBlockHeight + 10, true},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			state, _ := groupTestSetup(4)
 			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
