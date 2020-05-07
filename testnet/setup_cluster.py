@@ -14,10 +14,11 @@ DOCKER_IMG_NAME="gcr.io/fetch-ai-sandbox/tendermint-drb"
 DOCKER_IMG_TAG="no-tag-found"
 
 # If this is true, deployments use :latest rather than the commit tag
-USE_LATEST_TAG = True
+USE_LATEST_TAG = False
 
 #DOCKER_IMG_PULL_POLICY="Never"
 DOCKER_IMG_PULL_POLICY="Always"
+DOCKER_RESTART_POLICY="Never"
 
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
@@ -142,7 +143,7 @@ def populate_node_yaml(validators: int):
 
         print(container_name)
 
-        node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name)
+        node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY)
 
         with open("{}/{}.yaml".format(YAML_DIR, node_name), mode="w") as f:
             f.write(node_template)

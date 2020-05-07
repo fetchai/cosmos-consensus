@@ -71,6 +71,8 @@ spec:
            - name: data-persist-{node}
              mountPath: /tendermint/data
 
+      restartPolicy: {restart_policy}
+
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
