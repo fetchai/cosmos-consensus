@@ -222,8 +222,8 @@ func (blockExec *BlockExecutor) Commit(
 
 	// evaluate the if entropy is present in this block
 	entropyStatus := "NotPresent"
-	if len(block.Entropy) > 0 {
-		entropyStatus = "Present";
+	if len(block.Entropy.GroupSignature) > 0 {
+		entropyStatus = "Present"
 	}
 
 	blockExec.logger.Info(

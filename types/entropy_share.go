@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/tendermint/tendermint/crypto"
@@ -44,6 +45,14 @@ func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgI
 		AeonLength:     aeonLength,
 		DKGID:          dkgID,
 	}
+}
+
+// Equal compares two block entropies and returns if they are identitical
+func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
+	return bytes.Equal(blockEntropy.GroupSignature, anotherEntropy.GroupSignature) &&
+		blockEntropy.Round == anotherEntropy.Round &&
+		blockEntropy.AeonLength == anotherEntropy.AeonLength &&
+		blockEntropy.DKGID == anotherEntropy.DKGID
 }
 
 // ValidateBasic performs basic validation on block entropy
@@ -95,16 +104,16 @@ func (blockEntropy *BlockEntropy) StringIndented(indent string) string {
 
 //-----------------------------------------------------------------------------
 
-// ComputedEntropy struct for sending entropy from entropy generator to consensus
-type ComputedEntropy struct {
+// ChannelEntropy struct for sending entropy from entropy generator to consensus
+type ChannelEntropy struct {
 	Height  int64
 	Entropy BlockEntropy
 	Enabled bool
 }
 
-// NewComputedEntropy for constructing ComputedEntropy
-func NewComputedEntropy(height int64, entropy BlockEntropy, enabled bool) *ComputedEntropy {
-	return &ComputedEntropy{
+// NewChannelEntropy for constructing ChannelEntropy
+func NewChannelEntropy(height int64, entropy BlockEntropy, enabled bool) *ChannelEntropy {
+	return &ChannelEntropy{
 		Height:  height,
 		Entropy: entropy,
 		Enabled: enabled,
@@ -112,7 +121,7 @@ func NewComputedEntropy(height int64, entropy BlockEntropy, enabled bool) *Compu
 }
 
 // ValidateBasic performs basic validation.
-func (ce *ComputedEntropy) ValidateBasic() error {
+func (ce *ChannelEntropy) ValidateBasic() error {
 	if ce.Height <= GenesisHeight {
 		return fmt.Errorf("invalid Height")
 	}

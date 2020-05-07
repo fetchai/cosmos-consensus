@@ -91,7 +91,7 @@ func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	if len(state.LastComputedEntropy) == 0 {
 		beaconR.findAndSetLastEntropy(state.LastBlockHeight)
 	} else {
-		beaconR.entropyGen.SetLastComputedEntropy(*types.NewComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy, true))
+		beaconR.entropyGen.SetLastComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy)
 	}
 	beaconR.entropyGen.setLastBlockHeight(state.LastBlockHeight)
 
@@ -141,10 +141,9 @@ func (beaconR *Reactor) findAndSetLastEntropy(height int64) {
 	// it would have been set into entropy generator
 	blockHeight := height - 1
 	for blockHeight > 0 {
-		blockEntropy := beaconR.blockStore.LoadBlockMeta(blockHeight).Header.Entropy
+		blockEntropy := beaconR.blockStore.LoadBlockMeta(blockHeight).Header.Entropy.GroupSignature
 		if len(blockEntropy) != 0 {
-			lastEntropy := types.NewComputedEntropy(blockHeight, blockEntropy, true)
-			beaconR.entropyGen.SetLastComputedEntropy(*lastEntropy)
+			beaconR.entropyGen.SetLastComputedEntropy(blockHeight, blockEntropy)
 			break
 		}
 		blockHeight--
@@ -230,7 +229,7 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 			ps.hasEntropyShare(msg.EntropyShare.Height, index, beaconR.entropyGen.aeon.validators.Size())
 			beaconR.entropyGen.applyEntropyShare(msg.EntropyShare)
 		case *ComputedEntropyMessage:
-			beaconR.entropyGen.applyComputedEntropy(msg.ComputedEntropy)
+			beaconR.entropyGen.applyComputedEntropy(msg.Height, msg.GroupSignature)
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -282,9 +281,9 @@ OUTER_LOOP:
 		// Use block chain for entropy that has been included in block
 		if nextEntropyHeight < beaconR.entropyGen.getLastBlockHeight() {
 			block := beaconR.blockStore.LoadBlockMeta(nextEntropyHeight)
-			if block != nil && len(block.Header.Entropy) != 0 {
+			if block != nil && len(block.Header.Entropy.GroupSignature) != 0 {
 				// Send peer entropy from block store
-				ps.sendEntropy(nextEntropyHeight, block.Header.Entropy)
+				ps.sendEntropy(nextEntropyHeight, block.Header.Entropy.GroupSignature)
 				time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
 				continue OUTER_LOOP
 			}
@@ -385,8 +384,7 @@ func (ps *PeerState) setLastComputedEntropyHeight(height int64) {
 func (ps *PeerState) sendEntropy(nextEntropyHeight int64, entropy types.ThresholdSignature) {
 	// Send peer entropy from block store
 	ps.logger.Info("sendEntropy", "ps", ps, "height", nextEntropyHeight)
-	ce := types.ComputedEntropy{Height: nextEntropyHeight, GroupSignature: entropy}
-	msg := &ComputedEntropyMessage{&ce}
+	msg := &ComputedEntropyMessage{Height: nextEntropyHeight, GroupSignature: entropy}
 	ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
 }
 
@@ -514,7 +512,7 @@ func (m *NewEntropyHeightMessage) ValidateBasic() error {
 
 // String returns a string representation.
 func (m *NewEntropyHeightMessage) String() string {
-	return fmt.Sprintf("[HESM %v]", m.Height)
+	return fmt.Sprintf("[NewEntropyHeightMessage %v]", m.Height)
 }
 
 //-------------------------------------
@@ -538,15 +536,25 @@ func (m *EntropyShareMessage) String() string {
 
 // ComputedEntropyMessage is for catching up peers
 type ComputedEntropyMessage struct {
-	*types.ComputedEntropy
+	Height         int64
+	GroupSignature types.ThresholdSignature
 }
 
 // ValidateBasic performs basic validation.
 func (m *ComputedEntropyMessage) ValidateBasic() error {
-	return m.ComputedEntropy.ValidateBasic()
+	if m.Height < types.GenesisHeight {
+		return errors.New("invalid Height")
+	}
+	if len(m.GroupSignature) > types.MaxThresholdSignatureSize {
+		return fmt.Errorf("expected GroupSignature size be max %d bytes, got %d bytes",
+			types.MaxThresholdSignatureSize,
+			len(m.GroupSignature),
+		)
+	}
+	return nil
 }
 
 // String returns a string representation.
 func (m *ComputedEntropyMessage) String() string {
-	return fmt.Sprintf("[ComputedEntropy %v]", m.ComputedEntropy)
+	return fmt.Sprintf("[ComputedEntropy %v/%v]", m.Height, m.GroupSignature)
 }
