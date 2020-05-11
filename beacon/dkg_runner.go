@@ -30,6 +30,7 @@ type DKGRunner struct {
 	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
+	dkgRunner    int
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
