@@ -29,7 +29,6 @@ const (
 
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
-	assert.Equal(t, int64(4), dkg.stateDuration)
 
 	assert.True(t, dkg.duration() == int64(dkgFinish-1)*dkg.stateDuration)
 	// DKG is set to start at block height 10
@@ -87,7 +86,7 @@ func TestDKGReset(t *testing.T) {
 	dkg.checkTransition(oldStartHeight + dkg.duration())
 
 	assert.True(t, !dkg.IsRunning())
-	assert.True(t, dkg.startHeight == oldStartHeight+oldDuration+dkg.config.DKGResetDelay)
+	assert.True(t, dkg.startHeight == oldStartHeight+oldDuration+dkgResetDelay)
 	assert.True(t, dkg.stateDuration == oldStateDuration+int64(float64(oldStateDuration)*dkgIterationDurationMultiplier))
 	assert.True(t, dkg.dkgIteration == 1)
 }

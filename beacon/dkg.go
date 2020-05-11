@@ -31,6 +31,7 @@ const (
 	dkgStatesWithDuration = int64(dkgFinish) - 1
 	// Multplier for increasing state duration on next dkg iteration
 	dkgIterationDurationMultiplier = float64(0.5)
+	dkgResetDelay                  = int64(2)
 )
 
 type state struct {
@@ -114,7 +115,7 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		currentAeonEnd:   aeonEnd,
 		aeonLength:       aeonLength,
 		threshold:        dkgThreshold,
-		startHeight:      validatorHeight + csConfig.DKGResetDelay,
+		startHeight:      validatorHeight + dkgResetDelay,
 		states:           make(map[dkgState]*state),
 		currentState:     dkgStart,
 		dryRunKeys:       make(map[string]DKGOutput),
@@ -132,11 +133,26 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		dkg.valToIndex[string(val.PubKey.Address())] = uint(index)
 	}
 
-	// State duration is some multiple of the number of validators. Default multipler is 1.
-	dkg.stateDuration = int64(dkg.config.DKGInitialStateMultiplier * float64(len(dkg.validators.Validators)))
+	dkg.setInitialStateDuration()
 	dkg.setStates()
 
 	return dkg
+}
+
+// Estimate of dkg run times from local computations
+func (dkg *DistributedKeyGeneration) setInitialStateDuration() {
+	numVal := len(dkg.validators.Validators)
+	if numVal <= 10 {
+		dkg.stateDuration = 5
+	} else if numVal <= 50 {
+		dkg.stateDuration = 20
+	} else if numVal <= 100 {
+		dkg.stateDuration = 50
+	} else if numVal <= 200 {
+		dkg.stateDuration = 100
+	} else {
+		dkg.stateDuration = int64(numVal)
+	}
 }
 
 // SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
@@ -203,7 +219,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
 	// Reset start time
-	dkg.startHeight = dkg.startHeight + dkg.duration() + dkg.config.DKGResetDelay
+	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
 	// Increase dkg time
 	dkg.stateDuration += int64(float64(dkg.stateDuration) * dkgIterationDurationMultiplier)
 	// Reset beaconService
