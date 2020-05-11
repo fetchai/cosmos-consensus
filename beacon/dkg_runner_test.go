@@ -14,10 +14,12 @@ import (
 
 func TestDKGRunnerOnGenesis(t *testing.T) {
 	nVals := 4
-	dkgRunners, fakeHandler := testDKGRunners(nVals)
+	nSentries := 1
+	nTotal := nVals + nSentries
+	dkgRunners, fakeHandler := testDKGRunners(nVals, nSentries)
 
 	dkgsCompleted := 0
-	for index := 0; index < nVals; index++ {
+	for index := 0; index < nTotal; index++ {
 		dkgRunners[index].SetDKGCompletionCallback(func(*aeonDetails) {
 			dkgsCompleted++
 		})
@@ -28,7 +30,7 @@ func TestDKGRunnerOnGenesis(t *testing.T) {
 	}
 
 	blockHeight := int64(1)
-	for dkgsCompleted < nVals {
+	for dkgsCompleted < nTotal {
 		fakeHandler.EndBlock(blockHeight)
 		blockHeight++
 	}
@@ -40,7 +42,7 @@ func TestDKGRunnerOnGenesis(t *testing.T) {
 
 func TestDKGRunnerFindValidators(t *testing.T) {
 	nVals := 1
-	dkgRunner, _ := testDKGRunners(nVals)
+	dkgRunner, _ := testDKGRunners(nVals, 0)
 	dkgRunner[0].Start()
 	dkgRunner[0].OnBlock(1, []byte{}, nil)
 	dkgRunner[0].OnBlock(2, []byte{}, nil)
@@ -78,7 +80,7 @@ func TestDKGRunnerFindValidators(t *testing.T) {
 	assert.True(t, aeonLength == 120)
 }
 
-func testDKGRunners(nVals int) ([]*DKGRunner, tx_extensions.MessageHandler) {
+func testDKGRunners(nVals int, nSentries int) ([]*DKGRunner, tx_extensions.MessageHandler) {
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
@@ -86,11 +88,17 @@ func testDKGRunners(nVals int) ([]*DKGRunner, tx_extensions.MessageHandler) {
 	logger := log.TestingLogger()
 
 	fakeHandler := tx_extensions.NewFakeMessageHandler()
-	dkgRunners := make([]*DKGRunner, nVals)
+	dkgRunners := make([]*DKGRunner, nVals+nSentries)
 	for index := 0; index < nVals; index++ {
 		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], 0)
 		dkgRunners[index].SetLogger(logger.With("index", index))
 		dkgRunners[index].AttachMessageHandler(fakeHandler)
+	}
+	for index := 0; index < nSentries; index++ {
+		_, privVal := types.RandValidator(false, 10)
+		dkgRunners[nVals+index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVal, 0)
+		dkgRunners[nVals+index].SetLogger(logger.With("index", -1))
+		dkgRunners[nVals+index].AttachMessageHandler(fakeHandler)
 	}
 	return dkgRunners, fakeHandler
 }
