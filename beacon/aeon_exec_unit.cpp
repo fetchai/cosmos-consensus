@@ -19,6 +19,7 @@
 #include "aeon_exec_unit.hpp"
 #include "mcl_crypto.hpp"
 #include <fstream>
+#include <iostream>
 
 namespace fetch {
 namespace beacon {
