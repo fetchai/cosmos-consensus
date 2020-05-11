@@ -778,6 +778,9 @@ func NewNode(config *cfg.Config,
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load aeon keys from file")
 	}
+
+	entropyGenerator.AttachMetrics(drbMetrics)
+
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
 

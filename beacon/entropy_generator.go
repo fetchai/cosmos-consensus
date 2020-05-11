@@ -46,6 +46,18 @@ type EntropyGenerator struct {
 	quit chan struct{}
 	// closed when we finish shutting down
 	done chan struct{}
+
+	// Metrics and debug below here
+	metrics *Metrics
+	creatingEntropyAtHeight int64
+	creatingEntropyAtTimeMs time.Time
+}
+
+func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
+
+	if entropyGenerator != nil {
+		entropyGenerator.metrics = metrics
+	}
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
@@ -361,6 +373,10 @@ func (entropyGenerator *EntropyGenerator) sign() {
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[blockHeight] == nil {
 		entropyGenerator.entropyShares[blockHeight] = make(map[uint]types.EntropyShare)
+
+		// Note this event for logging time to create entropy
+		entropyGenerator.creatingEntropyAtHeight = blockHeight
+		entropyGenerator.creatingEntropyAtTimeMs = time.Now()
 	}
 	share := types.EntropyShare{
 		Height:         blockHeight,
@@ -457,10 +473,16 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 			entropyGenerator.Logger.Error("entropy_generator.VerifyGroupSignature == false")
 			return false, nil
 		}
+
 		entropyGenerator.Logger.Info("New entropy computed", "height", height)
 		entropyGenerator.entropyComputed[height] = []byte(groupSignature)
 		entropyGenerator.lastBlockHeight++
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
+
+		// Update metrics
+		if entropyGenerator.creatingEntropyAtHeight == height {
+			entropyGenerator.metrics.AvgEntropyGenTime.Set(float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs)))
+		}
 
 		// Notify peers of of new entropy height
 		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)

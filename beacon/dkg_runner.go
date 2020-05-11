@@ -31,6 +31,7 @@ type DKGRunner struct {
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
 	dkgRunner    int
+	dkgCounter   int
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
