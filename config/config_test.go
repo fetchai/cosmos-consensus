@@ -151,7 +151,6 @@ func TestConsensusConfigValidateBasic(t *testing.T) {
 		"PeerQueryMaj23SleepDuration",
 		"EntropyChannelCapacity",
 		"ComputeEntropySleepDuration",
-		"DKGAttemptsInAeon",
 		"DKGResetDelay",
 	}
 

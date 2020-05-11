@@ -132,11 +132,8 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		dkg.valToIndex[string(val.PubKey.Address())] = uint(index)
 	}
 
-	// When computing dkg duration allow buffer for run ahead on entropy generation so that
-	// dkg does not complete right at the end of the aeon
-	dkgDuration := (aeonLength - dkg.config.EntropyChannelCapacity - 1) / dkg.config.DKGAttemptsInAeon
-	// Divide by number of states to get the duration of each state
-	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / dkgStatesWithDuration
+	// State duration is some multiple of the number of validators. Default multipler is 1.
+	dkg.stateDuration = int64(dkg.config.DKGInitialStateMultiplier * float64(len(dkg.validators.Validators)))
 	dkg.setStates()
 
 	return dkg

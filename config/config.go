@@ -784,9 +784,10 @@ type ConsensusConfig struct {
 	// computeEntropySleepDuration so that peer does not send entropy for next height
 	// before the current height has been computed
 	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
-	DKGAttemptsInAeon           int64         `mapstructure:"dkg_state_duration"`
-	DKGResetDelay               int64         `mapstructure:"dkg_reset_delay"`
-	RunDKG                      bool          `mapstructure:"run_dkg"`
+	// Initial DKG state duration is equal to number of validators times this multiplier
+	DKGInitialStateMultiplier float64 `mapstructure:"dkg_initial_state_nultiplier"`
+	DKGResetDelay             int64   `mapstructure:"dkg_reset_delay"`
+	RunDKG                    bool    `mapstructure:"run_dkg"`
 }
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
@@ -807,7 +808,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		EntropyChannelCapacity:      3,
 		ComputeEntropySleepDuration: 50 * time.Millisecond,
-		DKGAttemptsInAeon:           3,
+		DKGInitialStateMultiplier:   1.0,
 		DKGResetDelay:               2,
 		RunDKG:                      true,
 	}
@@ -914,8 +915,8 @@ func (cfg *ConsensusConfig) ValidateBasic() error {
 	if cfg.ComputeEntropySleepDuration < 0 {
 		return errors.New("compute_entropy_sleep_duration can't be negative")
 	}
-	if cfg.DKGAttemptsInAeon < 0 {
-		return errors.New("dkg_attempts_in_aeon can't be negative")
+	if cfg.DKGInitialStateMultiplier < 0 {
+		return errors.New("dkg_initial_state_multiplier can't be negative")
 	}
 	if cfg.DKGResetDelay < 0 {
 		return errors.New("dkg_reset_delay can't be negative")
