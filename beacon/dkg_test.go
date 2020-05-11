@@ -65,7 +65,6 @@ func TestDKGCheckTransition(t *testing.T) {
 		}, 45, dkgStart},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			dkg := exampleDKG(4)
 			tc.changeDKG(dkg)
@@ -130,7 +129,6 @@ func TestDKGCheckMessage(t *testing.T) {
 		}, false},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			msg := dkg.newDKGMessage(types.DKGShare, "data", nil)
 			tc.changeMsg(msg)
@@ -147,50 +145,52 @@ func TestDKGScenarios(t *testing.T) {
 		failures       func([]*testNode)
 		sendDuplicates bool
 		nVals          int
+		nSentries      int
 		qualSize       int
 		completionSize int
 	}{
-		{"All honest", func([]*testNode) {}, false, 4, 4, 4},
-		{"Duplicate messages", func([]*testNode) {}, true, 4, 4, 4},
+		{"All honest", func([]*testNode) {}, false, 4, 0, 4, 4},
+		{"With sentry", func([]*testNode) {}, false, 4, 1, 4, 4},
+		{"Duplicate messages", func([]*testNode) {}, true, 4, 0, 4, 4},
 		{"Bad coefficient", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badCoefficient)
-		}, false, 5, 4, 4},
+		}, false, 5, 0, 4, 4},
 		{"Bad share", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
-		}, false, 5, 5, 5},
+		}, false, 5, 0, 5, 5},
 		{"False qual complaint", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, falseQualComplaint)
-		}, false, 5, 5, 5},
+		}, false, 5, 0, 5, 5},
 		{"Bad share and no answer", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, emptyComplaintAnswer)
-		}, false, 5, 4, 4},
+		}, false, 5, 0, 4, 4},
 		{"Messages with invalid index", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, messagesWithInvalidIndex)
-		}, false, 5, 5, 5},
+		}, false, 5, 0, 5, 5},
 		{"Messages with invalid crypto", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, messagesWithInvalidCrypto)
-		}, false, 5, 4, 4},
+		}, false, 5, 0, 4, 4},
 		{"Qual messages with invalid crypto", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, qualMessagesWithInvalidCrypto)
-		}, false, 5, 5, 4},
+		}, false, 5, 0, 5, 4},
 		{"Mutate data", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, mutateData)
-		}, false, 5, 4, 4},
+		}, false, 5, 0, 4, 4},
 		{"Restart DKG", func(nodes []*testNode) {
-			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
-			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, emptyComplaintAnswer)
-		}, false, 2, 2, 2},
+			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badShare)
+			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, emptyComplaintAnswer)
+		}, false, 2, 1, 2, 2},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
-			nodes := exampleDKGNetwork(tc.nVals, tc.sendDuplicates)
+			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, tc.sendDuplicates)
 			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
 			cppLogger.Start()
 
-			outputs := make([]*aeonDetails, tc.nVals)
-			for index := 0; index < tc.nVals; index++ {
+			nTotal := tc.nVals + tc.nSentries
+			outputs := make([]*aeonDetails, nTotal)
+			for index := 0; index < nTotal; index++ {
 				output := &outputs[index]
 				_ = output // dummy assignment
 				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
@@ -210,7 +210,7 @@ func TestDKGScenarios(t *testing.T) {
 				node.clearMsgs()
 			}
 
-			for nodesFinished := 0; nodesFinished < tc.nVals; {
+			for nodesFinished := 0; nodesFinished < nTotal; {
 				blockHeight++
 				for index, node := range nodes {
 					for index1, node1 := range nodes {
@@ -238,7 +238,7 @@ func TestDKGScenarios(t *testing.T) {
 			// Wait for all dkgs to stop running
 			assert.Eventually(t, func() bool {
 				running := 0
-				for index := 0; index < tc.nVals; index++ {
+				for index := 0; index < nTotal; index++ {
 					if nodes[index].dkg.IsRunning() {
 						running++
 					}
@@ -261,15 +261,15 @@ func TestDKGScenarios(t *testing.T) {
 			for index := 0; index < tc.completionSize; index++ {
 				node := nodes[index]
 				signature := outputs[index].aeonExecUnit.Sign(message)
-				for index1 := 0; index1 < tc.nVals; index1++ {
+				for index1 := 0; index1 < nTotal; index1++ {
 					if index != index1 {
-						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, node.dkg.index()))
+						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())))
 					}
 				}
-				sigShares.Set(node.dkg.index(), signature)
+				sigShares.Set(uint(node.dkg.index()), signature)
 			}
 			groupSig := outputs[0].aeonExecUnit.ComputeGroupSignature(sigShares)
-			for index := 0; index < tc.nVals; index++ {
+			for index := 0; index < nTotal; index++ {
 				assert.True(t, outputs[index].aeonExecUnit.VerifyGroupSignature(message, groupSig))
 			}
 
@@ -284,7 +284,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, 0, privVals[0], 8, *state.Validators, 20, 100)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], 8, *state.Validators, 20, 100)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -300,7 +300,7 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, 0, privVal, 8, *vals, 20, 100),
+		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, 8, *vals, 20, 100),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
@@ -345,15 +345,19 @@ func (node *testNode) mutateMsg(msg *types.DKGMessage) {
 	}
 }
 
-func exampleDKGNetwork(nVals int, sendDuplicates bool) []*testNode {
+func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNode {
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	nodes := make([]*testNode, nVals)
+	nodes := make([]*testNode, nVals+nSentries)
 	for i := 0; i < nVals; i++ {
 		nodes[i] = newTestNode(config, genDoc.ChainID, privVals[i], state.Validators, sendDuplicates)
+	}
+	for i := 0; i < nSentries; i++ {
+		_, privVal := types.RandValidator(false, 10)
+		nodes[nVals+i] = newTestNode(config, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
 	}
 	return nodes
 }

@@ -26,8 +26,8 @@ const (
 type DKGMessage struct {
 	Type         DKGMessageType
 	FromAddress  crypto.Address
-	DKGID        int
-	DKGIteration int
+	DKGID        int64
+	DKGIteration int64
 	Data         string
 	ToAddress    crypto.Address
 	Signature    []byte

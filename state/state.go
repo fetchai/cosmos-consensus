@@ -248,7 +248,7 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		ConsensusParams:                  *genDoc.ConsensusParams,
 		LastHeightConsensusParamsChanged: 1,
 
-		AppHash: genDoc.AppHash,
+		AppHash:             genDoc.AppHash,
 		LastComputedEntropy: []byte(genDoc.Entropy),
 	}, nil
 }

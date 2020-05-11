@@ -70,7 +70,7 @@ func (app *appConnConsensus) InitChainSync(req types.RequestInitChain) (*types.R
 
 func (app *appConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
 	if app.specialTxHandler != nil {
-		app.specialTxHandler.BeginBlock(req.Header.Entropy)
+		app.specialTxHandler.BeginBlock(req.Header.Entropy.GroupSignature)
 	}
 
 	return app.appConn.BeginBlockSync(req)
