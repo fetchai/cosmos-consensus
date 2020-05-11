@@ -77,6 +77,8 @@ func TestDKGCheckTransition(t *testing.T) {
 func TestDKGReset(t *testing.T) {
 	dkg := exampleDKG(4)
 	oldStartHeight := dkg.startHeight
+	oldDuration := dkg.duration()
+	oldStateDuration := dkg.stateDuration
 	dkg.states[waitForDryRun].onExit = func() bool {
 		return false
 	}
@@ -85,7 +87,8 @@ func TestDKGReset(t *testing.T) {
 	dkg.checkTransition(oldStartHeight + dkg.duration())
 
 	assert.True(t, !dkg.IsRunning())
-	assert.True(t, dkg.startHeight == oldStartHeight+dkg.duration()+dkg.config.DKGResetDelay)
+	assert.True(t, dkg.startHeight == oldStartHeight+oldDuration+dkg.config.DKGResetDelay)
+	assert.True(t, dkg.stateDuration == oldStateDuration+int64(float64(oldStateDuration)*dkgIterationDurationMultiplier))
 	assert.True(t, dkg.dkgIteration == 1)
 }
 
