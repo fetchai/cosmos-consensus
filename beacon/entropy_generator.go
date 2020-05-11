@@ -75,6 +75,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		done:                      make(chan struct{}),
+		metrics:                   nil,
 	}
 
 	es.BaseService = *cmn.NewBaseService(nil, "EntropyGenerator", es)
@@ -481,7 +482,15 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 
 		// Update metrics
 		if entropyGenerator.creatingEntropyAtHeight == height {
-			entropyGenerator.metrics.AvgEntropyGenTime.Set(float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs)))
+			avgTime := float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs))
+
+			if entropyGenerator.metrics == nil {
+				fmt.Printf("Found NIL metrics!\n")
+			} else {
+				fmt.Printf("Setting metrics\n")
+				entropyGenerator.metrics.AvgEntropyGenTime.Set(avgTime)
+				entropyGenerator.metrics.TestCounter.Add(1.1)
+			}
 		}
 
 		// Notify peers of of new entropy height

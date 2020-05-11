@@ -769,7 +769,6 @@ func NewNode(config *cfg.Config,
 
 	// Create DKGRunner
 	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
-	dkgRunner.AttachMetrics(drbMetrics)
 
 	// Make BeaconReactor
 	beaconLogger := logger.With("module", "beacon")
@@ -779,7 +778,9 @@ func NewNode(config *cfg.Config,
 		return nil, errors.Wrap(err, "could not load aeon keys from file")
 	}
 
+	// Attach metrics
 	entropyGenerator.AttachMetrics(drbMetrics)
+	dkgRunner.AttachMetrics(drbMetrics)
 
 	consensusState.SetEntropyChannel(entropyChannel)
 	sw.AddReactor("BEACON", beaconReactor)
