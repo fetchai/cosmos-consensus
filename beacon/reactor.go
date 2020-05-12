@@ -220,7 +220,7 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 
 	case EntropyChannel:
 		if beaconR.getFastSync() || !beaconR.entropyGen.isSigningEntropy() {
-			beaconR.Logger.Info("Ignoring message received during fastSync/entropy generator not running", "msg", msg)
+			beaconR.Logger.Info("Ignoring message received during fastSync/entropy generator has no keys", "msg", msg)
 			return
 		}
 		switch msg := msg.(type) {
