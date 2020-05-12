@@ -16,13 +16,12 @@ const (
 // Metrics contains metrics exposed by this package.
 // see MetricsProvider for descriptions.
 type Metrics struct {
+	// Average time for entropy generation
+	AvgEntropyGenTime metrics.Gauge
 	// Number of DKG messages seen in the chain
 	DKGMessagesInChain metrics.Counter
 	// Number of completed DKGs
 	DKGsCompleted metrics.Counter
-	// Average time for entropy generation
-	AvgEntropyGenTime metrics.Gauge
-	TestCounter metrics.Counter
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -34,6 +33,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 		labels = append(labels, labelsAndValues[i])
 	}
 	return &Metrics{
+		AvgEntropyGenTime: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "avg_entropy_gen_time",
+			Help:      "Average time in ms for entropy to be generated once the node decides to generate it",
+		}, labels).With(labelsAndValues...),
 		DKGMessagesInChain: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -46,27 +51,14 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "dkgs_completed",
 			Help:      "Number of DKG completed.",
 		}, labels).With(labelsAndValues...),
-		AvgEntropyGenTime: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: MetricsSubsystem,
-			Name:      "avg_entropy_gen_time",
-			Help:      "Average time in ms for entropy to be generated once the node decides to generate it",
-		}, labels).With(labelsAndValues...),
-		TestCounter: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: MetricsSubsystem,
-			Name:      "test_counter",
-			Help:      "xxx",
-		}, labels).With(labelsAndValues...),
 	}
 }
 
 // NopMetrics returns no-op Metrics.
 func NopMetrics() *Metrics {
 	return &Metrics{
+		AvgEntropyGenTime:  discard.NewGauge(),
 		DKGMessagesInChain: discard.NewCounter(),
 		DKGsCompleted:      discard.NewCounter(),
-		TestCounter:        discard.NewCounter(),
-		AvgEntropyGenTime:  discard.NewGauge(),
 	}
 }

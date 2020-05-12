@@ -141,7 +141,7 @@ func (dkgRunner *DKGRunner) OnStart() error {
 // OnBlock is callback in messageHandler for DKG messages included in a particular block
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSignature, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
-	dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
+	//dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
 
 	if len(entropy) != 0 && blockHeight > dkgRunner.aeonEnd {
 		// DKG should not be stale
@@ -238,7 +238,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	// of next entropy aeon
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
-		dkgRunner.metrics.DKGsCompleted.Add(1)
+		//dkgRunner.metrics.DKGsCompleted.Add(1)
 		dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
