@@ -130,6 +130,9 @@ entropy_key_file = "{{ .BaseConfig.EntropyKey }}"
 # Path to the JSON file containing the dkg output for next aeon entropy generation
 next_entropy_key_file = "{{ .BaseConfig.NextEntropyKey }}"
 
+# Path to the JSON file containing the noise key for the dkg
+noise_key_file = "{{ .BaseConfig.NoiseKey}}"
+
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node_key_file = "{{ js .BaseConfig.NodeKey }}"
 

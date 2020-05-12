@@ -41,6 +41,7 @@ var (
 
 	defaultEntropyKeyName     = "entropy_key.json"
 	defaultNextEntropyKeyName = "next_entropy_key.json"
+	defaultNoiseKeyName       = "noise_key.json"
 
 	defaultNodeKeyName  = "node_key.json"
 	defaultAddrBookName = "addrbook.json"
@@ -207,6 +208,9 @@ type BaseConfig struct { //nolint: maligned
 	// Path to the JSON file containing the dkg output for next aeon entropy generation
 	NextEntropyKey string `mapstructure:"next_entropy_key_file"`
 
+	// Path to the JSON file containing the noise keys
+	NoiseKey string `mapstructure:"noise_key_file"`
+
 	// A JSON file containing the private key to use for p2p authenticated encryption
 	NodeKey string `mapstructure:"node_key_file"`
 
@@ -280,6 +284,11 @@ func (cfg BaseConfig) EntropyKeyFile() string {
 // NextEntropyKeyFile returns the full path to the next_entropy_key.json file
 func (cfg BaseConfig) NextEntropyKeyFile() string {
 	return rootify(cfg.NextEntropyKey, cfg.RootDir)
+}
+
+// NoiseKeyFile returns the full path to the noise_key.json file
+func (cfg BaseConfig) NoiseKeyFile() string {
+	return rootify(cfg.NoiseKey, cfg.RootDir)
 }
 
 // OldPrivValidatorFile returns the full path of the priv_validator.json from pre v0.28.0.
