@@ -174,23 +174,9 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 			time.Sleep(100 * time.Millisecond)
 		} else {
 			dkgRunner.Logger.Debug("findValidators: vals updated", "height", height)
-			if !dkgRunner.validAeonLength(newParams.Entropy.AeonLength) {
-				panic(fmt.Errorf("Invalid aeon length to be found %v", newParams.Entropy.AeonLength))
-			}
 			return newVals, newParams.Entropy.AeonLength
 		}
 	}
-}
-
-// validAeonLength checks whether new aeon length is consistent with other DKG parameters before it is set.
-// Must give dkg state length of at least 1 block to be valid
-func (dkgRunner *DKGRunner) validAeonLength(aeonLength int64) bool {
-	// When computing dkg duration allow buffer for run ahead on entropy generation so that
-	// dkg does not complete right at the end of the aeon
-	dkgDuration := (aeonLength - dkgRunner.consensusConfig.EntropyChannelCapacity - 1) / dkgRunner.consensusConfig.DKGAttemptsInAeon
-	// Divide by number of states to get the duration of each state
-	stateDuration := (dkgDuration - dkgRunner.consensusConfig.DKGResetDelay) / 6
-	return stateDuration > 0
 }
 
 // Resets completed DKG and starts new one for next aeon

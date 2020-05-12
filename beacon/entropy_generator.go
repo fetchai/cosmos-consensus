@@ -431,6 +431,12 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			}
 			// Check whether we should change keys
 			entropyGenerator.changeKeys()
+
+			// Notify peers of of new entropy height
+			if haveNewEntropy {
+				entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
+			}
+
 			// Continue onto the next random value
 			entropyGenerator.sign()
 			// Clean out old entropy shares and computed entropy
@@ -448,7 +454,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	if entropyGenerator.aeon == nil {
 		entropyGenerator.lastBlockHeight++
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
-		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
+
 		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
 	}
 
@@ -457,8 +463,6 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		entropyGenerator.lastBlockHeight++
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 
-		// Notify peers of of new entropy height
-		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
