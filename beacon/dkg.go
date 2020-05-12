@@ -31,6 +31,7 @@ const (
 	dkgStatesWithDuration = int64(dkgFinish) - 1
 	// Multplier for increasing state duration on next dkg iteration
 	dkgIterationDurationMultiplier = float64(0.5)
+	maxDKGStateDuration            = int64(400)
 	dkgResetDelay                  = int64(2)
 )
 
@@ -221,7 +222,10 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	// Reset start time
 	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
 	// Increase dkg time
-	dkg.stateDuration += int64(float64(dkg.stateDuration) * dkgIterationDurationMultiplier)
+	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
+	if newStateDuration <= maxDKGStateDuration {
+		dkg.stateDuration = newStateDuration
+	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
 		DeleteBeaconSetupService(dkg.beaconService)
