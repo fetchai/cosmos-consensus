@@ -482,7 +482,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 
 		// Update metrics
 		if entropyGenerator.creatingEntropyAtHeight == height {
-			avgTime := float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs))
+			avgTime := float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs).Milliseconds())
 
 			if entropyGenerator.metrics != nil {
 				entropyGenerator.Logger.Debug("Setting metrics: ", avgTime)

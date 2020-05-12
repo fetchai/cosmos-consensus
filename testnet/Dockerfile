@@ -13,9 +13,11 @@ WORKDIR /project
 # add the pre-generated project to /project
 ADD project.tar.gz /
 
-# Need to install MCL
-RUN git clone https://github.com/herumi/mcl
-RUN cd mcl && make install
+# Install mcl
+RUN wget https://github.com/herumi/mcl/archive/v1.05.tar.gz && \
+    tar xvf v1.05.tar.gz && \
+    cd mcl-1.05 && \
+    make install
 
 # Compile tendermint
 WORKDIR /project
