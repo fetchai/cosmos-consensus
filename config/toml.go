@@ -448,6 +448,10 @@ func AddTestEntropyKey(config *Config) {
 	cmn.MustWriteFile(config.EntropyKeyFile(), []byte(testEntropyKey), 0644)
 }
 
+func AddTestNoiseKey(config *Config) {
+	cmn.MustWriteFile(config.NoiseKeyFile(), []byte(testNoiseKey), 0644)
+}
+
 var testGenesisFmt = `{
   "genesis_time": "2018-10-10T08:20:13.695936996Z",
   "chain_id": "%s",
@@ -498,4 +502,9 @@ var testEntropyKey = `{
 	  "end": "100"
 	},
 	"private_key": "16725712052271941726578794919650867045421695408070071622523738716456982105620"
+  }`
+
+var testNoiseKey = `{
+	"Private": "2RhEoCaxqBvymhtWXT42G3/vT2v6Pde3Uz9aDJsYGZk=",
+	"Public": "NmAtIULXhs1QhSL3AYWLK1ywFfmtx0Zhm2EsuASTpi4="
   }`

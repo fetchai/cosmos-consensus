@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flynn/noise"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,6 +42,9 @@ func TestNodeStartStop(t *testing.T) {
 		{"With entropy keys", func(config *cfg.Config) {
 			cfg.AddTestEntropyKey(config)
 		}, true},
+		{"With noise keys", func(config *cfg.Config) {
+			cfg.AddTestNoiseKey(config)
+		}, false},
 		{"With dkg", func(config *cfg.Config) {
 			config.Consensus.RunDKG = true
 		}, false},
@@ -114,7 +118,8 @@ func TestNodeDKGFastSync(t *testing.T) {
 	assert.True(t, blockHeight != 0)
 
 	// Create dkgRunner to run FastSync using chain from node
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), blockHeight)
+	encryptionKey, _ := noise.DH25519.GenerateKeypair(nil)
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)
 	dkgRunner.SetCurrentAeon(-1, -1)

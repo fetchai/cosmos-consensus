@@ -52,6 +52,7 @@ var (
 	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
 	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
 	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
+	defaultNoiseKeyPath       = filepath.Join(defaultDataDir, defaultNoiseKeyName)
 
 	defaultNodeKeyPath  = filepath.Join(defaultConfigDir, defaultNodeKeyName)
 	defaultAddrBookPath = filepath.Join(defaultConfigDir, defaultAddrBookName)
@@ -233,6 +234,7 @@ func DefaultBaseConfig() BaseConfig {
 		PrivValidatorState: defaultPrivValStatePath,
 		EntropyKey:         defaultEntropyKeyPath,
 		NextEntropyKey:     defaultNextEntropyKeyPath,
+		NoiseKey:           defaultNoiseKeyPath,
 		NodeKey:            defaultNodeKeyPath,
 		Moniker:            defaultMoniker,
 		ProxyApp:           "tcp://127.0.0.1:26658",

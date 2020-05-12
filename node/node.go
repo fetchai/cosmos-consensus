@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flynn/noise"
 	"github.com/tendermint/tendermint/beacon"
 	"github.com/tendermint/tendermint/tx_extensions"
 
@@ -621,20 +623,53 @@ func createBeaconReactor(
 	return entropyChannel, entropyGenerator, reactor, nil
 }
 
+func loadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
+	var noiseKeys noise.DHKey
+	if cmn.FileExists(config.NoiseKeyFile()) {
+		jsonBytes, err := ioutil.ReadFile(config.NoiseKeyFile())
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error reading noise key file")
+		}
+		err = cdc.UnmarshalJSON(jsonBytes, &noiseKeys)
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error unmarshalling noise keys")
+		}
+	} else {
+		noiseKeys, err := noise.DH25519.GenerateKeypair(nil)
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error generating noise key pair")
+		}
+		keyBytes, err := cdc.MarshalJSONIndent(noiseKeys, "", "  ")
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error marshalling noise key pair")
+		}
+		err = cmn.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error writing noise key pair")
+		}
+	}
+	return noiseKeys, nil
+}
+
 func createDKGRunner(
 	config *cfg.Config,
 	state sm.State,
 	privValidator types.PrivValidator,
 	logger log.Logger,
 	db dbm.DB,
-	handler tx_extensions.MessageHandler) *beacon.DKGRunner {
+	handler tx_extensions.MessageHandler) (*beacon.DKGRunner, error) {
 	if !config.Consensus.RunDKG {
-		return nil
+		return nil, nil
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight)
+
+	noiseKeys, err := loadOrGenNoiseKeys(config)
+	if err != nil {
+		return nil, err
+	}
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
-	return dkgRunner
+	return dkgRunner, nil
 }
 
 // NewNode returns a new, ready to go, Tendermint Node.
@@ -767,7 +802,10 @@ func NewNode(config *cfg.Config,
 	nativeLogger := beacon.NewNativeLoggingCollector(logger)
 
 	// Create DKGRunner
-	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+	dkgRunner, err := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create dkgRunner")
+	}
 
 	// Make BeaconReactor
 	beaconLogger := logger.With("module", "beacon")
