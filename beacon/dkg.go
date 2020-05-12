@@ -29,16 +29,20 @@ const (
 
 	// Number of dkg states with non-zero duration
 	dkgStatesWithDuration = int64(dkgFinish) - 1
+	// Multplier for increasing state duration on next dkg iteration
+	dkgIterationDurationMultiplier = float64(0.5)
+	maxDKGStateDuration            = int64(400)
+	dkgResetDelay                  = int64(2)
 )
 
 type state struct {
-	duration        int64
-	onEntry         func()
-	onExit          func() bool
-	checkTransition func() bool
+	durationMultiplier int64
+	onEntry            func()
+	onExit             func() bool
+	checkTransition    func() bool
 }
 
-func newState(dur int64, entry func(), exit func() bool, transition func() bool) *state {
+func newState(durMultiplier int64, entry func(), exit func() bool, transition func() bool) *state {
 	if entry == nil {
 		entry = func() {}
 	}
@@ -49,10 +53,10 @@ func newState(dur int64, entry func(), exit func() bool, transition func() bool)
 		transition = func() bool { return false }
 	}
 	ns := &state{
-		duration:        dur,
-		onEntry:         entry,
-		onExit:          exit,
-		checkTransition: transition,
+		durationMultiplier: durMultiplier,
+		onEntry:            entry,
+		onExit:             exit,
+		checkTransition:    transition,
 	}
 	return ns
 }
@@ -112,7 +116,7 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		currentAeonEnd:   aeonEnd,
 		aeonLength:       aeonLength,
 		threshold:        dkgThreshold,
-		startHeight:      validatorHeight + csConfig.DKGResetDelay,
+		startHeight:      validatorHeight + dkgResetDelay,
 		states:           make(map[dkgState]*state),
 		currentState:     dkgStart,
 		dryRunKeys:       make(map[string]DKGOutput),
@@ -130,14 +134,26 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		dkg.valToIndex[string(val.PubKey.Address())] = uint(index)
 	}
 
-	// When computing dkg duration allow buffer for run ahead on entropy generation so that
-	// dkg does not complete right at the end of the aeon
-	dkgDuration := (aeonLength - dkg.config.EntropyChannelCapacity - 1) / dkg.config.DKGAttemptsInAeon
-	// Divide by number of states to get the duration of each state
-	dkg.stateDuration = (dkgDuration - dkg.config.DKGResetDelay) / dkgStatesWithDuration
+	dkg.setInitialStateDuration()
 	dkg.setStates()
 
 	return dkg
+}
+
+// Estimate of dkg run times from local computations
+func (dkg *DistributedKeyGeneration) setInitialStateDuration() {
+	numVal := len(dkg.validators.Validators)
+	if numVal <= 10 {
+		dkg.stateDuration = 5
+	} else if numVal <= 50 {
+		dkg.stateDuration = 20
+	} else if numVal <= 100 {
+		dkg.stateDuration = 50
+	} else if numVal <= 200 {
+		dkg.stateDuration = 100
+	} else {
+		dkg.stateDuration = int64(numVal)
+	}
 }
 
 // SetSendMsgCallback sets the function for the DKG to send transactions to the mempool
@@ -162,36 +178,36 @@ func (dkg *DistributedKeyGeneration) setStates() {
 	}, nil)
 
 	if dkg.index() < 0 {
-		dkg.states[waitForDryRun] = newState(dkg.stateDuration*dkgStatesWithDuration,
+		dkg.states[waitForDryRun] = newState(dkgStatesWithDuration,
 			nil,
 			dkg.checkDryRuns,
 			dkg.receivedAllDryRuns)
 	} else {
-		dkg.states[waitForCoefficientsAndShares] = newState(dkg.stateDuration,
+		dkg.states[waitForCoefficientsAndShares] = newState(1,
 			dkg.sendSharesAndCoefficients,
 			nil,
 			dkg.beaconService.ReceivedAllCoefficientsAndShares)
-		dkg.states[waitForComplaints] = newState(dkg.stateDuration,
+		dkg.states[waitForComplaints] = newState(1,
 			dkg.sendComplaints,
 			nil,
 			dkg.beaconService.ReceivedAllComplaints)
-		dkg.states[waitForComplaintAnswers] = newState(dkg.stateDuration,
+		dkg.states[waitForComplaintAnswers] = newState(1,
 			dkg.sendComplaintAnswers,
 			dkg.buildQual,
 			dkg.beaconService.ReceivedAllComplaintAnswers)
-		dkg.states[waitForQualCoefficients] = newState(dkg.stateDuration,
+		dkg.states[waitForQualCoefficients] = newState(1,
 			dkg.sendQualCoefficients,
 			nil,
 			dkg.beaconService.ReceivedAllQualCoefficients)
-		dkg.states[waitForQualComplaints] = newState(dkg.stateDuration,
+		dkg.states[waitForQualComplaints] = newState(1,
 			dkg.sendQualComplaints,
 			dkg.beaconService.CheckQualComplaints,
 			dkg.beaconService.ReceivedAllQualComplaints)
-		dkg.states[waitForReconstructionShares] = newState(dkg.stateDuration,
+		dkg.states[waitForReconstructionShares] = newState(1,
 			dkg.sendReconstructionShares,
 			dkg.beaconService.RunReconstruction,
 			dkg.beaconService.ReceivedAllReconstructionShares)
-		dkg.states[waitForDryRun] = newState(dkg.stateDuration,
+		dkg.states[waitForDryRun] = newState(1,
 			dkg.computeKeys,
 			dkg.checkDryRuns,
 			dkg.receivedAllDryRuns)
@@ -204,7 +220,12 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.dkgIteration++
 	// Reset start time
-	dkg.startHeight = dkg.startHeight + dkg.duration() + dkg.config.DKGResetDelay
+	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
+	// Increase dkg time
+	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
+	if newStateDuration <= maxDKGStateDuration {
+		dkg.stateDuration = newStateDuration
+	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
 		DeleteBeaconSetupService(dkg.beaconService)
@@ -468,7 +489,7 @@ func (dkg *DistributedKeyGeneration) stateExpired(blockHeight int64) bool {
 	for i := dkgStart; i <= dkg.currentState; i++ {
 		state, haveState := dkg.states[i]
 		if haveState {
-			stateEndHeight += state.duration
+			stateEndHeight += state.durationMultiplier * dkg.stateDuration
 		}
 	}
 	return blockHeight >= stateEndHeight
@@ -477,7 +498,7 @@ func (dkg *DistributedKeyGeneration) stateExpired(blockHeight int64) bool {
 func (dkg *DistributedKeyGeneration) duration() int64 {
 	dkgLength := int64(0)
 	for _, state := range dkg.states {
-		dkgLength += state.duration
+		dkgLength += state.durationMultiplier * dkg.stateDuration
 	}
 	return dkgLength
 }

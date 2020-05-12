@@ -19,7 +19,7 @@ const (
 	DKGReconstructionShare
 	DKGDryRun
 
-	MaxDKGDataSize = 32000 // Max value calculated for committee size of 200
+	MaxDKGDataSize = 65000 // Max value calculated for committee size of 200
 )
 
 // DKGMessage contains DKGData for a particular phase of the DKG
