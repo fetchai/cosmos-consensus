@@ -1,9 +1,11 @@
 package beacon
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/flynn/noise"
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
@@ -34,7 +36,7 @@ func TestDKGHelpers(t *testing.T) {
 	// DKG is set to start at block height 10
 	assert.False(t, dkg.stateExpired(dkg.startHeight-1))
 	assert.True(t, dkg.stateExpired(dkg.startHeight))
-	dkg.currentState = waitForCoefficientsAndShares
+	dkg.currentState++
 	assert.False(t, dkg.stateExpired(dkg.startHeight))
 	assert.True(t, dkg.stateExpired(dkg.startHeight+dkg.stateDuration))
 	dkg.currentState = dkgFinish
@@ -61,7 +63,7 @@ func TestDKGCheckTransition(t *testing.T) {
 				dkg.Start()
 				return false
 			}
-		}, 45, dkgStart},
+		}, 60, dkgStart},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
@@ -132,7 +134,7 @@ func TestDKGCheckMessage(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			msg := dkg.newDKGMessage(types.DKGShare, "data", nil)
+			msg := dkg.newDKGMessage(types.DKGDryRun, "data", nil)
 			tc.changeMsg(msg)
 			index, val := dkg.validators.GetByAddress(msg.FromAddress)
 			err := dkg.checkMsg(msg, index, val)
@@ -286,7 +288,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], 8, *state.Validators, 20, 100)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], testEncryptionKey(), 8, *state.Validators, 20, 100)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -302,7 +304,7 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, 8, *vals, 20, 100),
+		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, testEncryptionKey(), 8, *vals, 20, 100),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
@@ -362,4 +364,12 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 		nodes[nVals+i] = newTestNode(config, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
 	}
 	return nodes
+}
+
+func testEncryptionKey() noise.DHKey {
+	encryptionKey, err := noise.DH25519.GenerateKeypair(nil)
+	if err != nil {
+		panic(fmt.Sprintf("Could not generator encryption keys, err %v", err.Error()))
+	}
+	return encryptionKey
 }

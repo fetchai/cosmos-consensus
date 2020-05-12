@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	sm "github.com/tendermint/tendermint/state"
@@ -34,12 +35,14 @@ type DKGRunner struct {
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
 
+	dhKey noise.DHKey
+
 	mtx sync.Mutex
 }
 
 // NewDKGRunner creates struct for starting new DKGs
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val types.PrivValidator,
-	blockHeight int64) *DKGRunner {
+	dhKey noise.DHKey, blockHeight int64) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		consensusConfig: config,
 		chainID:         chain,
@@ -50,6 +53,7 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		aeonEnd:         -1,
 		completedDKG:    false,
 		fastSync:        false,
+		dhKey:           dhKey,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -198,7 +202,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
-		dkgRunner.privVal, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
+		dkgRunner.privVal, dkgRunner.dhKey, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())

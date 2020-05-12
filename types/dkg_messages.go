@@ -10,7 +10,8 @@ import (
 type DKGMessageType uint16
 
 const (
-	DKGShare DKGMessageType = iota
+	DKGEncryptionKey DKGMessageType = iota
+	DKGShare
 	DKGCoefficient
 	DKGComplaint
 	DKGComplaintAnswer

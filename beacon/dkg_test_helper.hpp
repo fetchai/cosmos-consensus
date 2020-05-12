@@ -38,6 +38,7 @@ enum class Failure : uint8_t
 // Needs to match with tendermint/types/dkg_messages.go
 enum class DKGMessageType : uint8_t 
 {
+  ENCRYPTION_KEY,
   SHARE,   
   COEFFICIENT,
   COMPLAINT,
