@@ -3,8 +3,6 @@ module github.com/tendermint/tendermint
 go 1.12
 
 require (
-	github.com/Masterminds/glide v0.13.3
-	github.com/Masterminds/vcs v1.13.1 // indirect
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/Workiva/go-datastructures v1.0.50
 	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d
@@ -20,7 +18,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2
 	github.com/magiconair/properties v1.8.1
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v0.9.3
 	github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165
