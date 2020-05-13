@@ -169,6 +169,9 @@ std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure)
 {
   switch (type) 
   {
+  case DKGMessageType::ENCRYPTION_KEY:
+  case DKGMessageType::DRY_RUN:
+    break;
   case DKGMessageType::SHARE:
     MutateShare(msg, failure);
     break;    
@@ -189,8 +192,6 @@ std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure)
     break;
   case DKGMessageType::RECONSTRUCTION_SHARE:
     MutateReconstructionShare(msg, failure);
-    break;
-  case DKGMessageType::DRY_RUN:
     break;
   default:
     assert(false);  

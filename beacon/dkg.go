@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	cmn "github.com/tendermint/tendermint/libs/common"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -18,6 +20,7 @@ const (
 	// DKG has two tracks participants and observers. Participants enter all
 	// states but observers skip all states except waitForDryRun to obtain DKG output
 	dkgStart dkgState = iota
+	waitForEncryptionKeys
 	waitForCoefficientsAndShares
 	waitForComplaints
 	waitForComplaintAnswers
@@ -93,34 +96,40 @@ type DistributedKeyGeneration struct {
 	beaconService BeaconSetupService
 
 	dryRunKeys       map[string]DKGOutput
-	dryRunSignatures map[string]map[uint]string
+	dryRunSignatures map[string]map[string]string
 	dryRunCount      int64
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
+
+	encryptionKey        noise.DHKey
+	encryptionPublicKeys map[uint][]byte
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
-	privVal types.PrivValidator, validatorHeight int64, vals types.ValidatorSet, aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
+	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, vals types.ValidatorSet,
+	aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
-		config:           csConfig,
-		chainID:          chain,
-		dkgID:            dkgID(validatorHeight),
-		dkgIteration:     0,
-		privValidator:    privVal,
-		validatorHeight:  validatorHeight,
-		valToIndex:       make(map[string]uint),
-		validators:       vals,
-		currentAeonEnd:   aeonEnd,
-		aeonLength:       aeonLength,
-		threshold:        dkgThreshold,
-		startHeight:      validatorHeight + dkgResetDelay,
-		states:           make(map[dkgState]*state),
-		currentState:     dkgStart,
-		dryRunKeys:       make(map[string]DKGOutput),
-		dryRunSignatures: make(map[string]map[uint]string),
+		config:               csConfig,
+		chainID:              chain,
+		dkgID:                dkgID(validatorHeight),
+		dkgIteration:         0,
+		privValidator:        privVal,
+		validatorHeight:      validatorHeight,
+		valToIndex:           make(map[string]uint),
+		validators:           vals,
+		currentAeonEnd:       aeonEnd,
+		aeonLength:           aeonLength,
+		threshold:            dkgThreshold,
+		startHeight:          validatorHeight + dkgResetDelay,
+		states:               make(map[dkgState]*state),
+		currentState:         dkgStart,
+		dryRunKeys:           make(map[string]DKGOutput),
+		dryRunSignatures:     make(map[string]map[string]string),
+		encryptionKey:        dhKey,
+		encryptionPublicKeys: make(map[uint][]byte),
 	}
 	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
 
@@ -183,6 +192,10 @@ func (dkg *DistributedKeyGeneration) setStates() {
 			dkg.checkDryRuns,
 			dkg.receivedAllDryRuns)
 	} else {
+		dkg.states[waitForEncryptionKeys] = newState(1,
+			dkg.sendEncryptionKey,
+			dkg.checkEncryptionKeys,
+			dkg.receivedAllEncryptionKeys)
 		dkg.states[waitForCoefficientsAndShares] = newState(1,
 			dkg.sendSharesAndCoefficients,
 			nil,
@@ -231,9 +244,10 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 		DeleteBeaconSetupService(dkg.beaconService)
 		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(dkg.index()))
 	}
-	// Reset dry run
+	// Reset dkg details
+	dkg.encryptionPublicKeys = make(map[uint][]byte)
 	dkg.dryRunKeys = make(map[string]DKGOutput)
-	dkg.dryRunSignatures = make(map[string]map[uint]string)
+	dkg.dryRunSignatures = make(map[string]map[string]string)
 	dkg.dryRunCount = 0
 	dkg.aeonKeys = nil
 	return nil
@@ -262,11 +276,18 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		}
 
 		switch msg.Type {
+		case types.DKGEncryptionKey:
+			if dkg.currentState > waitForEncryptionKeys {
+				continue
+			}
+			if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
+				dkg.encryptionPublicKeys[uint(index)] = []byte(msg.Data)
+			}
 		case types.DKGShare:
 			if dkg.currentState > waitForCoefficientsAndShares {
 				continue
 			}
-			dkg.beaconService.OnShares(msg.Data, uint(index))
+			dkg.onShares(msg.Data, uint(index))
 		case types.DKGCoefficient:
 			if dkg.currentState > waitForCoefficientsAndShares {
 				continue
@@ -301,7 +322,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 			if dkg.currentState > waitForDryRun {
 				continue
 			}
-			dkg.onDryRun(msg.Data, uint(index))
+			dkg.onDryRun(msg.Data, string(val.Address))
 		default:
 			dkg.Logger.Error("OnBlock: unknown DKGMessage", "type", msg.Type)
 		}
@@ -322,17 +343,22 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 	if index < 0 {
 		return fmt.Errorf("checkMsg: FromAddress not int validator set")
 	}
+	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
+		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
+			return fmt.Errorf("checkMsg: FromAddress with missing encryption key")
+		}
+	}
 	if msg.DKGID != dkg.dkgID {
 		return fmt.Errorf("checkMsg: invalid dkgID %v", msg.DKGID)
 	}
 	if msg.DKGIteration != dkg.dkgIteration {
 		return fmt.Errorf("checkMsg: incorrect dkgIteration %v", msg.DKGIteration)
 	}
-	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
-		return fmt.Errorf("checkMsg: failed signature verification")
-	}
 	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
 		return fmt.Errorf("checkMsg: not ToAddress")
+	}
+	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
+		return fmt.Errorf("checkMsg: failed signature verification")
 	}
 	return nil
 }
@@ -399,14 +425,25 @@ func (dkg *DistributedKeyGeneration) broadcastMsg(msgType types.DKGMessageType, 
 	}
 }
 
+func (dkg *DistributedKeyGeneration) sendEncryptionKey() {
+	dkg.Logger.Debug("sendEncryptionKey", "iteration", dkg.dkgIteration)
+	dkg.broadcastMsg(types.DKGEncryptionKey, string(dkg.encryptionKey.Public), nil)
+}
+
 func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 	dkg.Logger.Debug("sendSharesAndCoefficients", "iteration", dkg.dkgIteration)
 	dkg.broadcastMsg(types.DKGCoefficient, dkg.beaconService.GetCoefficients(), nil)
 
 	for validator, index := range dkg.valToIndex {
-		if index != uint(dkg.index()) {
-			dkg.broadcastMsg(types.DKGShare, dkg.beaconService.GetShare(index), crypto.Address(validator))
+		if _, haveKeys := dkg.encryptionPublicKeys[index]; !haveKeys {
+			continue
 		}
+		encryptedMsg, err := tmnoise.EncryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], dkg.beaconService.GetShare(index))
+		if err != nil {
+			dkg.Logger.Error("sendShares: error encrypting share", "error", err.Error())
+			continue
+		}
+		dkg.broadcastMsg(types.DKGShare, encryptedMsg, crypto.Address(validator))
 	}
 }
 
@@ -466,9 +503,9 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	}
 	if _, haveKeys := dkg.dryRunKeys[msgToSign]; !haveKeys {
 		dkg.dryRunKeys[msgToSign] = *dkg.aeonKeys.dkgOutput()
-		dkg.dryRunSignatures[msgToSign] = make(map[uint]string)
+		dkg.dryRunSignatures[msgToSign] = make(map[string]string)
 	}
-	dkg.dryRunSignatures[msgToSign][dkg.valToIndex[string(dkg.privValidator.GetPubKey().Address())]] = signature
+	dkg.dryRunSignatures[msgToSign][string(dkg.privValidator.GetPubKey().Address())] = signature
 	dkg.dryRunCount++
 
 	msg := cdc.MustMarshalBinaryBare(&dryRun)
@@ -503,11 +540,7 @@ func (dkg *DistributedKeyGeneration) duration() int64 {
 	return dkgLength
 }
 
-func (dkg *DistributedKeyGeneration) onDryRun(data string, index uint) {
-	if dkg.aeonKeys != nil && !dkg.aeonKeys.aeonExecUnit.InQual(index) {
-		dkg.Logger.Debug("onDryRun: message from non-qual member")
-		return
-	}
+func (dkg *DistributedKeyGeneration) onDryRun(data string, validatorAddress string) {
 	dryRun := DryRunSignature{}
 	err := cdc.UnmarshalBinaryBare([]byte(data), &dryRun)
 	if err != nil {
@@ -522,10 +555,10 @@ func (dkg *DistributedKeyGeneration) onDryRun(data string, index uint) {
 	msgSigned := string(cdc.MustMarshalBinaryBare(&dryRun.PublicInfo))
 	if _, haveKeys := dkg.dryRunKeys[msgSigned]; !haveKeys {
 		dkg.dryRunKeys[msgSigned] = dryRun.PublicInfo
-		dkg.dryRunSignatures[msgSigned] = make(map[uint]string)
+		dkg.dryRunSignatures[msgSigned] = make(map[string]string)
 	}
-	if _, haveSignature := dkg.dryRunSignatures[msgSigned][index]; !haveSignature {
-		dkg.dryRunSignatures[msgSigned][index] = dryRun.SignatureShare
+	if _, haveSignature := dkg.dryRunSignatures[msgSigned][validatorAddress]; !haveSignature {
+		dkg.dryRunSignatures[msgSigned][validatorAddress] = dryRun.SignatureShare
 		dkg.dryRunCount++
 	}
 }
@@ -566,9 +599,13 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 		PublicInfo: dkg.dryRunKeys[encodedOutput],
 	}
 	tempKeys := LoadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
-	for index, signature := range dkg.dryRunSignatures[encodedOutput] {
-		if tempKeys.aeonExecUnit.Verify(encodedOutput, signature, index) {
-			signatureShares.Set(index, signature)
+	for address, signature := range dkg.dryRunSignatures[encodedOutput] {
+		index, _ := tempKeys.validators.GetByAddress(crypto.Address(address))
+		if index < 0 {
+			continue
+		}
+		if tempKeys.aeonExecUnit.Verify(encodedOutput, signature, uint(index)) {
+			signatureShares.Set(uint(index), signature)
 		}
 	}
 	if uint(signatureShares.Size()) < dkg.threshold {
@@ -586,6 +623,24 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 		dkg.aeonKeys = tempKeys
 	}
 	return true
+}
+
+func (dkg *DistributedKeyGeneration) receivedAllEncryptionKeys() bool {
+	return len(dkg.encryptionPublicKeys)+1 == len(dkg.validators.Validators)
+}
+
+// checkEncryptionKeys ensures that the number of validators returning encryption keys is at least
+// the pre-dkg threshold of dkg threshold + 1/3 validators
+func (dkg *DistributedKeyGeneration) checkEncryptionKeys() bool {
+	return len(dkg.encryptionPublicKeys)+1 >= int(dkg.threshold)+(len(dkg.validators.Validators)/3)
+}
+
+func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
+	decryptedShares, err := tmnoise.DecryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], msg)
+	if err != nil {
+		dkg.Logger.Error("onShares: error decrypting share", "error", err.Error())
+	}
+	dkg.beaconService.OnShares(decryptedShares, uint(index))
 }
 
 //-------------------------------------------------------------------------------------------
