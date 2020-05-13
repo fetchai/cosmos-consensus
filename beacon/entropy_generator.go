@@ -48,7 +48,7 @@ type EntropyGenerator struct {
 	done chan struct{}
 
 	// Metrics and debug below here
-	metrics *Metrics
+	metrics                 *Metrics
 	creatingEntropyAtHeight int64
 	creatingEntropyAtTimeMs time.Time
 }
@@ -494,8 +494,6 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 			}
 		}
 
-		// Notify peers of of new entropy height
-		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
 	}
 	return false, nil
