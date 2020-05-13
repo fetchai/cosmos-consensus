@@ -31,6 +31,8 @@ type DKGRunner struct {
 	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
+	dkgRunner    int
+	dkgCounter   int
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
@@ -38,6 +40,7 @@ type DKGRunner struct {
 	encryptionKey noise.DHKey
 
 	mtx sync.Mutex
+	metrics *Metrics
 }
 
 // NewDKGRunner creates struct for starting new DKGs
@@ -52,12 +55,21 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		aeonStart:       -1,
 		aeonEnd:         -1,
 		completedDKG:    false,
+		dkgCounter:      0,
+		metrics:         NopMetrics(),
 		fastSync:        false,
 		encryptionKey:   encryptionKey,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
 	return dkgRunner
+}
+
+func (dkgRunner *DKGRunner) AttachMetrics(metrics *Metrics) {
+
+	if dkgRunner != nil {
+		dkgRunner.metrics = metrics
+	}
 }
 
 // SetDKGCompletionCallback for dispatching dkg output
@@ -133,6 +145,7 @@ func (dkgRunner *DKGRunner) OnStart() error {
 // OnBlock is callback in messageHandler for DKG messages included in a particular block
 func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSignature, trxs []*types.DKGMessage) {
 	dkgRunner.mtx.Lock()
+	dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
 
 	if len(entropy) != 0 && blockHeight > dkgRunner.aeonEnd {
 		// DKG should not be stale
@@ -215,6 +228,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	// of next entropy aeon
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
+		dkgRunner.metrics.DKGsCompleted.Add(1)
 		dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
