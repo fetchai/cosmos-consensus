@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
@@ -286,7 +287,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestConsensusConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], NewEncryptionKey(), 8, *state.Validators, 20, 100)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, *state.Validators, 20, 100)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -302,7 +303,7 @@ type testNode struct {
 func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, NewEncryptionKey(), 8, *vals, 20, 100),
+		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, *vals, 20, 100),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),

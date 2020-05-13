@@ -1,4 +1,4 @@
-package beacon
+package noise
 
 import (
 	"fmt"
@@ -26,8 +26,8 @@ func newHandshake(staticKeyPair noise.DHKey, peerStaticPublic []byte, initiator 
 	return handshake
 }
 
-// Encrypts message with noise one-way handshake with known peer public key
-func encryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, payload string) (string, error) {
+// EncryptMsg encrypts message with noise one-way handshake with known peer public key
+func EncryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, payload string) (string, error) {
 	handshake := newHandshake(staticKeyPair, peerStaticPublic, true)
 	handshakeMsg, _, _, err := handshake.WriteMessage(make([]byte, 0), []byte(payload))
 	if err != nil {
@@ -36,8 +36,8 @@ func encryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, payload stri
 	return string(handshakeMsg), nil
 }
 
-// Decrypts message encrypted with noise one-way handshake with known peer public key
-func decryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, msg string) (string, error) {
+// DecryptMsg decrypts message encrypted with noise one-way handshake with known peer public key
+func DecryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, msg string) (string, error) {
 	handshake := newHandshake(staticKeyPair, peerStaticPublic, false)
 	payload, _, _, err := handshake.ReadMessage(make([]byte, 0), []byte(msg))
 	if err != nil {

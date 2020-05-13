@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
@@ -90,13 +91,13 @@ func testDKGRunners(nVals int, nSentries int) ([]*DKGRunner, tx_extensions.Messa
 	fakeHandler := tx_extensions.NewFakeMessageHandler()
 	dkgRunners := make([]*DKGRunner, nVals+nSentries)
 	for index := 0; index < nVals; index++ {
-		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], NewEncryptionKey(), 0)
+		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], tmnoise.NewEncryptionKey(), 0)
 		dkgRunners[index].SetLogger(logger.With("index", index))
 		dkgRunners[index].AttachMessageHandler(fakeHandler)
 	}
 	for index := 0; index < nSentries; index++ {
 		_, privVal := types.RandValidator(false, 10)
-		dkgRunners[nVals+index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVal, NewEncryptionKey(), 0)
+		dkgRunners[nVals+index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVal, tmnoise.NewEncryptionKey(), 0)
 		dkgRunners[nVals+index].SetLogger(logger.With("index", -1))
 		dkgRunners[nVals+index].AttachMessageHandler(fakeHandler)
 	}

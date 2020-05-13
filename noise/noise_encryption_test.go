@@ -1,4 +1,4 @@
-package beacon
+package noise
 
 import (
 	"testing"
@@ -53,10 +53,10 @@ func TestNoiseEncryption(t *testing.T) {
 			peerStaticKey := NewEncryptionKey()
 
 			message := "Hello"
-			encryptedMsg, err := encryptMsg(staticKey, peerStaticKey.Public, message)
+			encryptedMsg, err := EncryptMsg(staticKey, peerStaticKey.Public, message)
 			assert.True(t, err == nil)
 			tc.mutateEncryptedMsg(encryptedMsg)
-			decryptedMsg, err := decryptMsg(peerStaticKey, staticKey.Public, encryptedMsg)
+			decryptedMsg, err := DecryptMsg(peerStaticKey, staticKey.Public, encryptedMsg)
 			assert.Equal(t, tc.err, err != nil)
 			assert.Equal(t, tc.err, decryptedMsg != message)
 		})

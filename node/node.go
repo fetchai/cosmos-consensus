@@ -32,6 +32,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
@@ -633,7 +634,7 @@ func createDKGRunner(
 		return nil, nil
 	}
 
-	noiseKeys, err := beacon.LoadOrGenNoiseKeys(config)
+	noiseKeys, err := tmnoise.LoadOrGenNoiseKeys(config)
 	if err != nil {
 		return nil, err
 	}

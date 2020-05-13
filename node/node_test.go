@@ -20,6 +20,7 @@ import (
 	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	p2pmock "github.com/tendermint/tendermint/p2p/mock"
 	"github.com/tendermint/tendermint/privval"
@@ -117,7 +118,7 @@ func TestNodeDKGFastSync(t *testing.T) {
 	assert.True(t, blockHeight != 0)
 
 	// Create dkgRunner to run FastSync using chain from node
-	encryptionKey := beacon.NewEncryptionKey()
+	encryptionKey := tmnoise.NewEncryptionKey()
 	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)

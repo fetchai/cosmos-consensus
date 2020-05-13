@@ -9,6 +9,7 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	cmn "github.com/tendermint/tendermint/libs/common"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -437,7 +438,7 @@ func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 		if _, haveKeys := dkg.encryptionPublicKeys[index]; !haveKeys {
 			continue
 		}
-		encryptedMsg, err := encryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], dkg.beaconService.GetShare(index))
+		encryptedMsg, err := tmnoise.EncryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], dkg.beaconService.GetShare(index))
 		if err != nil {
 			dkg.Logger.Error("sendShares: error encrypting share", "error", err.Error())
 			continue
@@ -635,7 +636,7 @@ func (dkg *DistributedKeyGeneration) checkEncryptionKeys() bool {
 }
 
 func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
-	decryptedShares, err := decryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], msg)
+	decryptedShares, err := tmnoise.DecryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], msg)
 	if err != nil {
 		dkg.Logger.Error("onShares: error decrypting share", "error", err.Error())
 	}
