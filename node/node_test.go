@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flynn/noise"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -118,7 +117,7 @@ func TestNodeDKGFastSync(t *testing.T) {
 	assert.True(t, blockHeight != 0)
 
 	// Create dkgRunner to run FastSync using chain from node
-	encryptionKey, _ := noise.DH25519.GenerateKeypair(nil)
+	encryptionKey := beacon.NewEncryptionKey()
 	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)

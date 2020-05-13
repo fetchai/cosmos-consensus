@@ -2,8 +2,12 @@ package beacon
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"github.com/flynn/noise"
+	"github.com/pkg/errors"
+	cfg "github.com/tendermint/tendermint/config"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 func newHandshake(staticKeyPair noise.DHKey, peerStaticPublic []byte, initiator bool) *noise.HandshakeState {
@@ -22,6 +26,7 @@ func newHandshake(staticKeyPair noise.DHKey, peerStaticPublic []byte, initiator 
 	return handshake
 }
 
+// Encrypts message with noise one-way handshake with known peer public key
 func encryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, payload string) (string, error) {
 	handshake := newHandshake(staticKeyPair, peerStaticPublic, true)
 	handshakeMsg, _, _, err := handshake.WriteMessage(make([]byte, 0), []byte(payload))
@@ -31,6 +36,7 @@ func encryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, payload stri
 	return string(handshakeMsg), nil
 }
 
+// Decrypts message encrypted with noise one-way handshake with known peer public key
 func decryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, msg string) (string, error) {
 	handshake := newHandshake(staticKeyPair, peerStaticPublic, false)
 	payload, _, _, err := handshake.ReadMessage(make([]byte, 0), []byte(msg))
@@ -38,4 +44,40 @@ func decryptMsg(staticKeyPair noise.DHKey, peerStaticPublic []byte, msg string) 
 		return "", err
 	}
 	return string(payload), nil
+}
+
+// NewEncryptionKey creates a new key pair compatible with one-way handshake configuration
+func NewEncryptionKey() noise.DHKey {
+	encryptionKey, err := noise.DH25519.GenerateKeypair(nil)
+	if err != nil {
+		panic(fmt.Sprintf("Could not generator encryption keys, err %v", err.Error()))
+	}
+	return encryptionKey
+}
+
+// LoadOrGenNoiseKeys either loads keys from file, or creates a new set of keys and saves them
+// to file
+func LoadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
+	var noiseKeys noise.DHKey
+	if cmn.FileExists(config.NoiseKeyFile()) {
+		jsonBytes, err := ioutil.ReadFile(config.NoiseKeyFile())
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error reading noise key file")
+		}
+		err = cdc.UnmarshalJSON(jsonBytes, &noiseKeys)
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error unmarshalling noise keys")
+		}
+	} else {
+		noiseKeys := NewEncryptionKey()
+		keyBytes, err := cdc.MarshalJSONIndent(noiseKeys, "", "  ")
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error marshalling noise key pair")
+		}
+		err = cmn.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
+		if err != nil {
+			return noiseKeys, errors.Wrap(err, "error writing noise key pair")
+		}
+	}
+	return noiseKeys, nil
 }

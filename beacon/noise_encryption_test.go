@@ -1,7 +1,6 @@
 package beacon
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/flynn/noise"
@@ -14,14 +13,14 @@ func TestNoiseNewHandshake(t *testing.T) {
 		peerStaticKey []byte
 		initiator     bool
 	}{
-		{"Initiate with correct peer key", testEncryptionKey().Public, true},
-		{"Responder with correct peer key", testEncryptionKey().Public, false},
+		{"Initiate with correct peer key", NewEncryptionKey().Public, true},
+		{"Responder with correct peer key", NewEncryptionKey().Public, false},
 		{"Empty peer key", []byte{}, true},
 		{"Invalid peer key", []byte("random garbage"), true},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			staticKey := testEncryptionKey()
+			staticKey := NewEncryptionKey()
 			peerStaticKey := tc.peerStaticKey
 
 			var handshake *noise.HandshakeState
@@ -42,7 +41,7 @@ func TestNoiseEncryption(t *testing.T) {
 	}{
 		{"Correct key", func(noise.DHKey) {}, func(string) {}, false},
 		{"Incorrect key", func(peerKey noise.DHKey) {
-			peerKey = testEncryptionKey()
+			peerKey = NewEncryptionKey()
 		}, func(string) {}, false},
 		{"Incorrect msg", func(noise.DHKey) {}, func(msg string) {
 			msg = "mutated msg"
@@ -50,8 +49,8 @@ func TestNoiseEncryption(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			staticKey := testEncryptionKey()
-			peerStaticKey := testEncryptionKey()
+			staticKey := NewEncryptionKey()
+			peerStaticKey := NewEncryptionKey()
 
 			message := "Hello"
 			encryptedMsg, err := encryptMsg(staticKey, peerStaticKey.Public, message)
@@ -62,12 +61,4 @@ func TestNoiseEncryption(t *testing.T) {
 			assert.Equal(t, tc.err, decryptedMsg != message)
 		})
 	}
-}
-
-func testEncryptionKey() noise.DHKey {
-	encryptionKey, err := noise.DH25519.GenerateKeypair(nil)
-	if err != nil {
-		panic(fmt.Sprintf("Could not generator encryption keys, err %v", err.Error()))
-	}
-	return encryptionKey
 }

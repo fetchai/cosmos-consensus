@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flynn/noise"
 	"github.com/tendermint/tendermint/beacon"
 	"github.com/tendermint/tendermint/tx_extensions"
 
@@ -624,34 +622,6 @@ func createBeaconReactor(
 	return entropyChannel, entropyGenerator, reactor, nil
 }
 
-func loadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
-	var noiseKeys noise.DHKey
-	if cmn.FileExists(config.NoiseKeyFile()) {
-		jsonBytes, err := ioutil.ReadFile(config.NoiseKeyFile())
-		if err != nil {
-			return noiseKeys, errors.Wrap(err, "error reading noise key file")
-		}
-		err = cdc.UnmarshalJSON(jsonBytes, &noiseKeys)
-		if err != nil {
-			return noiseKeys, errors.Wrap(err, "error unmarshalling noise keys")
-		}
-	} else {
-		noiseKeys, err := noise.DH25519.GenerateKeypair(nil)
-		if err != nil {
-			return noiseKeys, errors.Wrap(err, "error generating noise key pair")
-		}
-		keyBytes, err := cdc.MarshalJSONIndent(noiseKeys, "", "  ")
-		if err != nil {
-			return noiseKeys, errors.Wrap(err, "error marshalling noise key pair")
-		}
-		err = cmn.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
-		if err != nil {
-			return noiseKeys, errors.Wrap(err, "error writing noise key pair")
-		}
-	}
-	return noiseKeys, nil
-}
-
 func createDKGRunner(
 	config *cfg.Config,
 	state sm.State,
@@ -663,7 +633,7 @@ func createDKGRunner(
 		return nil, nil
 	}
 
-	noiseKeys, err := loadOrGenNoiseKeys(config)
+	noiseKeys, err := beacon.LoadOrGenNoiseKeys(config)
 	if err != nil {
 		return nil, err
 	}
