@@ -437,16 +437,12 @@ func (dkg *DistributedKeyGeneration) sendSharesAndCoefficients() {
 		if _, haveKeys := dkg.encryptionPublicKeys[index]; !haveKeys {
 			continue
 		}
-		handshake := dkg.startNewHandshake(index, true)
-		if handshake != nil {
-			handshakeMsg := make([]byte, 0)
-			handshakeMsg, _, _, err := handshake.WriteMessage(handshakeMsg, []byte(dkg.beaconService.GetShare(index)))
-			if err != nil {
-				dkg.Logger.Error("sendShares: error writing handshake msg", "error", err.Error())
-				continue
-			}
-			dkg.broadcastMsg(types.DKGShare, string(handshakeMsg), crypto.Address(validator))
+		encryptedMsg, err := encryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], dkg.beaconService.GetShare(index))
+		if err != nil {
+			dkg.Logger.Error("sendShares: error encrypting share", "error", err.Error())
+			continue
 		}
+		dkg.broadcastMsg(types.DKGShare, encryptedMsg, crypto.Address(validator))
 	}
 }
 
@@ -638,36 +634,12 @@ func (dkg *DistributedKeyGeneration) checkEncryptionKeys() bool {
 	return len(dkg.encryptionPublicKeys)+1 >= int(dkg.threshold)+(len(dkg.validators.Validators)/3)
 }
 
-func (dkg *DistributedKeyGeneration) startNewHandshake(index uint, initiator bool) *noise.HandshakeState {
-	noiseConfig := noise.Config{
-		CipherSuite:   noise.NewCipherSuite(noise.DH25519, noise.CipherAESGCM, noise.HashSHA256),
-		Pattern:       noise.HandshakeK,
-		Initiator:     initiator,
-		StaticKeypair: dkg.encryptionKey,
-		PeerStatic:    dkg.encryptionPublicKeys[index],
-	}
-
-	handshake, err := noise.NewHandshakeState(noiseConfig)
-	if err != nil {
-		dkg.Logger.Error("startNewHandshake", "err", err.Error())
-		return nil
-	}
-	return handshake
-}
-
 func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
-	handshake := dkg.startNewHandshake(index, false)
-	shares := ""
-	if handshake != nil {
-		payload := make([]byte, 0)
-		payload, _, _, err := handshake.ReadMessage(payload, []byte(msg))
-		if err != nil {
-			dkg.Logger.Error("onShares: error reading handshake msg", "error", err.Error())
-		} else {
-			shares = string(payload)
-		}
+	decryptedShares, err := decryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], msg)
+	if err != nil {
+		dkg.Logger.Error("onShares: error descrypted shares", "error", err.Error())
 	}
-	dkg.beaconService.OnShares(shares, uint(index))
+	dkg.beaconService.OnShares(decryptedShares, uint(index))
 }
 
 //-------------------------------------------------------------------------------------------

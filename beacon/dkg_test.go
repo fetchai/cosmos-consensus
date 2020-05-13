@@ -1,11 +1,9 @@
 package beacon
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/flynn/noise"
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
@@ -364,12 +362,4 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 		nodes[nVals+i] = newTestNode(config, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
 	}
 	return nodes
-}
-
-func testEncryptionKey() noise.DHKey {
-	encryptionKey, err := noise.DH25519.GenerateKeypair(nil)
-	if err != nil {
-		panic(fmt.Sprintf("Could not generator encryption keys, err %v", err.Error()))
-	}
-	return encryptionKey
 }
