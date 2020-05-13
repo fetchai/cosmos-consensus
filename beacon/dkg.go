@@ -637,7 +637,7 @@ func (dkg *DistributedKeyGeneration) checkEncryptionKeys() bool {
 func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
 	decryptedShares, err := decryptMsg(dkg.encryptionKey, dkg.encryptionPublicKeys[index], msg)
 	if err != nil {
-		dkg.Logger.Error("onShares: error descrypted shares", "error", err.Error())
+		dkg.Logger.Error("onShares: error decrypting share", "error", err.Error())
 	}
 	dkg.beaconService.OnShares(decryptedShares, uint(index))
 }
