@@ -92,9 +92,9 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 	entropyGenerator.Logger.Debug("OnStart", "height", entropyGenerator.lastBlockHeight,
 		"aeon", entropyGenerator.isSigningEntropy(), "lastEntropyHeight", entropyGenerator.lastComputedEntropyHeight)
 
+	// Notify peers of block height
+	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
-		// Notify peers of starting entropy
-		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		// Sign entropy
 		entropyGenerator.sign()
 	}
@@ -271,7 +271,6 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	entropyGenerator.Logger.Debug("applyEntropyShare", "height", share.Height, "from", share.SignerAddress)
 	index, validator := entropyGenerator.aeon.validators.GetByAddress(share.SignerAddress)
 	err := entropyGenerator.validInputs(share.Height, index)
 	if err != nil {
@@ -289,7 +288,9 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	// Verify share
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 	if !entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index)) {
-		entropyGenerator.Logger.Error("applyEntropyShare: invalid entropy share", "validator", share.SignerAddress, "index", index)
+		entropyGenerator.Logger.Error("applyEntropyShare: invalid entropy share", "height", share.Height,
+			"lastComputedEntropyHeight", entropyGenerator.lastComputedEntropyHeight, "lastBlockHeight",
+			entropyGenerator.lastBlockHeight, "validator", share.SignerAddress, "index", index)
 		return
 	}
 
@@ -338,11 +339,8 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 	if index < 0 {
 		return fmt.Errorf("invalid validator index %v", index)
 	}
-	if height <= entropyGenerator.lastBlockHeight {
-		return fmt.Errorf("already computed entropy at height %v", height)
-	}
-	if height > entropyGenerator.lastBlockHeight+1 {
-		return fmt.Errorf("missing previous entropy at height %v", height-1)
+	if height != entropyGenerator.lastBlockHeight+1 {
+		return fmt.Errorf("Incorrect entropy share height %v. Want %v", height, entropyGenerator.lastBlockHeight+1)
 	}
 	if len(entropyGenerator.entropyShares[height][uint(index)].SignatureShare) != 0 {
 		return fmt.Errorf("already have entropy share at height %v index %v", height, index)
