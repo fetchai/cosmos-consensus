@@ -10,8 +10,8 @@ import (
 // For event switch in entropy generator
 const (
 	EventComputedEntropy      = "EventComputedEntropy"
-	MaxEntropyShareSize       = 256
-	MaxThresholdSignatureSize = 256
+	MaxEntropyShareSize       = 500
+	MaxThresholdSignatureSize = 500
 	GenesisHeight             = int64(0)
 )
 

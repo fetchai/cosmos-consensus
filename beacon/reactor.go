@@ -383,7 +383,7 @@ func (ps *PeerState) setLastComputedEntropyHeight(height int64) {
 
 func (ps *PeerState) sendEntropy(nextEntropyHeight int64, entropy types.ThresholdSignature) {
 	// Send peer entropy from block store
-	ps.logger.Info("sendEntropy", "ps", ps, "height", nextEntropyHeight)
+	ps.logger.Debug("sendEntropy", "ps", ps, "height", nextEntropyHeight)
 	msg := &ComputedEntropyMessage{Height: nextEntropyHeight, GroupSignature: entropy}
 	ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
 }
