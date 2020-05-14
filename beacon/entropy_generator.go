@@ -230,8 +230,8 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 			entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
 				[]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey())
 		}
-		entropyGenerator.Logger.Debug("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
-			"start", entropyGenerator.aeon.Start)
+		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
+			"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
 		return true
 	}
 	entropyGenerator.Logger.Debug("changeKeys: No new keys", "blockHeight", entropyGenerator.lastBlockHeight)
