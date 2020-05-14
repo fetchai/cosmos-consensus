@@ -162,22 +162,6 @@ def create_files_for_validators(validators: int):
             for line in file:
                 print(line.replace("prometheus = false", "prometheus = true"), end='')
 
-    # TODO(HUT): delete this
-    pathlist = Path("mytestnet").glob('**/config.toml')
-    for path in pathlist:
-        with fileinput.FileInput(path, inplace=True) as file:
-            for line in file:
-                print(line.replace("cors_allowed_origins = []", "cors_allowed_origins = [\"*\"]"), end='')
-
-    # perform a search and replace on the genesis file to
-    # extend the dkg length for bigger node sizes
-    #if validators >= 8:
-    #    pathlist = Path("mytestnet").glob('**/genesis.json')
-    #    for path in pathlist:
-    #        with fileinput.FileInput(path, inplace=True) as file:
-    #            for line in file:
-    #                print(line.replace('"aeon_length": "200"', '"aeon_length": "200"'), end='')
-
 def create_network(validators: int):
     """Create a network of N validators
     in kubernetes. Note that the docker image
