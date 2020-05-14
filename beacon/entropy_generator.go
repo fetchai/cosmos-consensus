@@ -431,9 +431,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			entropyGenerator.changeKeys()
 
 			// Notify peers of of new entropy height
-			if haveNewEntropy {
-				entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
-			}
+			entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
 
 			// Continue onto the next random value
 			entropyGenerator.sign()
