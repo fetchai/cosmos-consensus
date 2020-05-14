@@ -1,10 +1,12 @@
 package noise
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/flynn/noise"
 	"github.com/stretchr/testify/assert"
+	cfg "github.com/tendermint/tendermint/config"
 )
 
 func TestNoiseNewHandshake(t *testing.T) {
@@ -61,4 +63,18 @@ func TestNoiseEncryption(t *testing.T) {
 			assert.Equal(t, tc.err, decryptedMsg != message)
 		})
 	}
+}
+
+func TestLoadOrGenerateKeys(t *testing.T) {
+	config := cfg.ResetTestRoot("noise_test")
+
+	noiseKeys, err := LoadOrGenNoiseKeys(config)
+	assert.True(t, err == nil)
+	assert.True(t, len(noiseKeys.Public) != 0)
+	assert.True(t, len(noiseKeys.Private) != 0)
+
+	noiseKeysFromFile, err := LoadOrGenNoiseKeys(config)
+	assert.True(t, err == nil)
+	assert.True(t, bytes.Equal(noiseKeys.Public, noiseKeysFromFile.Public))
+	assert.True(t, bytes.Equal(noiseKeys.Private, noiseKeysFromFile.Private))
 }
