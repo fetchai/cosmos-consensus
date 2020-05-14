@@ -373,6 +373,7 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 	if dkg.currentState == dkgFinish {
+		dkg.metrics.TotalDKGDuration.Add(float64(blockHeight - dkg.startHeight))
 		return
 	}
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {

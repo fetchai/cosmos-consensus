@@ -26,6 +26,8 @@ type Metrics struct {
 	DKGState metrics.Gauge
 	// Number of completed DKGs with private key for entropy generation
 	DKGsCompletedWithPrivateKey metrics.Counter
+	// Average DKG state duration in blocks
+	TotalDKGDuration metrics.Counter
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -67,6 +69,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "dkgs_completed_with_private_key",
 			Help:      "Number of DKG completed with entropy generation key",
 		}, labels).With(labelsAndValues...),
+		TotalDKGDuration: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "total_dkg_duration",
+			Help:      "Sum of each successful dkg duration",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
@@ -78,5 +86,6 @@ func NopMetrics() *Metrics {
 		DKGsCompleted:               discard.NewCounter(),
 		DKGState:                    discard.NewGauge(),
 		DKGsCompletedWithPrivateKey: discard.NewCounter(),
+		TotalDKGDuration:            discard.NewCounter(),
 	}
 }
