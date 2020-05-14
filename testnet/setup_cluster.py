@@ -30,7 +30,7 @@ os.chdir(THIS_FILE_DIR)
 
 def parse_commandline():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--validators', type=int, default=3, help='The number of validators for the network')
+    parser.add_argument('-v', '--validators', type=int, default=0, help='The number of validators for the network')
     parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image then quit')
     parser.add_argument('-p', '--push-docker-img', action='store_true', help='Whether to push the docker image')
     parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana')
@@ -77,8 +77,8 @@ def deploy_traders(validators: int):
 
     trader_template = "".join(trader_template)
 
-    # node0 node1... etc
-    trader_args_spaced = " ".join(['node'+str(x) for x in range(0,5)])
+    # Must be of the format "node0", "node1"... etc
+    trader_args_spaced = ", ".join(['"node'+str(x)+'"' for x in range(0,validators)])
 
     trader_template = trader_template.format(pull_policy=DOCKER_IMG_PULL_POLICY, container=TRADER_CONTAINER, restart_policy=DOCKER_RESTART_POLICY, trader_args=trader_args_spaced)
 
@@ -243,6 +243,9 @@ def main():
     get_docker_img_name()
 
     if args.traders:
+        if args.validators <= 0:
+            print("Please specify how many validators/nodes for the trader to target")
+            sys.exit(1)
         build_traders_img(args)
         deploy_traders(args.validators)
         sys.exit(0)

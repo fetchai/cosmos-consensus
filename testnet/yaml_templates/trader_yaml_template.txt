@@ -34,9 +34,7 @@ spec:
           image: {container}
           imagePullPolicy: {pull_policy}
           command: [ "/traders/run.sh" ]
-
-          args:
-            - {trader_args}
+          args: [{trader_args}]
 
           ports:
             - name: p2p-port
