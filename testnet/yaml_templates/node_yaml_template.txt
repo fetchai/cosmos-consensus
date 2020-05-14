@@ -11,8 +11,8 @@ spec:
   ports:
     - name: p2p-port
       port: 26656
-    - name: b-port
-      port: 26657
+    - name: tx-ingress-port
+      port: 26654
     - name: prom-port
       port: 26660
 ---
@@ -60,8 +60,8 @@ spec:
           ports:
             - name: p2p-port
               containerPort: 26656
-            - name: b-port
-              containerPort: 26657
+            - name: tx-ingress-port
+              containerPort: 26654
             - name: prom-port
               containerPort: 26660
 

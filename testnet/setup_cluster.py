@@ -10,8 +10,10 @@ import fileinput
 import shutil
 from pathlib import Path
 
-DOCKER_IMG_NAME="gcr.io/fetch-ai-sandbox/tendermint-drb"
+DOCKER_HOST="gcr.io/fetch-ai-sandbox/"
+DOCKER_IMG_NAME=DOCKER_HOST+"tendermint-drb"
 DOCKER_IMG_TAG="no-tag-found"
+TRADER_CONTAINER = DOCKER_HOST+"traders:latest"
 
 # If this is true, deployments use :latest rather than the commit tag
 USE_LATEST_TAG = False
@@ -34,6 +36,8 @@ def parse_commandline():
     parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana')
     parser.add_argument('-r', '--remove-network', action='store_true', help='Unapply the network (yaml files)')
     parser.add_argument('-u', '--update-img-tag', action='store_true', help='Update the latest docker image with our commit tag (and push)')
+    parser.add_argument('-t', '--traders', action='store_true', help='Deploy a traders (sends lots of TXs) container targeting N validators')
+    parser.add_argument('-a', '--adjust-network-size', type=int, default=-1, help='Adjust the network down to N nodes (remove)')
     return parser.parse_args()
 
 def get_docker_img_name():
@@ -55,6 +59,50 @@ def build_docker_image(args):
         print(exit_code)
         print("quitting due to exit code")
         sys.exit(1)
+
+# Note: this will also push the image
+def build_traders_img(args):
+
+    executable_full_path = os.path.abspath("./traders/build_docker_img.sh")
+    exit_code = subprocess.call([executable_full_path], cwd=THIS_FILE_DIR+"/traders")
+
+    if exit_code:
+        print(exit_code)
+        print("quitting due to exit code")
+        sys.exit(1)
+
+def deploy_traders(validators: int):
+
+    trader_template = open("yaml_templates/trader_yaml_template.txt").readlines()
+
+    trader_template = "".join(trader_template)
+
+    # node0 node1... etc
+    trader_args_spaced = " ".join(['node'+str(x) for x in range(0,5)])
+
+    trader_template = trader_template.format(pull_policy=DOCKER_IMG_PULL_POLICY, container=TRADER_CONTAINER, restart_policy=DOCKER_RESTART_POLICY, trader_args=trader_args_spaced)
+
+    trader_file = "{}/{}.yaml".format(YAML_DIR, "trader")
+
+    with open(trader_file, mode="w") as f:
+        f.write(trader_template)
+
+    exit_code = subprocess.call(["kubectl", "apply", "-f", trader_file])
+
+def adjust_network_size(new_size: int):
+
+    pathlist = Path(YAML_DIR).glob('**/node*.yaml')
+    for path in pathlist:
+        node_number = int(str(path).split('node')[1].split('.yaml')[0])
+
+        if node_number >= new_size:
+            exit_code = subprocess.call(["kubectl", "delete", "-f", path])
+
+            if exit_code:
+                print(exit_code)
+                print("quitting due to exit code")
+                sys.exit(1)
+
 
 def push_docker_image(args):
     exit_code = subprocess.call(["docker", "push", DOCKER_IMG_NAME+":"+DOCKER_IMG_TAG], cwd=THIS_FILE_DIR)
@@ -114,14 +162,21 @@ def create_files_for_validators(validators: int):
             for line in file:
                 print(line.replace("prometheus = false", "prometheus = true"), end='')
 
+    # TODO(HUT): delete this
+    pathlist = Path("mytestnet").glob('**/config.toml')
+    for path in pathlist:
+        with fileinput.FileInput(path, inplace=True) as file:
+            for line in file:
+                print(line.replace("cors_allowed_origins = []", "cors_allowed_origins = [\"*\"]"), end='')
+
     # perform a search and replace on the genesis file to
     # extend the dkg length for bigger node sizes
-    if validators >= 8:
-        pathlist = Path("mytestnet").glob('**/genesis.json')
-        for path in pathlist:
-            with fileinput.FileInput(path, inplace=True) as file:
-                for line in file:
-                    print(line.replace('"aeon_length": "200"', '"aeon_length": "200"'), end='')
+    #if validators >= 8:
+    #    pathlist = Path("mytestnet").glob('**/genesis.json')
+    #    for path in pathlist:
+    #        with fileinput.FileInput(path, inplace=True) as file:
+    #            for line in file:
+    #                print(line.replace('"aeon_length": "200"', '"aeon_length": "200"'), end='')
 
 def create_network(validators: int):
     """Create a network of N validators
@@ -186,6 +241,15 @@ def main():
     args = parse_commandline()
 
     get_docker_img_name()
+
+    if args.traders:
+        build_traders_img(args)
+        deploy_traders(args.validators)
+        sys.exit(0)
+
+    if args.adjust_network_size > 0:
+        adjust_network_size(args.adjust_network_size)
+        sys.exit(0)
 
     if args.remove_network:
         remove_network()

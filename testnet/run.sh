@@ -17,6 +17,10 @@ echo "Copying config."
 mkdir -p config
 cp config_ro/* config
 
+
+echo "forwarding to localhost port"
+socat tcp-l:26654,fork,reuseaddr tcp:127.0.0.1:26657 &
+
 echo "Executing command tendermint $@"
 
 tendermint $@
