@@ -58,7 +58,7 @@ func NewEncryptionKey() noise.DHKey {
 // LoadOrGenNoiseKeys either loads keys from file, or creates a new set of keys and saves them
 // to file
 func LoadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
-	var noiseKeys noise.DHKey
+	noiseKeys := noise.DHKey{}
 	if cmn.FileExists(config.NoiseKeyFile()) {
 		jsonBytes, err := ioutil.ReadFile(config.NoiseKeyFile())
 		if err != nil {
@@ -69,7 +69,7 @@ func LoadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
 			return noiseKeys, errors.Wrap(err, "error unmarshalling noise keys")
 		}
 	} else {
-		noiseKeys := NewEncryptionKey()
+		noiseKeys = NewEncryptionKey()
 		keyBytes, err := cdc.MarshalJSONIndent(noiseKeys, "", "  ")
 		if err != nil {
 			return noiseKeys, errors.Wrap(err, "error marshalling noise key pair")
