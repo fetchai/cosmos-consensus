@@ -69,6 +69,10 @@ spec:
             - name: prom-port
               containerPort: 26660
 
+          resources:
+            requests:
+              cpu: "250m"
+
           volumeMounts:
            - name: config-toml-volume
              mountPath: /tendermint/config_ro

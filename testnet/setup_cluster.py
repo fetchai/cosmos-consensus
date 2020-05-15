@@ -274,7 +274,8 @@ def main():
 
     container_location = f"{DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}"
     if not docker_img_remote(container_location):
-        print(f"Attempting to set up a network with container: {container_location}, but this does not exist at remote. Build and upload the image with -b -u or retag it with -u.")
+        print(f"Attempting to set up a network with container: {container_location}, \
+                but this does not exist at remote. Build and upload the image with -b -u or retag it with -u.", file=sys.stderr)
         sys.exit(1)
 
     populate_node_yaml(args.validators)
