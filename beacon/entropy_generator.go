@@ -228,7 +228,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		if entropyGenerator.lastComputedEntropyHeight == -1 {
 			entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 			entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
-				[]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey())
+				tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
 		}
 		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 			"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
