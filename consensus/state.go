@@ -964,7 +964,7 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
 
 	// Get entropy for this round if not already set
-	newEntropy := cs.getNewEntropy()
+	newEntropy := cs.getNewEntropy(height)
 	entropyEnabled := newEntropy.Enabled
 
 	// Use normal tendermint proposer selection when there is no entropy
@@ -978,9 +978,6 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 		index = round % cs.Validators.Size()
 	}
 
-	if newEntropy.Height != height {
-		panic(fmt.Sprintf("getProposer(%v/%v), invalid entropy height %v", height, round, newEntropy.Height))
-	}
 	entropy := tmhash.Sum(newEntropy.Entropy.GroupSignature)
 	proposer := cs.shuffledCabinet(entropy)[index]
 	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
@@ -991,7 +988,7 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 // catch up via WAL. Entropy is reset to empty at start and after every committed block.
 // Note that this function can block as long as it takes for the network to generate entropy
 // (possibly forever)
-func (cs *ConsensusState) getNewEntropy() *types.ChannelEntropy {
+func (cs *ConsensusState) getNewEntropy(height int64) *types.ChannelEntropy {
 
 	// Only during test cases should the entropy channel not be set.
 	if cs.haveSetEntropyChannel == false {
@@ -999,6 +996,13 @@ func (cs *ConsensusState) getNewEntropy() *types.ChannelEntropy {
 	} else if cs.newEntropy == nil {
 
 		newEntropy := <-cs.entropyChannel
+		// Exclude height 0 case, which can occur when channel is being closed by entropy generator
+		for newEntropy.Height != 0 && newEntropy.Height < height {
+			newEntropy = <-cs.entropyChannel
+		}
+		if newEntropy.Height != height {
+			panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
+		}
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
 		}
@@ -1041,7 +1045,7 @@ func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
 
-		block.Header.Entropy = cs.getNewEntropy().Entropy
+		block.Header.Entropy = cs.getNewEntropy(height).Entropy
 		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
@@ -1107,7 +1111,7 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 		return
 	}
 
-	entropyEnabled := cs.getNewEntropy().Enabled
+	entropyEnabled := cs.getNewEntropy(cs.Height).Enabled
 	proposerAddr := cs.privValidator.GetPubKey().Address()
 	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, entropyEnabled)
 }
@@ -1161,8 +1165,8 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	}
 
 	// Check block entropy (note this can be empty in fallback mode which is fine)
-	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getNewEntropy().Entropy) {
-		logger.Error("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v", cs.getNewEntropy().Enabled)
+	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getNewEntropy(height).Entropy) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v", cs.getNewEntropy(height).Enabled))
 		return
 	}
 
