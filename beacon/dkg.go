@@ -104,6 +104,8 @@ type DistributedKeyGeneration struct {
 
 	encryptionKey        noise.DHKey
 	encryptionPublicKeys map[uint][]byte
+
+	metrics *Metrics
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
@@ -130,6 +132,7 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		dryRunSignatures:     make(map[string]map[string]string),
 		encryptionKey:        dhKey,
 		encryptionPublicKeys: make(map[uint][]byte),
+		metrics:              NopMetrics(),
 	}
 	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
 
@@ -178,6 +181,10 @@ func (dkg *DistributedKeyGeneration) SetDkgCompletionCallback(callback func(aeon
 	defer dkg.mtx.Unlock()
 
 	dkg.dkgCompletionCallback = callback
+}
+
+func (dkg *DistributedKeyGeneration) attachMetrics(metrics *Metrics) {
+	dkg.metrics = metrics
 }
 
 func (dkg *DistributedKeyGeneration) setStates() {
@@ -231,7 +238,9 @@ func (dkg *DistributedKeyGeneration) setStates() {
 //OnReset overrides BaseService
 func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
+	dkg.metrics.DKGState.Set(float64(dkg.currentState))
 	dkg.dkgIteration++
+	dkg.metrics.DKGFailures.Add(1)
 	// Reset start time
 	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
 	// Increase dkg time
@@ -365,6 +374,7 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 	if dkg.currentState == dkgFinish {
+		dkg.metrics.DKGDuration.Set(float64(blockHeight - dkg.startHeight))
 		return
 	}
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {
@@ -379,6 +389,7 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 				// If exit function failed before dry run then skip intermediate states and
 				// wait to see if DKG passes for everyone else
 				dkg.currentState = waitForDryRun
+				dkg.metrics.DKGState.Set(float64(dkg.currentState))
 				dkg.checkTransition(blockHeight)
 			}
 			return
@@ -386,10 +397,12 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		if dkg.currentState == dkgStart && dkg.index() < 0 {
 			// If not in validators skip straight to waiting for DKG output
 			dkg.currentState = waitForDryRun
+			dkg.metrics.DKGState.Set(float64(dkg.currentState))
 			dkg.checkTransition(blockHeight)
 			return
 		}
 		dkg.currentState++
+		dkg.metrics.DKGState.Set(float64(dkg.currentState))
 		dkg.states[dkg.currentState].onEntry()
 		// Run check transition again in case we can proceed to the next state already
 		dkg.checkTransition(blockHeight)

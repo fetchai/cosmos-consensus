@@ -39,7 +39,7 @@ type DKGRunner struct {
 
 	encryptionKey noise.DHKey
 
-	mtx sync.Mutex
+	mtx     sync.Mutex
 	metrics *Metrics
 }
 
@@ -229,9 +229,13 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
 		dkgRunner.metrics.DKGsCompleted.Add(1)
+		if keys.aeonExecUnit.CanSign() {
+			dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
+		}
 		dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
 		}
 	})
+	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)
 }
