@@ -578,8 +578,12 @@ func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
 
 func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	encodedOutput := ""
+	requiredPassSize := uint(2 * dkg.validators.Size() / 3)
+	if requiredPassSize < dkg.threshold {
+		requiredPassSize = dkg.threshold
+	}
 	for encodedKeys, signatures := range dkg.dryRunSignatures {
-		if uint(len(signatures)) >= dkg.threshold {
+		if uint(len(signatures)) >= requiredPassSize {
 			encodedOutput = encodedKeys
 			// Should only be one set of keys which gets threshold signatures
 			// if double messages are forbidden
@@ -608,8 +612,10 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 			signatureShares.Set(uint(index), signature)
 		}
 	}
-	if uint(signatureShares.Size()) < dkg.threshold {
-		dkg.Logger.Error("checkDryRuns: not enought valid dry run signatures")
+
+	if signatureShares.Size() < requiredPassSize {
+		dkg.Logger.Error(fmt.Sprintf("checkDryRuns: not enought valid dry run signatures. Got %v. Wanted %v",
+			signatureShares.Size(), requiredPassSize))
 		return false
 	}
 	dryRunGroupSignature := tempKeys.aeonExecUnit.ComputeGroupSignature(signatureShares)
