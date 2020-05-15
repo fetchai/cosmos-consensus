@@ -996,7 +996,8 @@ func (cs *ConsensusState) getNewEntropy(height int64) *types.ChannelEntropy {
 	} else if cs.newEntropy == nil {
 
 		newEntropy := <-cs.entropyChannel
-		for newEntropy.Height < height {
+		// Exclude height 0 case, which can occur when channel is being closed by entropy generator
+		for newEntropy.Height != 0 && newEntropy.Height < height {
 			newEntropy = <-cs.entropyChannel
 		}
 		if newEntropy.Height != height {
