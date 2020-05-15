@@ -30,15 +30,21 @@ os.chdir(THIS_FILE_DIR)
 
 def parse_commandline():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--validators', type=int, default=0, help='The number of validators for the network')
-    parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image then quit')
-    parser.add_argument('-p', '--push-docker-img', action='store_true', help='Whether to push the docker image')
-    parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Whether to deploy prom + grafana')
+    parser.add_argument('-v', '--validators', type=int, default=0, help='Create a network witn N validators')
+    parser.add_argument('-b', '--build-docker', action='store_true', help='Build the docker image')
+    parser.add_argument('-p', '--push-docker-img', action='store_true', help='Whether to push the docker image after building')
+    parser.add_argument('-d', '--deploy-grafana', action='store_true', help='Deploy prom + grafana')
     parser.add_argument('-r', '--remove-network', action='store_true', help='Unapply the network (yaml files)')
     parser.add_argument('-u', '--update-img-tag', action='store_true', help='Update the latest docker image with our commit tag (and push)')
-    parser.add_argument('-t', '--traders', action='store_true', help='Deploy a traders (sends lots of TXs) container targeting N validators')
+    parser.add_argument('-t', '--traders', action='store_true', help='Deploy a traders (sends lots of TXs) container targeting N validators (need to specify with -v flag)')
     parser.add_argument('-a', '--adjust-network-size', type=int, default=-1, help='Adjust the network down to N nodes (remove)')
     return parser.parse_args()
+
+# Check that the docker image your network is to use actually has it at the remote
+# to avoid an image pull error
+def docker_img_remote(remote_name: str):
+    return_obj = subprocess.run(["docker", "pull", remote_name])
+    return True if return_obj.returncode == 0 else False
 
 def get_docker_img_name():
     version = subprocess.check_output("git describe --always --dirty=_wip".split()).decode().strip()
@@ -260,6 +266,16 @@ def main():
             print("pushing docker image")
             push_docker_image(args)
         sys.exit(0)
+
+    # At this point it is deploy-network mode
+    if args.validators <= 0:
+        print("Please specify how many validators/nodes for the trader to target")
+        sys.exit(1)
+
+    container_location = f"{DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}"
+    if not docker_img_remote(container_location):
+        print(f"Attempting to set up a network with container: {container_location}, but this does not exist at remote. Build and upload the image with -b -u or retag it with -u.")
+        sys.exit(1)
 
     populate_node_yaml(args.validators)
     deploy_nodes()

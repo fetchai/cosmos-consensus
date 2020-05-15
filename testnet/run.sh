@@ -17,9 +17,16 @@ echo "Copying config."
 mkdir -p config
 cp config_ro/* config
 
+if [ -z "$REDIRECT_LOCALHOST" ]; then
+    echo "Note: expected REDIRECT_LOCALHOST environment variable to be set"
+fi
 
-echo "forwarding to localhost port"
-socat tcp-l:26654,fork,reuseaddr tcp:127.0.0.1:26657 &
+if [ "$REDIRECT_LOCALHOST" == "1" ]; then
+    echo "forwarding to localhost port!"
+    socat tcp-l:26654,fork,reuseaddr tcp:127.0.0.1:26657 &
+else
+    echo "not forwarding to localhost port: $REDIRECT_LOCALHOST"
+fi
 
 echo "Executing command tendermint $@"
 

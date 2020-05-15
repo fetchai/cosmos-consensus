@@ -51,6 +51,10 @@ spec:
           imagePullPolicy: {pull_policy}
           command: [ "/tendermint/run.sh" ]
 
+          env:
+          - name: REDIRECT_LOCALHOST
+            value: "1"
+
           args:
             - node
             - --home

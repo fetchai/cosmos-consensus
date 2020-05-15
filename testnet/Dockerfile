@@ -33,7 +33,7 @@ RUN export CGO_ENABLED=1 && \
 FROM ubuntu:18.04
 
 RUN apt update && \
-	apt install -y libboost-serialization-dev netcat socat lsof
+	apt install -y libboost-serialization netcat socat lsof
 
 WORKDIR /tendermint
 
