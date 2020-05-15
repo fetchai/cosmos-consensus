@@ -69,8 +69,8 @@ def build_docker_image(args):
 # Note: this will also push the image
 def build_traders_img(args):
 
-    executable_full_path = os.path.abspath("./traders/build_docker_img.sh")
-    exit_code = subprocess.call([executable_full_path], cwd=THIS_FILE_DIR+"/traders")
+    executable_full_path = os.path.abspath(f"{THIS_FILE_DIR}/traders/build_docker_img.sh")
+    exit_code = subprocess.call([executable_full_path], cwd=THIS_FILE_DIR)
 
     if exit_code:
         print(exit_code)
