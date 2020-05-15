@@ -240,6 +240,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
 	dkg.metrics.DKGState.Set(float64(dkg.currentState))
 	dkg.dkgIteration++
+	dkg.metrics.DKGFailures.Add(1)
 	// Reset start time
 	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
 	// Increase dkg time
@@ -373,7 +374,7 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 	if dkg.currentState == dkgFinish {
-		dkg.metrics.TotalDKGDuration.Add(float64(blockHeight - dkg.startHeight))
+		dkg.metrics.DKGDuration.Set(float64(blockHeight - dkg.startHeight))
 		return
 	}
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {

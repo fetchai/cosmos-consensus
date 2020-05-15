@@ -75,7 +75,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		done:                      make(chan struct{}),
-		metrics:                   nil,
+		metrics:                   NopMetrics(),
 	}
 
 	es.BaseService = *cmn.NewBaseService(nil, "EntropyGenerator", es)
@@ -205,17 +205,22 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
+	resetKeys := false
 	// Reset aeon to nil at the end of its time
 	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.aeon.End {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
 		entropyGenerator.aeon = nil
+		resetKeys = true
 	}
 
 	if entropyGenerator.nextAeon != nil {
 		if entropyGenerator.lastBlockHeight+1 < entropyGenerator.nextAeon.Start {
 			entropyGenerator.Logger.Debug("changeKeys: Found keys not yet ready", "blockHeight", entropyGenerator.lastBlockHeight,
 				"start", entropyGenerator.nextAeon.Start)
+			if resetKeys {
+				entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
+			}
 			return false
 		}
 		entropyGenerator.aeon = entropyGenerator.nextAeon
@@ -235,6 +240,9 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		return true
 	}
 	entropyGenerator.Logger.Debug("changeKeys: No new keys", "blockHeight", entropyGenerator.lastBlockHeight)
+	if resetKeys {
+		entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
+	}
 	return false
 }
 
@@ -429,6 +437,12 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 				}
 
 			}
+			// Update metrics
+			if entropyToSend.Enabled {
+				entropyGenerator.metrics.BlockWithEntropy.Set(1)
+			} else {
+				entropyGenerator.metrics.BlockWithEntropy.Set(0)
+			}
 			// Check whether we should change keys
 			entropyGenerator.changeKeys()
 
@@ -488,10 +502,8 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		if entropyGenerator.creatingEntropyAtHeight == height {
 			avgTime := float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs).Milliseconds())
 
-			if entropyGenerator.metrics != nil {
-				entropyGenerator.Logger.Debug("Setting metrics: ", avgTime)
-				entropyGenerator.metrics.AvgEntropyGenTime.Set(avgTime)
-			}
+			entropyGenerator.Logger.Debug("Setting metrics: ", avgTime)
+			entropyGenerator.metrics.AvgEntropyGenTime.Set(avgTime)
 		}
 
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
