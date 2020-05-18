@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	sm "github.com/tendermint/tendermint/state"
@@ -36,13 +37,15 @@ type DKGRunner struct {
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
 
-	mtx sync.Mutex
+	encryptionKey noise.DHKey
+
+	mtx     sync.Mutex
 	metrics *Metrics
 }
 
 // NewDKGRunner creates struct for starting new DKGs
 func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val types.PrivValidator,
-	blockHeight int64) *DKGRunner {
+	encryptionKey noise.DHKey, blockHeight int64) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		consensusConfig: config,
 		chainID:         chain,
@@ -55,6 +58,7 @@ func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val type
 		dkgCounter:      0,
 		metrics:         NopMetrics(),
 		fastSync:        false,
+		encryptionKey:   encryptionKey,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -211,7 +215,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
-		dkgRunner.privVal, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
+		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())
@@ -225,9 +229,13 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
 		dkgRunner.completedDKG = true
 		dkgRunner.metrics.DKGsCompleted.Add(1)
+		if keys.aeonExecUnit.CanSign() {
+			dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
+		}
 		dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
 		}
 	})
+	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)
 }

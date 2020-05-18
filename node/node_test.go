@@ -20,6 +20,7 @@ import (
 	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	p2pmock "github.com/tendermint/tendermint/p2p/mock"
 	"github.com/tendermint/tendermint/privval"
@@ -41,6 +42,9 @@ func TestNodeStartStop(t *testing.T) {
 		{"With entropy keys", func(config *cfg.Config) {
 			cfg.AddTestEntropyKey(config)
 		}, true},
+		{"With noise keys", func(config *cfg.Config) {
+			cfg.AddTestNoiseKey(config)
+		}, false},
 		{"With dkg", func(config *cfg.Config) {
 			config.Consensus.RunDKG = true
 		}, false},
@@ -114,7 +118,8 @@ func TestNodeDKGFastSync(t *testing.T) {
 	assert.True(t, blockHeight != 0)
 
 	// Create dkgRunner to run FastSync using chain from node
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), blockHeight)
+	encryptionKey := tmnoise.NewEncryptionKey()
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)
 	dkgRunner.SetCurrentAeon(-1, -1)

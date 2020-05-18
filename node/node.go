@@ -32,6 +32,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
@@ -629,14 +630,19 @@ func createDKGRunner(
 	privValidator types.PrivValidator,
 	logger log.Logger,
 	db dbm.DB,
-	handler tx_extensions.MessageHandler) *beacon.DKGRunner {
+	handler tx_extensions.MessageHandler) (*beacon.DKGRunner, error) {
 	if !config.Consensus.RunDKG {
-		return nil
+		return nil, nil
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, state.LastBlockHeight)
+
+	noiseKeys, err := tmnoise.LoadOrGenNoiseKeys(config)
+	if err != nil {
+		return nil, err
+	}
+	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
-	return dkgRunner
+	return dkgRunner, nil
 }
 
 // NewNode returns a new, ready to go, Tendermint Node.
@@ -769,7 +775,10 @@ func NewNode(config *cfg.Config,
 	nativeLogger := beacon.NewNativeLoggingCollector(logger)
 
 	// Create DKGRunner
-	dkgRunner := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+	dkgRunner, err := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create dkgRunner")
+	}
 
 	// Make BeaconReactor
 	beaconLogger := logger.With("module", "beacon")

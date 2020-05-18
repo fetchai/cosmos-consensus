@@ -48,7 +48,7 @@ type EntropyGenerator struct {
 	done chan struct{}
 
 	// Metrics and debug below here
-	metrics *Metrics
+	metrics                 *Metrics
 	creatingEntropyAtHeight int64
 	creatingEntropyAtTimeMs time.Time
 }
@@ -75,7 +75,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		done:                      make(chan struct{}),
-		metrics:                   nil,
+		metrics:                   NopMetrics(),
 	}
 
 	es.BaseService = *cmn.NewBaseService(nil, "EntropyGenerator", es)
@@ -92,9 +92,9 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 	entropyGenerator.Logger.Debug("OnStart", "height", entropyGenerator.lastBlockHeight,
 		"aeon", entropyGenerator.isSigningEntropy(), "lastEntropyHeight", entropyGenerator.lastComputedEntropyHeight)
 
+	// Notify peers of block height
+	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
-		// Notify peers of starting entropy
-		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		// Sign entropy
 		entropyGenerator.sign()
 	}
@@ -205,17 +205,22 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
+	resetKeys := false
 	// Reset aeon to nil at the end of its time
 	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.aeon.End {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
 		entropyGenerator.aeon = nil
+		resetKeys = true
 	}
 
 	if entropyGenerator.nextAeon != nil {
 		if entropyGenerator.lastBlockHeight+1 < entropyGenerator.nextAeon.Start {
 			entropyGenerator.Logger.Debug("changeKeys: Found keys not yet ready", "blockHeight", entropyGenerator.lastBlockHeight,
 				"start", entropyGenerator.nextAeon.Start)
+			if resetKeys {
+				entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
+			}
 			return false
 		}
 		entropyGenerator.aeon = entropyGenerator.nextAeon
@@ -228,13 +233,16 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		if entropyGenerator.lastComputedEntropyHeight == -1 {
 			entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 			entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
-				[]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey())
+				tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
 		}
-		entropyGenerator.Logger.Debug("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
-			"start", entropyGenerator.aeon.Start)
+		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
+			"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
 		return true
 	}
 	entropyGenerator.Logger.Debug("changeKeys: No new keys", "blockHeight", entropyGenerator.lastBlockHeight)
+	if resetKeys {
+		entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
+	}
 	return false
 }
 
@@ -271,7 +279,6 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	entropyGenerator.Logger.Debug("applyEntropyShare", "height", share.Height, "from", share.SignerAddress)
 	index, validator := entropyGenerator.aeon.validators.GetByAddress(share.SignerAddress)
 	err := entropyGenerator.validInputs(share.Height, index)
 	if err != nil {
@@ -289,7 +296,9 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	// Verify share
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 	if !entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index)) {
-		entropyGenerator.Logger.Error("applyEntropyShare: invalid entropy share", "validator", share.SignerAddress, "index", index)
+		entropyGenerator.Logger.Error("applyEntropyShare: invalid entropy share", "height", share.Height,
+			"lastComputedEntropyHeight", entropyGenerator.lastComputedEntropyHeight, "lastBlockHeight",
+			entropyGenerator.lastBlockHeight, "validator", share.SignerAddress, "index", index)
 		return
 	}
 
@@ -338,11 +347,8 @@ func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) e
 	if index < 0 {
 		return fmt.Errorf("invalid validator index %v", index)
 	}
-	if height <= entropyGenerator.lastBlockHeight {
-		return fmt.Errorf("already computed entropy at height %v", height)
-	}
-	if height > entropyGenerator.lastBlockHeight+1 {
-		return fmt.Errorf("missing previous entropy at height %v", height-1)
+	if height != entropyGenerator.lastBlockHeight+1 {
+		return fmt.Errorf("Incorrect entropy share height %v. Want %v", height, entropyGenerator.lastBlockHeight+1)
 	}
 	if len(entropyGenerator.entropyShares[height][uint(index)].SignatureShare) != 0 {
 		return fmt.Errorf("already have entropy share at height %v index %v", height, index)
@@ -429,13 +435,17 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 				}
 
 			}
+			// Update metrics
+			if entropyToSend.Enabled {
+				entropyGenerator.metrics.BlockWithEntropy.Set(1)
+			} else {
+				entropyGenerator.metrics.BlockWithEntropy.Set(0)
+			}
 			// Check whether we should change keys
 			entropyGenerator.changeKeys()
 
 			// Notify peers of of new entropy height
-			if haveNewEntropy {
-				entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
-			}
+			entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
 
 			// Continue onto the next random value
 			entropyGenerator.sign()
@@ -488,14 +498,10 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		if entropyGenerator.creatingEntropyAtHeight == height {
 			avgTime := float64(time.Now().Sub(entropyGenerator.creatingEntropyAtTimeMs).Milliseconds())
 
-			if entropyGenerator.metrics != nil {
-				entropyGenerator.Logger.Debug("Setting metrics: ", avgTime)
-				entropyGenerator.metrics.AvgEntropyGenTime.Set(avgTime)
-			}
+			entropyGenerator.Logger.Debug("Setting metrics: ", avgTime)
+			entropyGenerator.metrics.AvgEntropyGenTime.Set(avgTime)
 		}
 
-		// Notify peers of of new entropy height
-		entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastComputedEntropyHeight)
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
 	}
 	return false, nil
