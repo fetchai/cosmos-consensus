@@ -1125,7 +1125,7 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 
 	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
 	// is no entropy currently
-	if cs.strictFiltering == true && cs.getNewEntropy().Enabled == false {
+	if cs.strictFiltering == true && cs.getNewEntropy(cs.Height).Enabled == false {
 		onlyDKGTxs = true
 	}
 
