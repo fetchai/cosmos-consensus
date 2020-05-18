@@ -403,6 +403,7 @@ func createConsensusReactor(config *cfg.Config,
 		mempool,
 		evidencePool,
 		cs.StateMetrics(csMetrics),
+		cs.StrictTxFiltering(config.Consensus.StrictTxFiltering),
 	)
 	consensusState.SetLogger(consensusLogger)
 	if privValidator != nil {

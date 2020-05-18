@@ -347,6 +347,7 @@ peer_query_maj23_sleep_duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 entropy_channel_capacity = "{{ .Consensus.EntropyChannelCapacity }}"
 compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
 run_dkg = "{{ .Consensus.RunDKG }}"
+strict_tx_filtering = "{{ .Consensus.StrictTxFiltering }}"
 
 ##### transactions indexer configuration options #####
 [tx_index]
