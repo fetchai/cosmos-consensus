@@ -7,6 +7,7 @@ require (
 	github.com/Workiva/go-datastructures v1.0.50
 	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
+	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.4.0
