@@ -14,9 +14,8 @@ WORKDIR /project
 ADD project.tar.gz /
 
 # Install mcl
-RUN wget https://github.com/herumi/mcl/archive/v1.05.tar.gz
-RUN tar xvf v1.05.tar.gz
-RUN cd mcl-1.05 && \
+RUN wget https://github.com/herumi/mcl/archive/v1.05.tar.gz &&\
+    tar xvf v1.05.tar.gz && cd mcl-1.05 && \
     make install
 
 # Compile tendermint
