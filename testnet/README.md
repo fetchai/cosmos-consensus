@@ -14,8 +14,14 @@ subjects:
 
 The final 'default' here should be the namespace it is in.
 
+If there is already a cluster set up, you may only need to create your own namespace to deploy in: `kubectl create namespace xxx`.
+
+Build and push a docker image with the current working directory
+
+./setup-cluster.py -b -p
+
 Then run:
 
-./setup-cluster.py
+./setup-cluster.py -v 3
 
-This will default to a three node network. Use the help flag for usage.
+To set up a three node network. Refer to the `-h` flag for more options

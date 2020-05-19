@@ -44,7 +44,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	for i := 0; i < len(labelsAndValues); i += 2 {
 		labels = append(labels, labelsAndValues[i])
 	}
-	return &Metrics{
+	metrics := Metrics{
 		AvgEntropyGenTime: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -100,6 +100,20 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Help:      "Number of transitions to no entropy",
 		}, labels).With(labelsAndValues...),
 	}
+
+	// Set default values for the metrics so they appear at /metrics
+	// immediately, which makes testing easier
+	metrics.AvgEntropyGenTime.Add(0)
+	metrics.DKGMessagesInChain.Add(0)
+	metrics.DKGsCompleted.Add(0)
+	metrics.DKGState.Add(0)
+	metrics.DKGsCompletedWithPrivateKey.Add(0)
+	metrics.DKGDuration.Add(0)
+	metrics.DKGFailures.Add(0)
+	metrics.BlockWithEntropy.Add(0)
+	metrics.PeriodsWithNoEntropy.Add(0)
+
+	return &metrics
 }
 
 // NopMetrics returns no-op Metrics.
