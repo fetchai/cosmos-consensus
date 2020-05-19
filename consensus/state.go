@@ -90,6 +90,10 @@ type ConsensusState struct {
 	// notify us if txs are available
 	txNotifier txNotifier
 
+	// When strict tx filtering is on, non-DKG TXs cannot be included during DKG
+	// likely in the first few blocks of the chain.
+	strictFiltering bool
+
 	// add evidence to the pool
 	// when it's detected
 	evpool evidencePool
@@ -176,6 +180,7 @@ func NewConsensusState(
 	cs.decideProposal = cs.defaultDecideProposal
 	cs.doPrevote = cs.defaultDoPrevote
 	cs.setProposal = cs.defaultSetProposal
+	cs.strictFiltering = false
 
 	cs.updateToState(state)
 
@@ -215,6 +220,11 @@ func (cs *ConsensusState) SetEntropyChannel(channel <-chan types.ChannelEntropy)
 // StateMetrics sets the metrics.
 func StateMetrics(metrics *Metrics) StateOption {
 	return func(cs *ConsensusState) { cs.metrics = metrics }
+}
+
+// StateMetrics sets the metrics.
+func StrictTxFiltering(filtering bool) StateOption {
+	return func(cs *ConsensusState) { cs.strictFiltering = filtering }
 }
 
 // String returns a string.
@@ -1111,9 +1121,16 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 		return
 	}
 
-	entropyEnabled := cs.getNewEntropy(cs.Height).Enabled
+	onlyDKGTxs := false
+
+	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
+	// is no entropy currently
+	if cs.strictFiltering == true && cs.getNewEntropy(cs.Height).Enabled == false {
+		onlyDKGTxs = true
+	}
+
 	proposerAddr := cs.privValidator.GetPubKey().Address()
-	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, entropyEnabled)
+	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, onlyDKGTxs)
 }
 
 // Enter: `timeoutPropose` after entering Propose.

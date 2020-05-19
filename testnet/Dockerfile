@@ -1,7 +1,7 @@
 FROM ubuntu:18.04 AS build-env
 
 # Set up dependencies
-ENV PACKAGES curl make git libc-dev bash gcc python cmake g++ swig libboost-all-dev wget libgmp-dev
+ENV PACKAGES curl make git libc-dev bash gcc python cmake g++ swig libboost-serialization-dev wget libgmp-dev
 
 # Install minimum necessary dependencies, build tendermint DRB, remove packages
 RUN apt update && \
@@ -14,9 +14,8 @@ WORKDIR /project
 ADD project.tar.gz /
 
 # Install mcl
-RUN wget https://github.com/herumi/mcl/archive/v1.05.tar.gz && \
-    tar xvf v1.05.tar.gz && \
-    cd mcl-1.05 && \
+RUN wget https://github.com/herumi/mcl/archive/v1.05.tar.gz &&\
+    tar xvf v1.05.tar.gz && cd mcl-1.05 && \
     make install
 
 # Compile tendermint
@@ -33,7 +32,7 @@ RUN export CGO_ENABLED=1 && \
 FROM ubuntu:18.04
 
 RUN apt update && \
-	apt install -y libboost-all-dev netcat ucspi-tcp vim dnsutils iputils-ping libboost-all-dev
+	apt install -y libboost-serialization netcat socat lsof
 
 WORKDIR /tendermint
 
@@ -43,6 +42,7 @@ COPY --from=build-env /usr/local/lib/libmcl.so /usr/lib/libmcl.so
 COPY --from=build-env /usr/local/lib/libmcl.a /usr/lib/libmcl.a
 
 EXPOSE 26655-26658
+EXPOSE 26654
 
 COPY ./mytestnet/node0/data/priv_validator_state.json .
 COPY run.sh .
