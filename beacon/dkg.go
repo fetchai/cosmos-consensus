@@ -353,6 +353,9 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 	if index < 0 {
 		return fmt.Errorf("checkMsg: FromAddress not int validator set")
 	}
+	if index == dkg.index() {
+		return fmt.Errorf("checkMsg: ignore own message")
+	}
 	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
 		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
 			return fmt.Errorf("checkMsg: FromAddress with missing encryption key")
