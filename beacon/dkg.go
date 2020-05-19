@@ -156,14 +156,10 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 // Estimate of dkg run times from local computations
 func (dkg *DistributedKeyGeneration) setInitialStateDuration() {
 	numVal := len(dkg.validators.Validators)
-	if numVal <= 10 {
+	if numVal <= 100 {
 		dkg.stateDuration = 5
-	} else if numVal <= 50 {
-		dkg.stateDuration = 20
-	} else if numVal <= 100 {
-		dkg.stateDuration = 50
 	} else if numVal <= 200 {
-		dkg.stateDuration = 100
+		dkg.stateDuration = 10
 	} else {
 		dkg.stateDuration = int64(numVal)
 	}
