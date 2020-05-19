@@ -93,7 +93,9 @@ func TestDKGReset(t *testing.T) {
 }
 
 func TestDKGCheckMessage(t *testing.T) {
-	dkg := exampleDKG(4)
+	nodes := exampleDKGNetwork(4, 0, false)
+	dkgToGenerateMsg := nodes[0].dkg
+	dkgToProcessMsg := nodes[1].dkg
 
 	testCases := []struct {
 		testName  string
@@ -103,40 +105,43 @@ func TestDKGCheckMessage(t *testing.T) {
 		{"Valid message", func(msg *types.DKGMessage) {}, true},
 		{"Fail validate basic", func(msg *types.DKGMessage) {
 			msg.Data = ""
-			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
+			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Incorrect dkg id", func(msg *types.DKGMessage) {
-			msg.DKGID = dkg.dkgID + 1
-			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
+			msg.DKGID = dkgToGenerateMsg.dkgID + 1
+			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Incorrect dkg iteration", func(msg *types.DKGMessage) {
-			msg.DKGIteration = dkg.dkgIteration + 1
-			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
+			msg.DKGIteration = dkgToGenerateMsg.dkgIteration + 1
+			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Not from validator", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
 			msg.FromAddress = privVal.GetPubKey().Address()
-			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
+			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Correct ToAddress", func(msg *types.DKGMessage) {
-			msg.ToAddress = dkg.privValidator.GetPubKey().Address()
-			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
+			msg.ToAddress = dkgToProcessMsg.privValidator.GetPubKey().Address()
+			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, true},
 		{"Incorrect ToAddress", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
 			msg.ToAddress = privVal.GetPubKey().Address()
-			dkg.privValidator.SignDKGMessage(dkg.chainID, msg)
+			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Incorrect Signature", func(msg *types.DKGMessage) {
 			msg.Data = "changed data"
 		}, false},
+		{"Message from self", func(msg *types.DKGMessage) {
+			msg.FromAddress = dkgToProcessMsg.privValidator.GetPubKey().Address()
+		}, false},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			msg := dkg.newDKGMessage(types.DKGDryRun, "data", nil)
+			msg := dkgToGenerateMsg.newDKGMessage(types.DKGDryRun, "data", nil)
 			tc.changeMsg(msg)
-			index, val := dkg.validators.GetByAddress(msg.FromAddress)
-			err := dkg.checkMsg(msg, index, val)
+			index, val := dkgToProcessMsg.validators.GetByAddress(msg.FromAddress)
+			err := dkgToProcessMsg.checkMsg(msg, index, val)
 			assert.Equal(t, tc.passCheck, err == nil, "Unexpected error %v", err)
 		})
 	}
