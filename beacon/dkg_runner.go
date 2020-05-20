@@ -8,6 +8,7 @@ import (
 	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
 	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/malicious"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
@@ -39,8 +40,9 @@ type DKGRunner struct {
 
 	encryptionKey noise.DHKey
 
-	mtx     sync.Mutex
-	metrics *Metrics
+	mtx            sync.Mutex
+	metrics        *Metrics
+	messageMutator *malicious.MessageMutator
 }
 
 // NewDKGRunner creates struct for starting new DKGs
@@ -95,6 +97,13 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
 	defer dkgRunner.mtx.Unlock()
 	dkgRunner.aeonStart = start
 	dkgRunner.aeonEnd = end
+}
+
+// SetMessageMutator sets malicious actor message mutation
+func (dkgRunner *DKGRunner) SetMessageMutator(mutator *malicious.MessageMutator) {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+	dkgRunner.messageMutator = mutator
 }
 
 // FastSync runs a dkg from block messages up to current block height
@@ -222,7 +231,14 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
 	// Set message handler for sending DKG transactions
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
-		dkgRunner.messageHandler.SubmitSpecialTx(msg)
+		if dkgRunner.messageMutator != nil {
+			mutatedMsgs := dkgRunner.messageMutator.ChangeDKGMessage(msg)
+			for msgToSend := range mutatedMsgs {
+				dkgRunner.messageHandler.SubmitSpecialTx(msgToSend)
+			}
+		} else {
+			dkgRunner.messageHandler.SubmitSpecialTx(msg)
+		}
 	})
 	// Mark dkg completion so so that activeDKG can be reset and set start and end
 	// of next entropy aeon
