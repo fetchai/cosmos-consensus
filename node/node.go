@@ -609,8 +609,6 @@ func createBeaconReactor(
 		// start up condition. If the node has started up and has only negotiated the first DKG the next entropy file
 		// will still be populated
 		if !nextAeonFile.IsForSamePeriod(currentAeonFile) {
-			beaconLogger.Error(fmt.Sprintf("Update current: %d -> %d | next: %d -> %d", currentAeonFile.PublicInfo.Start, currentAeonFile.PublicInfo.End, nextAeonFile.PublicInfo.Start, nextAeonFile.PublicInfo.End))
-
 			vals, err1 := sm.LoadValidators(db, nextAeonFile.PublicInfo.ValidatorHeight)
 			if err1 != nil {
 				return nil, nil, nil, errors.Wrap(err1, "error loading validators for next aeon keys")
