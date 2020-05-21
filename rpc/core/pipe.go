@@ -8,6 +8,7 @@ import (
 	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/malicious"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
@@ -74,6 +75,7 @@ var (
 	consensusReactor *consensus.ConsensusReactor
 	eventBus         *types.EventBus // thread safe
 	mempool          mempl.Mempool
+	messageMutator   *malicious.MessageMutator
 
 	logger log.Logger
 
@@ -139,6 +141,10 @@ func SetEventBus(b *types.EventBus) {
 // SetConfig sets an RPCConfig.
 func SetConfig(c cfg.RPCConfig) {
 	config = c
+}
+
+func SetMessageMutator(mutator *malicious.MessageMutator) {
+	messageMutator = mutator
 }
 
 func validatePage(page, perPage, totalCount int) (int, error) {

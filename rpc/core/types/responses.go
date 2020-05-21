@@ -206,6 +206,7 @@ type (
 	ResultSubscribe          struct{}
 	ResultUnsubscribe        struct{}
 	ResultHealth             struct{}
+	ResultMutateDKGMessage   struct{}
 )
 
 // Event data from a subscription

@@ -1016,6 +1016,7 @@ func (n *Node) ConfigureRPC() {
 	rpccore.SetEventBus(n.eventBus)
 	rpccore.SetLogger(n.Logger.With("module", "rpc"))
 	rpccore.SetConfig(*n.config.RPC)
+	rpccore.SetMessageMutator(n.messageMutator)
 }
 
 func (n *Node) startRPC() ([]net.Listener, error) {

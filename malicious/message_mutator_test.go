@@ -27,7 +27,8 @@ func TestMessageMutatorDKG(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			mutator := NewMessageMutator()
+			_, privVal := types.RandValidator(false, 10)
+			mutator := NewMessageMutator(privVal)
 			tc.setMutator(mutator)
 
 			msg := exampleDKGMessage(types.DKGDryRun)
