@@ -622,8 +622,6 @@ func createBeaconReactor(
 			if dkgRunner != nil {
 				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 			}
-		} else {
-			beaconLogger.Error("Looks like we are running into an issue")
 		}
 	}
 	if len(state.LastComputedEntropy) != 0 {
