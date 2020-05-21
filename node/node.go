@@ -583,35 +583,43 @@ func createBeaconReactor(
 		dkgRunner.SetDKGCompletionCallback(entropyGenerator.SetNextAeonDetails)
 	}
 
+	var currentAeonFile *beacon.AeonDetailsFile
+	var err error
 	if cmn.FileExists(config.EntropyKeyFile()) {
-		aeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.EntropyKeyFile())
+		currentAeonFile, err = beacon.LoadAeonDetailsFile(config.BaseConfig.EntropyKeyFile())
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "error loading aeon file")
 		}
-		vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+		vals, err1 := sm.LoadValidators(db, currentAeonFile.PublicInfo.ValidatorHeight)
 		if err1 != nil {
 			return nil, nil, nil, errors.Wrap(err1, "error loading validators for aeon keys")
 		}
-		aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
+		aeonDetails := beacon.LoadAeonDetails(currentAeonFile, vals, privValidator)
 		entropyGenerator.SetAeonDetails(aeonDetails)
 		if dkgRunner != nil {
 			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 		}
 	}
 	if cmn.FileExists(config.NextEntropyKeyFile()) {
-		aeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.NextEntropyKeyFile())
+		nextAeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.NextEntropyKeyFile())
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "error loading next aeon file")
 		}
-		vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
-		if err1 != nil {
-			return nil, nil, nil, errors.Wrap(err1, "error loading validators for next aeon keys")
-		}
-		aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
-		entropyGenerator.SetNextAeonDetails(aeonDetails)
-		// Set dkg runner to most recent aeon which we generated keys for
-		if dkgRunner != nil {
-			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+
+		// start up condition. If the node has started up and has only negotiated the first DKG the next entropy file
+		// will still be populated
+		if !nextAeonFile.IsForSamePeriod(currentAeonFile) {
+			vals, err1 := sm.LoadValidators(db, nextAeonFile.PublicInfo.ValidatorHeight)
+			if err1 != nil {
+				return nil, nil, nil, errors.Wrap(err1, "error loading validators for next aeon keys")
+			}
+			aeonDetails := beacon.LoadAeonDetails(nextAeonFile, vals, privValidator)
+			entropyGenerator.SetNextAeonDetails(aeonDetails)
+
+			// Set dkg runner to most recent aeon which we generated keys for
+			if dkgRunner != nil {
+				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+			}
 		}
 	}
 	if len(state.LastComputedEntropy) != 0 {
