@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/malicious"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
@@ -14,35 +15,60 @@ import (
 )
 
 func TestDKGRunnerOnGenesis(t *testing.T) {
-	nVals := 4
+	nVals := 5
 	nSentries := 1
 	nTotal := nVals + nSentries
-	dkgRunners, fakeHandler := testDKGRunners(nVals, nSentries)
 
-	dkgsCompleted := 0
-	for index := 0; index < nTotal; index++ {
-		dkgRunners[index].SetDKGCompletionCallback(func(*aeonDetails) {
-			dkgsCompleted++
-		})
+	testCases := []struct {
+		testName      string
+		modifyRunners func([]*DKGRunner)
+		dkgOutcomes   []bool
+	}{
+		{"No modifications", func([]*DKGRunner) {}, []bool{true, true, true, true, true, false}},
+		{"Withhold messages", func(dkgRunners []*DKGRunner) {
+			messageMutator := malicious.NewMessageMutator(dkgRunners[0].privVal)
+			dkgRunners[0].SetMessageMutator(messageMutator)
+			messageMutator.SetDKGMessageMutation(1, true)
+		}, []bool{false, true, true, true, true, false}},
 	}
 
-	for _, runner := range dkgRunners {
-		runner.Start()
-	}
-
-	blockHeight := int64(1)
-	for dkgsCompleted < nTotal {
-		fakeHandler.EndBlock(blockHeight)
-		blockHeight++
-		for _, runner := range dkgRunners {
-			if runner.activeDKG != nil && runner.activeDKG.dkgIteration > 2 {
-				t.FailNow()
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			dkgRunners, fakeHandler := testDKGRunners(nVals, nSentries)
+			tc.modifyRunners(dkgRunners)
+			dkgsCompleted := 0
+			aeons := make([]*aeonDetails, nTotal)
+			for index := 0; index < nTotal; index++ {
+				index := index
+				dkgRunners[index].SetDKGCompletionCallback(func(aeon *aeonDetails) {
+					aeons[index] = aeon
+					dkgsCompleted++
+				})
 			}
-		}
-	}
 
-	for _, runner := range dkgRunners {
-		runner.Stop()
+			for _, runner := range dkgRunners {
+				runner.Start()
+			}
+
+			blockHeight := int64(1)
+			for dkgsCompleted < nTotal {
+				fakeHandler.EndBlock(blockHeight)
+				blockHeight++
+				for _, runner := range dkgRunners {
+					if runner.activeDKG != nil && runner.activeDKG.dkgIteration > 2 {
+						t.FailNow()
+					}
+				}
+			}
+
+			for _, runner := range dkgRunners {
+				runner.Stop()
+			}
+
+			for index := 0; index < nTotal; index++ {
+				assert.Equal(t, tc.dkgOutcomes[index], aeons[index].aeonExecUnit.CanSign())
+			}
+		})
 	}
 }
 

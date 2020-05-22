@@ -233,7 +233,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		if dkgRunner.messageMutator != nil {
 			mutatedMsgs := dkgRunner.messageMutator.ChangeDKGMessage(msg)
-			for msgToSend := range mutatedMsgs {
+			for _, msgToSend := range mutatedMsgs {
 				dkgRunner.messageHandler.SubmitSpecialTx(msgToSend)
 			}
 		} else {
