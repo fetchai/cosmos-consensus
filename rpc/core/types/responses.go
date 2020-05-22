@@ -7,6 +7,7 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/crypto"
 	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/malicious"
 
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/state"
@@ -206,7 +207,6 @@ type (
 	ResultSubscribe          struct{}
 	ResultUnsubscribe        struct{}
 	ResultHealth             struct{}
-	ResultMutateDKGMessage   struct{}
 )
 
 // Event data from a subscription
@@ -214,4 +214,9 @@ type ResultEvent struct {
 	Query  string              `json:"query"`
 	Data   types.TMEventData   `json:"data"`
 	Events map[string][]string `json:"events"`
+}
+
+// Result of setting dkg message mutation
+type ResultMutateDKGMessage struct {
+	ActiveMutations []malicious.DKGMessageMutation `json:mutations`
 }

@@ -9,6 +9,6 @@ import (
 // MutateDKGMessage adds mutation to the dkg message mutations and returns nothing
 func MutateDKGMessage(ctx *rpctypes.Context, mutation malicious.DKGMessageMutation, on bool) (
 	*ctypes.ResultMutateDKGMessage, error) {
-	messageMutator.SetDKGMessageMutation(mutation, on)
-	return &ctypes.ResultMutateDKGMessage{}, nil
+	activeMutations, err := messageMutator.SetDKGMessageMutation(mutation, on)
+	return &ctypes.ResultMutateDKGMessage{ActiveMutations: activeMutations}, err
 }

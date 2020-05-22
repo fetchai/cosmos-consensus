@@ -43,7 +43,7 @@ var Routes = map[string]*rpc.RPCFunc{
 	"broadcast_evidence": rpc.NewRPCFunc(BroadcastEvidence, "evidence"),
 
 	// malicious API
-	"mutate_dkg_msg": rpc.NewRPCFunc(MutateDKGMessage, "malicious,on"),
+	"mutate_dkg_msg": rpc.NewRPCFunc(MutateDKGMessage, "mutation,on"),
 }
 
 func AddUnsafeRoutes() {

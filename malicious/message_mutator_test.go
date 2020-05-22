@@ -27,6 +27,9 @@ func TestMessageMutatorDKG(t *testing.T) {
 			mutator.SetDKGMessageMutation(DKGWithhold, true)
 			mutator.SetDKGMessageMutation(DKGWithhold, false)
 		}, 1, true},
+		{"Too large", func(mutator *MessageMutator) {
+			mutator.SetDKGMessageMutation(5, true)
+		}, 1, true},
 	}
 
 	for _, tc := range testCases {
