@@ -97,7 +97,7 @@ type DistributedKeyGeneration struct {
 
 	dryRunKeys       map[string]DKGOutput
 	dryRunSignatures map[string]map[string]string
-	dryRunCount      int64
+	dryRunCount      *cmn.BitArray
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
@@ -130,6 +130,7 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 		currentState:         dkgStart,
 		dryRunKeys:           make(map[string]DKGOutput),
 		dryRunSignatures:     make(map[string]map[string]string),
+		dryRunCount:          cmn.NewBitArray(vals.Size()),
 		encryptionKey:        dhKey,
 		encryptionPublicKeys: make(map[uint][]byte),
 		metrics:              NopMetrics(),
@@ -155,14 +156,10 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 // Estimate of dkg run times from local computations
 func (dkg *DistributedKeyGeneration) setInitialStateDuration() {
 	numVal := len(dkg.validators.Validators)
-	if numVal <= 10 {
+	if numVal <= 100 {
 		dkg.stateDuration = 5
-	} else if numVal <= 50 {
-		dkg.stateDuration = 20
-	} else if numVal <= 100 {
-		dkg.stateDuration = 50
 	} else if numVal <= 200 {
-		dkg.stateDuration = 100
+		dkg.stateDuration = 10
 	} else {
 		dkg.stateDuration = int64(numVal)
 	}
@@ -257,7 +254,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.encryptionPublicKeys = make(map[uint][]byte)
 	dkg.dryRunKeys = make(map[string]DKGOutput)
 	dkg.dryRunSignatures = make(map[string]map[string]string)
-	dkg.dryRunCount = 0
+	dkg.dryRunCount = cmn.NewBitArray(dkg.validators.Size())
 	dkg.aeonKeys = nil
 	return nil
 }
@@ -352,6 +349,9 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 	if index < 0 {
 		return fmt.Errorf("checkMsg: FromAddress not int validator set")
 	}
+	if index == dkg.index() {
+		return fmt.Errorf("checkMsg: ignore own message")
+	}
 	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
 		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
 			return fmt.Errorf("checkMsg: FromAddress with missing encryption key")
@@ -378,7 +378,7 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		return
 	}
 	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {
-		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", dkg.currentState)
+		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", dkg.currentState, "stateExpired", dkg.stateExpired(blockHeight))
 		if !dkg.states[dkg.currentState].onExit() {
 			dkg.Logger.Error("checkTransition: failed onExit", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
 			if dkg.currentState == waitForDryRun {
@@ -519,7 +519,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		dkg.dryRunSignatures[msgToSign] = make(map[string]string)
 	}
 	dkg.dryRunSignatures[msgToSign][string(dkg.privValidator.GetPubKey().Address())] = signature
-	dkg.dryRunCount++
+	dkg.dryRunCount.SetIndex(int(dkg.index()), true)
 
 	msg := cdc.MustMarshalBinaryBare(&dryRun)
 	dkg.broadcastMsg(types.DKGDryRun, string(msg), nil)
@@ -570,23 +570,15 @@ func (dkg *DistributedKeyGeneration) onDryRun(data string, validatorAddress stri
 		dkg.dryRunKeys[msgSigned] = dryRun.PublicInfo
 		dkg.dryRunSignatures[msgSigned] = make(map[string]string)
 	}
-	if _, haveSignature := dkg.dryRunSignatures[msgSigned][validatorAddress]; !haveSignature {
+	index, _ := dkg.valToIndex[validatorAddress]
+	if !dkg.dryRunCount.GetIndex(int(index)) {
 		dkg.dryRunSignatures[msgSigned][validatorAddress] = dryRun.SignatureShare
-		dkg.dryRunCount++
+		dkg.dryRunCount.SetIndex(int(index), true)
 	}
 }
 
 func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
-	if dkg.index() < 0 {
-		return dkg.dryRunCount == int64(len(dkg.validators.Validators))
-	}
-	// For those who have failed and not set keys wait for everyone except self.
-	// Otherwise wait for those in aeon keys
-	numValidators := len(dkg.validators.Validators) - 1
-	if dkg.aeonKeys != nil {
-		numValidators = len(dkg.aeonKeys.validators.Validators)
-	}
-	return dkg.dryRunCount == int64(numValidators)
+	return dkg.dryRunCount.IsFull()
 }
 
 func (dkg *DistributedKeyGeneration) checkDryRuns() bool {

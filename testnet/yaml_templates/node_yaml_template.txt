@@ -11,8 +11,8 @@ spec:
   ports:
     - name: p2p-port
       port: 26656
-    - name: b-port
-      port: 26657
+    - name: tx-ingress-port
+      port: 26654
     - name: prom-port
       port: 26660
 ---
@@ -51,6 +51,10 @@ spec:
           imagePullPolicy: {pull_policy}
           command: [ "/tendermint/run.sh" ]
 
+          env:
+          - name: REDIRECT_LOCALHOST
+            value: "1"
+
           args:
             - node
             - --home
@@ -60,10 +64,14 @@ spec:
           ports:
             - name: p2p-port
               containerPort: 26656
-            - name: b-port
-              containerPort: 26657
+            - name: tx-ingress-port
+              containerPort: 26654
             - name: prom-port
               containerPort: 26660
+
+          resources:
+            requests:
+              cpu: "250m"
 
           volumeMounts:
            - name: config-toml-volume

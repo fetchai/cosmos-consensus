@@ -34,6 +34,11 @@ func TestDKGRunnerOnGenesis(t *testing.T) {
 	for dkgsCompleted < nTotal {
 		fakeHandler.EndBlock(blockHeight)
 		blockHeight++
+		for _, runner := range dkgRunners {
+			if runner.activeDKG != nil && runner.activeDKG.dkgIteration > 2 {
+				t.FailNow()
+			}
+		}
 	}
 
 	for _, runner := range dkgRunners {

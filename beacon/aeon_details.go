@@ -129,6 +129,14 @@ type AeonDetailsFile struct {
 	PrivateKey string    `json:"private_key"`
 }
 
+func (aeonFile *AeonDetailsFile) IsForSamePeriod(other *AeonDetailsFile) bool {
+	if (other != nil) && (aeonFile.PublicInfo.Start == other.PublicInfo.Start) && (aeonFile.PublicInfo.End == other.PublicInfo.End) {
+		return true
+	}
+
+	return false
+}
+
 // Save creates json with aeon details
 func (aeonFile *AeonDetailsFile) save(outFile string) {
 	jsonBytes, err := cdc.MarshalJSONIndent(aeonFile, "", "  ")

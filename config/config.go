@@ -796,6 +796,7 @@ type ConsensusConfig struct {
 	// before the current height has been computed
 	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
 	RunDKG                      bool          `mapstructure:"run_dkg"`
+	StrictTxFiltering           bool          `mapstructure:"strict_tx_filtering"`
 }
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
@@ -817,6 +818,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		EntropyChannelCapacity:      3,
 		ComputeEntropySleepDuration: 50 * time.Millisecond,
 		RunDKG:                      true,
+		StrictTxFiltering:           false,
 	}
 }
 
