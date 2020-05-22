@@ -7,9 +7,8 @@ import (
 )
 
 // MutateDKGMessage adds mutation to the dkg message mutations and returns nothing
-func MutateDKGMessage(ctx *rpctypes.Context, mutation malicious.DKGMessageMutation) (
+func MutateDKGMessage(ctx *rpctypes.Context, mutation malicious.DKGMessageMutation, on bool) (
 	*ctypes.ResultMutateDKGMessage, error) {
-	logger.Debug("MutateDKGMessage", "mutation", mutation)
-	messageMutator.SetDKGMessageMutation(mutation)
+	messageMutator.SetDKGMessageMutation(mutation, on)
 	return &ctypes.ResultMutateDKGMessage{}, nil
 }

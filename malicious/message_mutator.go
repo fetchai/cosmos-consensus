@@ -34,11 +34,15 @@ func NewMessageMutator(privValidator types.PrivValidator) *MessageMutator {
 }
 
 // SetDKGMessageMutation adds a mutation to the message mutators set of active ones
-func (mutator *MessageMutator) SetDKGMessageMutation(mutation DKGMessageMutation) {
+func (mutator *MessageMutator) SetDKGMessageMutation(mutation DKGMessageMutation, turnOn bool) {
 	mutator.mtx.Lock()
 	defer mutator.mtx.Unlock()
 
-	mutator.dkgMessageMutations[mutation] = empty
+	if turnOn {
+		mutator.dkgMessageMutations[mutation] = empty
+	} else {
+		delete(mutator.dkgMessageMutations, mutation)
+	}
 }
 
 // ChangeDKGMessage mutates the given message according or the actions set and returns

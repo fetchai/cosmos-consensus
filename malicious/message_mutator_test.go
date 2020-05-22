@@ -18,11 +18,15 @@ func TestMessageMutatorDKG(t *testing.T) {
 	}{
 		{"No mutation", func(*MessageMutator) {}, 1, true},
 		{"Withhold msgs", func(mutator *MessageMutator) {
-			mutator.SetDKGMessageMutation(DKGWithhold)
+			mutator.SetDKGMessageMutation(DKGWithhold, true)
 		}, 0, false},
 		{"duplicate msgs", func(mutator *MessageMutator) {
-			mutator.SetDKGMessageMutation(DKGDuplicate)
+			mutator.SetDKGMessageMutation(DKGDuplicate, true)
 		}, 2, true},
+		{"Turn off", func(mutator *MessageMutator) {
+			mutator.SetDKGMessageMutation(DKGWithhold, true)
+			mutator.SetDKGMessageMutation(DKGWithhold, false)
+		}, 1, true},
 	}
 
 	for _, tc := range testCases {
