@@ -250,7 +250,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, entropy types.ThresholdSignature) {
 	// Should not be called in entropy generator is not running
 	if !entropyGenerator.isSigningEntropy() {
-		panic(fmt.Errorf("applyEntropyShare while entropy generator stopped"))
+		panic(fmt.Errorf("applyComputedEntropy while entropy generator stopped"))
 	}
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
@@ -344,7 +344,7 @@ func (entropyGenerator *EntropyGenerator) getEntropyShares(height int64) map[uin
 }
 
 func (entropyGenerator *EntropyGenerator) validInputs(height int64, index int) error {
-	if index < 0 {
+	if index < 0 || !entropyGenerator.aeon.aeonExecUnit.InQual(uint(index)) {
 		return fmt.Errorf("invalid validator index %v", index)
 	}
 	if height != entropyGenerator.lastBlockHeight+1 {
