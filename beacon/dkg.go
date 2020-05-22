@@ -268,7 +268,6 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		dkg.checkTransition(blockHeight)
 		return
 	}
-	dkg.Logger.Debug("OnBlock: received transactions", "height", blockHeight, "numTrx", len(trxs))
 	// Process transactions
 	for _, trx := range trxs {
 		// Decode transaction
@@ -406,8 +405,6 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 		dkg.states[dkg.currentState].onEntry()
 		// Run check transition again in case we can proceed to the next state already
 		dkg.checkTransition(blockHeight)
-	} else {
-		dkg.Logger.Debug("checkTransition: no state change", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
 	}
 }
 
@@ -583,7 +580,7 @@ func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
 
 func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	encodedOutput := ""
-	requiredPassSize := uint(2 * dkg.validators.Size() / 3)
+	requiredPassSize := uint((2 * dkg.validators.Size()) / 3)
 	if requiredPassSize < dkg.threshold {
 		requiredPassSize = dkg.threshold
 	}
