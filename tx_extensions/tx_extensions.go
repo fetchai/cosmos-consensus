@@ -10,6 +10,11 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+const (
+	Prefix    = "SP:DKG"
+	PrefixLen = len(Prefix)
+)
+
 var cdc = amino.NewCodec()
 
 func init() {
@@ -25,7 +30,7 @@ func RegisterMessages(cdc *amino.Codec) {
 func AsBytes(msg *types.DKGMessage) (ret []byte) {
 
 	as_bytes := cdc.MustMarshalBinaryBare(*msg)
-	ret = append([]byte("SP:DKG"), as_bytes...)
+	ret = append([]byte(Prefix), as_bytes...)
 
 	return
 }
@@ -52,10 +57,19 @@ func AsDKG(msg interface{}) (ret types.DKGMessage, err error) {
 // IsDKGRelated informs as to whether this TX (bytes) is an on chain DKG transaction.
 // At the moment this is signified by the leading bytes being 'SP:DKG' (special tx: DKG)
 func IsDKGRelated(tx []byte) bool {
-	if len(tx) >= 6 && bytes.Equal(tx[0:6], []byte("SP:DKG")) {
+	if len(tx) >= PrefixLen && bytes.Equal(tx[0:PrefixLen], []byte(Prefix)) {
 		return true
 	}
 	return false
+}
+
+// Determine if the transaction is DKG related, if so then filter off the custom header
+func FilterCustomHeader(tx []byte) []byte {
+	if !IsDKGRelated(tx) {
+		return tx
+	}
+
+	return tx[PrefixLen:]
 }
 
 type MessageHandler interface {
