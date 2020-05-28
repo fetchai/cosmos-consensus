@@ -32,7 +32,7 @@ RUN export CGO_ENABLED=1 && \
 FROM ubuntu:18.04
 
 RUN apt update && \
-	apt install -y libboost-serialization-dev netcat socat lsof
+	apt install -y libboost-serialization-dev netcat socat lsof curl iproute2 dnsutils vim
 
 WORKDIR /tendermint
 
@@ -45,4 +45,7 @@ EXPOSE 26655-26658
 EXPOSE 26654
 
 COPY ./mytestnet/node0/data/priv_validator_state.json .
+
 COPY run.sh .
+COPY network_control.sh .
+COPY dns_lookup.sh .

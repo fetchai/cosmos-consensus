@@ -8,6 +8,7 @@ metadata:
 spec:
   selector:
     app: {node}
+    version: v1
   ports:
     - name: p2p-port
       port: 26656
@@ -15,6 +16,8 @@ spec:
       port: 26654
     - name: prom-port
       port: 26660
+    - name: test-port
+      port: 26657
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -36,6 +39,7 @@ spec:
         prometheus.io/path:   '/metrics'
       labels:
         app: {node}
+        version: v1
     spec:
       volumes:
         - name: config-toml-volume
@@ -50,6 +54,10 @@ spec:
           image: {container}
           imagePullPolicy: {pull_policy}
           command: [ "/tendermint/run.sh" ]
+
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "SYS_TIME"]
 
           env:
           - name: REDIRECT_LOCALHOST
@@ -68,6 +76,8 @@ spec:
               containerPort: 26654
             - name: prom-port
               containerPort: 26660
+            - name: test-port
+              containerPort: 26657
 
           resources:
             requests:
