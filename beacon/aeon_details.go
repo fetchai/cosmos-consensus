@@ -57,20 +57,13 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 	if startHeight <= 0 || endHeight < startHeight {
 		panic(fmt.Errorf("aeonDetails invalid start/end height"))
 	}
-	qual := make([]*types.Validator, 0)
-	for index := 0; index < len(validators.Validators); index++ {
-		if aeonKeys.InQual(uint(index)) {
-			qual = append(qual, validators.Validators[index])
-		}
-	}
-	newVals := types.NewValidatorSet(qual)
 	if aeonKeys.CanSign() {
 		if newPrivValidator == nil {
 			panic(fmt.Errorf("aeonDetails has DKG keys but no privValidator"))
 		}
-		index, _ := newVals.GetByAddress(newPrivValidator.GetPubKey().Address())
-		if index < 0 {
-			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators"))
+		index, _ := validators.GetByAddress(newPrivValidator.GetPubKey().Address())
+		if index < 0 || !aeonKeys.InQual(uint(index)) {
+			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators or qual"))
 		}
 		if !aeonKeys.CheckIndex(uint(index)) {
 			i := 0
@@ -84,7 +77,7 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 	ad := &aeonDetails{
 		privValidator:   newPrivValidator,
 		validatorHeight: valHeight,
-		validators:      newVals,
+		validators:      types.NewValidatorSet(validators.Validators),
 		aeonExecUnit:    aeonKeys,
 		threshold:       validators.Size()/2 + 1,
 		Start:           startHeight,
@@ -127,6 +120,14 @@ func (aeon *aeonDetails) save(filePath string) {
 type AeonDetailsFile struct {
 	PublicInfo DKGOutput `json:"public_info"`
 	PrivateKey string    `json:"private_key"`
+}
+
+func (aeonFile *AeonDetailsFile) IsForSamePeriod(other *AeonDetailsFile) bool {
+	if (other != nil) && (aeonFile.PublicInfo.Start == other.PublicInfo.Start) && (aeonFile.PublicInfo.End == other.PublicInfo.End) {
+		return true
+	}
+
+	return false
 }
 
 // Save creates json with aeon details

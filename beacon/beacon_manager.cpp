@@ -502,9 +502,9 @@ AeonExecUnit BeaconManager::GetDkgOutput() const
   auto output             = DKGKeyInformation();
   output.group_public_key = public_key_.ToString();
   output.private_key      = secret_share_.ToString();
-  for (auto elem : qual_)
+  for (auto elem : public_key_shares_)
   {
-    output.public_key_shares.push_back(public_key_shares_[elem].ToString());
+    output.public_key_shares.push_back(elem.ToString());
   }
   AeonExecUnit aeon{GetGroupG().ToString(), output, qual_};
   return aeon;

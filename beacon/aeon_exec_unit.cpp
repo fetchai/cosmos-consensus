@@ -69,20 +69,16 @@ AeonExecUnit::AeonExecUnit(std::string generator, DKGKeyInformation keys, std::s
   , generator_{std::move(generator)}
   , qual_{std::move(qual)} 
   {
-  assert(aeon_keys_.public_key_shares.size() == qual_.size());
   CheckKeys();
 }
 
 AeonExecUnit::AeonExecUnit(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual) 
 {
-  std::set<CabinetIndex> qual_set;
   for (auto const &index : qual) {
-    qual_set.insert(index);
+    qual_.insert(index);
   }
   aeon_keys_ = keys;
   generator_ = generator;
-  qual_ = std::move(qual_set);
-  assert(aeon_keys_.public_key_shares.size() == qual_.size());
   CheckKeys();
 }
 
