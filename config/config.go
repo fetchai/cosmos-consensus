@@ -595,7 +595,7 @@ func DefaultP2PConfig() *P2PConfig {
 		RecvRate:                5120000, // 5 mB/s
 		PexReactor:              true,
 		SeedMode:                false,
-		AllowDuplicateIP:        false,
+		AllowDuplicateIP:        true,
 		HandshakeTimeout:        20 * time.Second,
 		DialTimeout:             3 * time.Second,
 		TestDialFail:            false,
