@@ -57,7 +57,7 @@ spec:
 
           securityContext:
             capabilities:
-              add: ["NET_ADMIN", "SYS_TIME"]
+              add: ["NET_ADMIN"]
 
           env:
           - name: REDIRECT_LOCALHOST
