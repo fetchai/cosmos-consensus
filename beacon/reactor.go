@@ -95,6 +95,7 @@ func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 		beaconR.findAndSetLastEntropy(lastBlockHeight)
 	} else {
 		beaconR.entropyGen.SetLastComputedEntropy(lastBlockHeight, state.LastComputedEntropy)
+		/* beaconR.entropyGen.changeKeys() */
 	}
 	beaconR.entropyGen.setLastBlockHeight(lastBlockHeight)
 
