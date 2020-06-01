@@ -94,6 +94,7 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 
 	// Notify peers of block height
 	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
+
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
 		// Sign entropy
 		entropyGenerator.sign()
@@ -182,6 +183,7 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	// Check no existing nextAeon
 	if entropyGenerator.nextAeon != nil {
 		entropyGenerator.Logger.Error("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v", entropyGenerator.nextAeon.Start, aeon.Start);
+		entropyGenerator.aeon = entropyGenerator.nextAeon
 	}
 	// Check entropy keys are not old
 	if entropyGenerator.lastBlockHeight+1 > aeon.End {
@@ -463,6 +465,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	height := entropyGenerator.lastBlockHeight + 1
 	if entropyGenerator.aeon == nil {
 		entropyGenerator.lastBlockHeight++
+
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
 		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
