@@ -1000,18 +1000,36 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 // (possibly forever)
 func (cs *ConsensusState) getNewEntropy(height int64) *types.ChannelEntropy {
 
+	timeoutMs := int64(1000)
+	timeThen := time.Now()
+
 	// Only during test cases should the entropy channel not be set.
 	if cs.haveSetEntropyChannel == false {
 		cs.newEntropy = types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
 	} else if cs.newEntropy == nil {
 
-		newEntropy := <-cs.entropyChannel
-		// Exclude height 0 case, which can occur when channel is being closed by entropy generator
-		for newEntropy.Height != 0 && newEntropy.Height < height {
-			newEntropy = <-cs.entropyChannel
+		var newEntropy types.ChannelEntropy
+
+		for {
+			select {
+				// Loop here attempting to get entropy from the channel until timeout.
+				// In the timeout case, return empty entropy
+			case newEntropy :=  <-cs.entropyChannel:
+				if newEntropy.Height != 0 && newEntropy.Height < height {
+					break
+				}
+			default:
+				timeElapasedMs := time.Now().Sub(timeThen).Milliseconds()
+				if timeElapasedMs >= timeoutMs {
+					fmt.Printf("Waited too long to generate entropy! Moving on.\n")
+					return &types.ChannelEntropy{}
+				}
+			}
 		}
+
 		if newEntropy.Height != height {
-			panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
+			//panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
+			fmt.Printf("This would have paniced: desired height: %v . Actual: %v\n", height, newEntropy.Height)
 		}
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
@@ -1183,7 +1201,8 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 
 	// Check block entropy (note this can be empty in fallback mode which is fine)
 	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getNewEntropy(height).Entropy) {
-		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v", cs.getNewEntropy(height).Enabled))
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getNewEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
+		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
 

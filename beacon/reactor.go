@@ -88,12 +88,15 @@ func (beaconR *Reactor) OnStop() {
 // last computed entropy
 func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	beaconR.Logger.Info("SwitchToConsensus")
+
+	lastBlockHeight := state.LastBlockHeight
+
 	if len(state.LastComputedEntropy) == 0 {
-		beaconR.findAndSetLastEntropy(state.LastBlockHeight)
+		beaconR.findAndSetLastEntropy(lastBlockHeight)
 	} else {
-		beaconR.entropyGen.SetLastComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy)
+		beaconR.entropyGen.SetLastComputedEntropy(lastBlockHeight, state.LastComputedEntropy)
 	}
-	beaconR.entropyGen.setLastBlockHeight(state.LastBlockHeight)
+	beaconR.entropyGen.setLastBlockHeight(lastBlockHeight)
 
 	beaconR.mtx.Lock()
 	beaconR.fastSync = false
@@ -266,6 +269,7 @@ func (beaconR *Reactor) gossipEntropySharesRoutine(peer p2p.Peer, ps *PeerState)
 	logger := beaconR.Logger.With("peer", peer)
 	// Send peer most recent computed entropy if not fast syncing
 	if !beaconR.getFastSync() {
+		fmt.Printf("Sending a height: %v\n", beaconR.entropyGen.getLastBlockHeight())
 		peer.Send(StateChannel, cdc.MustMarshalBinaryBare(&NewEntropyHeightMessage{Height: beaconR.entropyGen.getLastBlockHeight()}))
 	}
 
@@ -386,6 +390,7 @@ func (ps *PeerState) sendEntropy(nextEntropyHeight int64, entropy types.Threshol
 	ps.logger.Debug("sendEntropy", "ps", ps, "height", nextEntropyHeight)
 	msg := &ComputedEntropyMessage{Height: nextEntropyHeight, GroupSignature: entropy}
 	ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
+	fmt.Printf("SEnding entropy\n")
 }
 
 // pickSendEntropyShare sends all entropy shares that peer needs
@@ -394,6 +399,7 @@ func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares
 		if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
 			msg := &EntropyShareMessage{value}
 			if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
+				fmt.Printf(":PLZ\n")
 				ps.logger.Debug("pickSendEntropyShare succeeded", "ps", ps, "height", value.Height, "share index", key)
 				ps.hasEntropyShare(nextEntropyHeight, int(key), numValidators)
 			}
