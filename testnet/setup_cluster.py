@@ -15,6 +15,10 @@ DOCKER_IMG_NAME=DOCKER_HOST+"tendermint-drb"
 DOCKER_IMG_TAG="no-tag-found"
 TRADER_CONTAINER = DOCKER_HOST+"traders:latest"
 
+# Whether to supress stdout when calling programs like kubectl
+SILENT_MODE=False
+STDOUT_DEFAULT=None if True else subprocess.DEVNULL
+
 # If this is true, deployments use :latest rather than the commit tag
 USE_LATEST_TAG = False
 
@@ -38,7 +42,20 @@ def parse_commandline():
     parser.add_argument('-u', '--update-img-tag', action='store_true', help='Update the latest docker image with our commit tag (and push)')
     parser.add_argument('-t', '--traders', action='store_true', help='Deploy a traders (sends lots of TXs) container targeting N validators (need to specify with -v flag)')
     parser.add_argument('-a', '--adjust-network-size', type=int, default=-1, help='Adjust the network down to N nodes (remove)')
+    parser.add_argument('-c', '--clear-network-delays', action='store_true', help='Clear network delays - must also be done before setting any network delays')
+    parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100 (node1-0 -> node2-0 delay)')
+    # TODO(HUT): correct this.
+    parser.add_argument('-x', '--send-html', action='append', nargs="*", help='Send html string to node. Format: node0-0 index.html')
     return parser.parse_args()
+
+# Helper function to run commands in their directory, optionally silently (set by STDOUT_DEFAULT)
+def run_command(command: str, command_args: str = ""):
+
+    return_obj = subprocess.run([command, *command_args.split()], cwd=THIS_FILE_DIR, stdout=STDOUT_DEFAULT)
+
+    if return_obj.returncode:
+        print(f"Failed to run command {command} {command_args}, error code: {return_obj.returncode}")
+        sys.exit(1)
 
 # Check that the docker image your network is to use actually has it at the remote
 # to avoid an image pull error
@@ -56,26 +73,13 @@ def get_docker_img_name():
         DOCKER_IMG_TAG = version
 
 def build_docker_image(args):
-
     executable_full_path = os.path.abspath("build_docker_img.sh")
-
-    exit_code = subprocess.call([executable_full_path, DOCKER_IMG_NAME, DOCKER_IMG_TAG], cwd=THIS_FILE_DIR)
-
-    if exit_code:
-        print(exit_code)
-        print("quitting due to exit code")
-        sys.exit(1)
+    run_command(executable_full_path, f"{DOCKER_IMG_NAME} {DOCKER_IMG_TAG}")
 
 # Note: this will also push the image
 def build_traders_img(args):
-
     executable_full_path = os.path.abspath(f"{THIS_FILE_DIR}/traders/build_docker_img.sh")
-    exit_code = subprocess.call([executable_full_path], cwd=THIS_FILE_DIR)
-
-    if exit_code:
-        print(exit_code)
-        print("quitting due to exit code")
-        sys.exit(1)
+    run_command(executable_full_path)
 
 def deploy_traders(validators: int):
 
@@ -93,7 +97,7 @@ def deploy_traders(validators: int):
     with open(trader_file, mode="w") as f:
         f.write(trader_template)
 
-    exit_code = subprocess.call(["kubectl", "apply", "-f", trader_file])
+    run_command("kubectl", f"apply -f {trader_file}")
 
 def adjust_network_size(new_size: int):
 
@@ -102,7 +106,7 @@ def adjust_network_size(new_size: int):
         node_number = int(str(path).split('node')[1].split('.yaml')[0])
 
         if node_number >= new_size:
-            exit_code = subprocess.call(["kubectl", "delete", "-f", path])
+            run_command("kubectl", f"delete -f {path}")
 
             if exit_code:
                 print(exit_code)
@@ -111,54 +115,29 @@ def adjust_network_size(new_size: int):
 
 
 def push_docker_image(args):
-    exit_code = subprocess.call(["docker", "push", DOCKER_IMG_NAME+":"+DOCKER_IMG_TAG], cwd=THIS_FILE_DIR)
-
-    if exit_code:
-        print(exit_code)
-        print("quitting due to exit code")
-        sys.exit(1)
+    run_command("docker", f"push {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}")
 
 def deploy_nodes():
 
     # Note: important to load the config before anything else
     pathlist = Path(YAML_DIR).glob('**/*config*.yaml')
     for path in pathlist:
-        exit_code = subprocess.call(["kubectl", "apply", "-f", path])
-
-        if exit_code:
-            print(exit_code)
-            print("quitting due to exit code")
-            sys.exit(1)
+        run_command("kubectl", f"apply -f {path}")
 
     pathlist = Path(YAML_DIR).glob('**/*.yaml')
     for path in pathlist:
-        exit_code = subprocess.call(["kubectl", "apply", "-f", path])
-
-        if exit_code:
-            print(exit_code)
-            print("quitting due to exit code")
-            sys.exit(1)
+        run_command("kubectl", f"apply -f {path}")
 
 def deploy_grafana(args):
 
     pathlist = Path(GRAFANA_DIR).glob('**/*.yaml')
     for path in pathlist:
-        exit_code = subprocess.call(["kubectl", "apply", "-f", path])
-
-        if exit_code:
-            print(exit_code)
-            print("quitting due to exit code")
-            sys.exit(1)
+        run_command("kubectl", f"apply -f {path}")
 
 def create_files_for_validators(validators: int):
 
     # Ask tendermint to create the desired files
-    exit_code = subprocess.call(["tendermint", "testnet", "--v", str(validators)], cwd=THIS_FILE_DIR)
-
-    if exit_code:
-        print(exit_code)
-        print("quitting due to exit code")
-        sys.exit(1)
+    run_command("tendermint", f"testnet --v {validators}")
 
     # perform a search and replace on the config files to turn on
     # metrics
@@ -212,25 +191,64 @@ def populate_node_yaml(validators: int):
 
 # Delete statefulsets and persistentVolumeClaims with the tendermint-drb label (so only stuff we have deployed)
 def remove_network():
-    exit_code = subprocess.call(["kubectl", "delete", "sts,pods,pvc,svc", "-l", "networkName=tendermint-drb"])
-
-    if exit_code:
-        print(exit_code)
-        print("quitting due to exit code")
-        sys.exit(1)
+    run_command("kubectl", "delete sts,pods,pvc,svc -l networkName=tendermint-drb")
 
 def update_img_tag():
-    exit_code = subprocess.call(f"docker tag {DOCKER_IMG_NAME} {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}".split())
+    run_command("docker", "tag {DOCKER_IMG_NAME} {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}")
 
-    if exit_code:
-        print(exit_code)
-        print("quitting due to exit code")
-        sys.exit(1)
+def run_on_pods(command: str, nodes: list):
+
+    parsed = []
+
+    if nodes[0] == "*":
+        response = subprocess.check_output("kubectl get pods".split()).decode().strip()
+
+        for line in response.split('\n'):
+            if 'node' in line:
+                parsed = [*parsed, line.split()[0]]
+    else:
+        parsed = nodes
+
+    print(f"Running \"{command}\" on nodes {parsed}")
+
+    for node in parsed:
+        run_command("kubectl", f"exec {node} {command}")
+
+def do_network_delays(delays: list):
+
+    for desired_delay in delays:
+        node_from = desired_delay[0]
+        node_to   = desired_delay[1].split('-')[0] # Need the DNS name of the node here
+        delay     = desired_delay[2]
+
+        if not 'node' in node_from or not 'node' in node_to or not 'ms' in delay:
+            print("Incorrect args when setting delay: use the format node0-0 node1-0 100ms. Make sure to specify by pod.")
+            sys.exit(1)
+
+        run_on_pods(f"/tendermint/network_control.sh delay {node_to} {delay}", nodes=[node_from])
+        #print(args.network_delays)
+
+def send_html(args: list):
+    # Args is a list of lists
+    for arg in args:
+        run_on_pods(" ".join(arg[1:]), nodes=[arg[0]])
 
 def main():
     args = parse_commandline()
 
     get_docker_img_name()
+
+    if args.send_html:
+        send_html(args.send_html)
+        sys.exit(0)
+
+    if args.clear_network_delays:
+        run_on_pods("/tendermint/network_control.sh reset", nodes=["*"])
+        sys.exit(0)
+
+    if args.network_delays:
+        do_network_delays(args.network_delays)
+        sys.exit(0)
 
     if args.traders:
         if args.validators <= 0:
