@@ -1027,9 +1027,9 @@ func (cs *ConsensusState) getNewEntropy(height int64) *types.ChannelEntropy {
 			}
 		}
 
+		// Note, this can currently happen during catchup
 		if newEntropy.Height != height {
-			//panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
-			fmt.Printf("This would have paniced: desired height: %v . Actual: %v\n", height, newEntropy.Height)
+			panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
 		}
 		if err := newEntropy.ValidateBasic(); err != nil {
 			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))

@@ -94,7 +94,6 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 
 	// Notify peers of block height
 	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
-			fmt.Printf("Firing off entropy2! %v \n", entropyGenerator.lastBlockHeight)
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
 		// Sign entropy
 		entropyGenerator.sign()
@@ -159,8 +158,6 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, e
 		return
 	}
 
-	fmt.Printf("Setting last computed entropy at height %v \n", height)
-
 	entropyGenerator.entropyComputed[height] = entropy
 	// If new entropy is more recent that our last computed entropy then update
 	if height > entropyGenerator.lastComputedEntropyHeight {
@@ -184,9 +181,7 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 
 	// Check no existing nextAeon
 	if entropyGenerator.nextAeon != nil {
-		//panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
-		//	entropyGenerator.nextAeon.Start, aeon.Start))
-		fmt.Printf("This would have crashed!\n")
+		entropyGenerator.Logger.Error("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v", entropyGenerator.nextAeon.Start, aeon.Start);
 	}
 	// Check entropy keys are not old
 	if entropyGenerator.lastBlockHeight+1 > aeon.End {
@@ -267,10 +262,8 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, ent
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 		if entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, string(entropy)) {
 			entropyGenerator.entropyComputed[height] = entropy
-			fmt.Printf("Valid entropy at height: %v \n", height)
 		} else {
-			//entropyGenerator.Logger.Error("received invalid computed entropy. Note: height is: ", height)
-			fmt.Printf("Invalid entropy at height: %v %v %v\n", height)
+			entropyGenerator.Logger.Error("received invalid computed entropy. Note: height is: ", height)
 		}
 	}
 	//TODO: Should down rate peers which send irrelevant computed entropy or invalid entropy
@@ -452,10 +445,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			entropyGenerator.changeKeys()
 
 			// Notify peers of of new entropy height
-			fmt.Printf("Notifying peers of last block height %v \n", entropyGenerator.lastBlockHeight)
 			entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
-
-			fmt.Printf("Firing off entropy!\n")
 
 			// Continue onto the next random value
 			entropyGenerator.sign()
