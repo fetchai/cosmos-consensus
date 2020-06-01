@@ -265,7 +265,7 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, ent
 		if entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, string(entropy)) {
 			entropyGenerator.entropyComputed[height] = entropy
 		} else {
-			entropyGenerator.Logger.Error("received invalid computed entropy. Note: height is: ", height)
+			entropyGenerator.Logger.Error("received invalid computed entropy", "height", height)
 		}
 	}
 	//TODO: Should down rate peers which send irrelevant computed entropy or invalid entropy
