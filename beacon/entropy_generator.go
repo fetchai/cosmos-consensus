@@ -94,6 +94,7 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 
 	// Notify peers of block height
 	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
+
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
 		// Sign entropy
 		entropyGenerator.sign()
@@ -157,6 +158,7 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, e
 		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", height)
 		return
 	}
+
 	entropyGenerator.entropyComputed[height] = entropy
 	// If new entropy is more recent that our last computed entropy then update
 	if height > entropyGenerator.lastComputedEntropyHeight {
@@ -178,11 +180,16 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	// Check no existing nextAeon
-	if entropyGenerator.nextAeon != nil {
+	// In the scenario where the entropy generator is not running (during sync)
+	// we want to maintain aeon and nextAeon for when it finishes. Otherwise,
+	// the nextAeon should be nil as it has been used.
+	if !entropyGenerator.IsRunning() {
+		entropyGenerator.aeon = entropyGenerator.nextAeon
+	} else if (entropyGenerator.nextAeon != nil) {
 		panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
 			entropyGenerator.nextAeon.Start, aeon.Start))
 	}
+
 	// Check entropy keys are not old
 	if entropyGenerator.lastBlockHeight+1 > aeon.End {
 		return
@@ -263,7 +270,7 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, ent
 		if entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, string(entropy)) {
 			entropyGenerator.entropyComputed[height] = entropy
 		} else {
-			entropyGenerator.Logger.Error("received invalid computed entropy")
+			entropyGenerator.Logger.Error("received invalid computed entropy", "height", height)
 		}
 	}
 	//TODO: Should down rate peers which send irrelevant computed entropy or invalid entropy
@@ -463,6 +470,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	height := entropyGenerator.lastBlockHeight + 1
 	if entropyGenerator.aeon == nil {
 		entropyGenerator.lastBlockHeight++
+
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
 		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
