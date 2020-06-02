@@ -696,6 +696,11 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *ConsensusState) handleMsg(mi msgInfo) {
+
+	// Since this function blocks, best to request the entropy so that
+	// subsequent calls for it below do not hold the cs.mtx too long
+	cs.getNewEntropy(cs.Height)
+
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 
