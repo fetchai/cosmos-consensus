@@ -94,6 +94,7 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 
 	// Notify peers of block height
 	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
+	entropyGenerator.changeKeys()
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
 		// Sign entropy
 		entropyGenerator.sign()
@@ -213,8 +214,11 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		entropyGenerator.aeon = nil
 		resetKeys = true
 	}
+	if entropyGenerator.nextAeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.nextAeon.End {
+		entropyGenerator.nextAeon = nil
+	}
 
-	if entropyGenerator.nextAeon != nil {
+	if entropyGenerator.aeon == nil && entropyGenerator.nextAeon != nil {
 		if entropyGenerator.lastBlockHeight+1 < entropyGenerator.nextAeon.Start {
 			entropyGenerator.Logger.Debug("changeKeys: Found keys not yet ready", "blockHeight", entropyGenerator.lastBlockHeight,
 				"start", entropyGenerator.nextAeon.Start)
