@@ -454,6 +454,7 @@ func updateState(
 		LastHeightConsensusParamsChanged: lastHeightParamsChanged,
 		LastResultsHash:                  abciResponses.ResultsHash(),
 		AppHash:                          nil,
+		LastComputedEntropy:              header.Entropy.GroupSignature,
 	}, nil
 }
 
