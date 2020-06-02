@@ -88,12 +88,16 @@ func (beaconR *Reactor) OnStop() {
 // last computed entropy
 func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	beaconR.Logger.Info("SwitchToConsensus")
+
+	lastBlockHeight := state.LastBlockHeight
+
 	if len(state.LastComputedEntropy) == 0 {
-		beaconR.findAndSetLastEntropy(state.LastBlockHeight)
+		beaconR.findAndSetLastEntropy(lastBlockHeight)
 	} else {
-		beaconR.entropyGen.SetLastComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy)
+		beaconR.entropyGen.SetLastComputedEntropy(lastBlockHeight, state.LastComputedEntropy)
 	}
-	beaconR.entropyGen.setLastBlockHeight(state.LastBlockHeight)
+
+	beaconR.entropyGen.setLastBlockHeight(lastBlockHeight)
 
 	beaconR.mtx.Lock()
 	beaconR.fastSync = false
@@ -136,17 +140,18 @@ func (beaconR *Reactor) getFastSync() bool {
 	return beaconR.fastSync
 }
 
+// Given that we are on block height, set the entropy generator with
+// the last block that had entropy
 func (beaconR *Reactor) findAndSetLastEntropy(height int64) {
-	// Start one before current block height as if current block had entropy it
-	// it would have been set into entropy generator
-	blockHeight := height - 1
-	for blockHeight > 0 {
-		blockEntropy := beaconR.blockStore.LoadBlockMeta(blockHeight).Header.Entropy.GroupSignature
+
+	for height > 0 {
+
+		blockEntropy := beaconR.blockStore.LoadBlockMeta(height).Header.Entropy.GroupSignature
 		if len(blockEntropy) != 0 {
-			beaconR.entropyGen.SetLastComputedEntropy(blockHeight, blockEntropy)
+			beaconR.entropyGen.SetLastComputedEntropy(height, blockEntropy)
 			break
 		}
-		blockHeight--
+		height--
 	}
 }
 

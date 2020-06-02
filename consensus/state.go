@@ -1183,7 +1183,8 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 
 	// Check block entropy (note this can be empty in fallback mode which is fine)
 	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getNewEntropy(height).Entropy) {
-		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v", cs.getNewEntropy(height).Enabled))
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getNewEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
+		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
 
