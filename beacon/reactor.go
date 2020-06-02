@@ -92,7 +92,7 @@ func (beaconR *Reactor) SwitchToConsensus(state sm.State) {
 	lastBlockHeight := state.LastBlockHeight
 
 	if len(state.LastComputedEntropy) == 0 {
-		lastBlockHeight = beaconR.findAndSetLastEntropy(lastBlockHeight)
+		beaconR.findAndSetLastEntropy(lastBlockHeight)
 	} else {
 		beaconR.entropyGen.SetLastComputedEntropy(lastBlockHeight, state.LastComputedEntropy)
 	}
@@ -140,21 +140,19 @@ func (beaconR *Reactor) getFastSync() bool {
 	return beaconR.fastSync
 }
 
-func (beaconR *Reactor) findAndSetLastEntropy(height int64) int64 {
-	// Start one before current block height as if current block had entropy it
-	// it would have been set into entropy generator
-	blockHeight := height - 1
-	for blockHeight > 0 {
+// Given that we are on block height, set the entropy generator with
+// the last block that had entropy
+func (beaconR *Reactor) findAndSetLastEntropy(height int64) {
 
-		blockEntropy := beaconR.blockStore.LoadBlockMeta(blockHeight).Header.Entropy.GroupSignature
+	for height > 0 {
+
+		blockEntropy := beaconR.blockStore.LoadBlockMeta(height).Header.Entropy.GroupSignature
 		if len(blockEntropy) != 0 {
-			beaconR.entropyGen.SetLastComputedEntropy(blockHeight, blockEntropy)
-			return blockHeight
+			beaconR.entropyGen.SetLastComputedEntropy(height, blockEntropy)
+			break
 		}
-		blockHeight--
+		height--
 	}
-
-	return 0
 }
 
 // InitPeer implements Reactor by creating a state for the peer.

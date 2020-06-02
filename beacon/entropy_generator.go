@@ -180,11 +180,16 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	// Check no existing nextAeon
-	if entropyGenerator.nextAeon != nil {
-		entropyGenerator.Logger.Error("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v", entropyGenerator.nextAeon.Start, aeon.Start);
+	// In the scenario where the entropy generator is not running (during sync)
+	// we want to maintain aeon and nextAeon for when it finishes. Otherwise,
+	// the nextAeon should be nil as it has been used.
+	if !entropyGenerator.IsRunning() {
 		entropyGenerator.aeon = entropyGenerator.nextAeon
+	} else if (entropyGenerator.nextAeon != nil) {
+		panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
+			entropyGenerator.nextAeon.Start, aeon.Start))
 	}
+
 	// Check entropy keys are not old
 	if entropyGenerator.lastBlockHeight+1 > aeon.End {
 		return
