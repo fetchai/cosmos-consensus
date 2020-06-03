@@ -776,6 +776,10 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 		return
 	}
 
+	// Since this function blocks, best to request the entropy so that
+	// subsequent calls for it below do not hold the cs.mtx too long
+	cs.getNewEntropy(cs.Height)
+
 	// the timeout will now cause a state transition
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
@@ -978,8 +982,12 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 
 func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
 
+	if cs.newEntropy == nil {
+		panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
+	}
+
 	// Get entropy for this round if not already set
-	newEntropy := cs.getNewEntropy(height)
+	newEntropy := cs.newEntropy
 	entropyEnabled := newEntropy.Enabled
 
 	// Use normal tendermint proposer selection when there is no entropy
@@ -1002,29 +1010,46 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 // Allows entropy to be received from any stage it is required, which is necessary for
 // catch up via WAL. Entropy is reset to empty at start and after every committed block.
 // Note that this function can block as long as it takes for the network to generate entropy
-// (possibly forever)
-func (cs *ConsensusState) getNewEntropy(height int64) *types.ChannelEntropy {
+// (possibly forever), and needs to lock when receiving new entropy
+func (cs *ConsensusState) getNewEntropy(height int64) {
+
+	// Lock needed for testing cs.newEntropy etc.
+	cs.mtx.Lock()
 
 	// Only during test cases should the entropy channel not be set.
 	if cs.haveSetEntropyChannel == false {
 		cs.newEntropy = types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
 	} else if cs.newEntropy == nil {
+		cs.mtx.Unlock()
 
-		newEntropy := <-cs.entropyChannel
-		// Exclude height 0 case, which can occur when channel is being closed by entropy generator
-		for newEntropy.Height != 0 && newEntropy.Height < height {
-			newEntropy = <-cs.entropyChannel
+		// Stay in this loop until either newEntropy has been set by a different
+		// thread, or it is set by this thread.
+		for findingEntropy := true; findingEntropy; {
+			cs.mtx.Lock()
+
+			var newEntropy types.ChannelEntropy
+
+			select {
+			case newEntropy := <-cs.entropyChannel:
+				if (newEntropy.Height == 0 || newEntropy.Height == height) && cs.newEntropy == nil {
+					cs.newEntropy = &newEntropy
+					findingEntropy = false
+				}
+			default:
+				if cs.newEntropy != nil {
+					findingEntropy = false
+				}
+			}
+
+			if cs.newEntropy.Height != height {
+				panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
+			}
+			if err := cs.newEntropy.ValidateBasic(); err != nil {
+				panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
+			}
+			cs.mtx.Unlock()
 		}
-		if newEntropy.Height != height {
-			panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
-		}
-		if err := newEntropy.ValidateBasic(); err != nil {
-			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
-		}
-		cs.newEntropy = &newEntropy
 	}
-
-	return cs.newEntropy
 }
 
 // TODO: Check that rand.Shuffle is same across different platforms
@@ -1060,7 +1085,11 @@ func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
 
-		block.Header.Entropy = cs.getNewEntropy(height).Entropy
+		if cs.newEntropy == nil {
+			panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
+		}
+
+		block.Header.Entropy = cs.newEntropy.Entropy
 		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
@@ -1128,9 +1157,13 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 
 	onlyDKGTxs := false
 
+	if cs.newEntropy == nil {
+		panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
+	}
+
 	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
 	// is no entropy currently
-	if cs.strictFiltering == true && cs.getNewEntropy(cs.Height).Enabled == false {
+	if cs.strictFiltering == true && cs.newEntropy.Enabled == false {
 		onlyDKGTxs = true
 	}
 
@@ -1186,9 +1219,13 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 		return
 	}
 
+	if cs.newEntropy == nil {
+		panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
+	}
+
 	// Check block entropy (note this can be empty in fallback mode which is fine)
-	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getNewEntropy(height).Entropy) {
-		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getNewEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
+	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.newEntropy.Entropy) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.newEntropy.Enabled, cs.ProposalBlock.Header.Entropy))
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
