@@ -899,7 +899,13 @@ func (cs *ConsensusState) enterNewRound(height int64, round int) {
 				cstypes.RoundStepNewRound)
 		}
 	} else {
-		cs.enterPropose(height, round)
+		// For the first round , do not attempt to enter propose directly as entropy
+		// might not be ready
+		if round == 0 {
+			cs.scheduleTimeout(cs.config.Propose(round), height, round, cstypes.RoundStepPropose)
+		} else {
+			cs.enterPropose(height, round)
+		}
 	}
 }
 
@@ -1062,6 +1068,12 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 // Convenience function to return the entropy, checking that when it is requested,
 // it is set and the height is correct
 func (cs *ConsensusState) getEntropy() *types.ChannelEntropy {
+
+	// Return default entropy when testing
+	if cs.haveSetEntropyChannel == false {
+		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
+	}
+
 	if cs.newEntropy == nil {
 		panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
 	}
