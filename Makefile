@@ -6,7 +6,7 @@ GOTOOLS = \
 GOBIN?=${GOPATH}/bin
 
 # Exclude go package inside mcl
-PACKAGES=$(shell find . -name "*_test.go" -not -path "./vendor/*" -not -path "./beacon/beacon_cpp/*" | xargs -I {} dirname {}  | uniq)
+PACKAGES=$(shell find . -name "*_test.go" -not -path "./vendor/*" -not -path "./beacon/beacon_cpp/*" | xargs -I {} dirname {}  | uniq | sort)
 
 OUTPUT?=build/tendermint
 
