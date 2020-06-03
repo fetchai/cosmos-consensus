@@ -989,7 +989,7 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
 
 	// Get entropy for this round if not already set
-	newEntropy := cs.getEntropy()
+	newEntropy := cs.getEntropy(height)
 	entropyEnabled := newEntropy.Enabled
 
 	// Use normal tendermint proposer selection when there is no entropy
@@ -1067,7 +1067,7 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 
 // Convenience function to return the entropy, checking that when it is requested,
 // it is set and the height is correct
-func (cs *ConsensusState) getEntropy() *types.ChannelEntropy {
+func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
 
 	// Return default entropy when testing
 	if cs.haveSetEntropyChannel == false {
@@ -1078,8 +1078,8 @@ func (cs *ConsensusState) getEntropy() *types.ChannelEntropy {
 		panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
 	}
 
-	if cs.newEntropy.Height != cs.Height {
-		panic(fmt.Sprintf("Height mismatch found between entropy and the height of the consensus state! %v %v", cs.newEntropy.Height, cs.Height))
+	if cs.newEntropy.Height != height {
+		panic(fmt.Sprintf("Height mismatch found between entropy and the height of the consensus state! %v %v", cs.newEntropy.Height, height))
 	}
 
 	return cs.newEntropy
@@ -1118,7 +1118,7 @@ func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
 
-		block.Header.Entropy = cs.getEntropy().Entropy
+		block.Header.Entropy = cs.getEntropy(height).Entropy
 		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
@@ -1188,7 +1188,7 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 
 	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
 	// is no entropy currently
-	if cs.strictFiltering == true && cs.getEntropy().Enabled == false {
+	if cs.strictFiltering == true && cs.getEntropy(cs.Height).Enabled == false {
 		onlyDKGTxs = true
 	}
 
@@ -1245,8 +1245,8 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	}
 
 	// Check block entropy (note this can be empty in fallback mode which is fine)
-	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getEntropy().Entropy) {
-		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getEntropy().Enabled, cs.ProposalBlock.Header.Entropy))
+	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getEntropy(height).Entropy) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
