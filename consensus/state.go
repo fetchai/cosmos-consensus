@@ -901,8 +901,8 @@ func (cs *ConsensusState) enterNewRound(height int64, round int) {
 	} else {
 		// For the first round , do not attempt to enter propose directly as entropy
 		// might not be ready
-		if round == 0 {
-			cs.scheduleTimeout(cs.config.Propose(round), height, round, cstypes.RoundStepNewRound)
+		if round == 0 && cs.haveSetEntropyChannel {
+			cs.scheduleTimeout(time.Duration(0), height, round, cstypes.RoundStepNewRound)
 		} else {
 			cs.enterPropose(height, round)
 		}
