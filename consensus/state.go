@@ -1114,6 +1114,11 @@ func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
 
 	// Can convert to channel entropy from block entropy
 	blockMeta := cs.blockStore.LoadBlockMeta(height)
+
+	if blockMeta == nil {
+		panic(fmt.Sprintf("Failed to find entropy at height %v, and failed to get block at that height from the store!\n", height))
+	}
+
 	blockEnt := blockMeta.Header.Entropy
 	enabled := types.IsEmptyBlockEntropy(&blockEnt)
 	chanEnt := &types.ChannelEntropy{Height: height, Entropy: blockEnt, Enabled: enabled}

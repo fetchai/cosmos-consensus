@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"runtime/debug"
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/types"
@@ -42,7 +41,6 @@ func validateBlock(evidencePool EvidencePool, stateDB dbm.DB, state State, block
 
 	// Validate prev block info.
 	if !block.LastBlockID.Equals(state.LastBlockID) {
-		debug.PrintStack()
 		return fmt.Errorf("Wrong Block.Header.LastBlockID.  Expected %v, got %v",
 			state.LastBlockID,
 			block.LastBlockID,
