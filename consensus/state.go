@@ -1030,6 +1030,11 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 	cs.mtx.Lock()
 	haveSetE := cs.haveSetEntropyChannel
 	heightToFill := height + 1
+
+	if cs.newEntropy == nil {
+		//cs.newEntropy = make(map[int64]*types.ChannelEntropy)
+		panic(fmt.Sprintf("newEntropy is nil - this should not happen\n"))
+	}
 	cs.mtx.Unlock()
 
 	// Only during test cases should the entropy channel not be set.
@@ -1080,10 +1085,9 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", newEntropy.Height, err))
 				}
 
-				// We want height and height +1, drop older stuff
-				if newEntropy.Height >= heightToFill - 1 {
-					cs.newEntropy[newEntropy.Height] = &newEntropy
-				}
+				// We want height and height +1, but don't drop older stuff
+				// as it will be cleared anyway when advancing the height
+				cs.newEntropy[newEntropy.Height] = &newEntropy
 			}
 			cs.mtx.Unlock()
 
@@ -1115,7 +1119,8 @@ func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
 	cs.Logger.Error("Failed to find entropy populated from the entropy gen. Attempting to locate in the block store. Height requested: ", height, " current height: ", cs.Height)
 
 	// Can convert to channel entropy from block entropy
-	blockEnt := cs.blockStore.LoadBlockMeta(height).Header.Entropy
+	blockMeta := cs.blockStore.LoadBlockMeta(height)
+	blockEnt := blockMeta.Header.Entropy
 	enabled := types.IsEmptyBlockEntropy(&blockEnt)
 	chanEnt := &types.ChannelEntropy{Height: height, Entropy: blockEnt, Enabled: enabled}
 
@@ -1660,8 +1665,13 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
 
-	// Reset entropy. Important that this is only done here!
-	cs.newEntropy = nil
+	// Clear old entropy from map - it should now be
+	// accessable via the block store
+	for key, _ := range cs.newEntropy {
+		if key < cs.Height {
+			delete(cs.newEntropy, key)
+		}
+	}
 
 	fail.Fail() // XXX
 

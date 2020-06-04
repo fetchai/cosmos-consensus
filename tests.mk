@@ -74,7 +74,7 @@ vagrant_test:
 ### go tests
 test:
 	@echo "--> Running go test"
-	@go test -parallel 1 $(PACKAGES)
+	@go test -timeout 60s -parallel 1 $(PACKAGES)
 
 test_no_cache:
 	@echo "--> Running go test (without caching)"
