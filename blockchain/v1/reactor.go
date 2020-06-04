@@ -430,11 +430,6 @@ func (bcR *BlockchainReactor) processBlock() error {
 	bcR.store.SaveBlock(first, firstParts, second.LastCommit)
 
 	bcR.state, err = bcR.blockExec.ApplyBlock(bcR.state, firstID, first)
-
-	if bcR.IsRunning() {
-		fmt.Println("BCR is running")
-	}
-
 	if err != nil {
 		panic(fmt.Sprintf("V1 BCR failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 	}
