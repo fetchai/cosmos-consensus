@@ -340,8 +340,11 @@ FOR_LOOP:
 				var err error
 				state, err = bcR.blockExec.ApplyBlock(state, firstID, first)
 				if err != nil {
+					if bcR.IsRunning() {
+						fmt.Println("bcr is running.")
+					}
 					// TODO This is bad, are we zombie?
-					panic(fmt.Sprintf("Failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
+					panic(fmt.Sprintf("V0 BCR Failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 				}
 				blocksSynced++
 
