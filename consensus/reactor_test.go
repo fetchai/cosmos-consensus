@@ -93,15 +93,15 @@ func stopConsensusNet(logger log.Logger, reactors []*ConsensusReactor, eventBuse
 
 // Ensure a testnet makes blocks
 func TestReactorBasic(t *testing.T) {
-//	N := 4
-//	css, cleanup := randConsensusNet(N, "consensus_reactor_test", newMockTickerFunc(true), newCounter)
-//	defer cleanup()
-//	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, N)
-//	defer stopConsensusNet(log.TestingLogger(), reactors, eventBuses)
-//	// wait till everyone makes the first new block
-//	timeoutWaitGroup(t, N, func(j int) {
-//		<-blocksSubs[j].Out()
-//	}, css)
+	N := 4
+	css, cleanup := randConsensusNet(N, "consensus_reactor_test", newMockTickerFunc(true), newCounter)
+	defer cleanup()
+	reactors, blocksSubs, eventBuses := startConsensusNet(t, css, N)
+	defer stopConsensusNet(log.TestingLogger(), reactors, eventBuses)
+	// wait till everyone makes the first new block
+	timeoutWaitGroup(t, N, func(j int) {
+		<-blocksSubs[j].Out()
+	}, css)
 }
 
 // Ensure we can process blocks with evidence
