@@ -142,9 +142,9 @@ type ConsensusState struct {
 	metrics *Metrics
 
 	// Last entropy and channel for receiving entropy
-	newEntropy            *types.ChannelEntropy
-	entropyChannel        <-chan types.ChannelEntropy
+	newEntropy            map[int64]*types.ChannelEntropy
 	haveSetEntropyChannel bool
+	entropyChannel        <-chan types.ChannelEntropy
 }
 
 // StateOption sets an optional parameter on the ConsensusState.
@@ -175,6 +175,7 @@ func NewConsensusState(
 		evpool:           evpool,
 		evsw:             tmevents.NewEventSwitch(),
 		metrics:          NopMetrics(),
+		newEntropy:       make(map[int64]*types.ChannelEntropy),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -697,9 +698,13 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
+	cs.mtx.Lock()
+	height := cs.Height
+	cs.mtx.Unlock()
+
 	// Since this function blocks, best to request the entropy so that
 	// subsequent calls for it below do not hold the cs.mtx too long
-	cs.getNewEntropy(cs.Height)
+	cs.getNewEntropy(height)
 
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
@@ -776,9 +781,13 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 		return
 	}
 
+	cs.mtx.Lock()
+	height := cs.Height
+	cs.mtx.Unlock()
+
 	// Since this function blocks, best to request the entropy so that
 	// subsequent calls for it below do not hold the cs.mtx too long
-	cs.getNewEntropy(cs.Height)
+	cs.getNewEntropy(height)
 
 	// the timeout will now cause a state transition
 	cs.mtx.Lock()
@@ -1009,58 +1018,78 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 	return proposer
 }
 
-// Allows entropy to be received from any stage it is required, which is necessary for
-// catch up via WAL. Entropy is reset to empty at start and after every committed block.
-// Note that this function can block as long as it takes for the network to generate entropy
-// (possibly forever), and needs to lock when receiving new entropy
+// Populate entropy into a map for the current block height and the next from the entropy
+// generator. Older entropy is trimmed. Subsequent requests for entropy can thus either
+// use the map, or the block store to get entropy. This function can block for as long
+// as it takes to generate entropy (possibly forever)
 func (cs *ConsensusState) getNewEntropy(height int64) {
 
-	// Lock needed for this check
+	// Global lock needed for this check
+	// Note the function keeps a copy of height + 1
+	// to avoid race conditions against cs.Height
 	cs.mtx.Lock()
 	haveSetE := cs.haveSetEntropyChannel
+	heightToFill := height + 1
 	cs.mtx.Unlock()
 
 	// Only during test cases should the entropy channel not be set.
+	// No need to set it as getEntropy will always succeed.
 	if haveSetE == false {
-		cs.mtx.Lock()
-		cs.newEntropy = types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
-		cs.mtx.Unlock()
+		return
 	} else {
 
-		// Stay in this loop until either newEntropy has been set by a different
+		heightFound        := false
+
+		// Stay in this loop until either height and height+1 has been set by a different
 		// thread, or it is set by this thread.
-		for findingEntropy := true; findingEntropy; {
+		for heightFound == false {
 			cs.mtx.Lock()
 
-			var newEntropy types.ChannelEntropy
+			// Check the current height - it might have increased which would indicate
+			// entropy for heightToFill is available via the block store. Also check the map
+			if cs.Height > heightToFill {
+				heightFound = true
+			}
 
-			// If there is no entropy, attempt to get some from the channel.
+			if _, ok := cs.newEntropy[heightToFill]; ok {
+				heightFound = true
+			}
+
+			// If there is no entropy set, attempt to get some from the channel.
 			// Note it is important not to unnecessarily pull entropy from
-			// the channel
-			if cs.newEntropy != nil {
-				findingEntropy = false
-			} else {
+			// the channel as it will cause it to run ahead
+			var newEntropy types.ChannelEntropy
+			receivedEntropy := false
+
+			if heightFound == false {
 				select {
-				case newEntropy := <-cs.entropyChannel:
-					if (newEntropy.Height == 0 || newEntropy.Height >= height) && cs.newEntropy == nil {
-						cs.newEntropy = &newEntropy
-						findingEntropy = false
-					}
+				case newEntropy = <-cs.entropyChannel:
+					receivedEntropy = true
 				default:
 				}
 			}
 
-			if findingEntropy == false {
-				if cs.newEntropy.Height != height {
-					panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
+			if receivedEntropy == true {
+				// If the entropy channel has closed, allow the loop to end
+				if newEntropy.Height == 0 {
+					cs.Logger.Error("Entropy channel closed when consensus was requesting it")
+					heightFound = true
 				}
-				if err := cs.newEntropy.ValidateBasic(); err != nil {
-					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
+				// Basic check entropy is good
+				if err := newEntropy.ValidateBasic(); err != nil {
+					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", newEntropy.Height, err))
+				}
+
+				// We want height and height +1, drop older stuff
+				if newEntropy.Height >= heightToFill - 1 {
+					cs.newEntropy[newEntropy.Height] = &newEntropy
 				}
 			}
 			cs.mtx.Unlock()
 
-			time.Sleep(50 * time.Millisecond)
+			if receivedEntropy == false {
+				time.Sleep(50 * time.Millisecond)
+			}
 		}
 	}
 }
@@ -1074,15 +1103,23 @@ func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
 		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
 	}
 
-	if cs.newEntropy == nil {
-		panic(fmt.Sprintf("Entropy was nil when expected to be set\n"))
-	}
+	// Attempt to get from the map
+	if entropy, ok := cs.newEntropy[height]; ok {
 
-	if cs.newEntropy.Height != height {
-		panic(fmt.Sprintf("Height mismatch found between entropy and the height of the consensus state! %v %v", cs.newEntropy.Height, height))
-	}
+		if entropy.Height != height {
+			panic(fmt.Sprintf("Height mismatch found between entropy and the height of entropy requested! %v vs %v", entropy.Height, height))
+		}
 
-	return cs.newEntropy
+		return entropy
+	}
+	cs.Logger.Error("Failed to find entropy populated from the entropy gen. Attempting to locate in the block store. Height requested: ", height, " current height: ", cs.Height)
+
+	// Can convert to channel entropy from block entropy
+	blockEnt := cs.blockStore.LoadBlockMeta(height).Header.Entropy
+	enabled := types.IsEmptyBlockEntropy(&blockEnt)
+	chanEnt := &types.ChannelEntropy{Height: height, Entropy: blockEnt, Enabled: enabled}
+
+	return chanEnt
 }
 
 // TODO: Check that rand.Shuffle is same across different platforms
