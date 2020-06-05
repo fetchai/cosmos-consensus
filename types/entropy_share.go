@@ -37,6 +37,11 @@ func EmptyBlockEntropy() *BlockEntropy {
 	}
 }
 
+// Function to test if a block entropy is empty
+func IsEmptyBlockEntropy(entropy *BlockEntropy) bool {
+	return len(entropy.GroupSignature) == 0
+}
+
 // NewBlockEntropy for constructing BlockEntropy
 func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64) *BlockEntropy {
 	return &BlockEntropy{

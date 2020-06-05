@@ -142,9 +142,9 @@ type ConsensusState struct {
 	metrics *Metrics
 
 	// Last entropy and channel for receiving entropy
-	newEntropy            *types.ChannelEntropy
-	entropyChannel        <-chan types.ChannelEntropy
+	newEntropy            map[int64]*types.ChannelEntropy
 	haveSetEntropyChannel bool
+	entropyChannel        <-chan types.ChannelEntropy
 }
 
 // StateOption sets an optional parameter on the ConsensusState.
@@ -175,6 +175,7 @@ func NewConsensusState(
 		evpool:           evpool,
 		evsw:             tmevents.NewEventSwitch(),
 		metrics:          NopMetrics(),
+		newEntropy:       make(map[int64]*types.ChannelEntropy),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -696,6 +697,15 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *ConsensusState) handleMsg(mi msgInfo) {
+
+	cs.mtx.Lock()
+	height := cs.Height
+	cs.mtx.Unlock()
+
+	// Since this function blocks, best to request the entropy so that
+	// subsequent calls for it below do not hold the cs.mtx too long
+	cs.getNewEntropy(height)
+
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 
@@ -770,6 +780,14 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 		cs.Logger.Debug("Ignoring tock because we're ahead", "height", rs.Height, "round", rs.Round, "step", rs.Step)
 		return
 	}
+
+	cs.mtx.Lock()
+	height := cs.Height
+	cs.mtx.Unlock()
+
+	// Since this function blocks, best to request the entropy so that
+	// subsequent calls for it below do not hold the cs.mtx too long
+	cs.getNewEntropy(height)
 
 	// the timeout will now cause a state transition
 	cs.mtx.Lock()
@@ -974,7 +992,7 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
 
 	// Get entropy for this round if not already set
-	newEntropy := cs.getNewEntropy(height)
+	newEntropy := cs.getEntropy(height)
 	entropyEnabled := newEntropy.Enabled
 
 	// Use normal tendermint proposer selection when there is no entropy
@@ -994,32 +1012,118 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 	return proposer
 }
 
-// Allows entropy to be received from any stage it is required, which is necessary for
-// catch up via WAL. Entropy is reset to empty at start and after every committed block.
-// Note that this function can block as long as it takes for the network to generate entropy
-// (possibly forever)
-func (cs *ConsensusState) getNewEntropy(height int64) *types.ChannelEntropy {
+// Populate entropy into a map for the current block height and the next from the entropy
+// generator. Older entropy is trimmed. Subsequent requests for entropy can thus either
+// use the map, or the block store to get entropy. This function can block for as long
+// as it takes to generate entropy (possibly forever)
+func (cs *ConsensusState) getNewEntropy(height int64) {
+
+	// Global lock needed for this check
+	// Note the function keeps a copy of height + 1
+	// to avoid race conditions against cs.Height
+	cs.mtx.Lock()
+	haveSetE := cs.haveSetEntropyChannel
+	heightToFill := height + 1
+
+	if cs.newEntropy == nil {
+		//cs.newEntropy = make(map[int64]*types.ChannelEntropy)
+		panic(fmt.Sprintf("newEntropy is nil - this should not happen\n"))
+	}
+	cs.mtx.Unlock()
 
 	// Only during test cases should the entropy channel not be set.
-	if cs.haveSetEntropyChannel == false {
-		cs.newEntropy = types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
-	} else if cs.newEntropy == nil {
+	// No need to set it as getEntropy will always succeed.
+	if haveSetE == false {
+		return
+	} else {
 
-		newEntropy := <-cs.entropyChannel
-		// Exclude height 0 case, which can occur when channel is being closed by entropy generator
-		for newEntropy.Height != 0 && newEntropy.Height < height {
-			newEntropy = <-cs.entropyChannel
+		heightFound        := false
+
+		// Stay in this loop until either height and height+1 has been set by a different
+		// thread, or it is set by this thread.
+		for heightFound == false {
+			cs.mtx.Lock()
+
+			// Check the current height - it might have increased which would indicate
+			// entropy for heightToFill is available via the block store. Also check the map
+			if cs.Height > heightToFill {
+				heightFound = true
+			}
+
+			if _, ok := cs.newEntropy[heightToFill]; ok {
+				heightFound = true
+			}
+
+			// If there is no entropy set, attempt to get some from the channel.
+			// Note it is important not to unnecessarily pull entropy from
+			// the channel as it will cause it to run ahead
+			var newEntropy types.ChannelEntropy
+			receivedEntropy := false
+
+			if heightFound == false {
+				select {
+				case newEntropy = <-cs.entropyChannel:
+					receivedEntropy = true
+				default:
+				}
+			}
+
+			if receivedEntropy == true {
+				// If the entropy channel has closed, allow the loop to end
+				if newEntropy.Height == 0 {
+					cs.Logger.Error("Entropy channel closed when consensus was requesting it")
+					heightFound = true
+				}
+				// Basic check entropy is good
+				if err := newEntropy.ValidateBasic(); err != nil {
+					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", newEntropy.Height, err))
+				}
+
+				// We want height and height +1, but don't drop older stuff
+				// as it will be cleared anyway when advancing the height
+				cs.newEntropy[newEntropy.Height] = &newEntropy
+			}
+			cs.mtx.Unlock()
+
+			if receivedEntropy == false {
+				time.Sleep(50 * time.Millisecond)
+			}
 		}
-		if newEntropy.Height != height {
-			panic(fmt.Sprintf("getNewEntropy(H:%d), invalid entropy height %v", height, newEntropy.Height))
-		}
-		if err := newEntropy.ValidateBasic(); err != nil {
-			panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", cs.state.LastBlockHeight+1, err))
-		}
-		cs.newEntropy = &newEntropy
+	}
+}
+
+// Convenience function to return the entropy, checking that when it is requested,
+// it is set and the height is correct
+func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
+
+	// Return default entropy when testing
+	if cs.haveSetEntropyChannel == false {
+		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
 	}
 
-	return cs.newEntropy
+	// Attempt to get from the map
+	if entropy, ok := cs.newEntropy[height]; ok {
+
+		if entropy.Height != height {
+			panic(fmt.Sprintf("Height mismatch found between entropy and the height of entropy requested! %v vs %v", entropy.Height, height))
+		}
+
+		return entropy
+	}
+	cs.Logger.Error("Failed to find entropy populated from the entropy gen. Attempting to locate in the block store. Height requested: ", height, " current height: ", cs.Height)
+
+	// Can convert to channel entropy from block entropy
+	blockMeta := cs.blockStore.LoadBlockMeta(height)
+
+	if blockMeta == nil {
+		panic(fmt.Sprintf("Failed to find entropy at height %v, and failed to get block at that height from the store!\n", height))
+	}
+
+	blockEnt := blockMeta.Header.Entropy
+	enabled := types.IsEmptyBlockEntropy(&blockEnt)
+	chanEnt := &types.ChannelEntropy{Height: height, Entropy: blockEnt, Enabled: enabled}
+
+	return chanEnt
 }
 
 // TODO: Check that rand.Shuffle is same across different platforms
@@ -1055,7 +1159,7 @@ func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
 
-		block.Header.Entropy = cs.getNewEntropy(height).Entropy
+		block.Header.Entropy = cs.getEntropy(height).Entropy
 		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
@@ -1125,7 +1229,7 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 
 	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
 	// is no entropy currently
-	if cs.strictFiltering == true && cs.getNewEntropy(cs.Height).Enabled == false {
+	if cs.strictFiltering == true && cs.getEntropy(cs.Height).Enabled == false {
 		onlyDKGTxs = true
 	}
 
@@ -1182,8 +1286,8 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	}
 
 	// Check block entropy (note this can be empty in fallback mode which is fine)
-	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getNewEntropy(height).Entropy) {
-		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getNewEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
+	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getEntropy(height).Entropy) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
@@ -1560,8 +1664,13 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
 
-	// Reset entropy. Important that this is only done here!
-	cs.newEntropy = nil
+	// Clear old entropy from map - it should now be
+	// accessable via the block store
+	for key, _ := range cs.newEntropy {
+		if key < cs.Height {
+			delete(cs.newEntropy, key)
+		}
+	}
 
 	fail.Fail() // XXX
 

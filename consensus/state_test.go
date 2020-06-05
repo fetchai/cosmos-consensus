@@ -236,6 +236,7 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 
 	entropyChannel <- *types.NewChannelEntropy(1, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 1, 2, 3, 4}, 0, 100, 0), true)
 	entropyChannel <- *types.NewChannelEntropy(2, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 5, 6, 7, 8}, 0, 100, 0), true)
+	entropyChannel <- *types.NewChannelEntropy(3, *types.EmptyBlockEntropy(), false) // Push through extra empty entropy so consensus can 'look ahead'
 
 	// Check validators for height 1
 	entropy := tmhash.Sum([]byte{0, 0, 0, 0, 1, 2, 3, 4})
@@ -250,6 +251,7 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 
 	countEqual := 0
 	for i := 0; i < 4; i++ {
+		cs1.getNewEntropy(1)
 		prop := cs1.getProposer(1, i)
 		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet[i].Address))
 		if bytes.Equal(prop.Address, cs1.Validators.GetProposer().Address) {
@@ -257,13 +259,11 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 		}
 	}
 
-	// Reset entropy
-	cs1.newEntropy = nil
-
 	// Check validators for height 2
 	entropy2 := tmhash.Sum([]byte{0, 0, 0, 0, 5, 6, 7, 8})
 	shuffledCabinet2 := cs1.shuffledCabinet(entropy2)
 	for i := 0; i < 4; i++ {
+		cs1.getNewEntropy(2)
 		prop := cs1.getProposer(2, i)
 		assert.True(t, bytes.Equal(prop.Address, shuffledCabinet2[i].Address))
 		if bytes.Equal(prop.Address, cs1.Validators.GetProposer().Address) {
