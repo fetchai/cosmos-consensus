@@ -313,6 +313,9 @@ func (c *MConnection) OnStop() {
 }
 
 func (c *MConnection) String() string {
+	if c.conn == nil {
+		return "NIL"
+	}
 	return fmt.Sprintf("MConn{%v}", c.conn.RemoteAddr())
 }
 
