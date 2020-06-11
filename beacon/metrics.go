@@ -34,6 +34,14 @@ type Metrics struct {
 	BlockWithEntropy metrics.Gauge
 	// Number of drops to no entropy
 	PeriodsWithNoEntropy metrics.Counter
+	// Start of current aeon
+	AeonStart metrics.Gauge
+	// End of current aeon
+	AeonEnd metrics.Gauge
+	// Start of next aeon
+	NextAeonStart metrics.Gauge
+	// End of next aeon
+	NextAeonEnd metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -99,6 +107,30 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "periods_with_no_entropy",
 			Help:      "Number of transitions to no entropy",
 		}, labels).With(labelsAndValues...),
+		AeonStart: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "aeon_start",
+			Help:      "Start block of the loaded aeon",
+		}, labels).With(labelsAndValues...),
+		AeonEnd: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "aeon_end",
+			Help:      "End block of the loaded aeon",
+		}, labels).With(labelsAndValues...),
+		NextAeonStart: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "next_aeon_start",
+			Help:      "Next start block of the loaded aeon",
+		}, labels).With(labelsAndValues...),
+		NextAeonEnd: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "next_aeon_end",
+			Help:      "Next end block of the loaded aeon",
+		}, labels).With(labelsAndValues...),
 	}
 
 	// Set default values for the metrics so they appear at /metrics
@@ -112,6 +144,10 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	metrics.DKGFailures.Add(0)
 	metrics.BlockWithEntropy.Add(0)
 	metrics.PeriodsWithNoEntropy.Add(0)
+	metrics.AeonStart.Add(0)
+	metrics.AeonEnd.Add(0)
+	metrics.NextAeonStart.Add(0)
+	metrics.NextAeonEnd.Add(0)
 
 	return &metrics
 }
@@ -128,5 +164,9 @@ func NopMetrics() *Metrics {
 		DKGFailures:                 discard.NewCounter(),
 		BlockWithEntropy:            discard.NewGauge(),
 		PeriodsWithNoEntropy:        discard.NewCounter(),
+		AeonStart:                   discard.NewGauge(),
+		AeonEnd:                     discard.NewGauge(),
+		NextAeonStart:               discard.NewGauge(),
+		NextAeonEnd:                 discard.NewGauge(),
 	}
 }

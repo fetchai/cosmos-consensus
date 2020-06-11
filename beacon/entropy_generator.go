@@ -58,6 +58,8 @@ func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
 	if entropyGenerator != nil {
 		entropyGenerator.metrics = metrics
 	}
+
+	entropyGenerator.UpdateMetrics()
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
@@ -94,7 +96,7 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 
 	// Notify peers of block height
 	entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
-  
+
 	entropyGenerator.changeKeys()
 	if entropyGenerator.lastComputedEntropyHeight > -1 {
 		// Sign entropy
@@ -145,9 +147,20 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 
 	// Check entropy keys are not old
 	if entropyGenerator.lastBlockHeight+1 > aeon.End {
+		fmt.Printf("Note, this has happened 2233\n")
 		return
 	}
+
+	if aeon == nil {
+		fmt.Println("argh199")
+	}
+	fmt.Println("argh198")
+
 	entropyGenerator.aeon = aeon
+
+	fmt.Printf("After setting0, is : %v\n", entropyGenerator.aeon)
+
+	entropyGenerator.UpdateMetrics()
 }
 
 // SetLastComputedEntropy sets the most recent entropy from catchup
@@ -158,6 +171,8 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, e
 	if entropyGenerator.entropyComputed[height] != nil {
 		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", height)
 		return
+	} else {
+		fmt.Printf("Setting existing entropy %v\n", height)
 	}
 
 	entropyGenerator.entropyComputed[height] = entropy
@@ -165,6 +180,12 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, e
 	if height > entropyGenerator.lastComputedEntropyHeight {
 		entropyGenerator.lastComputedEntropyHeight = height
 	}
+
+	//// Push this into the channel
+	//if entropyGenerator.computedEntropyChannel != nil {
+	//	chanEntropy := ChannelEntropy{Height: height, Entropy: }
+	//	entropyGenerator.computedEntropyChannel <- chanEntropy
+	//}
 }
 
 func (entropyGenerator *EntropyGenerator) setLastBlockHeight(height int64) {
@@ -181,11 +202,16 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
+	fmt.Println("Setting next aeon details")
+
 	// In the scenario where the entropy generator is not running (during sync)
 	// we want to maintain aeon and nextAeon for when it finishes. Otherwise,
 	// the nextAeon should be nil as it has been used.
-	if !entropyGenerator.IsRunning() {
+	if !entropyGenerator.IsRunning() && entropyGenerator.nextAeon != nil{
+		fmt.Printf("Before setting1, is : %v\n", entropyGenerator.aeon)
 		entropyGenerator.aeon = entropyGenerator.nextAeon
+		fmt.Printf("After setting1, is : %v\n", entropyGenerator.aeon)
+		entropyGenerator.UpdateMetrics()
 	} else if (entropyGenerator.nextAeon != nil) {
 		panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
 			entropyGenerator.nextAeon.Start, aeon.Start))
@@ -207,11 +233,14 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	// Save keys for crash recovery
 	entropyGenerator.nextAeon.save(entropyGenerator.baseConfig.NextEntropyKeyFile())
 	entropyGenerator.Logger.Debug("SetNextAeonDetails: next aeon received", "start", aeon.Start, "end", aeon.End)
+	entropyGenerator.UpdateMetrics()
 }
 
 func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
+
+	fmt.Println("changing keys")
 
 	resetKeys := false
 	// Reset aeon to nil at the end of its time
@@ -219,11 +248,15 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
 		entropyGenerator.aeon = nil
+	fmt.Printf("After setting2, is : %v\n", entropyGenerator.aeon)
+		fmt.Println("Resetting to nil")
 		resetKeys = true
 	}
 	if entropyGenerator.nextAeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.nextAeon.End {
 		entropyGenerator.nextAeon = nil
 	}
+
+	entropyGenerator.UpdateMetrics()
 
 	if entropyGenerator.aeon == nil && entropyGenerator.nextAeon != nil {
 		if entropyGenerator.lastBlockHeight+1 < entropyGenerator.nextAeon.Start {
@@ -236,6 +269,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		}
 		entropyGenerator.aeon = entropyGenerator.nextAeon
 		entropyGenerator.nextAeon = nil
+	fmt.Printf("After setting3, is : %v\n", entropyGenerator.aeon)
 		// Save keys for crash recovery
 		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
 
@@ -246,6 +280,9 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 			entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
 				tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
 		}
+
+		entropyGenerator.UpdateMetrics()
+
 		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 			"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
 		return true
@@ -438,6 +475,8 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			// modified within this go routine.
 			// Select is present to allow closing of channel on stopping if stuck on send
 			if entropyGenerator.computedEntropyChannel != nil {
+
+				fmt.Println("Sending entropy, enabled: ", entropyToSend.Enabled)
 				select {
 				case entropyGenerator.computedEntropyChannel <- *entropyToSend:
 				case <-entropyGenerator.quit:
@@ -545,4 +584,28 @@ func (entropyGenerator *EntropyGenerator) isSigningEntropy() bool {
 	defer entropyGenerator.mtx.Unlock()
 
 	return entropyGenerator.aeon != nil
+}
+
+// Convenience function to update metrics on a state change
+func (entropyGenerator *EntropyGenerator) UpdateMetrics() {
+
+	if entropyGenerator.metrics == nil {
+		return
+	}
+
+	if entropyGenerator.aeon != nil {
+		entropyGenerator.metrics.AeonStart.Set(float64(entropyGenerator.aeon.Start))
+		entropyGenerator.metrics.AeonEnd.Set(float64(entropyGenerator.aeon.End))
+	} else {
+		entropyGenerator.metrics.AeonStart.Set(-1)
+		entropyGenerator.metrics.AeonEnd.Set(-1)
+	}
+
+	if entropyGenerator.nextAeon != nil {
+		entropyGenerator.metrics.NextAeonStart.Set(float64(entropyGenerator.nextAeon.Start))
+		entropyGenerator.metrics.NextAeonEnd.Set(float64(entropyGenerator.nextAeon.End))
+	} else {
+		entropyGenerator.metrics.NextAeonStart.Set(-1)
+		entropyGenerator.metrics.NextAeonEnd.Set(-1)
+	}
 }

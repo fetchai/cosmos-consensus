@@ -595,11 +595,17 @@ func createBeaconReactor(
 			return nil, nil, nil, errors.Wrap(err1, "error loading validators for aeon keys")
 		}
 		aeonDetails := beacon.LoadAeonDetails(currentAeonFile, vals, privValidator)
+		fmt.Println("Setting aeon details")
 		entropyGenerator.SetAeonDetails(aeonDetails)
 		if dkgRunner != nil {
 			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+		} else {
+			fmt.Println("dkg runner is nil here")
 		}
+	} else {
+		fmt.Println("Entropy key file does not exist!")
 	}
+
 	if cmn.FileExists(config.NextEntropyKeyFile()) {
 		nextAeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.NextEntropyKeyFile())
 		if err != nil {
