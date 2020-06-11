@@ -62,10 +62,6 @@ func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
 
 // ValidateBasic performs basic validation on block entropy
 func (blockEntropy *BlockEntropy) ValidateBasic() error {
-
-	if blockEntropy == nil {
-		fmt.Println("Note: nil block entropy")
-	}
 	// If entropy is empty then all other values should be -1
 	if len(blockEntropy.GroupSignature) == 0 {
 		if blockEntropy.Round != -1 || blockEntropy.AeonLength != -1 || blockEntropy.DKGID != -1 {
@@ -102,7 +98,7 @@ func (blockEntropy *BlockEntropy) String() string {
 func (blockEntropy *BlockEntropy) StringIndented(indent string) string {
 	return fmt.Sprintf(`BlockEntropy{
 %s  Round/AeonLength: %v/%v
-%s  DKGID:			  %v
+%s  DKGID:			  %v 
 %s  GroupSignature:	  %v
 %s}`,
 		indent, blockEntropy.Round, blockEntropy.AeonLength,
