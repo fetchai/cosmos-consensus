@@ -784,8 +784,6 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	cs.mtx.Lock()
 	height := cs.Height
 	blockStoreHeight := cs.blockStore.Height()
-	fmt.Println("current height is: ", height)
-	fmt.Println("Block store height is: ", blockStoreHeight)
 	cs.mtx.Unlock()
 
 	// Since this function blocks, best to request the entropy so that
@@ -1066,8 +1064,6 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 				select {
 				case newEntropy = <-cs.entropyChannel:
 					receivedEntropy = true
-
-					fmt.Println("Received entropy, enabled: ", newEntropy.Enabled)
 				default:
 				}
 			}
@@ -1292,7 +1288,6 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	// Check block entropy (note this can be empty in fallback mode which is fine)
 	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getEntropy(height).Entropy) {
 		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
-		fmt.Println("debug: ", cs.getEntropy(height))
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}

@@ -147,18 +147,10 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 
 	// Check entropy keys are not old
 	if entropyGenerator.lastBlockHeight+1 > aeon.End {
-		fmt.Printf("Note, this has happened 2233\n")
 		return
 	}
 
-	if aeon == nil {
-		fmt.Println("argh199")
-	}
-	fmt.Println("argh198")
-
 	entropyGenerator.aeon = aeon
-
-	fmt.Printf("After setting0, is : %v\n", entropyGenerator.aeon)
 
 	entropyGenerator.UpdateMetrics()
 }
@@ -171,8 +163,6 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, e
 	if entropyGenerator.entropyComputed[height] != nil {
 		entropyGenerator.Logger.Error("Attempt to reset existing entropy", "height", height)
 		return
-	} else {
-		fmt.Printf("Setting existing entropy %v\n", height)
 	}
 
 	entropyGenerator.entropyComputed[height] = entropy
@@ -180,12 +170,6 @@ func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, e
 	if height > entropyGenerator.lastComputedEntropyHeight {
 		entropyGenerator.lastComputedEntropyHeight = height
 	}
-
-	//// Push this into the channel
-	//if entropyGenerator.computedEntropyChannel != nil {
-	//	chanEntropy := ChannelEntropy{Height: height, Entropy: }
-	//	entropyGenerator.computedEntropyChannel <- chanEntropy
-	//}
 }
 
 func (entropyGenerator *EntropyGenerator) setLastBlockHeight(height int64) {
@@ -202,15 +186,11 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	fmt.Println("Setting next aeon details")
-
 	// In the scenario where the entropy generator is not running (during sync)
 	// we want to maintain aeon and nextAeon for when it finishes. Otherwise,
 	// the nextAeon should be nil as it has been used.
 	if !entropyGenerator.IsRunning() && entropyGenerator.nextAeon != nil{
-		fmt.Printf("Before setting1, is : %v\n", entropyGenerator.aeon)
 		entropyGenerator.aeon = entropyGenerator.nextAeon
-		fmt.Printf("After setting1, is : %v\n", entropyGenerator.aeon)
 		entropyGenerator.UpdateMetrics()
 	} else if (entropyGenerator.nextAeon != nil) {
 		panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
@@ -240,16 +220,12 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	fmt.Println("changing keys")
-
 	resetKeys := false
 	// Reset aeon to nil at the end of its time
 	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.aeon.End {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
 		entropyGenerator.aeon = nil
-	fmt.Printf("After setting2, is : %v\n", entropyGenerator.aeon)
-		fmt.Println("Resetting to nil")
 		resetKeys = true
 	}
 	if entropyGenerator.nextAeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.nextAeon.End {
@@ -269,7 +245,6 @@ func (entropyGenerator *EntropyGenerator) changeKeys() bool {
 		}
 		entropyGenerator.aeon = entropyGenerator.nextAeon
 		entropyGenerator.nextAeon = nil
-	fmt.Printf("After setting3, is : %v\n", entropyGenerator.aeon)
 		// Save keys for crash recovery
 		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
 
@@ -476,7 +451,6 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			// Select is present to allow closing of channel on stopping if stuck on send
 			if entropyGenerator.computedEntropyChannel != nil {
 
-				fmt.Println("Sending entropy, enabled: ", entropyToSend.Enabled)
 				select {
 				case entropyGenerator.computedEntropyChannel <- *entropyToSend:
 				case <-entropyGenerator.quit:
