@@ -783,7 +783,6 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 
 	cs.mtx.Lock()
 	height := cs.Height
-	blockStoreHeight := cs.blockStore.Height()
 	cs.mtx.Unlock()
 
 	// Since this function blocks, best to request the entropy so that
