@@ -51,7 +51,7 @@ func TestAeonDetailsNew(t *testing.T) {
 	// Does not panic if priv validator is invalid if can not sign
 	var newAeon *aeonDetails
 	assert.NotPanics(t, func() {
-		newAeon = newAeonDetails(nil, 1, state.Validators, aeonNonSigning, 1, 10)
+		newAeon, _ = newAeonDetails(nil, 1, state.Validators, aeonNonSigning, 1, 10)
 	})
 	assert.True(t, newAeon.threshold == nValidators/2+1)
 
@@ -73,7 +73,7 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 	aeonKeys := NewAeonExecUnit("test_keys/0.txt")
-	newAeon := newAeonDetails(privVals[0], 1, state.Validators, aeonKeys, 1, 10)
+	newAeon, _ := newAeonDetails(privVals[0], 1, state.Validators, aeonKeys, 1, 10)
 
 	newAeon.save(config.EntropyKeyFile())
 
