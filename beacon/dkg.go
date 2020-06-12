@@ -89,6 +89,7 @@ type DistributedKeyGeneration struct {
 	aeonLength      int64
 	stateDuration   int64
 	aeonKeys        *aeonDetails
+	onFailState     func(int64)
 
 	startHeight   int64
 	states        map[dkgState]*state
@@ -149,6 +150,9 @@ func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
 
 	dkg.setInitialStateDuration()
 	dkg.setStates()
+
+	// If exit function failed before dry run then skip intermediate states and wait to see if DKG passes for everyone else
+	dkg.onFailState = func(blockHeight int64) { dkg.proceedToNextState(waitForDryRun, false, blockHeight) }
 
 	return dkg
 }
@@ -385,27 +389,27 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 				dkg.Stop()
 				dkg.Reset()
 			} else {
-				// If exit function failed before dry run then skip intermediate states and
-				// wait to see if DKG passes for everyone else
-				dkg.currentState = waitForDryRun
-				dkg.metrics.DKGState.Set(float64(dkg.currentState))
-				dkg.checkTransition(blockHeight)
+				dkg.onFailState(blockHeight)
 			}
 			return
 		}
 		if dkg.currentState == dkgStart && dkg.index() < 0 {
 			// If not in validators skip straight to waiting for DKG output
-			dkg.currentState = waitForDryRun
-			dkg.metrics.DKGState.Set(float64(dkg.currentState))
-			dkg.checkTransition(blockHeight)
+			dkg.proceedToNextState(waitForDryRun, false, blockHeight)
 			return
 		}
-		dkg.currentState++
-		dkg.metrics.DKGState.Set(float64(dkg.currentState))
-		dkg.states[dkg.currentState].onEntry()
-		// Run check transition again in case we can proceed to the next state already
-		dkg.checkTransition(blockHeight)
+		dkg.proceedToNextState(dkg.currentState+1, true, blockHeight)
 	}
+}
+
+func (dkg *DistributedKeyGeneration) proceedToNextState(nextState dkgState, runOnEntry bool, blockHeight int64) {
+	dkg.currentState = nextState
+	dkg.metrics.DKGState.Set(float64(dkg.currentState))
+	if runOnEntry {
+		dkg.states[dkg.currentState].onEntry()
+	}
+	// Run check transition again in case we can proceed to the next state already
+	dkg.checkTransition(blockHeight)
 }
 
 func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType, data string, toAddress crypto.Address) *types.DKGMessage {
