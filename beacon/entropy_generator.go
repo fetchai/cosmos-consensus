@@ -29,10 +29,11 @@ type EntropyGenerator struct {
 	entropyComputed           map[int64]types.ThresholdSignature
 	lastBlockHeight           int64 // last block height
 	lastComputedEntropyHeight int64 // last non-trivial entropy
+	lastBlockHeightChecked    int64 // last block height checked for new keys
 
 	// Channel for sending off entropy for receiving elsewhere
 	computedEntropyChannel chan<- types.ChannelEntropy
-	nextAeon               *aeonDetails
+	nextAeons              []*aeonDetails
 	aeon                   *aeonDetails
 
 	baseConfig      *cfg.BaseConfig
@@ -186,87 +187,94 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
-	// In the scenario where the entropy generator is not running (during sync)
-	// we want to maintain aeon and nextAeon for when it finishes. Otherwise,
-	// the nextAeon should be nil as it has been used.
-	if !entropyGenerator.IsRunning() && entropyGenerator.nextAeon != nil{
-		entropyGenerator.aeon = entropyGenerator.nextAeon
-		entropyGenerator.UpdateMetrics()
-	} else if (entropyGenerator.nextAeon != nil) {
-		panic(fmt.Errorf("SetNextAeonDetails: Overwriting existing next aeon. Existing aeon start %v, new aeon start %v",
-			entropyGenerator.nextAeon.Start, aeon.Start))
+	if aeon == nil {
+		panic(fmt.Sprintf("Set next aeon was called with a nil aeon!"))
 	}
 
-	// Check entropy keys are not old
-	if entropyGenerator.lastBlockHeight+1 > aeon.End {
-		return
-	}
-	// Check start and ends are compatible
-	if entropyGenerator.aeon != nil {
-		if aeon.Start <= entropyGenerator.aeon.End {
-			entropyGenerator.Logger.Error("SetNextAeonDetails: incompatible new aeon received", "new aeon start", aeon.Start,
-				"existing aeon end", entropyGenerator.aeon.End)
-			return
-		}
-	}
-	entropyGenerator.nextAeon = aeon
-	// Save keys for crash recovery
-	entropyGenerator.nextAeon.save(entropyGenerator.baseConfig.NextEntropyKeyFile())
-	entropyGenerator.Logger.Debug("SetNextAeonDetails: next aeon received", "start", aeon.Start, "end", aeon.End)
-	entropyGenerator.UpdateMetrics()
+	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 }
 
-func (entropyGenerator *EntropyGenerator) changeKeys() bool {
+// Trim old aeons from the queue (assumes they are ordered)
+func (entropyGenerator *EntropyGenerator) trimNextAeons() {
+	for {
+		if len(entropyGenerator.nextAeons) == 0 {
+			break
+		}
+
+		// If front is old, delete it etc.
+		if entropyGenerator.lastBlockHeight > entropyGenerator.nextAeons[0].End {
+			if len(entropyGenerator.nextAeons) == 1 {
+				entropyGenerator.nextAeons = make([]*aeonDetails, 0)
+			} else {
+				entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
+			}
+		} else {
+			break
+		}
+	}
+}
+
+// Convenience fn to remove element from slice
+func remove(slice []*aeonDetails, s int) []*aeonDetails {
+	return append(slice[:s], slice[s+1:]...)
+}
+
+// Change the keys that are currently in use over, attempting to set aeon
+func (entropyGenerator *EntropyGenerator) changeKeys() {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
 	resetKeys := false
-	// Reset aeon to nil at the end of its time
-	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.aeon.End {
+
+	// Reset current aeon to nil if it is no longer relevant
+	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight > entropyGenerator.aeon.End {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
+
 		entropyGenerator.aeon = nil
 		resetKeys = true
+
+		entropyGenerator.Logger.Info("changeKeys: Current keys expired")
 	}
-	if entropyGenerator.nextAeon != nil && entropyGenerator.lastBlockHeight+1 > entropyGenerator.nextAeon.End {
-		entropyGenerator.nextAeon = nil
+
+	// If the current aeon is nil scan through upcoming keys to see if any should be set
+	// to the current aeon
+	if entropyGenerator.aeon == nil {
+
+		// First clear possible old aeons from the queue
+		entropyGenerator.trimNextAeons()
+
+		// Since they are ordered only need to check the front
+		if len(entropyGenerator.nextAeons) > 0 && entropyGenerator.nextAeons[0].Start <= entropyGenerator.lastBlockHeight {
+			entropyGenerator.aeon = entropyGenerator.nextAeons[0]
+
+			remove(entropyGenerator.nextAeons, 0)
+
+			// Set new aeon - save keys for crash recovery
+			entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
+
+			if len(entropyGenerator.nextAeons) > 0 {
+				entropyGenerator.nextAeons[0].save(entropyGenerator.baseConfig.NextEntropyKeyFile())
+			}
+
+			entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
+				"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
+		}
+	}
+
+	if resetKeys && entropyGenerator.aeon == nil {
+		entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
+	}
+
+	// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
+	// only be the case one for first DKG after genesis)
+	if entropyGenerator.lastComputedEntropyHeight == -1 && entropyGenerator.aeon != nil {
+		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
+		entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
+			tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
 	}
 
 	entropyGenerator.UpdateMetrics()
-
-	if entropyGenerator.aeon == nil && entropyGenerator.nextAeon != nil {
-		if entropyGenerator.lastBlockHeight+1 < entropyGenerator.nextAeon.Start {
-			entropyGenerator.Logger.Debug("changeKeys: Found keys not yet ready", "blockHeight", entropyGenerator.lastBlockHeight,
-				"start", entropyGenerator.nextAeon.Start)
-			if resetKeys {
-				entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
-			}
-			return false
-		}
-		entropyGenerator.aeon = entropyGenerator.nextAeon
-		entropyGenerator.nextAeon = nil
-		// Save keys for crash recovery
-		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
-
-		// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
-		// only be the case one for first DKG after genesis)
-		if entropyGenerator.lastComputedEntropyHeight == -1 {
-			entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
-			entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
-				tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
-		}
-
-		entropyGenerator.UpdateMetrics()
-
-		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
-			"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
-		return true
-	}
-	entropyGenerator.Logger.Debug("changeKeys: No new keys", "blockHeight", entropyGenerator.lastBlockHeight)
-	if resetKeys {
-		entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
-	}
-	return false
 }
 
 // ApplyComputedEntropy processes completed entropy from peer
@@ -287,6 +295,9 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, ent
 			entropyGenerator.entropyComputed[height] = entropy
 		} else {
 			entropyGenerator.Logger.Error("received invalid computed entropy", "height", height)
+			if entropyGenerator.aeon != nil {
+				entropyGenerator.Logger.Error("Note: aeon is: " entropyGenerator.aeon)
+			}
 		}
 	}
 	//TODO: Should down rate peers which send irrelevant computed entropy or invalid entropy
@@ -465,8 +476,11 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			} else {
 				entropyGenerator.metrics.BlockWithEntropy.Set(0)
 			}
-			// Check whether we should change keys
-			entropyGenerator.changeKeys()
+			// Check whether we should change keys (only on block change for efficiency)
+			if entropyGenerator.lastBlockHeightChecked != entropyGenerator.lastBlockHeight {
+				entropyGenerator.lastBlockHeightChecked = entropyGenerator.lastBlockHeight
+				entropyGenerator.changeKeys()
+			}
 
 			// Notify peers of of new entropy height
 			entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
@@ -575,9 +589,9 @@ func (entropyGenerator *EntropyGenerator) UpdateMetrics() {
 		entropyGenerator.metrics.AeonEnd.Set(-1)
 	}
 
-	if entropyGenerator.nextAeon != nil {
-		entropyGenerator.metrics.NextAeonStart.Set(float64(entropyGenerator.nextAeon.Start))
-		entropyGenerator.metrics.NextAeonEnd.Set(float64(entropyGenerator.nextAeon.End))
+	if len(entropyGenerator.nextAeons) != 0 {
+		entropyGenerator.metrics.NextAeonStart.Set(float64(entropyGenerator.nextAeons[0].Start))
+		entropyGenerator.metrics.NextAeonEnd.Set(float64(entropyGenerator.nextAeons[0].End))
 	} else {
 		entropyGenerator.metrics.NextAeonStart.Set(-1)
 		entropyGenerator.metrics.NextAeonEnd.Set(-1)
