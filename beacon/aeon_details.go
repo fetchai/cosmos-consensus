@@ -36,7 +36,7 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 	}
 
 	aeonExecUnit := NewAeonExecUnit(aeonDetailsFile.PublicInfo.Generator, keys, qual)
-	aeonDetails := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, validators, aeonExecUnit,
+	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, validators, aeonExecUnit,
 		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	return aeonDetails
 }
@@ -44,7 +44,7 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
 func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 	validators *types.ValidatorSet, aeonKeys AeonExecUnit,
-	startHeight int64, endHeight int64) *aeonDetails {
+	startHeight int64, endHeight int64) (*aeonDetails, error) {
 	if valHeight <= 0 {
 		panic(fmt.Errorf("aeonDetails in validator height less than 1"))
 	}
@@ -84,7 +84,7 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 		End:             endHeight,
 	}
 
-	return ad
+	return ad, nil
 }
 
 func (aeon *aeonDetails) dkgOutput() *DKGOutput {

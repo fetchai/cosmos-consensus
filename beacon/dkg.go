@@ -500,9 +500,12 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	if dkgEnd >= nextAeonStart {
 		nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
 	}
-	dkg.aeonKeys = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,
+	var err error
+	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,
 		nextAeonStart, nextAeonStart+dkg.aeonLength-1)
-
+	if err != nil {
+		dkg.Logger.Error("computePublicKeys", "err", err.Error())
+	}
 	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)
 	msgToSign := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))
 	signature := dkg.aeonKeys.aeonExecUnit.Sign(msgToSign)
