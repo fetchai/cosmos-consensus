@@ -192,6 +192,7 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	}
 
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
+	entropyGenerator.nextAeons[0].save(entropyGenerator.baseConfig.NextEntropyKeyFile())
 }
 
 // Trim old aeons from the queue (assumes they are ordered)
