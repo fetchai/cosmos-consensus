@@ -600,6 +600,7 @@ func createBeaconReactor(
 			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 		}
 	}
+
 	if cmn.FileExists(config.NextEntropyKeyFile()) {
 		nextAeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.NextEntropyKeyFile())
 		if err != nil {

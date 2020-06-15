@@ -1026,7 +1026,6 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 	heightToFill := height + 1
 
 	if cs.newEntropy == nil {
-		//cs.newEntropy = make(map[int64]*types.ChannelEntropy)
 		panic(fmt.Sprintf("newEntropy is nil - this should not happen\n"))
 	}
 	cs.mtx.Unlock()
@@ -1037,7 +1036,7 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 		return
 	} else {
 
-		heightFound        := false
+		heightFound := false
 
 		// Stay in this loop until either height and height+1 has been set by a different
 		// thread, or it is set by this thread.
