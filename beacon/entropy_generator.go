@@ -227,7 +227,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() {
 	resetKeys := false
 
 	// Reset current aeon to nil if it is no longer relevant
-	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight > entropyGenerator.aeon.End {
+	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight >= entropyGenerator.aeon.End {
 		entropyGenerator.Logger.Debug("changeKeys: Existing keys expired. Resetting.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
 
@@ -296,7 +296,7 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, ent
 		} else {
 			entropyGenerator.Logger.Error("received invalid computed entropy", "height", height)
 			if entropyGenerator.aeon != nil {
-				entropyGenerator.Logger.Error("Note: aeon is: " entropyGenerator.aeon)
+				entropyGenerator.Logger.Error("Note: aeon is: ", entropyGenerator.aeon)
 			}
 		}
 	}
