@@ -259,7 +259,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 
 			entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 				"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
-				didChangeKeys = true
+			didChangeKeys = true
 		}
 	}
 
