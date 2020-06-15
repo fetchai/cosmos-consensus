@@ -29,7 +29,6 @@ type EntropyGenerator struct {
 	entropyComputed           map[int64]types.ThresholdSignature
 	lastBlockHeight           int64 // last block height
 	lastComputedEntropyHeight int64 // last non-trivial entropy
-	lastBlockHeightChecked    int64 // last block height checked for new keys
 
 	// Channel for sending off entropy for receiving elsewhere
 	computedEntropyChannel chan<- types.ChannelEntropy
@@ -479,11 +478,8 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			} else {
 				entropyGenerator.metrics.BlockWithEntropy.Set(0)
 			}
-			// Check whether we should change keys (only on block change for efficiency)
-			if entropyGenerator.lastBlockHeightChecked != entropyGenerator.lastBlockHeight {
-				entropyGenerator.lastBlockHeightChecked = entropyGenerator.lastBlockHeight
-				entropyGenerator.changeKeys()
-			}
+
+			entropyGenerator.changeKeys()
 
 			// Notify peers of of new entropy height
 			entropyGenerator.evsw.FireEvent(types.EventComputedEntropy, entropyGenerator.lastBlockHeight)
