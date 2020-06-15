@@ -220,7 +220,7 @@ func remove(slice []*aeonDetails, s int) []*aeonDetails {
 }
 
 // Change the keys that are currently in use over, attempting to set aeon
-func (entropyGenerator *EntropyGenerator) changeKeys() {
+func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 	entropyGenerator.mtx.Lock()
 	defer entropyGenerator.mtx.Unlock()
 
@@ -259,6 +259,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() {
 
 			entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 				"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
+				didChangeKeys = true
 		}
 	}
 
@@ -275,6 +276,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() {
 	}
 
 	entropyGenerator.UpdateMetrics()
+	return
 }
 
 // ApplyComputedEntropy processes completed entropy from peer
