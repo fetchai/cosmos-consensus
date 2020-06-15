@@ -314,7 +314,7 @@ func TestReactorWithDKG(t *testing.T) {
 
 	// Change keys over
 	for _, entropyGen := range entropyGenerators {
-		assert.True(t, len(entropyGen.nextAeons) == 0)
+		assert.True(t, len(entropyGen.nextAeons) != 0)
 		assert.True(t, entropyGen.changeKeys())
 	}
 
