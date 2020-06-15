@@ -202,7 +202,7 @@ func (entropyGenerator *EntropyGenerator) trimNextAeons() {
 		}
 
 		// If front is old, delete it etc.
-		if entropyGenerator.lastBlockHeight > entropyGenerator.nextAeons[0].End {
+		if entropyGenerator.lastBlockHeight >= entropyGenerator.nextAeons[0].End {
 			if len(entropyGenerator.nextAeons) == 1 {
 				entropyGenerator.nextAeons = make([]*aeonDetails, 0)
 			} else {
@@ -245,7 +245,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() {
 		entropyGenerator.trimNextAeons()
 
 		// Since they are ordered only need to check the front
-		if len(entropyGenerator.nextAeons) > 0 && entropyGenerator.nextAeons[0].Start <= entropyGenerator.lastBlockHeight {
+		if len(entropyGenerator.nextAeons) > 0 && entropyGenerator.nextAeons[0].Start <= entropyGenerator.lastBlockHeight+1 {
 			entropyGenerator.aeon = entropyGenerator.nextAeons[0]
 
 			remove(entropyGenerator.nextAeons, 0)
