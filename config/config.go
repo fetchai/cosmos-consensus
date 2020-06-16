@@ -1009,7 +1009,7 @@ func (cfg *InstrumentationConfig) ValidateBasic() error {
 //-----------------------------------------------------------------------------
 // BeaconConfig
 
-// BeaconConfig defines the configuration dkg and entropy entropy generation
+// BeaconConfig defines the configuration for the dkg and entropy generation
 type BeaconConfig struct {
 	EntropyChannelCapacity int64 `mapstructure:"entropy_channel_capacity"`
 
@@ -1026,7 +1026,7 @@ type BeaconConfig struct {
 	StrictTxFiltering bool `mapstructure:"strict_tx_filtering"`
 }
 
-// DefaultConsensusConfig returns a default configuration for the consensus service
+// DefaultBeaconConfig returns a default configuration for the beacon service
 func DefaultBeaconConfig() *BeaconConfig {
 	return &BeaconConfig{
 		PeerGossipSleepDuration:     100 * time.Millisecond,
@@ -1037,7 +1037,7 @@ func DefaultBeaconConfig() *BeaconConfig {
 	}
 }
 
-// TestConsensusConfig returns a configuration for testing the consensus service
+// TestBeaconConfig returns a configuration for testing the beacon service
 func TestBeaconConfig() *BeaconConfig {
 	cfg := DefaultBeaconConfig()
 	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
