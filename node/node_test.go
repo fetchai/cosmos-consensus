@@ -46,7 +46,7 @@ func TestNodeStartStop(t *testing.T) {
 			cfg.AddTestNoiseKey(config)
 		}, false},
 		{"With dkg", func(config *cfg.Config) {
-			config.Consensus.RunDKG = true
+			config.Beacon.RunDKG = true
 		}, false},
 	}
 	for _, tc := range testCases {
@@ -101,7 +101,7 @@ func TestNodeStartStop(t *testing.T) {
 
 func TestNodeDKGFastSync(t *testing.T) {
 	config := cfg.ResetTestRoot("node_node_test")
-	config.Consensus.RunDKG = true
+	config.Beacon.RunDKG = true
 	defer os.RemoveAll(config.RootDir)
 
 	// Use node to generate DKG messages in chain
@@ -119,7 +119,7 @@ func TestNodeDKGFastSync(t *testing.T) {
 
 	// Create dkgRunner to run FastSync using chain from node
 	encryptionKey := tmnoise.NewEncryptionKey()
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)
 	dkgRunner.SetCurrentAeon(-1, -1)

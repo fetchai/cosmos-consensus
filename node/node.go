@@ -404,7 +404,7 @@ func createConsensusReactor(config *cfg.Config,
 		mempool,
 		evidencePool,
 		cs.StateMetrics(csMetrics),
-		cs.StrictTxFiltering(config.Consensus.StrictTxFiltering),
+		cs.StrictTxFiltering(config.Beacon.StrictTxFiltering),
 	)
 	consensusState.SetLogger(consensusLogger)
 	if privValidator != nil {
@@ -575,8 +575,8 @@ func createBeaconReactor(
 	db dbm.DB) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
 	beacon.InitialiseMcl()
-	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Consensus, state.LastBlockHeight)
-	entropyChannel := make(chan types.ChannelEntropy, config.Consensus.EntropyChannelCapacity)
+	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Beacon, state.LastBlockHeight)
+	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetEntropyChannel(entropyChannel)
 	if dkgRunner != nil {
@@ -640,7 +640,7 @@ func createDKGRunner(
 	logger log.Logger,
 	db dbm.DB,
 	handler tx_extensions.MessageHandler) (*beacon.DKGRunner, error) {
-	if !config.Consensus.RunDKG {
+	if !config.Beacon.RunDKG {
 		return nil, nil
 	}
 
@@ -648,7 +648,7 @@ func createDKGRunner(
 	if err != nil {
 		return nil, err
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Consensus, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight)
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner, nil

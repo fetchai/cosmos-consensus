@@ -231,7 +231,7 @@ func TestStateBadProposal(t *testing.T) {
 func TestStateBeaconProposerSelection(t *testing.T) {
 	cs1, _ := randConsensusState(4)
 
-	entropyChannel := make(chan types.ChannelEntropy, cs1.config.EntropyChannelCapacity)
+	entropyChannel := make(chan types.ChannelEntropy, 5)
 	cs1.SetEntropyChannel(entropyChannel)
 
 	entropyChannel <- *types.NewChannelEntropy(1, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 1, 2, 3, 4}, 0, 100, 0), true)

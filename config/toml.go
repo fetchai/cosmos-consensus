@@ -346,12 +346,6 @@ create_empty_blocks_interval = "{{ .Consensus.CreateEmptyBlocksInterval }}"
 peer_gossip_sleep_duration = "{{ .Consensus.PeerGossipSleepDuration }}"
 peer_query_maj23_sleep_duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 
-# DKG/DRB parameters
-entropy_channel_capacity = "{{ .Consensus.EntropyChannelCapacity }}"
-compute_entropy_sleep_duration = "{{ .Consensus.ComputeEntropySleepDuration }}"
-run_dkg = "{{ .Consensus.RunDKG }}"
-strict_tx_filtering = "{{ .Consensus.StrictTxFiltering }}"
-
 ##### transactions indexer configuration options #####
 [tx_index]
 
@@ -398,6 +392,19 @@ max_open_connections = {{ .Instrumentation.MaxOpenConnections }}
 
 # Instrumentation namespace
 namespace = "{{ .Instrumentation.Namespace }}"
+
+##### beacon configuration options #####
+[beacon]
+
+entropy_channel_capacity = "{{ .Beacon.EntropyChannelCapacity }}"
+
+# Reactor sleep duration parameters
+peer_gossip_sleep_duration = "{{ .Beacon.PeerGossipSleepDuration }}"
+compute_entropy_sleep_duration = "{{ .Beacon.ComputeEntropySleepDuration }}"
+
+# DKG parameters
+run_dkg = "{{ .Beacon.RunDKG }}"
+strict_tx_filtering = "{{ .Beacon.StrictTxFiltering }}"
 `
 
 /****** these are for test settings ***********/

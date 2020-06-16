@@ -35,8 +35,8 @@ type EntropyGenerator struct {
 	nextAeons              []*aeonDetails
 	aeon                   *aeonDetails
 
-	baseConfig      *cfg.BaseConfig
-	consensusConfig *cfg.ConsensusConfig
+	baseConfig   *cfg.BaseConfig
+	beaconConfig *cfg.BeaconConfig
 
 	// synchronous pubsub between entropy generator and reactor.
 	// entropy generator only emits new computed entropy height
@@ -63,9 +63,9 @@ func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
-func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig, blockHeight int64) *EntropyGenerator {
-	if bConfig == nil || csConfig == nil {
-		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/consensusConfig can not be nil"))
+func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig, blockHeight int64) *EntropyGenerator {
+	if bConfig == nil || beaconConfig == nil {
+		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/beaconConfig can not be nil"))
 	}
 	es := &EntropyGenerator{
 		entropyShares:             make(map[int64]map[uint]types.EntropyShare),
@@ -73,7 +73,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, csConfig *cfg.ConsensusConfig,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
 		baseConfig:                bConfig,
-		consensusConfig:           csConfig,
+		beaconConfig:              beaconConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		done:                      make(chan struct{}),
@@ -117,7 +117,7 @@ func (entropyGenerator *EntropyGenerator) OnStop() {
 // Wait waits for the computeEntropyRoutine to return.
 func (entropyGenerator *EntropyGenerator) wait() {
 	// Try to stop gracefully by waiting for routine to return
-	t := time.NewTimer(2 * entropyGenerator.consensusConfig.ComputeEntropySleepDuration)
+	t := time.NewTimer(2 * entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 	select {
 	case <-t.C:
 		panic(fmt.Errorf("wait timeout - deadlock in closing channel"))
@@ -259,7 +259,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 
 			entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 				"start", entropyGenerator.aeon.Start, "canSign", entropyGenerator.aeon.aeonExecUnit.CanSign())
-				didChangeKeys = true
+			didChangeKeys = true
 		}
 	}
 
@@ -489,7 +489,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			// Clean out old entropy shares and computed entropy
 			entropyGenerator.flushOldEntropy()
 		}
-		time.Sleep(entropyGenerator.consensusConfig.ComputeEntropySleepDuration)
+		time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 	}
 }
 

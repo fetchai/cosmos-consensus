@@ -19,11 +19,11 @@ import (
 // DKG completed on time.
 type DKGRunner struct {
 	cmn.BaseService
-	consensusConfig *cfg.ConsensusConfig
-	chainID         string
-	stateDB         dbm.DB
-	privVal         types.PrivValidator
-	messageHandler  tx_extensions.MessageHandler
+	beaconConfig   *cfg.BeaconConfig
+	chainID        string
+	stateDB        dbm.DB
+	privVal        types.PrivValidator
+	messageHandler tx_extensions.MessageHandler
 
 	height       int64
 	aeonStart    int64 // next entropy generation start
@@ -44,21 +44,21 @@ type DKGRunner struct {
 }
 
 // NewDKGRunner creates struct for starting new DKGs
-func NewDKGRunner(config *cfg.ConsensusConfig, chain string, db dbm.DB, val types.PrivValidator,
+func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
 	encryptionKey noise.DHKey, blockHeight int64) *DKGRunner {
 	dkgRunner := &DKGRunner{
-		consensusConfig: config,
-		chainID:         chain,
-		stateDB:         db,
-		privVal:         val,
-		height:          blockHeight,
-		aeonStart:       -1,
-		aeonEnd:         -1,
-		completedDKG:    false,
-		dkgCounter:      0,
-		metrics:         NopMetrics(),
-		fastSync:        false,
-		encryptionKey:   encryptionKey,
+		beaconConfig:  config,
+		chainID:       chain,
+		stateDB:       db,
+		privVal:       val,
+		height:        blockHeight,
+		aeonStart:     -1,
+		aeonEnd:       -1,
+		completedDKG:  false,
+		dkgCounter:    0,
+		metrics:       NopMetrics(),
+		fastSync:      false,
+		encryptionKey: encryptionKey,
 	}
 	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -214,7 +214,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, aeonLength int64) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	// Create new dkg that starts DKGResetDelay after most recent block height
-	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.consensusConfig, dkgRunner.chainID,
+	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
 		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)

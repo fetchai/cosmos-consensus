@@ -76,6 +76,7 @@ type Config struct {
 	Consensus       *ConsensusConfig       `mapstructure:"consensus"`
 	TxIndex         *TxIndexConfig         `mapstructure:"tx_index"`
 	Instrumentation *InstrumentationConfig `mapstructure:"instrumentation"`
+	Beacon          *BeaconConfig          `mapstructure:"beacon"`
 }
 
 // DefaultConfig returns a default configuration for a Tendermint node
@@ -89,6 +90,7 @@ func DefaultConfig() *Config {
 		Consensus:       DefaultConsensusConfig(),
 		TxIndex:         DefaultTxIndexConfig(),
 		Instrumentation: DefaultInstrumentationConfig(),
+		Beacon:          DefaultBeaconConfig(),
 	}
 }
 
@@ -103,6 +105,7 @@ func TestConfig() *Config {
 		Consensus:       TestConsensusConfig(),
 		TxIndex:         TestTxIndexConfig(),
 		Instrumentation: TestInstrumentationConfig(),
+		Beacon:          TestBeaconConfig(),
 	}
 }
 
@@ -136,6 +139,9 @@ func (cfg *Config) ValidateBasic() error {
 	}
 	if err := cfg.Consensus.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "Error in [consensus] section")
+	}
+	if err := cfg.Beacon.ValidateBasic(); err != nil {
+		return errors.Wrap(err, "Error in [beacon] section")
 	}
 	return errors.Wrap(
 		cfg.Instrumentation.ValidateBasic(),
@@ -787,16 +793,6 @@ type ConsensusConfig struct {
 	// Reactor sleep duration parameters
 	PeerGossipSleepDuration     time.Duration `mapstructure:"peer_gossip_sleep_duration"`
 	PeerQueryMaj23SleepDuration time.Duration `mapstructure:"peer_query_maj23_sleep_duration"`
-
-	// For DKG/DRB
-	EntropyChannelCapacity int64 `mapstructure:"entropy_channel_capacity"`
-	// computeEntropySleepDuration sleep time in between checking if group signature
-	// can be computed. Note peerGossipSleepDuration must be greater than
-	// computeEntropySleepDuration so that peer does not send entropy for next height
-	// before the current height has been computed
-	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
-	RunDKG                      bool          `mapstructure:"run_dkg"`
-	StrictTxFiltering           bool          `mapstructure:"strict_tx_filtering"`
 }
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
@@ -815,10 +811,6 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		CreateEmptyBlocksInterval:   0 * time.Second,
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
-		EntropyChannelCapacity:      3,
-		ComputeEntropySleepDuration: 50 * time.Millisecond,
-		RunDKG:                      true,
-		StrictTxFiltering:           false,
 	}
 }
 
@@ -835,7 +827,6 @@ func TestConsensusConfig() *ConsensusConfig {
 	cfg.SkipTimeoutCommit = true
 	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
 	cfg.PeerQueryMaj23SleepDuration = 250 * time.Millisecond
-	cfg.RunDKG = false
 	return cfg
 }
 
@@ -916,12 +907,6 @@ func (cfg *ConsensusConfig) ValidateBasic() error {
 	}
 	if cfg.PeerQueryMaj23SleepDuration < 0 {
 		return errors.New("peer_query_maj23_sleep_duration can't be negative")
-	}
-	if cfg.EntropyChannelCapacity < 0 {
-		return errors.New("entropy_channel_capacity can't be negative")
-	}
-	if cfg.ComputeEntropySleepDuration < 0 {
-		return errors.New("compute_entropy_sleep_duration can't be negative")
 	}
 	return nil
 }
@@ -1017,6 +1002,60 @@ func TestInstrumentationConfig() *InstrumentationConfig {
 func (cfg *InstrumentationConfig) ValidateBasic() error {
 	if cfg.MaxOpenConnections < 0 {
 		return errors.New("max_open_connections can't be negative")
+	}
+	return nil
+}
+
+//-----------------------------------------------------------------------------
+// BeaconConfig
+
+// BeaconConfig defines the configuration dkg and entropy entropy generation
+type BeaconConfig struct {
+	EntropyChannelCapacity int64 `mapstructure:"entropy_channel_capacity"`
+
+	// Reactor sleep duration parameters
+	PeerGossipSleepDuration time.Duration `mapstructure:"peer_gossip_sleep_duration"`
+	// computeEntropySleepDuration sleep time in between checking if group signature
+	// can be computed. Note peerGossipSleepDuration must be greater than
+	// computeEntropySleepDuration so that peer does not send entropy for next height
+	// before the current height has been computed
+	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
+
+	// DKG parameters
+	RunDKG            bool `mapstructure:"run_dkg"`
+	StrictTxFiltering bool `mapstructure:"strict_tx_filtering"`
+}
+
+// DefaultConsensusConfig returns a default configuration for the consensus service
+func DefaultBeaconConfig() *BeaconConfig {
+	return &BeaconConfig{
+		PeerGossipSleepDuration:     100 * time.Millisecond,
+		EntropyChannelCapacity:      3,
+		ComputeEntropySleepDuration: 50 * time.Millisecond,
+		RunDKG:                      true,
+		StrictTxFiltering:           false,
+	}
+}
+
+// TestConsensusConfig returns a configuration for testing the consensus service
+func TestBeaconConfig() *BeaconConfig {
+	cfg := DefaultBeaconConfig()
+	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
+	cfg.RunDKG = false
+	return cfg
+}
+
+// ValidateBasic performs basic validation (checking param bounds, etc.) and
+// returns an error if any check fails.
+func (cfg *BeaconConfig) ValidateBasic() error {
+	if cfg.PeerGossipSleepDuration < 0 {
+		return errors.New("peer_gossip_sleep_duration can't be negative")
+	}
+	if cfg.EntropyChannelCapacity < 0 {
+		return errors.New("entropy_channel_capacity can't be negative")
+	}
+	if cfg.ComputeEntropySleepDuration < 0 {
+		return errors.New("compute_entropy_sleep_duration can't be negative")
 	}
 	return nil
 }

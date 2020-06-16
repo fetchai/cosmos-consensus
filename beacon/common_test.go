@@ -129,7 +129,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		blockStores[i] = store.NewBlockStore(stateDB)
 
 		aeonDetails, _ := newAeonDetails(privVals[i], 1, state.Validators, aeonExecUnits[index], 1, 9)
-		entropyGenerators[i] = NewEntropyGenerator(&thisConfig.BaseConfig, thisConfig.Consensus, 0)
+		entropyGenerators[i] = NewEntropyGenerator(&thisConfig.BaseConfig, thisConfig.Beacon, 0)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(0, state.LastComputedEntropy)
 		entropyGenerators[i].SetAeonDetails(aeonDetails)
@@ -137,7 +137,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		if withConsensus {
 			ensureDir(filepath.Dir(thisConfig.Consensus.WalFile()), 0700) // dir for wal
 			// Initialise entropy channel
-			entropyChannels[i] = make(chan types.ChannelEntropy, thisConfig.Consensus.EntropyChannelCapacity)
+			entropyChannels[i] = make(chan types.ChannelEntropy, thisConfig.Beacon.EntropyChannelCapacity)
 
 			css[i] = newStateWithConfigAndBlockStore(thisConfig, state, privVals[i], stateDB)
 			css[i].SetLogger(logger.With("validator", i, "module", "consensus"))
