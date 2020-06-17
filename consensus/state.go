@@ -1750,7 +1750,7 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 	// Differentiate between normal TXs and dkg TXs when doing metrics
 	txsInBlock := 0
 
-	for tx := range block.Data.Txs {
+	for _, tx := range block.Data.Txs {
 		if !tx_extensions.IsDKGRelated(tx) {
 			txsInBlock++
 		}
