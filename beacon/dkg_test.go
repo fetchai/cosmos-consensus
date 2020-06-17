@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -368,4 +369,126 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 		nodes[nVals+i] = newTestNode(config, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
 	}
 	return nodes
+}
+
+func TestDryRunThreshold(t *testing.T) {
+	nVals := 5
+	dkgThreshold := 5/2 + 1
+
+	t.Log(fmt.Sprintf("dkg threshold %v", dkgThreshold))
+	encryptionThreshold := dkgThreshold + nVals/3
+	t.Log(fmt.Sprintf("encryptionKey threshold %v", encryptionThreshold))
+	dryRunThreshold := (2 * nVals) / 3
+	t.Log(fmt.Sprintf("DryRun threshold %v", dryRunThreshold))
+}
+
+func TestDKGMissingValidator(t *testing.T) {
+	testCases := []struct {
+		testName       string
+		failures       func([]*testNode)
+		sendDuplicates bool
+		nVals          int
+		startSize      int
+		qualSize       int
+		completionSize int
+	}{
+		{"All honest", func([]*testNode) {}, false, 5, 4, 4, 4},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			nodes := exampleDKGNetwork(tc.nVals, 0, tc.sendDuplicates)
+			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
+			cppLogger.Start()
+
+			nTotal := tc.nVals
+			outputs := make([]*aeonDetails, tc.startSize)
+			for index := 0; index < tc.startSize; index++ {
+				output := &outputs[index]
+				_ = output // dummy assignment
+				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
+					*output = aeon
+				})
+			}
+
+			// Set node failures
+			tc.failures(nodes)
+
+			// Start all nodes
+			blockHeight := int64(10)
+			for i := 0; i < tc.startSize; i++ {
+				node := nodes[i]
+				assert.True(t, !node.dkg.IsRunning())
+				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+				assert.True(t, node.dkg.IsRunning())
+				node.clearMsgs()
+			}
+
+			for nodesFinished := 0; nodesFinished < tc.startSize; {
+				blockHeight++
+				for i := 0; i < tc.startSize; i++ {
+					node := nodes[i]
+					for j := 0; j < tc.startSize; j++ {
+						node1 := nodes[j]
+						if i != j {
+							node1.dkg.OnBlock(blockHeight, node.currentMsgs)
+						}
+					}
+				}
+				for _, node := range nodes {
+					node.clearMsgs()
+				}
+
+				nodesFinished = 0
+				for _, node := range nodes {
+					if node.dkg.dkgIteration >= 2 {
+						t.Log("Test failed: dkg iteration exceeded 1")
+						t.FailNow()
+					}
+					if node.dkg.currentState == dkgFinish {
+						nodesFinished++
+					}
+				}
+			}
+
+			// Wait for all dkgs to stop running
+			assert.Eventually(t, func() bool {
+				running := 0
+				for index := 0; index < nTotal; index++ {
+					if nodes[index].dkg.IsRunning() {
+						running++
+					}
+				}
+				return running == 0
+			}, 1*time.Second, 100*time.Millisecond)
+
+			// Check outputs have been set
+			for _, aeon := range outputs {
+				if aeon == nil {
+					t.Logf("Test failed: received nil dkg output")
+					t.FailNow()
+				}
+			}
+
+			// Check all outputs of expected completed nodes agree
+			message := "TestMessage"
+			sigShares := NewIntStringMap()
+			defer DeleteIntStringMap(sigShares)
+			for index := 0; index < tc.completionSize; index++ {
+				node := nodes[index]
+				signature := outputs[index].aeonExecUnit.Sign(message)
+				for index1 := 0; index1 < tc.startSize; index1++ {
+					if index != index1 {
+						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())))
+					}
+				}
+				sigShares.Set(uint(node.dkg.index()), signature)
+			}
+			groupSig := outputs[0].aeonExecUnit.ComputeGroupSignature(sigShares)
+			for index := 0; index < tc.startSize; index++ {
+				assert.True(t, outputs[index].aeonExecUnit.VerifyGroupSignature(message, groupSig))
+			}
+
+			cppLogger.Stop()
+		})
+	}
 }
