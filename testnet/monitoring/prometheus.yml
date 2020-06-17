@@ -14,11 +14,6 @@ scrape_configs:
 
     scrape_interval: 3s
 
-    # cat /etc/prometheus/prometheus.yml
-
-    #static_configs:
-    #    - targets: ['node0:26660', 'node1:26660', 'node2:26660', 'node3:26660', 'node4:26660', 'node5:26660', 'node6:26660', 'node7:26660', 'node8:26660','node9:26660','node10:26660','node11:26660']
-
     static_configs:
     - targets: [ 'node0:26660' ]
       labels:
