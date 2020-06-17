@@ -75,7 +75,7 @@ type DistributedKeyGeneration struct {
 	cmn.BaseService
 	mtx sync.RWMutex
 
-	config       *cfg.ConsensusConfig
+	config       *cfg.BeaconConfig
 	chainID      string
 	dkgID        int64
 	dkgIteration int64
@@ -110,12 +110,12 @@ type DistributedKeyGeneration struct {
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
-func NewDistributedKeyGeneration(csConfig *cfg.ConsensusConfig, chain string,
+func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, vals types.ValidatorSet,
 	aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
-		config:               csConfig,
+		config:               beaconConfig,
 		chainID:              chain,
 		dkgID:                dkgID(validatorHeight),
 		dkgIteration:         0,

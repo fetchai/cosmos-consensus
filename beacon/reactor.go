@@ -289,14 +289,14 @@ OUTER_LOOP:
 			if block != nil && len(block.Header.Entropy.GroupSignature) != 0 {
 				// Send peer entropy from block store
 				ps.sendEntropy(nextEntropyHeight, block.Header.Entropy.GroupSignature)
-				time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
+				time.Sleep(beaconR.entropyGen.beaconConfig.PeerGossipSleepDuration)
 				continue OUTER_LOOP
 			}
 		}
 		entropy := beaconR.entropyGen.getComputedEntropy(nextEntropyHeight)
 		if entropy != nil {
 			ps.sendEntropy(nextEntropyHeight, entropy)
-			time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
+			time.Sleep(beaconR.entropyGen.beaconConfig.PeerGossipSleepDuration)
 			continue OUTER_LOOP
 		}
 		if beaconR.entropyGen.isSigningEntropy() {
@@ -305,7 +305,7 @@ OUTER_LOOP:
 				beaconR.entropyGen.aeon.validators.Size())
 		}
 
-		time.Sleep(beaconR.entropyGen.consensusConfig.PeerGossipSleepDuration)
+		time.Sleep(beaconR.entropyGen.beaconConfig.PeerGossipSleepDuration)
 		continue OUTER_LOOP
 	}
 }

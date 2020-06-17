@@ -90,7 +90,7 @@ func testDKGRunners(nVals int, nSentries int) ([]*DKGRunner, tx_extensions.Messa
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
-	config := cfg.TestConsensusConfig()
+	config := cfg.TestBeaconConfig()
 	logger := log.TestingLogger()
 
 	fakeHandler := tx_extensions.NewFakeMessageHandler()

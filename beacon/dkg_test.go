@@ -290,7 +290,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
-	config := cfg.TestConsensusConfig()
+	config := cfg.TestBeaconConfig()
 
 	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, *state.Validators, 20, 100)
 	dkg.SetLogger(log.TestingLogger())
@@ -305,7 +305,7 @@ type testNode struct {
 	sentBadShare bool
 }
 
-func newTestNode(config *cfg.ConsensusConfig, chainID string, privVal types.PrivValidator,
+func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
 		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, *vals, 20, 100),
@@ -357,7 +357,7 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 	genDoc, privVals := randGenesisDoc(nVals, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
-	config := cfg.TestConsensusConfig()
+	config := cfg.TestBeaconConfig()
 
 	nodes := make([]*testNode, nVals+nSentries)
 	for i := 0; i < nVals; i++ {

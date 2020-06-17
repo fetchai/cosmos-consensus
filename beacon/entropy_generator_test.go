@@ -321,5 +321,5 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 
 func testEntropyGenerator() *EntropyGenerator {
 	config := cfg.ResetTestRoot("entropy_generator_test")
-	return NewEntropyGenerator(&config.BaseConfig, config.Consensus, 0)
+	return NewEntropyGenerator(&config.BaseConfig, config.Beacon, 0)
 }
