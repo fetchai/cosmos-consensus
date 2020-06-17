@@ -28,6 +28,8 @@ type Application interface {
 	MempoolAddTx(RequestMempoolAddTx) ResponseMempoolAddTx
 	MempoolRemoveTx(RequestMempoolRemoveTx) ResponseMempoolRemoveTx
 	MempoolReapTxs(RequestMempoolReapTxs) ResponseMempoolReapTxs
+
+	MempoolNewTx(RequestMempoolNewTx, ABCIApplication_MempoolNewTxServer) error
 }
 
 //-------------------------------------------------------
@@ -98,6 +100,10 @@ func (BaseApplication) MempoolReapTxs(RequestMempoolReapTxs) ResponseMempoolReap
 	return ResponseMempoolReapTxs{
 		Code: 1,
 	}
+}
+
+func (BaseApplication) MempoolNewTx(RequestMempoolNewTx, ABCIApplication_MempoolNewTxServer) error {
+	return nil
 }
 
 //-------------------------------------------------------
@@ -182,4 +188,8 @@ func (app *GRPCApplication) MempoolRemoveTx(ctx context.Context, req *RequestMem
 func (app *GRPCApplication) MempoolReapTxs(ctx context.Context, req *RequestMempoolReapTxs) (*ResponseMempoolReapTxs, error) {
 	res := app.app.MempoolReapTxs(*req)
 	return &res, nil
+}
+
+func (app *GRPCApplication) MempoolNewTx(req *RequestMempoolNewTx, stream ABCIApplication_MempoolNewTxServer) error {
+	return app.app.MempoolNewTx(*req, stream)
 }

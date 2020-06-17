@@ -3,6 +3,7 @@ package mempool
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -80,6 +81,7 @@ func NewABCIMempool(
 	height int64,
 	options ...ABCIMempoolOption,
 ) *ABCIMempool {
+	fmt.Println("&****** ", config.AppMempool)
 	mempool := &ABCIMempool{
 		config:        config,
 		proxyAppConn:  proxyAppConn,
@@ -106,6 +108,41 @@ func NewABCIMempool(
 // NOTE: not thread safe - should only be called once, on startup
 func (mem *ABCIMempool) EnableTxsAvailable() {
 	mem.txsAvailable = make(chan struct{}, 1)
+	if !mem.config.AppMempool {
+		return
+	}
+	go func() {
+		stream, err := mem.proxyAppConn.MempoolNewTxSync(abci.RequestMempoolNewTx{})
+		if err != nil || stream == nil {
+			mem.logger.Error("Failed to get new tx stream: ", err)
+			return
+		}
+		fmt.Println("±±±±±±±±±±±±± GOT NEW TX STREAM")
+		for {
+			_, err := (*stream).Recv()
+			fmt.Println("±±±±±±±±±±±±± GOT NEW TX TICK")
+			if err == io.EOF {
+				fmt.Println("±±±±±±±±±±±±± GOT NEW TX TICK EOF")
+				close(mem.txsAvailable)
+				return
+			}
+			if err != nil {
+				mem.logger.Error("Failed to receive tx notification from application: ", err)
+				return
+			}
+			if !mem.notifiedTxsAvailable {
+				mem.logger.Info("Got tx notification")
+				fmt.Println("±±±±±±±±±±±±± NOTIFY")
+
+				// channel cap is 1, so this will send once
+				mem.notifiedTxsAvailable = true
+				select {
+				case mem.txsAvailable <- struct{}{}:
+				default:
+				}
+			}
+		}
+	}()
 }
 
 // SetLogger sets the Logger.
@@ -338,6 +375,7 @@ func (mem *ABCIMempool) reqResCb(
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *ABCIMempool) addTx(memTx *mempoolTx) {
 	if mem.config.AppMempool {
+		fmt.Println("***** ADD TO MEMPOOL")
 		mem.proxyAppConn.MempoolAddTxAsync(abci.RequestMempoolAddTx{
 			Tx: memTx.tx,
 		})
@@ -398,7 +436,9 @@ func (mem *ABCIMempool) resCbFirstTime(
 				"height", memTx.height,
 				"total", mem.Size(),
 			)
-			mem.notifyTxsAvailable()
+			if !mem.config.AppMempool {
+				mem.notifyTxsAvailable()
+			}
 		} else {
 			// ignore bad transaction
 			mem.logger.Info("Rejected bad transaction",
@@ -450,7 +490,7 @@ func (mem *ABCIMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 			mem.logger.Info("Done rechecking txs")
 
 			// incase the recheck removed all txs
-			if mem.Size() > 0 {
+			if mem.Size() > 0 && !mem.config.AppMempool {
 				mem.notifyTxsAvailable()
 			}
 		}
@@ -626,7 +666,7 @@ func (mem *ABCIMempool) Update(
 			// At this point, mem.txs are being rechecked.
 			// mem.recheckCursor re-scans mem.txs and possibly removes some txs.
 			// Before mem.Reap(), we should wait for mem.recheckCursor to be nil.
-		} else {
+		} else if !mem.config.AppMempool {
 			mem.notifyTxsAvailable()
 		}
 	}

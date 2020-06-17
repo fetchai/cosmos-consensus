@@ -178,3 +178,7 @@ func (*Application) MempoolReapTxs(types.RequestMempoolReapTxs) types.ResponseMe
 		Code: 1,
 	}
 }
+
+func (*Application) MempoolNewTx(types.RequestMempoolNewTx, types.ABCIApplication_MempoolNewTxServer) error {
+	return nil
+}

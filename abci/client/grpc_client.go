@@ -358,3 +358,11 @@ func (cli *grpcClient) MempoolReapTxsSync(params types.RequestMempoolReapTxs) (*
 	reqres := cli.MempoolReapTxsAsync(params)
 	return reqres.Response.GetMempoolReapTxs(), cli.Error()
 }
+
+func (cli *grpcClient) MempoolNewTxSync(params types.RequestMempoolNewTx) (*types.ABCIApplication_MempoolNewTxClient, error) {
+	res, err := cli.client.MempoolNewTx(context.Background(), &params, grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return &res, nil
+}

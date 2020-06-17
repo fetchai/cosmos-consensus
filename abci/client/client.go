@@ -54,6 +54,7 @@ type Client interface {
 	MempoolAddTxSync(types.RequestMempoolAddTx) (*types.ResponseMempoolAddTx, error)
 	MempoolRemoveTxSync(types.RequestMempoolRemoveTx) (*types.ResponseMempoolRemoveTx, error)
 	MempoolReapTxsSync(types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error)
+	MempoolNewTxSync(types.RequestMempoolNewTx) (*types.ABCIApplication_MempoolNewTxClient, error)
 }
 
 //----------------------------------------

@@ -373,6 +373,11 @@ func (cli *socketClient) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*t
 	return reqres.Response.GetMempoolReapTxs(), cli.Error()
 }
 
+func (app *socketClient) MempoolNewTxSync(params types.RequestMempoolNewTx) (*types.ABCIApplication_MempoolNewTxClient, error) {
+	app.Logger.Error("MempoolNewTxSync not implemented for socket client")
+	return nil, nil
+}
+
 //----------------------------------------
 
 func (cli *socketClient) queueRequest(req *types.Request) *ReqRes {

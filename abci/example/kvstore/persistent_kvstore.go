@@ -268,3 +268,7 @@ func (*PersistentKVStoreApplication) MempoolReapTxs(types.RequestMempoolReapTxs)
 		Code: 1,
 	}
 }
+
+func (*PersistentKVStoreApplication) MempoolNewTx(types.RequestMempoolNewTx, types.ABCIApplication_MempoolNewTxServer) error {
+	return nil
+}

@@ -303,6 +303,11 @@ func (app *localClient) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*ty
 	return &res, nil
 }
 
+func (app *localClient) MempoolNewTxSync(params types.RequestMempoolNewTx) (*types.ABCIApplication_MempoolNewTxClient, error) {
+	app.Logger.Error("MempoolNewTxSync not implemented for local client")
+	return nil, nil
+}
+
 //-------------------------------------------------------
 
 func (app *localClient) callback(req *types.Request, res *types.Response) *ReqRes {

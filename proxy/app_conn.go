@@ -33,6 +33,8 @@ type AppConnMempool interface {
 	MempoolAddTxAsync(types.RequestMempoolAddTx) *abcicli.ReqRes
 	MempoolRemoveTxAsync(types.RequestMempoolRemoveTx) *abcicli.ReqRes
 	MempoolReapTxsSync(types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error)
+
+	MempoolNewTxSync(types.RequestMempoolNewTx) (*types.ABCIApplication_MempoolNewTxClient, error)
 }
 
 type AppConnQuery interface {
@@ -133,6 +135,10 @@ func (app *appConnMempool) MempoolRemoveTxAsync(req types.RequestMempoolRemoveTx
 
 func (app *appConnMempool) MempoolReapTxsSync(req types.RequestMempoolReapTxs) (*types.ResponseMempoolReapTxs, error) {
 	return app.appConn.MempoolReapTxsSync(req)
+}
+
+func (app *appConnMempool) MempoolNewTxSync(req types.RequestMempoolNewTx) (*types.ABCIApplication_MempoolNewTxClient, error) {
+	return app.appConn.MempoolNewTxSync(req)
 }
 
 //------------------------------------------------

@@ -44,6 +44,7 @@ message Request {
     RequestMempoolAddTx    mempool_add_tx   = 30;
     RequestMempoolRemoveTx mempool_rm_tx    = 31;
     RequestMempoolReapTxs  mempool_reap_txs = 32;
+    RequestMempoolNewTx    mempool_new_tx   = 33;
   }
 }
 
@@ -128,6 +129,9 @@ message RequestMempoolReapTxs {
   int64 gas_limit = 2;
 }
 
+message RequestMempoolNewTx {
+}
+
 //----------------------------------------
 // Response types
 
@@ -150,6 +154,7 @@ message Response {
     ResponseMempoolAddTx    mempool_add_tx   = 30;
     ResponseMempoolRemoveTx mempool_rm_tx    = 31;
     ResponseMempoolReapTxs  mempool_reap_txs = 32;
+    ResponseMempoolNewTx    mempool_new_tx   = 33;
   }
 }
 
@@ -261,6 +266,9 @@ message ResponseMempoolRemoveTx {
 message ResponseMempoolReapTxs {
   uint32         code = 1;
   repeated bytes txs  = 2;
+}
+
+message ResponseMempoolNewTx {
 }
 
 //----------------------------------------
@@ -403,4 +411,5 @@ service ABCIApplication {
   rpc MempoolAddTx(RequestMempoolAddTx) returns (ResponseMempoolAddTx);
   rpc MempoolRemoveTx(RequestMempoolRemoveTx) returns (ResponseMempoolRemoveTx);
   rpc MempoolReapTxs(RequestMempoolReapTxs) returns (ResponseMempoolReapTxs);
+  rpc MempoolNewTx(RequestMempoolNewTx) returns (stream ResponseMempoolNewTx);
 }
