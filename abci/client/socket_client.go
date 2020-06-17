@@ -119,7 +119,7 @@ func (cli *socketClient) SetResponseCallback(resCb Callback) {
 }
 
 func (cli *socketClient) TriggerResponseCallback(req *types.Request, res *types.Response) {
-	cli.resCb(req,res)
+	cli.resCb(req, res)
 }
 
 //----------------------------------------

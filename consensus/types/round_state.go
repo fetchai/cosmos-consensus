@@ -95,12 +95,12 @@ type RoundState struct {
 
 // Compressed version of the RoundState for use in RPC
 type RoundStateSimple struct {
-	HeightRoundStep   string          `json:"height/round/step"`
-	StartTime         time.Time       `json:"start_time"`
-	ProposalBlockHash cmn.HexBytes    `json:"proposal_block_hash"`
-	LockedBlockHash   cmn.HexBytes    `json:"locked_block_hash"`
-	ValidBlockHash    cmn.HexBytes    `json:"valid_block_hash"`
-	Votes             json.RawMessage `json:"height_vote_set"`
+	HeightRoundStep   string              `json:"height/round/step"`
+	StartTime         time.Time           `json:"start_time"`
+	ProposalBlockHash cmn.HexBytes        `json:"proposal_block_hash"`
+	LockedBlockHash   cmn.HexBytes        `json:"locked_block_hash"`
+	ValidBlockHash    cmn.HexBytes        `json:"valid_block_hash"`
+	Votes             json.RawMessage     `json:"height_vote_set"`
 	Proposer          types.ValidatorInfo `json:"proposer"`
 }
 
