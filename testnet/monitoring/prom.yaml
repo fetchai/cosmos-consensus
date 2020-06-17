@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: prometheus-deployment
   labels:
     app: prometheus
     purpose: example
 spec:
+  serviceName: prom-ss
   replicas: 1
   selector:
     matchLabels:
@@ -34,7 +35,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: prometheus-example-service
+  name: prom
 spec:
   selector:
     app: prometheus

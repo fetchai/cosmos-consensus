@@ -45,12 +45,14 @@ type Metrics struct {
 	// Time between this and the last block.
 	BlockIntervalSeconds metrics.Gauge
 
-	// Number of transactions.
+	// Number of transactions (and dkg).
 	NumTxs metrics.Gauge
+	NumDKGTxs metrics.Gauge
 	// Size of the block.
 	BlockSizeBytes metrics.Gauge
 	// Total number of transactions.
 	TotalTxs metrics.Gauge
+	TotalDKGTxs metrics.Gauge
 	// The latest block height.
 	CommittedHeight metrics.Gauge
 	// Whether or not a node is fast syncing. 1 if yes, 0 if no.
@@ -150,6 +152,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "num_txs",
 			Help:      "Number of transactions.",
 		}, labels).With(labelsAndValues...),
+		NumDKGTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "num_dkg_txs",
+			Help:      "Number of dkg transactions.",
+		}, labels).With(labelsAndValues...),
 		BlockSizeBytes: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -204,8 +212,10 @@ func NopMetrics() *Metrics {
 		BlockIntervalSeconds: discard.NewGauge(),
 
 		NumTxs:          discard.NewGauge(),
+		NumDKGTxs:          discard.NewGauge(),
 		BlockSizeBytes:  discard.NewGauge(),
 		TotalTxs:        discard.NewGauge(),
+		TotalDKGTxs:        discard.NewGauge(),
 		CommittedHeight: discard.NewGauge(),
 		FastSyncing:     discard.NewGauge(),
 		BlockParts:      discard.NewCounter(),
