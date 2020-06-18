@@ -46,12 +46,12 @@ type Metrics struct {
 	BlockIntervalSeconds metrics.Gauge
 
 	// Number of transactions (and dkg).
-	NumTxs metrics.Gauge
+	NumTxs    metrics.Gauge
 	NumDKGTxs metrics.Gauge
 	// Size of the block.
 	BlockSizeBytes metrics.Gauge
 	// Total number of transactions.
-	TotalTxs metrics.Gauge
+	TotalTxs    metrics.Gauge
 	TotalDKGTxs metrics.Gauge
 	// The latest block height.
 	CommittedHeight metrics.Gauge
@@ -218,10 +218,10 @@ func NopMetrics() *Metrics {
 		BlockIntervalSeconds: discard.NewGauge(),
 
 		NumTxs:          discard.NewGauge(),
-		NumDKGTxs:          discard.NewGauge(),
+		NumDKGTxs:       discard.NewGauge(),
 		BlockSizeBytes:  discard.NewGauge(),
 		TotalTxs:        discard.NewGauge(),
-		TotalDKGTxs:        discard.NewGauge(),
+		TotalDKGTxs:     discard.NewGauge(),
 		CommittedHeight: discard.NewGauge(),
 		FastSyncing:     discard.NewGauge(),
 		BlockParts:      discard.NewCounter(),

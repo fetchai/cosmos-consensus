@@ -28,14 +28,14 @@ func (l *bufferedLogger) addMessage(msg bufferedLogMessage) {
 
 func (l *bufferedLogger) Debug(msg string, _ ...interface{}) {
 	l.addMessage(bufferedLogMessage{
-		Text: msg,
+		Text:  msg,
 		Level: LevelDebug,
 	})
 }
 
 func (l *bufferedLogger) Info(msg string, _ ...interface{}) {
 	l.addMessage(bufferedLogMessage{
-		Text: msg,
+		Text:  msg,
 		Level: LevelInfo,
 	})
 
@@ -43,7 +43,7 @@ func (l *bufferedLogger) Info(msg string, _ ...interface{}) {
 
 func (l *bufferedLogger) Error(msg string, _ ...interface{}) {
 	l.addMessage(bufferedLogMessage{
-		Text: msg,
+		Text:  msg,
 		Level: LevelError,
 	})
 

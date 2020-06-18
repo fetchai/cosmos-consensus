@@ -21,9 +21,6 @@ scrape_configs:
     - targets: [ 'node1:26660' ]
       labels:
         app: 'node1'
-    - targets: [ 'node1:26660' ]
-      labels:
-        app: 'node1'
     - targets: [ 'node2:26660' ]
       labels:
         app: 'node2'

@@ -40,7 +40,7 @@ func (app *localClient) SetResponseCallback(cb Callback) {
 }
 
 func (app *localClient) TriggerResponseCallback(req *types.Request, res *types.Response) {
-	app.Callback(req,res)
+	app.Callback(req, res)
 }
 
 // TODO: change types.Application to include Error()?
