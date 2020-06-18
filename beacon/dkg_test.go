@@ -372,17 +372,16 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 }
 
 func TestDryRunThreshold(t *testing.T) {
-	nVals := 5
-	dkgThreshold := nVals/2 + 1
-
-	t.Log(fmt.Sprintf("dkg threshold %v", dkgThreshold))
-	encryptionThreshold := dkgThreshold + nVals/3
-	t.Log(fmt.Sprintf("encryptionKey threshold %v", encryptionThreshold))
-	dryRunThreshold := (2 * nVals) / 3
-	if dryRunThreshold < dkgThreshold {
-		dryRunThreshold = dkgThreshold
+	for nVals := 1; nVals < 20; nVals++ {
+		dkgThreshold := nVals/2 + 1
+		encryptionThreshold := dkgThreshold + nVals/3
+		dryRunThreshold := (2 * nVals) / 3
+		if dryRunThreshold < dkgThreshold {
+			dryRunThreshold = dkgThreshold
+		}
+		t.Log(fmt.Sprintf("nVals: %v, dkgThreshold: %v, encryptionKeyThreshold: %v, dryRunThreshold: %v", nVals, dkgThreshold, encryptionThreshold,
+			dryRunThreshold))
 	}
-	t.Log(fmt.Sprintf("DryRun threshold %v", dryRunThreshold))
 }
 
 func TestDKGMissingValidator(t *testing.T) {
