@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/tendermint/tendermint/tx_extensions"
 	"math/rand"
 	"reflect"
 	"runtime/debug"
@@ -1746,8 +1747,19 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 		)
 	}
 
-	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
-	cs.metrics.TotalTxs.Add(float64(len(block.Data.Txs)))
+	// Differentiate between normal TXs and dkg TXs when doing metrics
+	txsInBlock := 0
+
+	for _, tx := range block.Data.Txs {
+		if !tx_extensions.IsDKGRelated(tx) {
+			txsInBlock++
+		}
+	}
+
+	cs.metrics.NumDKGTxs.Set(float64(len(block.Data.Txs) - txsInBlock))
+	cs.metrics.TotalDKGTxs.Add(float64(len(block.Data.Txs) - txsInBlock))
+	cs.metrics.NumTxs.Set(float64(txsInBlock))
+	cs.metrics.TotalTxs.Add(float64(txsInBlock))
 	cs.metrics.BlockSizeBytes.Set(float64(block.Size()))
 	cs.metrics.CommittedHeight.Set(float64(block.Height))
 }

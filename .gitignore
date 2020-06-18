@@ -29,6 +29,10 @@ scripts/cutWALUntil/cutWALUntil
 
 .vscode/
 
+testnet/yaml_files
+*mytestnet
+priv_validator_key.json
+
 libs/pubsub/query/fuzz_test/output
 shunit2
 

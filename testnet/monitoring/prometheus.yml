@@ -1,0 +1,50 @@
+global:
+  scrape_interval:     3s # By default, scrape targets every 15 seconds.
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    monitor: 'manual-prom-monitor'
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'nodes'
+
+    scrape_interval: 3s
+
+    static_configs:
+    - targets: [ 'node0:26660' ]
+      labels:
+        app: 'node0'
+    - targets: [ 'node1:26660' ]
+      labels:
+        app: 'node1'
+    - targets: [ 'node2:26660' ]
+      labels:
+        app: 'node2'
+    - targets: [ 'node3:26660' ]
+      labels:
+        app: 'node3'
+    - targets: [ 'node4:26660' ]
+      labels:
+        app: 'node4'
+    - targets: [ 'node5:26660' ]
+      labels:
+        app: 'node5'
+    - targets: [ 'node6:26660' ]
+      labels:
+        app: 'node6'
+    - targets: [ 'node7:26660' ]
+      labels:
+        app: 'node7'
+    - targets: [ 'node8:26660' ]
+      labels:
+        app: 'node8'
+    - targets: [ 'node9:26660' ]
+      labels:
+        app: 'node9'
+    - targets: [ 'node10:26660' ]
+      labels:
+        app: 'node10'
