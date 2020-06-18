@@ -220,14 +220,12 @@ func TestDKGScenarios(t *testing.T) {
 
 			for nodesFinished := 0; nodesFinished < nTotal; {
 				blockHeight++
-				for index, node := range nodes {
-					for index1, node1 := range nodes {
-						if index1 != index {
-							node1.dkg.OnBlock(blockHeight, node.currentMsgs)
-						}
-					}
+				currentMsgs := make([]*types.DKGMessage, 0)
+				for _, node := range nodes {
+					currentMsgs = append(currentMsgs, node.currentMsgs...)
 				}
 				for _, node := range nodes {
+					node.dkg.OnBlock(blockHeight, currentMsgs)
 					node.clearMsgs()
 				}
 
@@ -284,6 +282,36 @@ func TestDKGScenarios(t *testing.T) {
 			cppLogger.Stop()
 		})
 	}
+}
+
+// Test MaxDKGDataSize is large enough for the dry run messages for committee of size 200
+func TestDKGMessageMaxDataSize(t *testing.T) {
+	_, privVal := types.RandValidator(false, 10)
+	aeonExecUnit := NewAeonExecUnit("test_keys/200.txt")
+	validators := types.ValidatorSet{Validators: make([]*types.Validator, 200)}
+	aeonKeys := aeonDetails{
+		validatorHeight: 0,
+		aeonExecUnit:    aeonExecUnit,
+		validators:      &validators,
+		Start:           0,
+		End:             100,
+	}
+	msgToSign := string(cdc.MustMarshalBinaryBare(aeonKeys.dkgOutput()))
+	signature := aeonKeys.aeonExecUnit.Sign(msgToSign)
+
+	dryRun := DryRunSignature{
+		PublicInfo:     *aeonKeys.dkgOutput(),
+		SignatureShare: signature,
+	}
+	dkgMessage := types.DKGMessage{
+		Type:         types.DKGDryRun,
+		FromAddress:  privVal.GetPubKey().Address(),
+		DKGID:        0,
+		DKGIteration: 0,
+		Data:         string(cdc.MustMarshalBinaryBare(&dryRun)),
+	}
+	privVal.SignDKGMessage("TestChain", &dkgMessage)
+	assert.True(t, dkgMessage.ValidateBasic() == nil)
 }
 
 func exampleDKG(nVals int) *DistributedKeyGeneration {
