@@ -58,6 +58,9 @@ type Metrics struct {
 
 	// Number of blockparts transmitted by peer.
 	BlockParts metrics.Counter
+
+	// Number of times failed as block producer
+	NumFailuresAsBlockProducer metrics.Counter
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -180,6 +183,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "block_parts",
 			Help:      "Number of blockparts transmitted by peer.",
 		}, append(labels, "peer_id")).With(labelsAndValues...),
+		NumFailuresAsBlockProducer: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "block_producer_failures",
+			Help:      "Number of times failed as block producer",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
@@ -209,5 +218,7 @@ func NopMetrics() *Metrics {
 		CommittedHeight: discard.NewGauge(),
 		FastSyncing:     discard.NewGauge(),
 		BlockParts:      discard.NewCounter(),
+
+		NumFailuresAsBlockProducer: discard.NewCounter(),
 	}
 }
