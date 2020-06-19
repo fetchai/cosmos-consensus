@@ -352,7 +352,6 @@ func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivVal
 			node.nextMsgs = append(node.nextMsgs, msg)
 		}
 	})
-
 	return node
 }
 
