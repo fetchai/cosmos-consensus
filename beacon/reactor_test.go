@@ -129,7 +129,7 @@ func TestReactorEntropy(t *testing.T) {
 		return true
 	}, 30*time.Second, 500*time.Millisecond)
 	for i := 0; i < N; i++ {
-		assert.Equal(t, 29, entropyGenerators[i].getLastComputedEntropyHeight())
+		assert.Equal(t, int64(29), entropyGenerators[i].getLastComputedEntropyHeight())
 	}
 }
 
