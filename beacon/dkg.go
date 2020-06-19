@@ -587,7 +587,7 @@ func (dkg *DistributedKeyGeneration) receivedAllDryRuns() bool {
 
 func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	encodedOutput := ""
-	requiredPassSize := uint((2 * dkg.validators.Size()) / 3)
+	requiredPassSize := uint(dkg.validators.Size() - dkg.validators.Size()/3)
 	if requiredPassSize < dkg.threshold {
 		requiredPassSize = dkg.threshold
 	}
