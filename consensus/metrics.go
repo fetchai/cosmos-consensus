@@ -176,7 +176,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 		TotalDKGTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "total_txs",
+			Name:      "total_dkg_txs",
 			Help:      "Total number of transactions.",
 		}, labels).With(labelsAndValues...),
 		CommittedHeight: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
