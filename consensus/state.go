@@ -140,7 +140,8 @@ type ConsensusState struct {
 	evsw tmevents.EventSwitch
 
 	// for reporting metrics
-	metrics *Metrics
+	isProposerForHeight int
+	metrics             *Metrics
 
 	// Last entropy and channel for receiving entropy
 	newEntropy            map[int64]*types.ChannelEntropy
@@ -980,6 +981,7 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
+		cs.isProposerForHeight++
 		cs.decideProposal(height, round)
 	} else {
 		logger.Info("enterPropose: Not our turn to propose",
@@ -1762,6 +1764,11 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 	cs.metrics.TotalTxs.Add(float64(txsInBlock))
 	cs.metrics.BlockSizeBytes.Set(float64(block.Size()))
 	cs.metrics.CommittedHeight.Set(float64(block.Height))
+
+	if cs.isProposerForHeight != 0 && bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
+		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
+	}
+	cs.isProposerForHeight = 0
 }
 
 //-----------------------------------------------------------------------------
