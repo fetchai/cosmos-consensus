@@ -17,12 +17,12 @@
 //
 //------------------------------------------------------------------------------
 
-#include "mcl/bn256.hpp"
+#include <mcl/bls12_381.hpp>
 
 #include <atomic>
 #include <unordered_map>
 
-namespace bn = mcl::bn256;
+namespace bn = mcl::bls12;
 
 namespace fetch {
 namespace beacon {
@@ -40,7 +40,8 @@ struct MCLInitialiser
     a = was_initialised.exchange(a);
     if (!a)
     {
-      bn::initPairing();
+      ::mcl::fp::Mode g_mode;
+      bn::initPairing(::mcl::BLS12_381, g_mode);
     }
   }
   static std::atomic<bool> was_initialised;
