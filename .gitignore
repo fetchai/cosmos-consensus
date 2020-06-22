@@ -32,6 +32,7 @@ scripts/cutWALUntil/cutWALUntil
 testnet/yaml_files
 *mytestnet
 priv_validator_key.json
+*.tar.gz
 
 libs/pubsub/query/fuzz_test/output
 shunit2
