@@ -195,7 +195,7 @@ def remove_network():
     run_command("kubectl", "delete sts,pods,pvc,svc -l networkName=tendermint-drb")
 
 def update_img_tag():
-    run_command("docker", "tag {DOCKER_IMG_NAME} {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}")
+    run_command("docker", f"tag {DOCKER_IMG_NAME} {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}")
 
 def check_node_ready(node: str):
 
