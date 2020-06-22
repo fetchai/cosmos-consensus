@@ -8,6 +8,7 @@ import traceback
 import ipdb
 import fileinput
 import shutil
+import time
 from pathlib import Path
 
 DOCKER_HOST="gcr.io/fetch-ai-sandbox/"
@@ -196,6 +197,26 @@ def remove_network():
 def update_img_tag():
     run_command("docker", "tag {DOCKER_IMG_NAME} {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}")
 
+def check_node_ready(node: str):
+
+    for i in range(0,100):
+        response = ""
+
+        # Use JSONPATH to query kubernetes for a pod's status
+        try:
+            response = subprocess.check_output(("kubectl get pods -o=jsonpath='{.items[?(@.metadata.name==\""+node+"\")].status.conditions[1].type}'").split(), stderr=subprocess.DEVNULL).decode().strip()
+        except:
+            pass
+
+        if 'Ready' in response:
+            return
+        elif i >= 50:
+            print("Waited too long for pod to become ready!", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"Waiting for pod {node} to become ready. Got response: '{response}'")
+            time.sleep(5)
+
 def run_on_pods(command: str, nodes: list):
 
     parsed = []
@@ -211,7 +232,10 @@ def run_on_pods(command: str, nodes: list):
 
     print(f"Running \"{command}\" on nodes {parsed}")
 
+    # Note that nodes must be online - this will be checked here to avoid
+    # race conditions
     for node in parsed:
+        check_node_ready(node)
         run_command("kubectl", f"exec {node} {command}")
 
 def do_network_delays(delays: list):
