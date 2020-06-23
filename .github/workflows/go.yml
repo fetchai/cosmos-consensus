@@ -47,7 +47,13 @@ jobs:
         fi
 
     - name: Run end to end tests.
-      run: make build; echo "aab";find / -name "libmcl.so"; echo $PATH; sudo cp ./build/tendermint /usr/local/bin; which tendermint; ./scripts/end_to_end_test.py
+      run: |
+        make build
+        sudo cp ./build/tendermint /usr/local/bin
+        find / -name "libmcl.so" 2> /dev/null
+        echo "xxx"
+        sudo find / -name "libmcl.so" 2> /dev/null
+        ./scripts/end_to_end_test.py
 
     - name: Run Unit tests.
       run: |
