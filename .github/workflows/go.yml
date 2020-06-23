@@ -47,7 +47,7 @@ jobs:
         fi
 
     - name: Run end to end tests.
-      run: make build; echo "aaa"; cp ./build/tendermint /usr/bin; which tendermint; ./scripts/end_to_end_test.py
+      run: make build; echo "aaa"; echo $PATH; cp ./build/tendermint /usr/bin; which tendermint; ./scripts/end_to_end_test.py
 
     - name: Run Unit tests.
       run: |
