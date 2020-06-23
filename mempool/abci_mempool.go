@@ -81,7 +81,6 @@ func NewABCIMempool(
 	height int64,
 	options ...ABCIMempoolOption,
 ) *ABCIMempool {
-	fmt.Println("&****** ", config.AppMempool)
 	mempool := &ABCIMempool{
 		config:        config,
 		proxyAppConn:  proxyAppConn,
@@ -117,12 +116,9 @@ func (mem *ABCIMempool) EnableTxsAvailable() {
 			mem.logger.Error("Failed to get new tx stream: ", err)
 			return
 		}
-		fmt.Println("±±±±±±±±±±±±± GOT NEW TX STREAM")
 		for {
 			_, err := (*stream).Recv()
-			fmt.Println("±±±±±±±±±±±±± GOT NEW TX TICK")
 			if err == io.EOF {
-				fmt.Println("±±±±±±±±±±±±± GOT NEW TX TICK EOF")
 				close(mem.txsAvailable)
 				return
 			}
@@ -131,9 +127,6 @@ func (mem *ABCIMempool) EnableTxsAvailable() {
 				return
 			}
 			if !mem.notifiedTxsAvailable {
-				mem.logger.Info("Got tx notification")
-				fmt.Println("±±±±±±±±±±±±± NOTIFY")
-
 				// channel cap is 1, so this will send once
 				mem.notifiedTxsAvailable = true
 				select {
@@ -523,14 +516,15 @@ func (mem *ABCIMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 			SizeLimit: maxBytes,
 			GasLimit:  maxGas,
 		})
-		if err != nil && resp != nil {
+		if err == nil && resp != nil {
 			if resp.Code == 0 {
-				txs := make([]types.Tx, 0, len(resp.Txs))
+				txs := make([]types.Tx, len(resp.Txs), len(resp.Txs))
 				for i, tx := range resp.Txs {
 					txs[i] = tx
 				}
 				return txs
 			}
+			mem.logger.Info("Unsuccessful call to ABCI MempoolReapTxsSync", "code", resp.Code)
 		} else {
 			msg := ""
 			if err != nil {
@@ -580,14 +574,15 @@ func (mem *ABCIMempool) ReapMaxTxs(max int) types.Txs {
 		SizeLimit: -1,
 		GasLimit:  int64(max),
 	})
-	if err != nil && resp != nil {
+	if err == nil && resp != nil {
 		if resp.Code == 0 {
-			txs := make([]types.Tx, 0, len(resp.Txs))
+			txs := make([]types.Tx, len(resp.Txs), len(resp.Txs))
 			for i, tx := range resp.Txs {
 				txs[i] = tx
 			}
 			return txs
 		}
+		mem.logger.Info("Unsuccessful call to ABCI MempoolReapTxsSync", "code", resp.Code)
 	} else {
 		msg := ""
 		if err != nil {
