@@ -47,9 +47,7 @@ jobs:
         fi
 
     - name: Run end to end tests.
-      run: make install
-      run: |
-        ./scripts/end_to_end_test.py
+      run: make install && ./scripts/end_to_end_test.py
 
     - name: Run Unit tests.
       run: |
