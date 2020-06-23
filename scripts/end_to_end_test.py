@@ -33,11 +33,9 @@ if return_obj.returncode:
     sys.exit(1)
 
 # Turn on metrics for node 0
-pathlist = Path("mytestnet/node0").glob('**/config.toml')
-for path in pathlist:
-    with fileinput.FileInput(path, inplace=True) as file:
-        for line in file:
-            print(line.replace("prometheus = false", "prometheus = true"), end='')
+with fileinput.FileInput("mytestnet/node0/config/config.toml", inplace=True) as file:
+    for line in file:
+        print(line.replace("prometheus = false", "prometheus = true"), end='')
 
 node_ids = []
 nodes = []

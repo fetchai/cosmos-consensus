@@ -51,7 +51,6 @@ jobs:
         make build
         sudo cp ./build/tendermint /usr/local/bin
         sudo cp /usr/local/lib/libmcl.so /usr/lib/libmcl.so
-        sudo apt install python3.8
         ./scripts/end_to_end_test.py
 
     - name: Run Unit tests.
