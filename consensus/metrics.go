@@ -158,7 +158,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 		NumDKGTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "num_txs",
+			Name:      "num_dkg_txs",
 			Help:      "Number of dkg transactions.",
 		}, labels).With(labelsAndValues...),
 		BlockSizeBytes: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
