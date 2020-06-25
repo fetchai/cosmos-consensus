@@ -175,9 +175,6 @@ func TestReactorReceivePanicsIfInitPeerHasntBeenCalledYet(t *testing.T) {
 }
 
 func TestReactorWithConsensus(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping testing in short mode")
-	}
 	N := 4
 	css, entropyGenerators, blockStores, cleanup := randBeaconAndConsensusNet(N, "beacon_reactor_test", true)
 	defer cleanup()
@@ -185,11 +182,20 @@ func TestReactorWithConsensus(t *testing.T) {
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
 	// Wait for everyone to generate 3 blocks
-	for i := 0; i < N; i++ {
-		for blockStores[i].LoadBlock(3) == nil {
-			time.Sleep(100 * time.Millisecond)
+	lastBlockHeight := int64(1)
+	assert.Eventually(t, func() bool {
+		for i := 0; i < N; i++ {
+			if blockStores[i].LoadBlock(lastBlockHeight) == nil {
+				return false
+			}
 		}
-	}
+		lastBlockHeight++
+		if lastBlockHeight == 3 {
+			return true
+		}
+		return false
+	}, 3*time.Minute, 100*time.Millisecond, "Failed to produce 3 blocks. Last block height %v", lastBlockHeight)
+
 }
 func TestReactorCatchupWithBlocks(t *testing.T) {
 	if testing.Short() {

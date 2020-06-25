@@ -144,7 +144,7 @@ def create_files_for_validators(validators: int):
     # metrics
     pathlist = Path("mytestnet").glob('**/config.toml')
     for path in pathlist:
-        with fileinput.FileInput(path, inplace=True) as file:
+        with fileinput.FileInput(str(path), inplace=True) as file:
             for line in file:
                 print(line.replace("prometheus = false", "prometheus = true"), end='')
 
