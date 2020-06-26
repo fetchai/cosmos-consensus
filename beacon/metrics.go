@@ -42,6 +42,8 @@ type Metrics struct {
 	NextAeonStart metrics.Gauge
 	// End of next aeon
 	NextAeonEnd metrics.Gauge
+	// Time between key arrival and aeon start
+	AeonKeyBuffer metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -131,6 +133,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "next_aeon_end",
 			Help:      "Next end block of the loaded aeon",
 		}, labels).With(labelsAndValues...),
+		AeonKeyBuffer: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "aeon_key_buffer",
+			Help:      "Time between key arrival and aeon start",
+		}, labels).With(labelsAndValues...),
 	}
 
 	// Set default values for the metrics so they appear at /metrics
@@ -148,6 +156,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	metrics.AeonEnd.Add(0)
 	metrics.NextAeonStart.Add(0)
 	metrics.NextAeonEnd.Add(0)
+	metrics.AeonKeyBuffer.Add(0)
 
 	return &metrics
 }
@@ -168,5 +177,6 @@ func NopMetrics() *Metrics {
 		AeonEnd:                     discard.NewGauge(),
 		NextAeonStart:               discard.NewGauge(),
 		NextAeonEnd:                 discard.NewGauge(),
+		AeonKeyBuffer:               discard.NewGauge(),
 	}
 }
