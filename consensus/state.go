@@ -1765,6 +1765,12 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 	cs.metrics.BlockSizeBytes.Set(float64(block.Size()))
 	cs.metrics.CommittedHeight.Set(float64(block.Height))
 
+	if types.IsEmptyBlockEntropy(&block.Entropy) {
+		cs.metrics.BlockWithEntropy.Set(float64(0))
+	} else {
+		cs.metrics.BlockWithEntropy.Set(float64(1))
+	}
+
 	if cs.isProposerForHeight != 0 && bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
 		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
 	}

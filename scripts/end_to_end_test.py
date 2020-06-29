@@ -87,7 +87,7 @@ while True:
     has_entropy = 0.0
 
     try:
-        has_entropy = get_metric("tendermint_beacon_block_with_entropy")
+        has_entropy = get_metric("tendermint_consensus_block_with_entropy")
     except:
         pass
 
