@@ -502,7 +502,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	if entropyGenerator.aeon == nil {
 		entropyGenerator.lastBlockHeight++
 
-		entropyGenerator.Logger.Error("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
+		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
 		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
 	}

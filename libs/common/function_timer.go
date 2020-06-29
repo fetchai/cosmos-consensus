@@ -49,7 +49,6 @@ func (fn* FunctionTimer) Finish() {
 		}
 
 		errorString := fmt.Sprintf("Expected function %v to take %vms but instead took %vms.\nStack: %v", fn.timerName, fn.expectedTimeMs, timeElapsed, stack)
-		//debug.PrintStack()
 
 		if fn.Logger == nil {
 			fmt.Println(errorString)

@@ -265,10 +265,6 @@ def do_network_delays(delays: list):
     for key, value in commands.items():
         run_on_pods(value, nodes=[key])
 
-    #import ipdb; ipdb.set_trace(context=20)
-        #run_on_pods(f"/tendermint/network_control.sh delay {node_to} {delay}", nodes=[node_from])
-        #print(args.network_delays)
-
 def send_html(args: list):
     # Args is a list of lists
     for arg in args:

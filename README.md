@@ -55,9 +55,6 @@ Second, determine the IDs for each node by running. We will denote the IDs as ID
 ./tendermint show_node_id --home mytestnet/node3
 ```
 
-
---p2p.persistent_peers="4eb93c740e28825b9d760c92b9a2802dce968b9f@127.0.0.1:2000"
-
 Now, assign each node two unique port numbers, denoted by P and Q, for listening to incoming peer connections and rpcs. Start each node in a separate terminal
 using 
 ```bash
