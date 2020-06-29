@@ -431,7 +431,7 @@ func (bcR *BlockchainReactor) processBlock() error {
 
 	bcR.state, err = bcR.blockExec.ApplyBlock(bcR.state, firstID, first)
 	if err != nil {
-		panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
+		panic(fmt.Sprintf("V1 BCR failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 	}
 
 	return nil

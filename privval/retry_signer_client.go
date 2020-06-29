@@ -75,3 +75,25 @@ func (sc *RetrySignerClient) SignProposal(chainID string, proposal *types.Propos
 	}
 	return errors.New("exhausted all attempts to sign proposal")
 }
+
+func (sc *RetrySignerClient) SignEntropy(chainID string, share *types.EntropyShare) error {
+	for i := 0; i < sc.retries || sc.retries == 0; i++ {
+		err := sc.next.SignEntropy(chainID, share)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(sc.timeout)
+	}
+	return errors.New("exhausted all attempts to sign entropy share")
+}
+
+func (sc *RetrySignerClient) SignDKGMessage(chainID string, msg *types.DKGMessage) error {
+	for i := 0; i < sc.retries || sc.retries == 0; i++ {
+		err := sc.next.SignDKGMessage(chainID, msg)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(sc.timeout)
+	}
+	return errors.New("exhausted all attempts to sign DKG message")
+}

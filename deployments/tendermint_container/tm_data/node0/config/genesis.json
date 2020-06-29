@@ -1,0 +1,63 @@
+{
+  "genesis_time": "2020-02-25T12:01:50.1935065Z",
+  "chain_id": "chain-stnLws",
+  "consensus_params": {
+    "block": {
+      "max_bytes": "22020096",
+      "max_gas": "-1",
+      "time_iota_ms": "1000"
+    },
+    "evidence": {
+      "max_age_num_blocks": "100000",
+      "max_age_duration": "172800000000000"
+    },
+    "validator": {
+      "pub_key_types": [
+        "ed25519"
+      ]
+    },
+    "entropy": {
+      "aeon_length": "100"
+    }
+  },
+  "validators": [
+    {
+      "address": "523168419AB149EB86FBA1F2EA2226099FC8CB37",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "YCMW/U9Uco726+W7ZJLuPvIHIwX+8DJJRhCpxukPMr4="
+      },
+      "power": "1",
+      "name": "node0"
+    },
+    {
+      "address": "FD45DB81DCF03435D51D7A592D4B12EB45095A10",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "A5lUoTjJbgPxhe2CniU+FR3jfMTneIVKp3iP05Yz6lc="
+      },
+      "power": "1",
+      "name": "node1"
+    },
+    {
+      "address": "12A1F49DACCA0C1481FA4A94D944824EA8A0959E",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "FxHDZ/QUTah6tVqq8nuiZuwRpoWl2f8Jil4Axg9Jixk="
+      },
+      "power": "1",
+      "name": "node2"
+    },
+    {
+      "address": "370D0A1AA385F0111CCD463BE13A42DD0B9EE7D5",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "t2EydrXqFCkr5ysWa/A4PGM97RFYmVsUQhD0FK64HCM="
+      },
+      "power": "1",
+      "name": "node3"
+    }
+  ],
+  "app_hash": "",
+  "entropy": "Fetch.ai Test Genesis Entropy"
+}

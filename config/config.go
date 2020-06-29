@@ -39,13 +39,20 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
+	defaultEntropyKeyName     = "entropy_key.json"
+	defaultNextEntropyKeyName = "next_entropy_key.json"
+	defaultNoiseKeyName       = "noise_key.json"
+
 	defaultNodeKeyName  = "node_key.json"
 	defaultAddrBookName = "addrbook.json"
 
-	defaultConfigFilePath   = filepath.Join(defaultConfigDir, defaultConfigFileName)
-	defaultGenesisJSONPath  = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
-	defaultPrivValKeyPath   = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
-	defaultPrivValStatePath = filepath.Join(defaultDataDir, defaultPrivValStateName)
+	defaultConfigFilePath     = filepath.Join(defaultConfigDir, defaultConfigFileName)
+	defaultGenesisJSONPath    = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
+	defaultPrivValKeyPath     = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
+	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
+	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
+	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
+	defaultNoiseKeyPath       = filepath.Join(defaultDataDir, defaultNoiseKeyName)
 
 	defaultNodeKeyPath  = filepath.Join(defaultConfigDir, defaultNodeKeyName)
 	defaultAddrBookPath = filepath.Join(defaultConfigDir, defaultAddrBookName)
@@ -69,6 +76,7 @@ type Config struct {
 	Consensus       *ConsensusConfig       `mapstructure:"consensus"`
 	TxIndex         *TxIndexConfig         `mapstructure:"tx_index"`
 	Instrumentation *InstrumentationConfig `mapstructure:"instrumentation"`
+	Beacon          *BeaconConfig          `mapstructure:"beacon"`
 }
 
 // DefaultConfig returns a default configuration for a Tendermint node
@@ -82,6 +90,7 @@ func DefaultConfig() *Config {
 		Consensus:       DefaultConsensusConfig(),
 		TxIndex:         DefaultTxIndexConfig(),
 		Instrumentation: DefaultInstrumentationConfig(),
+		Beacon:          DefaultBeaconConfig(),
 	}
 }
 
@@ -96,6 +105,7 @@ func TestConfig() *Config {
 		Consensus:       TestConsensusConfig(),
 		TxIndex:         TestTxIndexConfig(),
 		Instrumentation: TestInstrumentationConfig(),
+		Beacon:          TestBeaconConfig(),
 	}
 }
 
@@ -129,6 +139,9 @@ func (cfg *Config) ValidateBasic() error {
 	}
 	if err := cfg.Consensus.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "Error in [consensus] section")
+	}
+	if err := cfg.Beacon.ValidateBasic(); err != nil {
+		return errors.Wrap(err, "Error in [beacon] section")
 	}
 	return errors.Wrap(
 		cfg.Instrumentation.ValidateBasic(),
@@ -196,6 +209,15 @@ type BaseConfig struct { //nolint: maligned
 	// connections from an external PrivValidator process
 	PrivValidatorListenAddr string `mapstructure:"priv_validator_laddr"`
 
+	// Path to the JSON file containing the dkg output for entropy generation
+	EntropyKey string `mapstructure:"entropy_key_file"`
+
+	// Path to the JSON file containing the dkg output for next aeon entropy generation
+	NextEntropyKey string `mapstructure:"next_entropy_key_file"`
+
+	// Path to the JSON file containing the noise keys
+	NoiseKey string `mapstructure:"noise_key_file"`
+
 	// A JSON file containing the private key to use for p2p authenticated encryption
 	NodeKey string `mapstructure:"node_key_file"`
 
@@ -216,6 +238,9 @@ func DefaultBaseConfig() BaseConfig {
 		Genesis:            defaultGenesisJSONPath,
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
+		EntropyKey:         defaultEntropyKeyPath,
+		NextEntropyKey:     defaultNextEntropyKeyPath,
+		NoiseKey:           defaultNoiseKeyPath,
 		NodeKey:            defaultNodeKeyPath,
 		Moniker:            defaultMoniker,
 		ProxyApp:           "tcp://127.0.0.1:26658",
@@ -257,6 +282,21 @@ func (cfg BaseConfig) PrivValidatorKeyFile() string {
 // PrivValidatorFile returns the full path to the priv_validator_state.json file
 func (cfg BaseConfig) PrivValidatorStateFile() string {
 	return rootify(cfg.PrivValidatorState, cfg.RootDir)
+}
+
+// EntropyKeyFile returns the full path to the entropy_key.json file
+func (cfg BaseConfig) EntropyKeyFile() string {
+	return rootify(cfg.EntropyKey, cfg.RootDir)
+}
+
+// NextEntropyKeyFile returns the full path to the next_entropy_key.json file
+func (cfg BaseConfig) NextEntropyKeyFile() string {
+	return rootify(cfg.NextEntropyKey, cfg.RootDir)
+}
+
+// NoiseKeyFile returns the full path to the noise_key.json file
+func (cfg BaseConfig) NoiseKeyFile() string {
+	return rootify(cfg.NoiseKey, cfg.RootDir)
 }
 
 // OldPrivValidatorFile returns the full path of the priv_validator.json from pre v0.28.0.
@@ -561,7 +601,7 @@ func DefaultP2PConfig() *P2PConfig {
 		RecvRate:                5120000, // 5 mB/s
 		PexReactor:              true,
 		SeedMode:                false,
-		AllowDuplicateIP:        false,
+		AllowDuplicateIP:        true,
 		HandshakeTimeout:        20 * time.Second,
 		DialTimeout:             3 * time.Second,
 		TestDialFail:            false,
@@ -962,6 +1002,60 @@ func TestInstrumentationConfig() *InstrumentationConfig {
 func (cfg *InstrumentationConfig) ValidateBasic() error {
 	if cfg.MaxOpenConnections < 0 {
 		return errors.New("max_open_connections can't be negative")
+	}
+	return nil
+}
+
+//-----------------------------------------------------------------------------
+// BeaconConfig
+
+// BeaconConfig defines the configuration for the dkg and entropy generation
+type BeaconConfig struct {
+	EntropyChannelCapacity int64 `mapstructure:"entropy_channel_capacity"`
+
+	// Reactor sleep duration parameters
+	PeerGossipSleepDuration time.Duration `mapstructure:"peer_gossip_sleep_duration"`
+	// computeEntropySleepDuration sleep time in between checking if group signature
+	// can be computed. Note peerGossipSleepDuration must be greater than
+	// computeEntropySleepDuration so that peer does not send entropy for next height
+	// before the current height has been computed
+	ComputeEntropySleepDuration time.Duration `mapstructure:"compute_entropy_sleep_duration"`
+
+	// DKG parameters
+	RunDKG            bool `mapstructure:"run_dkg"`
+	StrictTxFiltering bool `mapstructure:"strict_tx_filtering"`
+}
+
+// DefaultBeaconConfig returns a default configuration for the beacon service
+func DefaultBeaconConfig() *BeaconConfig {
+	return &BeaconConfig{
+		PeerGossipSleepDuration:     100 * time.Millisecond,
+		EntropyChannelCapacity:      3,
+		ComputeEntropySleepDuration: 50 * time.Millisecond,
+		RunDKG:                      true,
+		StrictTxFiltering:           false,
+	}
+}
+
+// TestBeaconConfig returns a configuration for testing the beacon service
+func TestBeaconConfig() *BeaconConfig {
+	cfg := DefaultBeaconConfig()
+	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
+	cfg.RunDKG = false
+	return cfg
+}
+
+// ValidateBasic performs basic validation (checking param bounds, etc.) and
+// returns an error if any check fails.
+func (cfg *BeaconConfig) ValidateBasic() error {
+	if cfg.PeerGossipSleepDuration < 0 {
+		return errors.New("peer_gossip_sleep_duration can't be negative")
+	}
+	if cfg.EntropyChannelCapacity < 0 {
+		return errors.New("entropy_channel_capacity can't be negative")
+	}
+	if cfg.ComputeEntropySleepDuration < 0 {
+		return errors.New("compute_entropy_sleep_duration can't be negative")
 	}
 	return nil
 }

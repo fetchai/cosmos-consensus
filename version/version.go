@@ -9,8 +9,9 @@ var (
 )
 
 func init() {
+	Version += "+tm." + TMBaselineSemVer
 	if GitCommit != "" {
-		Version += "-" + GitCommit
+		Version += "-g" + GitCommit
 	}
 }
 

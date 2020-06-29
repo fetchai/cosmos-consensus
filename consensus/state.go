@@ -2,7 +2,10 @@ package consensus
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"github.com/tendermint/tendermint/tx_extensions"
+	"math/rand"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -10,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
@@ -87,6 +91,10 @@ type ConsensusState struct {
 	// notify us if txs are available
 	txNotifier txNotifier
 
+	// When strict tx filtering is on, non-DKG TXs cannot be included during DKG
+	// likely in the first few blocks of the chain.
+	strictFiltering bool
+
 	// add evidence to the pool
 	// when it's detected
 	evpool evidencePool
@@ -132,7 +140,13 @@ type ConsensusState struct {
 	evsw tmevents.EventSwitch
 
 	// for reporting metrics
-	metrics *Metrics
+	isProposerForHeight int
+	metrics             *Metrics
+
+	// Last entropy and channel for receiving entropy
+	newEntropy            map[int64]*types.ChannelEntropy
+	haveSetEntropyChannel bool
+	entropyChannel        <-chan types.ChannelEntropy
 }
 
 // StateOption sets an optional parameter on the ConsensusState.
@@ -163,11 +177,13 @@ func NewConsensusState(
 		evpool:           evpool,
 		evsw:             tmevents.NewEventSwitch(),
 		metrics:          NopMetrics(),
+		newEntropy:       make(map[int64]*types.ChannelEntropy),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
 	cs.doPrevote = cs.defaultDoPrevote
 	cs.setProposal = cs.defaultSetProposal
+	cs.strictFiltering = false
 
 	cs.updateToState(state)
 
@@ -196,9 +212,22 @@ func (cs *ConsensusState) SetEventBus(b *types.EventBus) {
 	cs.blockExec.SetEventBus(b)
 }
 
+// SetEntropyChannel sets channel along which to receive entropy
+func (cs *ConsensusState) SetEntropyChannel(channel <-chan types.ChannelEntropy) {
+	if cs.entropyChannel == nil {
+		cs.haveSetEntropyChannel = true
+		cs.entropyChannel = channel
+	}
+}
+
 // StateMetrics sets the metrics.
 func StateMetrics(metrics *Metrics) StateOption {
 	return func(cs *ConsensusState) { cs.metrics = metrics }
+}
+
+// StateMetrics sets the metrics.
+func StrictTxFiltering(filtering bool) StateOption {
+	return func(cs *ConsensusState) { cs.strictFiltering = filtering }
 }
 
 // String returns a string.
@@ -670,6 +699,15 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *ConsensusState) handleMsg(mi msgInfo) {
+
+	cs.mtx.Lock()
+	height := cs.Height
+	cs.mtx.Unlock()
+
+	// Since this function blocks, best to request the entropy so that
+	// subsequent calls for it below do not hold the cs.mtx too long
+	cs.getNewEntropy(height)
+
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 
@@ -744,6 +782,14 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 		cs.Logger.Debug("Ignoring tock because we're ahead", "height", rs.Height, "round", rs.Round, "step", rs.Step)
 		return
 	}
+
+	cs.mtx.Lock()
+	height := cs.Height
+	cs.mtx.Unlock()
+
+	// Since this function blocks, best to request the entropy so that
+	// subsequent calls for it below do not hold the cs.mtx too long
+	cs.getNewEntropy(height)
 
 	// the timeout will now cause a state transition
 	cs.mtx.Lock()
@@ -928,24 +974,178 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 	}
 	logger.Debug("This node is a validator")
 
-	if cs.isProposer(address) {
+	nextProposer := cs.getProposer(height, round)
+	if bytes.Equal(nextProposer.Address, address) {
 		logger.Info("enterPropose: Our turn to propose",
 			"proposer",
-			cs.Validators.GetProposer().Address,
+			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
+		cs.isProposerForHeight++
 		cs.decideProposal(height, round)
 	} else {
 		logger.Info("enterPropose: Not our turn to propose",
 			"proposer",
-			cs.Validators.GetProposer().Address,
+			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
 	}
 }
 
-func (cs *ConsensusState) isProposer(address []byte) bool {
-	return bytes.Equal(cs.Validators.GetProposer().Address, address)
+func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
+
+	// Get entropy for this round if not already set
+	newEntropy := cs.getEntropy(height)
+	entropyEnabled := newEntropy.Enabled
+
+	// Use normal tendermint proposer selection when there is no entropy
+	if entropyEnabled == false {
+		return cs.Validators.GetProposer()
+	}
+
+	index := round
+	if round >= cs.Validators.Size() {
+		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round", round, "validator size", cs.Validators.Size())
+		index = round % cs.Validators.Size()
+	}
+
+	entropy := tmhash.Sum(newEntropy.Entropy.GroupSignature)
+	proposer := cs.shuffledCabinet(entropy)[index]
+	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
+	return proposer
+}
+
+// Populate entropy into a map for the current block height and the next from the entropy
+// generator. Older entropy is trimmed. Subsequent requests for entropy can thus either
+// use the map, or the block store to get entropy. This function can block for as long
+// as it takes to generate entropy (possibly forever)
+func (cs *ConsensusState) getNewEntropy(height int64) {
+
+	// Global lock needed for this check
+	// Note the function keeps a copy of height + 1
+	// to avoid race conditions against cs.Height
+	cs.mtx.Lock()
+	haveSetE := cs.haveSetEntropyChannel
+	heightToFill := height + 1
+
+	if cs.newEntropy == nil {
+		panic(fmt.Sprintf("newEntropy is nil - this should not happen\n"))
+	}
+	cs.mtx.Unlock()
+
+	// Only during test cases should the entropy channel not be set.
+	// No need to set it as getEntropy will always succeed.
+	if haveSetE == false {
+		return
+	} else {
+
+		heightFound := false
+
+		// Stay in this loop until either height and height+1 has been set by a different
+		// thread, or it is set by this thread.
+		for heightFound == false {
+			cs.mtx.Lock()
+
+			// Check the current height - it might have increased which would indicate
+			// entropy for heightToFill is available via the block store. Also check the map
+			if cs.Height > heightToFill {
+				heightFound = true
+			}
+
+			if _, ok := cs.newEntropy[heightToFill]; ok {
+				heightFound = true
+			}
+
+			// If there is no entropy set, attempt to get some from the channel.
+			// Note it is important not to unnecessarily pull entropy from
+			// the channel as it will cause it to run ahead
+			var newEntropy types.ChannelEntropy
+			receivedEntropy := false
+
+			if heightFound == false {
+				select {
+				case newEntropy = <-cs.entropyChannel:
+					receivedEntropy = true
+				default:
+				}
+			}
+
+			if receivedEntropy == true {
+				// If the entropy channel has closed, allow the loop to end
+				if newEntropy.Height == 0 {
+					cs.Logger.Error("Entropy channel closed when consensus was requesting it")
+					heightFound = true
+				}
+				// Basic check entropy is good
+				if err := newEntropy.ValidateBasic(); err != nil {
+					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", newEntropy.Height, err))
+				}
+
+				// We want height and height +1, but don't drop older stuff
+				// as it will be cleared anyway when advancing the height
+				cs.newEntropy[newEntropy.Height] = &newEntropy
+			}
+			cs.mtx.Unlock()
+
+			if receivedEntropy == false {
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+	}
+}
+
+// Convenience function to return the entropy, checking that when it is requested,
+// it is set and the height is correct
+func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
+
+	// Return default entropy when testing
+	if cs.haveSetEntropyChannel == false {
+		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
+	}
+
+	// Attempt to get from the map
+	if entropy, ok := cs.newEntropy[height]; ok {
+
+		if entropy.Height != height {
+			panic(fmt.Sprintf("Height mismatch found between entropy and the height of entropy requested! %v vs %v", entropy.Height, height))
+		}
+
+		return entropy
+	}
+	cs.Logger.Error("Failed to find entropy populated from the entropy gen. Attempting to locate in the block store. Height requested: ", height, " current height: ", cs.Height)
+
+	// Can convert to channel entropy from block entropy
+	blockMeta := cs.blockStore.LoadBlockMeta(height)
+
+	if blockMeta == nil {
+		panic(fmt.Sprintf("Failed to find entropy at height %v, and failed to get block at that height from the store!\n", height))
+	}
+
+	blockEnt := blockMeta.Header.Entropy
+	enabled := types.IsEmptyBlockEntropy(&blockEnt)
+	chanEnt := &types.ChannelEntropy{Height: height, Entropy: blockEnt, Enabled: enabled}
+
+	return chanEnt
+}
+
+// TODO: Check that rand.Shuffle is same across different platforms
+func (cs *ConsensusState) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
+	if len(entropy) < 8 {
+		cs.Logger.Error("Entropy byte array too small for int64 for random seed", "size", len(entropy))
+		return nil
+	}
+	seed := int64(binary.BigEndian.Uint64(entropy))
+	source := rand.NewSource(seed)
+	random := rand.New(source)
+
+	// Shuffle validators
+	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
+	random.Shuffle(len(sortedValidators), func(i, j int) {
+		sortedValidators.Swap(i, j)
+	})
+	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
+	return sortedValidators
 }
 
 func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
@@ -959,6 +1159,10 @@ func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
 		block, blockParts = cs.createProposalBlock()
+		// Add entropy and reset blockParts
+
+		block.Header.Entropy = cs.getEntropy(height).Entropy
+		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
 		}
@@ -1023,8 +1227,16 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 		return
 	}
 
+	onlyDKGTxs := false
+
+	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
+	// is no entropy currently
+	if cs.strictFiltering == true && cs.getEntropy(cs.Height).Enabled == false {
+		onlyDKGTxs = true
+	}
+
 	proposerAddr := cs.privValidator.GetPubKey().Address()
-	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr)
+	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, onlyDKGTxs)
 }
 
 // Enter: `timeoutPropose` after entering Propose.
@@ -1071,6 +1283,13 @@ func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	// If ProposalBlock is nil, prevote nil.
 	if cs.ProposalBlock == nil {
 		logger.Info("enterPrevote: ProposalBlock is nil")
+		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
+	// Check block entropy (note this can be empty in fallback mode which is fine)
+	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getEntropy(height).Entropy) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
@@ -1376,8 +1595,11 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 		panic(fmt.Sprintf("+2/3 committed an invalid block: %v", err))
 	}
 
-	cs.Logger.Info(fmt.Sprintf("Finalizing commit of block with %d txs", block.NumTxs),
-		"height", block.Height, "hash", block.Hash(), "root", block.AppHash)
+	cs.Logger.Info("Finalizing commit of block with N txs",
+		"height", block.Height,
+		"hash", block.Hash(),
+		"root", block.AppHash,
+		"N", len(block.Txs))
 	cs.Logger.Info(fmt.Sprintf("%v", block))
 
 	fail.Fail() // XXX
@@ -1444,6 +1666,14 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
 
+	// Clear old entropy from map - it should now be
+	// accessable via the block store
+	for key, _ := range cs.newEntropy {
+		if key < cs.Height {
+			delete(cs.newEntropy, key)
+		}
+	}
+
 	fail.Fail() // XXX
 
 	// cs.StartTime is already set.
@@ -1461,28 +1691,42 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 	cs.metrics.ValidatorsPower.Set(float64(cs.Validators.TotalVotingPower()))
 
 	var (
-		missingValidators      = 0
+		missingValidators      int
 		missingValidatorsPower int64
 	)
-	for i, val := range cs.Validators.Validators {
-		var vote *types.CommitSig
-		if i < len(block.LastCommit.Precommits) {
-			vote = block.LastCommit.Precommits[i]
-		}
-		if vote == nil {
-			missingValidators++
-			missingValidatorsPower += val.VotingPower
+	// height=0 -> MissingValidators and MissingValidatorsPower are both 0.
+	// Remember that the first LastCommit is intentionally empty, so it's not
+	// fair to increment missing validators number.
+	if height > 1 {
+		// Sanity check that commit size matches validator set size - only applies
+		// after first block.
+		var (
+			commitSize = block.LastCommit.Size()
+			valSetLen  = len(cs.LastValidators.Validators)
+		)
+		if commitSize != valSetLen {
+			panic(fmt.Sprintf("commit size (%d) doesn't match valset length (%d) at height %d\n\n%v\n\n%v",
+				commitSize, valSetLen, block.Height, block.LastCommit.Precommits, cs.LastValidators.Validators))
 		}
 
-		if cs.privValidator != nil && bytes.Equal(val.Address, cs.privValidator.GetPubKey().Address()) {
-			label := []string{
-				"validator_address", val.Address.String(),
+		for i, val := range cs.LastValidators.Validators {
+			commitSig := block.LastCommit.Precommits[i]
+			if commitSig == nil {
+				missingValidators++
+				missingValidatorsPower += val.VotingPower
 			}
-			cs.metrics.ValidatorPower.With(label...).Set(float64(val.VotingPower))
-			if vote != nil {
-				cs.metrics.ValidatorLastSignedHeight.With(label...).Set(float64(height))
-			} else {
-				cs.metrics.ValidatorMissedBlocks.With(label...).Add(float64(1))
+
+			if cs.privValidator != nil && bytes.Equal(val.Address, cs.privValidator.GetPubKey().Address()) {
+				label := []string{
+					"validator_address", val.Address.String(),
+				}
+				cs.metrics.ValidatorPower.With(label...).Set(float64(val.VotingPower))
+
+				if commitSig != nil {
+					cs.metrics.ValidatorLastSignedHeight.With(label...).Set(float64(height))
+				} else {
+					cs.metrics.ValidatorMissedBlocks.With(label...).Add(float64(1))
+				}
 			}
 		}
 	}
@@ -1505,10 +1749,26 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 		)
 	}
 
-	cs.metrics.NumTxs.Set(float64(block.NumTxs))
+	// Differentiate between normal TXs and dkg TXs when doing metrics
+	txsInBlock := 0
+
+	for _, tx := range block.Data.Txs {
+		if !tx_extensions.IsDKGRelated(tx) {
+			txsInBlock++
+		}
+	}
+
+	cs.metrics.NumDKGTxs.Set(float64(len(block.Data.Txs) - txsInBlock))
+	cs.metrics.TotalDKGTxs.Add(float64(len(block.Data.Txs) - txsInBlock))
+	cs.metrics.NumTxs.Set(float64(txsInBlock))
+	cs.metrics.TotalTxs.Add(float64(txsInBlock))
 	cs.metrics.BlockSizeBytes.Set(float64(block.Size()))
-	cs.metrics.TotalTxs.Set(float64(block.TotalTxs))
 	cs.metrics.CommittedHeight.Set(float64(block.Height))
+
+	if cs.isProposerForHeight != 0 && bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
+		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
+	}
+	cs.isProposerForHeight = 0
 }
 
 //-----------------------------------------------------------------------------
@@ -1532,7 +1792,7 @@ func (cs *ConsensusState) defaultSetProposal(proposal *types.Proposal) error {
 	}
 
 	// Verify signature
-	if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
+	if !cs.getProposer(proposal.Height, proposal.Round).PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
 		return ErrInvalidProposalSignature
 	}
 
@@ -1626,6 +1886,7 @@ func (cs *ConsensusState) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, err
 		// If the vote height is off, we'll just ignore it,
 		// But if it's a conflicting sig, add it to the cs.evpool.
 		// If it's otherwise invalid, punish peer.
+		// nolint: gocritic
 		if err == ErrVoteHeightMismatch {
 			return added, err
 		} else if voteErr, ok := err.(*types.ErrVoteConflictingVotes); ok {
@@ -1633,13 +1894,18 @@ func (cs *ConsensusState) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, err
 			if bytes.Equal(vote.ValidatorAddress, addr) {
 				cs.Logger.Error(
 					"Found conflicting vote from ourselves. Did you unsafe_reset a validator?",
-					"height", vote.Height,
-					"round", vote.Round,
-					"type", vote.Type)
+					"height",
+					vote.Height,
+					"round",
+					vote.Round,
+					"type",
+					vote.Type)
 				return added, err
 			}
 			cs.evpool.AddEvidence(voteErr.DuplicateVoteEvidence)
 			return added, err
+		} else if err == types.ErrVoteNonDeterministicSignature {
+			cs.Logger.Debug("Vote has non-deterministic signature", "err", err)
 		} else {
 			// Either
 			// 1) bad peer OR
@@ -1660,10 +1926,15 @@ func (cs *ConsensusState) addVote(
 	peerID p2p.ID) (added bool, err error) {
 	cs.Logger.Debug(
 		"addVote",
-		"voteHeight", vote.Height,
-		"voteType", vote.Type,
-		"valIndex", vote.ValidatorIndex,
-		"csHeight", cs.Height)
+		"voteHeight",
+		vote.Height,
+		"voteType",
+		vote.Type,
+		"valIndex",
+		vote.ValidatorIndex,
+		"csHeight",
+		cs.Height,
+	)
 
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit

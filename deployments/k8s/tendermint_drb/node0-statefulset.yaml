@@ -1,0 +1,75 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: node0
+  labels:
+    app: node0
+spec:
+  serviceName: "node0"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node0
+  template:
+    metadata:
+      labels:
+        app: node0
+    spec:
+      containers:
+        - name: node0
+          image: gcr.io/fetch-ai-sandbox/tendermint_drb
+          command: ["/usr/bin/run-node.sh"]
+          env:
+            - name: P2PPEX
+              valueFrom:
+                configMapKeyRef:
+                  name: node0configmap
+                  key: p2ppex
+
+            - name: TMHOMEDIR
+              valueFrom:
+                configMapKeyRef:
+                  name: node0configmap
+                  key: tmhomedir
+
+            - name: PERSPEERS
+              valueFrom:
+                configMapKeyRef:
+                  name: node0configmap
+                  key: perspeers
+
+            - name: PRIVPEERS
+              valueFrom:
+                configMapKeyRef:
+                  name: node0configmap
+                  key: privpeers
+
+            - name: RPCLADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: node0configmap
+                  key: rpcladdr
+
+            - name: PROXYAPP
+              valueFrom:
+                configMapKeyRef:
+                  name: node0configmap
+                  key: proxyapp
+
+          ports:
+            - containerPort: 26656
+            - containerPort: 26657
+
+          volumeMounts:
+            - name: data
+              mountPath: /tm_data/node0/data
+
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 4G

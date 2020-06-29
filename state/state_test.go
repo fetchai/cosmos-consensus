@@ -55,6 +55,7 @@ func TestMakeGenesisStateNilValidators(t *testing.T) {
 	doc := types.GenesisDoc{
 		ChainID:    "dummy",
 		Validators: nil,
+		Entropy:    "Fetch.ai Test Genesis Entropy",
 	}
 	require.Nil(t, doc.ValidateAndComplete())
 	state, err := sm.MakeGenesisState(&doc)

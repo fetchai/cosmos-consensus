@@ -1,3 +1,74 @@
+# Changes
+
+See beacon directory and consensus/state.go for main changes. Swig and C++ Boost libraries will need to be installed for the c++ to go interface
+and serialisation, respectively.
+
+Install dependencies:
+```bash 
+git clone https://github.com/herumi/mcl
+cd mcl
+make install
+```
+You will also need swig and GMP for the go-c++ interface and mcl. On Ubuntu
+```bash
+sudo apt-get libgmp-dev swig
+```
+
+To run all tests:
+```bash
+make test
+```
+
+To create a single node, which also generates entropy, run the following from the root directory
+```bash
+make build
+cd build
+./tendermint init
+```
+This creates genesis and validator information. To start the node
+```bash
+./tendermint node --proxy_app=kvstore
+```
+The logs should show the node running the DKG and executing blocks, which contain the entropy in hex format after DKG completion.
+
+For creating testnet with 4 validator nodes first build the trusted dealer executable
+```bash
+cd beacon/beacon_cpp && \
+	rm -Rf build && \
+	mkdir build && \
+	cd build && \
+	cmake ../.. && \ 
+	make TrustedDealer && \ 
+	cd ../..
+```
+Now run
+```bash
+./tendermint testnet
+```
+This will create the required tendermint files for each node.
+
+Second, determine the IDs for each node by running. We will denote the IDs as ID0, ID1, ID2, ID3.
+```bash
+./tendermint show_node_id --home mytestnet/node0
+./tendermint show_node_id --home mytestnet/node1
+./tendermint show_node_id --home mytestnet/node2
+./tendermint show_node_id --home mytestnet/node3
+```
+
+Now, assign each node two unique port numbers, denoted by P and Q, for listening to incoming peer connections and rpcs. Start each node in a separate terminal
+using 
+```bash
+./tendermint node --home mytestnet/node0 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P0" --rpc.laddr="tcp://127.0.0.1:Q0" --p2p.persistent_peers="ID1@127.0.0.1:P1,ID2@127.0.0.1:P2,ID3@127.0.0.1:P3" 
+
+./tendermint node --home mytestnet/node1 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P1" --rpc.laddr="tcp://127.0.0.1:Q1" --p2p.persistent_peers="ID0@127.0.0.1:P0,ID2@127.0.0.1:P2,ID3@127.0.0.1:P3" 
+
+./tendermint node --home mytestnet/node2 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P2" --rpc.laddr="tcp://127.0.0.1:Q2" --p2p.persistent_peers="ID0@127.0.0.1:P0,ID1@127.0.0.1:P1,ID3@127.0.0.1:P3" 
+
+./tendermint node --home mytestnet/node3 --proxy_app=kvstore --p2p.laddr="tcp://127.0.0.1:P3" --rpc.laddr="tcp://127.0.0.1:Q3" --p2p.persistent_peers="ID0@127.0.0.1:P0,ID1@127.0.0.1:P1,ID2@127.0.0.1:P2" 
+```
+After starting the third node blocks should start to be executed.
+
+
 # Tendermint
 
 ![banner](docs/tendermint-core-image.jpg)

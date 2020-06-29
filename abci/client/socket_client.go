@@ -118,6 +118,10 @@ func (cli *socketClient) SetResponseCallback(resCb Callback) {
 	cli.mtx.Unlock()
 }
 
+func (cli *socketClient) TriggerResponseCallback(req *types.Request, res *types.Response) {
+	cli.resCb(req, res)
+}
+
 //----------------------------------------
 
 func (cli *socketClient) sendRequestsRoutine(conn io.Writer) {

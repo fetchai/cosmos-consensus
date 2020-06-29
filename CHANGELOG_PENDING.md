@@ -18,6 +18,8 @@ program](https://hackerone.com/tendermint).
 ### FEATURES:
 
 ### IMPROVEMENTS:
+ 
+ - Removed dkg and entropy generation config variables out of `ConsensusConfig` into new `BeaconConfig`
 
 ### BUG FIXES:
 

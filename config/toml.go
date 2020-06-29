@@ -124,6 +124,15 @@ priv_validator_state_file = "{{ js .BaseConfig.PrivValidatorState }}"
 # connections from an external PrivValidator process
 priv_validator_laddr = "{{ .BaseConfig.PrivValidatorListenAddr }}"
 
+# Path to the JSON file containing the dkg output for entropy generation
+entropy_key_file = "{{ .BaseConfig.EntropyKey }}"
+
+# Path to the JSON file containing the dkg output for next aeon entropy generation
+next_entropy_key_file = "{{ .BaseConfig.NextEntropyKey }}"
+
+# Path to the JSON file containing the noise key for the dkg
+noise_key_file = "{{ .BaseConfig.NoiseKey}}"
+
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node_key_file = "{{ js .BaseConfig.NodeKey }}"
 
@@ -383,6 +392,19 @@ max_open_connections = {{ .Instrumentation.MaxOpenConnections }}
 
 # Instrumentation namespace
 namespace = "{{ .Instrumentation.Namespace }}"
+
+##### beacon configuration options #####
+[beacon]
+
+entropy_channel_capacity = "{{ .Beacon.EntropyChannelCapacity }}"
+
+# Reactor sleep duration parameters
+peer_gossip_sleep_duration = "{{ .Beacon.PeerGossipSleepDuration }}"
+compute_entropy_sleep_duration = "{{ .Beacon.ComputeEntropySleepDuration }}"
+
+# DKG parameters
+run_dkg = "{{ .Beacon.RunDKG }}"
+strict_tx_filtering = "{{ .Beacon.StrictTxFiltering }}"
 `
 
 /****** these are for test settings ***********/
@@ -430,6 +452,14 @@ func ResetTestRootWithChainID(testName string, chainID string) *Config {
 	return config
 }
 
+func AddTestEntropyKey(config *Config) {
+	cmn.MustWriteFile(config.EntropyKeyFile(), []byte(testEntropyKey), 0644)
+}
+
+func AddTestNoiseKey(config *Config) {
+	cmn.MustWriteFile(config.NoiseKeyFile(), []byte(testNoiseKey), 0644)
+}
+
 var testGenesisFmt = `{
   "genesis_time": "2018-10-10T08:20:13.695936996Z",
   "chain_id": "%s",
@@ -443,7 +473,8 @@ var testGenesisFmt = `{
       "name": ""
     }
   ],
-  "app_hash": ""
+  "app_hash": "",
+  "entropy": "Fetch.ai Test Genesis Entropy"
 }`
 
 var testPrivValidatorKey = `{
@@ -463,3 +494,25 @@ var testPrivValidatorState = `{
   "round": "0",
   "step": 0
 }`
+
+var testEntropyKey = `{
+	"public_info": {
+	  "group_public_key": "1 3204431294456996608448608289377749333621707070928450232228576891417472949510766252213583960950368615236772575791643 2781283840381427182132568110916627533999974571342873687431291671990305205844892122613970332389248339005626310468964 3311710185103228168940467654183903484613812380077308609262734182818425698710276748845440707489366392282187530090550 1132993555082683343520331239700693161352889676997259603633324205141566630792895146701862187964350202035962120264863",
+	  "public_key_shares": [
+		"1 3204431294456996608448608289377749333621707070928450232228576891417472949510766252213583960950368615236772575791643 2781283840381427182132568110916627533999974571342873687431291671990305205844892122613970332389248339005626310468964 3311710185103228168940467654183903484613812380077308609262734182818425698710276748845440707489366392282187530090550 1132993555082683343520331239700693161352889676997259603633324205141566630792895146701862187964350202035962120264863"
+	  ],
+	  "generator": "1 2518191863374091103804636685727521425407120571188690600656880384417132369687595809467311095826439091483995642768357 616919694451045854333019273793068603698549885796900652120337726504487328453120153467173838344182050976387963676525 787196079690657150327403532739302734153843204999800282047909008811370714113398491542626074484267950795720835092082 1421259598340340656093689240385569742378548681344970684101913963239527541952461560848265173992640096509073265172510",
+	  "validator_height": "1",
+	  "qual": [
+		"0"
+	  ],
+	  "start": "1",
+	  "end": "100"
+	},
+	"private_key": "16448049146124304728703281958134304787328141502789034871298784106225851862482"
+  }`
+
+var testNoiseKey = `{
+	"Private": "2RhEoCaxqBvymhtWXT42G3/vT2v6Pde3Uz9aDJsYGZk=",
+	"Public": "NmAtIULXhs1QhSL3AYWLK1ywFfmtx0Zhm2EsuASTpi4="
+  }`

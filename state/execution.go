@@ -92,6 +92,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	height int64,
 	state State, commit *types.Commit,
 	proposerAddr []byte,
+	fallbackMode bool,
 ) (*types.Block, *types.PartSet) {
 
 	maxBytes := state.ConsensusParams.Block.MaxBytes
@@ -103,7 +104,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	// Fetch a limited amount of valid txs
 	maxDataBytes := types.MaxDataBytes(maxBytes, state.Validators.Size(), len(evidence))
-	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
+	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas, fallbackMode)
 
 	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 }
@@ -219,11 +220,18 @@ func (blockExec *BlockExecutor) Commit(
 	}
 	// ResponseCommit has no error code - just data
 
+	// evaluate the if entropy is present in this block
+	entropyStatus := "NotPresent"
+	if len(block.Entropy.GroupSignature) > 0 {
+		entropyStatus = "Present"
+	}
+
 	blockExec.logger.Info(
 		"Committed state",
 		"height", block.Height,
 		"txs", block.NumTxs,
 		"appHash", fmt.Sprintf("%X", res.Data),
+		"entropy", entropyStatus,
 	)
 
 	// Update mempool.
@@ -446,6 +454,7 @@ func updateState(
 		LastHeightConsensusParamsChanged: lastHeightParamsChanged,
 		LastResultsHash:                  abciResponses.ResultsHash(),
 		AppHash:                          nil,
+		LastComputedEntropy:              header.Entropy.GroupSignature,
 	}, nil
 }
 

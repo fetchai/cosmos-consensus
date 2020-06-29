@@ -52,6 +52,9 @@ const (
 			"pub_key_types": [
 				"ed25519"
 			]
+		},
+		"entropy": {
+		  "aeon_length": "100"
 		}
 	},
 	"validators": [
