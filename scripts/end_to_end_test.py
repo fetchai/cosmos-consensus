@@ -61,7 +61,7 @@ for i in range(0, VALIDATORS):
 
     print(" ".join(cmd))
 
-    std_out = None if (i == 0 and NODE_0_PRINTS) else subprocess.DEVNULL
+    std_out = None
     std_err = None
 
     nodes = [*nodes, subprocess.Popen(cmd, stdout=std_out, stderr=std_err)]
@@ -87,7 +87,7 @@ while True:
     has_entropy = 0.0
 
     try:
-        has_entropy = get_metric("tendermint_beacon_block_with_entropy")
+        has_entropy = get_metric("tendermint_consensus_block_with_entropy")
     except:
         pass
 
