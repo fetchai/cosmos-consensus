@@ -15,8 +15,8 @@ import requests
 # Assumes that tendermint is installed and new. Node 0 will display its logs.
 
 NODE_0_PRINTS=True
-VALIDATORS=11
-TEST_TIMEOUT_S=60*20
+VALIDATORS=4
+TEST_TIMEOUT_S=60*2
 THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_FILE_DIR)
 
@@ -46,13 +46,13 @@ for i in range(0, VALIDATORS):
     print(node_ids)
 
 # Start the nodes
-# P2P addresses will start from 8000, RPC from 7000
+# P2P addresses will start from 3000, RPC from 7000
 for i in range(0, VALIDATORS):
-    p2p_addr =f"tcp://127.0.0.1:{8000+i}"
+    p2p_addr =f"tcp://127.0.0.1:{3000+i}"
     rpc_addr=f"tcp://127.0.0.1:{7000+i}"
 
     # Builds up peers in the format ID1@127.0.0.1:P1 (not including self)
-    peers = [node_ids[x]+"@127.0.0.1:"+str(8000+x) for x in range(0, VALIDATORS) if x != i]
+    peers = [node_ids[x]+"@127.0.0.1:"+str(3000+x) for x in range(0, VALIDATORS) if x != i]
     peers = ",".join(peers)
 
     persist_peers = f"--p2p.persistent_peers={peers}" if VALIDATORS > 1 else ""
@@ -64,8 +64,7 @@ for i in range(0, VALIDATORS):
     std_out = None if (i == 0 and NODE_0_PRINTS) else subprocess.DEVNULL
     std_err = None
 
-    if i != 10:
-        nodes = [*nodes, subprocess.Popen(cmd, stdout=std_out, stderr=std_err)]
+    nodes = [*nodes, subprocess.Popen(cmd, stdout=std_out, stderr=std_err)]
 
 def get_metric(metric: str):
     r = requests.get('http://127.0.0.1:26660')
