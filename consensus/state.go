@@ -41,7 +41,7 @@ var (
 
 var (
 	msgQueueSize          = 1000
-	unacceptableBlockTime = 10.0
+	unacceptableBlockTime = 30.0
 )
 
 // msgs from the reactor which may update the state
