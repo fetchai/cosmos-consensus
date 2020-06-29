@@ -245,5 +245,6 @@ func NopMetrics() *Metrics {
 		BlockParts:      discard.NewCounter(),
 
 		NumFailuresAsBlockProducer: discard.NewCounter(),
+		BlockWithEntropy:           discard.NewGauge(),
 	}
 }
