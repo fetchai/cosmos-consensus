@@ -488,9 +488,8 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			entropyGenerator.sign()
 			// Clean out old entropy shares and computed entropy
 			entropyGenerator.flushOldEntropy()
-		} else {
-			time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 		}
+	time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 	}
 }
 
