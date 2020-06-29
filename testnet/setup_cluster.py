@@ -44,7 +44,7 @@ def parse_commandline():
     parser.add_argument('-t', '--traders', action='store_true', help='Deploy a traders (sends lots of TXs) container targeting N validators (need to specify with -v flag)')
     parser.add_argument('-a', '--adjust-network-size', type=int, default=-1, help='Adjust the network down to N nodes (remove)')
     parser.add_argument('-c', '--clear-network-delays', action='store_true', help='Clear network delays - must also be done before setting any network delays')
-    parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100 (node1-0 -> node2-0 delay)')
+    parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100ms (node1-0 -> node2-0 delay)')
     # TODO(HUT): correct this.
     parser.add_argument('-x', '--send-html', action='append', nargs="*", help='Send html string to node. Format: node0-0 index.html')
     return parser.parse_args()
@@ -240,6 +240,10 @@ def run_on_pods(command: str, nodes: list):
 
 def do_network_delays(delays: list):
 
+    # For speed, collect all the delays one node is to have and submit
+    # it in bulk (if the delay is always the same)
+    commands = {}
+    default_delay = delays[0][2]
     for desired_delay in delays:
         node_from = desired_delay[0]
         node_to   = desired_delay[1].split('-')[0] # Need the DNS name of the node here
@@ -249,8 +253,17 @@ def do_network_delays(delays: list):
             print("Incorrect args when setting delay: use the format node0-0 node1-0 100ms. Make sure to specify by pod.")
             sys.exit(1)
 
-        run_on_pods(f"/tendermint/network_control.sh delay {node_to} {delay}", nodes=[node_from])
-        #print(args.network_delays)
+        if delay != default_delay:
+            run_on_pods(f"/tendermint/network_control.sh delay {delay} {node_to}", nodes=[node_from])
+            continue
+
+        if node_from not in commands:
+            commands[node_from] = f"/tendermint/network_control.sh delay {delay} "
+
+        commands[node_from] += f" {node_to}"
+
+    for key, value in commands.items():
+        run_on_pods(value, nodes=[key])
 
 def send_html(args: list):
     # Args is a list of lists
