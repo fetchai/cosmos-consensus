@@ -489,7 +489,7 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			// Clean out old entropy shares and computed entropy
 			entropyGenerator.flushOldEntropy()
 		}
-	time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
+		time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 	}
 }
 
