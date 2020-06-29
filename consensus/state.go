@@ -40,7 +40,8 @@ var (
 //-----------------------------------------------------------------------------
 
 var (
-	msgQueueSize = 1000
+	msgQueueSize          = 1000
+	unacceptableBlockTime = 10.0
 )
 
 // msgs from the reactor which may update the state
@@ -700,6 +701,9 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
+	timer := cmn.NewFunctionTimer(10, "handleMsg", cs.Logger)
+	defer timer.Finish()
+
 	cs.mtx.Lock()
 	height := cs.Height
 	cs.mtx.Unlock()
@@ -776,6 +780,9 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
 func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	cs.Logger.Debug("Received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+
+	timer := cmn.NewFunctionTimer(10, "handleTimeout", cs.Logger)
+	defer timer.Finish()
 
 	// timeouts must be for current height, round, step
 	if ti.Height != rs.Height || ti.Round < rs.Round || (ti.Round == rs.Round && ti.Step < rs.Step) {
@@ -930,6 +937,10 @@ func (cs *ConsensusState) needProofBlock(height int64) bool {
 // 		after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *ConsensusState) enterPropose(height int64, round int) {
+
+	timer := cmn.NewFunctionTimer(10, "enterPropose", cs.Logger)
+	defer timer.Finish()
+
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPropose <= cs.Step) {
@@ -994,6 +1005,9 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 
 func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
 
+	timer := cmn.NewFunctionTimer(10, "getProposer", cs.Logger)
+	defer timer.Finish()
+
 	// Get entropy for this round if not already set
 	newEntropy := cs.getEntropy(height)
 	entropyEnabled := newEntropy.Enabled
@@ -1020,6 +1034,10 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 // use the map, or the block store to get entropy. This function can block for as long
 // as it takes to generate entropy (possibly forever)
 func (cs *ConsensusState) getNewEntropy(height int64) {
+
+	debugThing := fmt.Sprintf("getNewEntropy for height %v", height);
+	timer := cmn.NewFunctionTimer(10, debugThing, cs.Logger)
+	defer timer.Finish()
 
 	// Global lock needed for this check
 	// Note the function keeps a copy of height + 1
@@ -1087,8 +1105,8 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 			}
 			cs.mtx.Unlock()
 
-			if receivedEntropy == false {
-				time.Sleep(50 * time.Millisecond)
+			if heightFound == false {
+				time.Sleep(5 * time.Millisecond)
 			}
 		}
 	}
@@ -1097,6 +1115,9 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 // Convenience function to return the entropy, checking that when it is requested,
 // it is set and the height is correct
 func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
+
+	timer := cmn.NewFunctionTimer(10, "getEntropy", cs.Logger)
+	defer timer.Finish()
 
 	// Return default entropy when testing
 	if cs.haveSetEntropyChannel == false {
@@ -1151,6 +1172,10 @@ func (cs *ConsensusState) shuffledCabinet(entropy []byte) types.ValidatorsByAddr
 func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 	var block *types.Block
 	var blockParts *types.PartSet
+
+
+	timer := cmn.NewFunctionTimer(10, "defaultDecideProposal", cs.Logger)
+	defer timer.Finish()
 
 	// Decide on block
 	if cs.ValidBlock != nil {
@@ -1212,6 +1237,10 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // Returns nil block upon error.
 // NOTE: keep it side-effect free for clarity.
 func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts *types.PartSet) {
+
+	timer := cmn.NewFunctionTimer(10, "createProposalBlock", cs.Logger)
+	defer timer.Finish()
+
 	var commit *types.Commit
 	switch {
 	case cs.Height == 1:
@@ -1272,6 +1301,9 @@ func (cs *ConsensusState) enterPrevote(height int64, round int) {
 
 func (cs *ConsensusState) defaultDoPrevote(height int64, round int) {
 	logger := cs.Logger.With("height", height, "round", round)
+
+	timer := cmn.NewFunctionTimer(10, "defaultDoPrevote", cs.Logger)
+	defer timer.Finish()
 
 	// If a block is locked, prevote that.
 	if cs.LockedBlock != nil {
@@ -1542,6 +1574,9 @@ func (cs *ConsensusState) enterCommit(height int64, commitRound int) {
 func (cs *ConsensusState) tryFinalizeCommit(height int64) {
 	logger := cs.Logger.With("height", height)
 
+	timer := cmn.NewFunctionTimer(10, "tryFinalizeCommit", cs.Logger)
+	defer timer.Finish()
+
 	if cs.Height != height {
 		panic(fmt.Sprintf("tryFinalizeCommit() cs.Height: %v vs height: %v", cs.Height, height))
 	}
@@ -1563,7 +1598,6 @@ func (cs *ConsensusState) tryFinalizeCommit(height int64) {
 		return
 	}
 
-	//	go
 	cs.finalizeCommit(height)
 }
 
@@ -1578,6 +1612,9 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 			cs.Step))
 		return
 	}
+
+	timer := cmn.NewFunctionTimer(10, "finalizeCommit", cs.Logger)
+	defer timer.Finish()
 
 	blockID, ok := cs.Votes.Precommits(cs.CommitRound).TwoThirdsMajority()
 	block, blockParts := cs.ProposalBlock, cs.ProposalBlockParts
@@ -1744,9 +1781,12 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 
 	if height > 1 {
 		lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
-		cs.metrics.BlockIntervalSeconds.Set(
-			block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
-		)
+		calculatedTimeS := block.Time.Sub(lastBlockMeta.Header.Time).Seconds()
+		cs.metrics.BlockIntervalSeconds.Set(calculatedTimeS)
+
+		if calculatedTimeS >= unacceptableBlockTime {
+			cs.Logger.Error(fmt.Sprintf("Unacceptable block time detected: %vs", calculatedTimeS))
+		}
 	}
 
 	// Differentiate between normal TXs and dkg TXs when doing metrics

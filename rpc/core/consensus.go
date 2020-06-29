@@ -14,6 +14,7 @@ import (
 // order for the validators in the set as used in computing their Merkle root.
 // More: https://tendermint.com/rpc/#/Info/validators
 func Validators(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultValidators, error) {
+
 	// The latest validator that we know is the
 	// NextValidator of the last block.
 	height := consensusState.GetState().LastBlockHeight + 1

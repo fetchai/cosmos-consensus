@@ -488,8 +488,9 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			entropyGenerator.sign()
 			// Clean out old entropy shares and computed entropy
 			entropyGenerator.flushOldEntropy()
+		} else {
+			time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 		}
-		time.Sleep(entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
 	}
 }
 
@@ -501,7 +502,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	if entropyGenerator.aeon == nil {
 		entropyGenerator.lastBlockHeight++
 
-		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
+		entropyGenerator.Logger.Error("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
 		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
 	}

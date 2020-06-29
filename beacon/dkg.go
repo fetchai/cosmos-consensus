@@ -601,7 +601,7 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	if len(encodedOutput) == 0 {
-		dkg.Logger.Error("checkDryRuns: not enought dry run signatures. Needed %v", requiredPassSize)
+		dkg.Logger.Error("checkDryRuns: not enough dry run signatures. Needed %v", requiredPassSize)
 		return false
 	}
 
@@ -623,7 +623,7 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	if signatureShares.Size() < requiredPassSize {
-		dkg.Logger.Error(fmt.Sprintf("checkDryRuns: not enought valid dry run signatures. Got %v. Wanted %v",
+		dkg.Logger.Error(fmt.Sprintf("checkDryRuns: not enough valid dry run signatures. Got %v. Wanted %v",
 			signatureShares.Size(), requiredPassSize))
 		return false
 	}
