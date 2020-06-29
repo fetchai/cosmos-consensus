@@ -61,7 +61,7 @@ for i in range(0, VALIDATORS):
 
     print(" ".join(cmd))
 
-    std_out = None
+    std_out = None if (i == 0 and NODE_0_PRINTS) else subprocess.DEVNULL
     std_err = None
 
     nodes = [*nodes, subprocess.Popen(cmd, stdout=std_out, stderr=std_err)]
