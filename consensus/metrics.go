@@ -63,6 +63,9 @@ type Metrics struct {
 
 	// Number of times failed as block producer
 	NumFailuresAsBlockProducer metrics.Counter
+
+	// Whether the current block has entropy, 1 if yes, 0 if no
+	BlockWithEntropy metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -202,6 +205,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "block_producer_failures",
 			Help:      "Number of times failed as block producer",
+		}, labels).With(labelsAndValues...),
+		BlockWithEntropy: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "block_with_entropy",
+			Help:      "Whether the current block contains entropy or not",
 		}, labels).With(labelsAndValues...),
 	}
 }

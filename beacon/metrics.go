@@ -31,7 +31,7 @@ type Metrics struct {
 	// Number of DKG failures
 	DKGFailures metrics.Counter
 	// Whether block round contains entropy or not
-	BlockWithEntropy metrics.Gauge
+	EntropyGenerating metrics.Gauge
 	// Number of drops to no entropy
 	PeriodsWithNoEntropy metrics.Counter
 	// Start of current aeon
@@ -97,10 +97,10 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "dkg_failures",
 			Help:      "Number of DKGs failed",
 		}, labels).With(labelsAndValues...),
-		BlockWithEntropy: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+		EntropyGenerating: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "block_with_entropy",
+			Name:      "generating_entropy",
 			Help:      "Whether block contains entropy or not",
 		}, labels).With(labelsAndValues...),
 		PeriodsWithNoEntropy: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -150,7 +150,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	metrics.DKGsCompletedWithPrivateKey.Add(0)
 	metrics.DKGDuration.Add(0)
 	metrics.DKGFailures.Add(0)
-	metrics.BlockWithEntropy.Add(0)
+	metrics.EntropyGenerating.Add(0)
 	metrics.PeriodsWithNoEntropy.Add(0)
 	metrics.AeonStart.Add(0)
 	metrics.AeonEnd.Add(0)
@@ -171,7 +171,7 @@ func NopMetrics() *Metrics {
 		DKGsCompletedWithPrivateKey: discard.NewCounter(),
 		DKGDuration:                 discard.NewGauge(),
 		DKGFailures:                 discard.NewCounter(),
-		BlockWithEntropy:            discard.NewGauge(),
+		EntropyGenerating:            discard.NewGauge(),
 		PeriodsWithNoEntropy:        discard.NewCounter(),
 		AeonStart:                   discard.NewGauge(),
 		AeonEnd:                     discard.NewGauge(),

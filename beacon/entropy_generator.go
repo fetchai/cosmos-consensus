@@ -477,9 +477,9 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 			}
 			// Update metrics
 			if entropyToSend.Enabled {
-				entropyGenerator.metrics.BlockWithEntropy.Set(1)
+				entropyGenerator.metrics.EntropyGenerating.Set(1.0)
 			} else {
-				entropyGenerator.metrics.BlockWithEntropy.Set(0)
+				entropyGenerator.metrics.EntropyGenerating.Set(0.0)
 			}
 
 			entropyGenerator.changeKeys()
