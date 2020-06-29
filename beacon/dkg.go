@@ -502,7 +502,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	nextAeonStart := dkg.currentAeonEnd + 1
 	dkgEnd := (dkg.startHeight + dkg.duration())
 	if dkgEnd >= nextAeonStart {
-		nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
+		nextAeonStart = dkgEnd + 3*dkg.config.EntropyChannelCapacity + 1
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,
