@@ -1031,7 +1031,7 @@ func DefaultBeaconConfig() *BeaconConfig {
 	return &BeaconConfig{
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		EntropyChannelCapacity:      3,
-		ComputeEntropySleepDuration: 20 * time.Millisecond,
+		ComputeEntropySleepDuration: 50 * time.Millisecond,
 		RunDKG:                      true,
 		StrictTxFiltering:           false,
 	}
