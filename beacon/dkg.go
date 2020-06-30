@@ -35,7 +35,7 @@ const (
 	// Multplier for increasing state duration on next dkg iteration
 	dkgIterationDurationMultiplier = float64(0.5)
 	maxDKGStateDuration            = int64(400)
-	dkgResetDelay                  = int64(2)
+	dkgResetDelay                  = int64(1)
 )
 
 type state struct {
@@ -126,7 +126,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		currentAeonEnd:       aeonEnd,
 		aeonLength:           aeonLength,
 		threshold:            dkgThreshold,
-		startHeight:          validatorHeight + dkgResetDelay,
+		startHeight:          validatorHeight,
 		states:               make(map[dkgState]*state),
 		currentState:         dkgStart,
 		dryRunKeys:           make(map[string]DKGOutput),
@@ -248,6 +248,10 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
 	if newStateDuration <= maxDKGStateDuration {
 		dkg.stateDuration = newStateDuration
+	}
+	// Dispatch empty keys to entropy generator
+	if dkg.dkgCompletionCallback != nil {
+		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()))
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
@@ -502,7 +506,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	nextAeonStart := dkg.currentAeonEnd + 1
 	dkgEnd := (dkg.startHeight + dkg.duration())
 	if dkgEnd >= nextAeonStart {
-		nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
+		nextAeonStart = dkgEnd + 1
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,

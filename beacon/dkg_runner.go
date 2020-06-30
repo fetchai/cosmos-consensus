@@ -237,5 +237,10 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			dkgRunner.dkgCompletionCallback(keys)
 		}
 	})
+	// Dispatch off empty keys in case entropy generator has no keys
+	if dkgRunner.dkgCompletionCallback != nil {
+		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
+			dkgRunner.activeDKG.duration()))
+	}
 	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)
 }

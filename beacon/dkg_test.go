@@ -50,7 +50,7 @@ func TestDKGCheckTransition(t *testing.T) {
 		blockHeight int64
 		nextState   dkgState
 	}{
-		{"No state change", func(dkg *DistributedKeyGeneration) {}, 9, dkgStart},
+		{"No state change", func(dkg *DistributedKeyGeneration) {}, 7, dkgStart},
 		{"Proceed to next state", func(dkg *DistributedKeyGeneration) {}, 10, dkgStart + 1},
 		{"Skip to dry run", func(dkg *DistributedKeyGeneration) {
 			dkg.currentState = dkgStart
