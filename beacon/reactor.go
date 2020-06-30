@@ -145,8 +145,11 @@ func (beaconR *Reactor) getFastSync() bool {
 func (beaconR *Reactor) findAndSetLastEntropy(height int64) {
 
 	for height > 0 {
-
-		blockEntropy := beaconR.blockStore.LoadBlockMeta(height).Header.Entropy.GroupSignature
+		block := beaconR.blockStore.LoadBlockMeta(height)
+		if block == nil {
+			panic(fmt.Errorf("findAndSetLasEntropy: can not find block at height %v", height))
+		}
+		blockEntropy := block.Header.Entropy.GroupSignature
 		if len(blockEntropy) != 0 {
 			beaconR.entropyGen.SetLastComputedEntropy(height, blockEntropy)
 			break
