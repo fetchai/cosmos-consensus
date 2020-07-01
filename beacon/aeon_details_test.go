@@ -91,3 +91,17 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 		assert.True(t, newAeon.aeonExecUnit.Qual().Get(i) == duplicateAeon.aeonExecUnit.Qual().Get(i))
 	}
 }
+
+func TestAeonDetailsNoKeys(t *testing.T) {
+	config := cfg.ResetTestRoot("keyless_aeon_details_test")
+
+	newAeon := keylessAeonDetails(1, 10)
+	assert.True(t, newAeon.aeonExecUnit == nil)
+	newAeon.save(config.BaseConfig.EntropyKeyFile())
+
+	keyFile, err := LoadAeonDetailsFile(config.BaseConfig.EntropyKeyFile())
+	assert.Equal(t, nil, err)
+	assert.NotPanics(t, func() {
+		LoadAeonDetails(keyFile, nil, nil)
+	})
+}

@@ -640,9 +640,6 @@ func createDKGRunner(
 	logger log.Logger,
 	db dbm.DB,
 	handler tx_extensions.MessageHandler) (*beacon.DKGRunner, error) {
-	if !config.Beacon.RunDKG {
-		return nil, nil
-	}
 
 	noiseKeys, err := tmnoise.LoadOrGenNoiseKeys(config)
 	if err != nil {
@@ -783,32 +780,37 @@ func NewNode(config *cfg.Config,
 	// create the native log collector
 	nativeLogger := beacon.NewNativeLoggingCollector(logger)
 
-	// Create DKGRunner
-	dkgRunner, err := createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create dkgRunner")
-	}
-
-	// Make BeaconReactor
-	beaconLogger := logger.With("module", "beacon")
-	entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
-		beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not load aeon keys from file")
-	}
-
-	// Attach metrics
-	entropyGenerator.AttachMetrics(drbMetrics)
-	dkgRunner.AttachMetrics(drbMetrics)
-
-	consensusState.SetEntropyChannel(entropyChannel)
-	sw.AddReactor("BEACON", beaconReactor)
-
-	// Catch up dkg on messages it has missed for the current aeon
-	if dkgRunner != nil {
-		err = dkgRunner.FastSync(blockStore)
+	var entropyGenerator *beacon.EntropyGenerator
+	var beaconReactor *beacon.Reactor
+	var dkgRunner *beacon.DKGRunner
+	if config.Beacon.RunDKG {
+		// Create DKGRunner
+		dkgRunner, err = createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
+			return nil, errors.Wrap(err, "could not create dkgRunner")
+		}
+
+		// Make BeaconReactor
+		beaconLogger := logger.With("module", "beacon")
+		entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
+			beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not load aeon keys from file")
+		}
+
+		// Attach metrics
+		entropyGenerator.AttachMetrics(drbMetrics)
+		dkgRunner.AttachMetrics(drbMetrics)
+
+		consensusState.SetEntropyChannel(entropyChannel)
+		sw.AddReactor("BEACON", beaconReactor)
+
+		// Catch up dkg on messages it has missed for the current aeon
+		if dkgRunner != nil {
+			err = dkgRunner.FastSync(blockStore)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
+			}
 		}
 	}
 

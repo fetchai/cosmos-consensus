@@ -41,9 +41,11 @@ func TestNodeStartStop(t *testing.T) {
 		{"Original tendermint", func(*cfg.Config) {}, false},
 		{"With entropy keys", func(config *cfg.Config) {
 			cfg.AddTestEntropyKey(config)
+			config.Beacon.RunDKG = true
 		}, true},
 		{"With noise keys", func(config *cfg.Config) {
 			cfg.AddTestNoiseKey(config)
+			config.Beacon.RunDKG = true
 		}, false},
 		{"With dkg", func(config *cfg.Config) {
 			config.Beacon.RunDKG = true

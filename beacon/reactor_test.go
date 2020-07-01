@@ -112,17 +112,18 @@ func TestReactorEntropy(t *testing.T) {
 	aeonKeys := setCrypto(N)
 	for i := 0; i < N; i++ {
 		existingAeon := entropyGenerators[i].aeon
-		aeonDetails, _ := newAeonDetails(existingAeon.privValidator, 1, existingAeon.validators, aeonKeys[i], 20, 29)
-		entropyGenerators[i].SetNextAeonDetails(aeonDetails)
+		newKeys, _ := newAeonDetails(existingAeon.privValidator, 1, existingAeon.validators, aeonKeys[i], 20, 29)
+		// Insert in empty keys for gap in entropy generation
+		entropyGenerators[i].SetNextAeonDetails(keylessAeonDetails(10, 19))
+		entropyGenerators[i].SetNextAeonDetails(newKeys)
 	}
 
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
 	defer stopBeaconNet(log.TestingLogger(), consensusReactors, eventBuses, entropyReactors)
 
-	// Wait for everyone to generate 3 rounds of entropy
 	assert.Eventually(t, func() bool {
 		for i := 0; i < N; i++ {
-			if entropyGenerators[i].getLastBlockHeight() < 30 {
+			if entropyGenerators[i].getLastBlockHeight() < 29 {
 				return false
 			}
 		}
@@ -322,6 +323,7 @@ func TestReactorWithDKG(t *testing.T) {
 	for _, entropyGen := range entropyGenerators {
 		assert.True(t, len(entropyGen.nextAeons) != 0)
 		assert.True(t, entropyGen.changeKeys())
+		entropyGen.sign()
 	}
 
 	consensusReactors, entropyReactors, eventBuses := startBeaconNet(t, css, entropyGenerators, blockStores, N, N)
@@ -330,7 +332,7 @@ func TestReactorWithDKG(t *testing.T) {
 	// Wait for everyone to generate 3 rounds of entropy
 	assert.Eventually(t, func() bool {
 		for i := 0; i < N; i++ {
-			if entropyGenerators[i].getLastComputedEntropyHeight() < 3 {
+			if entropyGenerators[i].getLastComputedEntropyHeight() < 23 {
 				return false
 			}
 		}
