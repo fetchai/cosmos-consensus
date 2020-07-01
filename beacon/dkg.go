@@ -513,6 +513,8 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		nextAeonStart, nextAeonStart+dkg.aeonLength-1)
 	if err != nil {
 		dkg.Logger.Error("computePublicKeys", "err", err.Error())
+		dkg.aeonKeys = nil
+		return
 	}
 	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)
 	msgToSign := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))
