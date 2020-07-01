@@ -23,7 +23,7 @@ const (
 	// automation :)
 
 	TMCoreSemVer     = "0.4.2"
-	TMBaselineSemVer = "0.32.11"
+	TMBaselineSemVer = "0.32.12"
 
 	// ABCISemVer is the semantic version of the ABCI library
 	ABCISemVer  = "0.16.1"

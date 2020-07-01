@@ -31,7 +31,7 @@ type Metrics struct {
 	// Number of DKG failures
 	DKGFailures metrics.Counter
 	// Whether block round contains entropy or not
-	BlockWithEntropy metrics.Gauge
+	EntropyGenerating metrics.Gauge
 	// Number of drops to no entropy
 	PeriodsWithNoEntropy metrics.Counter
 	// Start of current aeon
@@ -42,6 +42,8 @@ type Metrics struct {
 	NextAeonStart metrics.Gauge
 	// End of next aeon
 	NextAeonEnd metrics.Gauge
+	// Time between key arrival and aeon start
+	AeonKeyBuffer metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -95,10 +97,10 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "dkg_failures",
 			Help:      "Number of DKGs failed",
 		}, labels).With(labelsAndValues...),
-		BlockWithEntropy: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+		EntropyGenerating: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "block_with_entropy",
+			Name:      "generating_entropy",
 			Help:      "Whether block contains entropy or not",
 		}, labels).With(labelsAndValues...),
 		PeriodsWithNoEntropy: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -131,6 +133,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "next_aeon_end",
 			Help:      "Next end block of the loaded aeon",
 		}, labels).With(labelsAndValues...),
+		AeonKeyBuffer: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "aeon_key_buffer",
+			Help:      "Time between key arrival and aeon start",
+		}, labels).With(labelsAndValues...),
 	}
 
 	// Set default values for the metrics so they appear at /metrics
@@ -142,12 +150,13 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	metrics.DKGsCompletedWithPrivateKey.Add(0)
 	metrics.DKGDuration.Add(0)
 	metrics.DKGFailures.Add(0)
-	metrics.BlockWithEntropy.Add(0)
+	metrics.EntropyGenerating.Add(0)
 	metrics.PeriodsWithNoEntropy.Add(0)
 	metrics.AeonStart.Add(0)
 	metrics.AeonEnd.Add(0)
 	metrics.NextAeonStart.Add(0)
 	metrics.NextAeonEnd.Add(0)
+	metrics.AeonKeyBuffer.Add(0)
 
 	return &metrics
 }
@@ -162,11 +171,12 @@ func NopMetrics() *Metrics {
 		DKGsCompletedWithPrivateKey: discard.NewCounter(),
 		DKGDuration:                 discard.NewGauge(),
 		DKGFailures:                 discard.NewCounter(),
-		BlockWithEntropy:            discard.NewGauge(),
+		EntropyGenerating:            discard.NewGauge(),
 		PeriodsWithNoEntropy:        discard.NewCounter(),
 		AeonStart:                   discard.NewGauge(),
 		AeonEnd:                     discard.NewGauge(),
 		NextAeonStart:               discard.NewGauge(),
 		NextAeonEnd:                 discard.NewGauge(),
+		AeonKeyBuffer:               discard.NewGauge(),
 	}
 }
