@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -431,6 +432,12 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 		}
 		close(entropyGenerator.done)
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			entropyGenerator.Logger.Error("EntropyGenerator failure", "err", r, "stack", string(debug.Stack()))
+			onExit(entropyGenerator)
+		}
+	}()
 
 OUTER_LOOP:
 	for {
