@@ -227,12 +227,14 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	// Mark dkg completion so so that activeDKG can be reset and set start and end
 	// of next entropy aeon
 	dkgRunner.activeDKG.SetDkgCompletionCallback(func(keys *aeonDetails) {
-		dkgRunner.completedDKG = true
-		dkgRunner.metrics.DKGsCompleted.Add(1)
-		if keys.aeonExecUnit.CanSign() {
-			dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
+		if keys.aeonExecUnit != nil {
+			dkgRunner.completedDKG = true
+			dkgRunner.metrics.DKGsCompleted.Add(1)
+			if keys.aeonExecUnit.CanSign() {
+				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
+			}
+			dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		}
-		dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
 		}
@@ -240,7 +242,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	// Dispatch off empty keys in case entropy generator has no keys
 	if dkgRunner.dkgCompletionCallback != nil {
 		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
-			dkgRunner.activeDKG.duration()))
+			dkgRunner.activeDKG.duration()+1))
 	}
 	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)
 }
