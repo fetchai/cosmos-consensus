@@ -254,7 +254,7 @@ func TestDKGScenarios(t *testing.T) {
 
 			// Check outputs have been set
 			for _, aeon := range outputs {
-				if aeon == nil {
+				if aeon == nil || aeon.aeonExecUnit == nil {
 					t.Logf("Test failed: received nil dkg output")
 					t.FailNow()
 				}
