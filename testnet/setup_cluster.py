@@ -43,6 +43,7 @@ def parse_commandline():
     parser.add_argument('-u', '--update-img-tag', action='store_true', help='Update the latest docker image with our commit tag (and push)')
     parser.add_argument('-t', '--traders', action='store_true', help='Deploy a traders (sends lots of TXs) container targeting N validators (need to specify with -v flag)')
     parser.add_argument('-a', '--adjust-network-size', type=int, default=-1, help='Adjust the network down to N nodes (remove)')
+    parser.add_argument('-y', '--restore-network-size', type=int, default=-1, help='Return the network to N nodes (reapply yaml)')
     parser.add_argument('-c', '--clear-network-delays', action='store_true', help='Clear network delays - must also be done before setting any network delays')
     parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100ms (node1-0 -> node2-0 delay)')
     # TODO(HUT): correct this.
@@ -61,8 +62,14 @@ def run_command(command: str, command_args: str = ""):
 # Check that the docker image your network is to use actually has it at the remote
 # to avoid an image pull error
 def docker_img_remote(remote_name: str):
-    return_obj = subprocess.run(["docker", "pull", remote_name])
-    return True if return_obj.returncode == 0 else False
+
+    for i in range(0,10):
+        return_obj = subprocess.run(["docker", "pull", remote_name])
+        if return_obj.returncode == 0:
+            return True
+        print("Failed to find image at remote. The deployment might fail! Will retry...", file=sys.stderr)
+        time.sleep(30)
+    return False
 
 def get_docker_img_name():
     version = subprocess.check_output("git describe --always --dirty=_wip".split()).decode().strip()
@@ -109,11 +116,14 @@ def adjust_network_size(new_size: int):
         if node_number >= new_size:
             run_command("kubectl", f"delete -f {path}")
 
-            if exit_code:
-                print(exit_code)
-                print("quitting due to exit code")
-                sys.exit(1)
+def restore_network_size(new_size: int):
 
+    pathlist = Path(YAML_DIR).glob('**/node*.yaml')
+    for path in pathlist:
+        node_number = int(str(path).split('node')[1].split('.yaml')[0])
+
+        if node_number <= new_size - 1:
+            run_command("kubectl", f"apply -f {path}")
 
 def push_docker_image(args):
     run_command("docker", f"push {DOCKER_IMG_NAME}:{DOCKER_IMG_TAG}")
@@ -297,6 +307,10 @@ def main():
 
     if args.adjust_network_size > 0:
         adjust_network_size(args.adjust_network_size)
+        sys.exit(0)
+
+    if args.restore_network_size > 0:
+        restore_network_size(args.restore_network_size)
         sys.exit(0)
 
     if args.remove_network:
