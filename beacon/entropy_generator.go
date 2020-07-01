@@ -19,7 +19,9 @@ const (
 )
 
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
-// and entropy for dispatching along channel
+// and entropy for dispatching along channel. Entropy generation is blocked by arrival of keys for the
+// keys for the current block height from the dkg - including for trivial entropy periods, for which the
+// dkg sends an empty set of keys.
 type EntropyGenerator struct {
 	cmn.BaseService
 
