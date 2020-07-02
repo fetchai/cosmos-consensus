@@ -52,7 +52,7 @@ func (fn *FunctionTimer) Finish() {
 		if fn.Logger == nil {
 			fmt.Println(errorString)
 		} else {
-			fn.Logger.Error(errorString)
+			fn.Logger.Debug(errorString)
 		}
 	}
 }
