@@ -549,6 +549,10 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 }
 
 func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.BlockEntropy {
+
+
+	fmt.Printf("Returning block entropy for height %v with round %v  - note, start is %v\n", height, height-entropyGenerator.aeon.Start, entropyGenerator.aeon.Start)
+
 	return *types.NewBlockEntropy(
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,

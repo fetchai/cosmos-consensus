@@ -22,7 +22,7 @@ if [ -z "$REDIRECT_LOCALHOST" ]; then
 fi
 
 if [ "$REDIRECT_LOCALHOST" == "1" ]; then
-    echo "forwarding to localhost port!"
+    echo "forwarding to localhost port"
     socat tcp-l:26654,fork,reuseaddr tcp:127.0.0.1:26657 &
 else
     echo "not forwarding to localhost port: $REDIRECT_LOCALHOST"
@@ -30,4 +30,16 @@ fi
 
 echo "Executing command tendermint $@"
 
+tendermint $@ || true
+
+echo "\n\n\n THIS FAILED! Attempting file corruption healing and a restart"
+
+echo "running wal2json"
+./wal2json ./data/cs.wal/wal > wal.json
+
+echo "running json2wal to replace data wal file"
+./json2wal wal.json ./data/cs.wal/wal
+
+echo "restarting tendermint"
 tendermint $@
+

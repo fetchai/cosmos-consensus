@@ -28,11 +28,15 @@ RUN tar -C /usr/local -xzf go1.14.2.linux-amd64.tar.gz
 RUN export CGO_ENABLED=1 && \
     /usr/local/go/bin/go build -o build/tendermint ./cmd/tendermint/
 
+# Build recovery tools
+RUN export CGO_ENABLED=1 && /usr/local/go/bin/go build -o build/wal2json ./scripts/wal2json/main.go
+RUN export CGO_ENABLED=1 && /usr/local/go/bin/go build -o build/json2wal ./scripts/json2wal/main.go
+
 # ######### Finished building tendermint executbales ##############
 FROM ubuntu:18.04
 
 RUN apt update && \
-	apt install -y libboost-serialization-dev netcat socat lsof curl iproute2 dnsutils vim
+	apt install -y libboost-serialization-dev netcat socat lsof curl iproute2 dnsutils vim git
 
 WORKDIR /tendermint
 
@@ -49,3 +53,7 @@ COPY ./mytestnet/node0/data/priv_validator_state.json .
 COPY run.sh .
 COPY network_control.sh .
 COPY dns_lookup.sh .
+
+# copy recovery script/binaries
+COPY --from=build-env /project/build/wal2json ./
+COPY --from=build-env /project/build/json2wal ./
