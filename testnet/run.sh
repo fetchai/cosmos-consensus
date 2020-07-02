@@ -34,11 +34,14 @@ tendermint $@ || true
 
 echo "\n\n\n THIS FAILED! Attempting file corruption healing and a restart"
 
+#sleep 999
+
 echo "running wal2json"
-./wal2json ./data/cs.wal/wal > wal.json
+./wal2json ./data/cs.wal/wal > wal.json || true
 
 echo "running json2wal to replace data wal file"
-./json2wal wal.json ./data/cs.wal/wal
+rm -rf ./data/cs.wal/wal
+./json2wal wal.json ./data/cs.wal/wal || true
 
 echo "restarting tendermint"
 tendermint $@

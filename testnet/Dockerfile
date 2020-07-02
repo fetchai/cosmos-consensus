@@ -36,7 +36,7 @@ RUN export CGO_ENABLED=1 && /usr/local/go/bin/go build -o build/json2wal ./scrip
 FROM ubuntu:18.04
 
 RUN apt update && \
-	apt install -y libboost-serialization-dev netcat socat lsof curl iproute2 dnsutils vim git
+	apt install -y libboost-serialization-dev netcat socat lsof curl iproute2 dnsutils vim
 
 WORKDIR /tendermint
 
