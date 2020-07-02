@@ -22,6 +22,10 @@ type aeonDetails struct {
 
 // LoadAeonDetails creates aeonDetails from keys saved in file
 func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.ValidatorSet, privVal types.PrivValidator) *aeonDetails {
+	if len(aeonDetailsFile.PublicInfo.GroupPublicKey) == 0 {
+		return keylessAeonDetails(aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
+	}
+
 	keys := NewDKGKeyInformation()
 	keys.SetGroup_public_key(aeonDetailsFile.PublicInfo.GroupPublicKey)
 	keys.SetPrivate_key(aeonDetailsFile.PrivateKey)
@@ -87,7 +91,20 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 	return ad, nil
 }
 
+func keylessAeonDetails(aeonStart int64, aeonEnd int64) *aeonDetails {
+	return &aeonDetails{
+		Start: aeonStart,
+		End:   aeonEnd,
+	}
+}
+
 func (aeon *aeonDetails) dkgOutput() *DKGOutput {
+	if aeon.aeonExecUnit == nil {
+		return &DKGOutput{
+			Start: aeon.Start,
+			End:   aeon.End,
+		}
+	}
 	output := DKGOutput{
 		GroupPublicKey:  aeon.aeonExecUnit.GroupPublicKey(),
 		Generator:       aeon.aeonExecUnit.Generator(),
@@ -111,7 +128,9 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 func (aeon *aeonDetails) save(filePath string) {
 	aeonFile := AeonDetailsFile{
 		PublicInfo: *aeon.dkgOutput(),
-		PrivateKey: aeon.aeonExecUnit.PrivateKey(),
+	}
+	if aeon.aeonExecUnit != nil {
+		aeonFile.PrivateKey = aeon.aeonExecUnit.PrivateKey()
 	}
 	aeonFile.save(filePath)
 }
@@ -179,17 +198,16 @@ type DKGOutput struct {
 
 // ValidateBasic for basic validity checking of dkg output
 func (output *DKGOutput) ValidateBasic() error {
-	if len(output.GroupPublicKey) == 0 {
-		return fmt.Errorf("Empty group public key")
-	}
-	if len(output.Generator) == 0 {
-		return fmt.Errorf("Empty generator")
-	}
-	if output.ValidatorHeight <= 0 {
-		return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
-	}
-	if len(output.Qual) == 0 || len(output.Qual) != len(output.PublicKeyShares) {
-		return fmt.Errorf("Mismatch in qual size %v and public key shares %v", len(output.Qual), len(output.PublicKeyShares))
+	if len(output.GroupPublicKey) != 0 {
+		if len(output.Generator) == 0 {
+			return fmt.Errorf("Empty generator")
+		}
+		if output.ValidatorHeight <= 0 {
+			return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
+		}
+		if len(output.Qual) == 0 || len(output.Qual) != len(output.PublicKeyShares) {
+			return fmt.Errorf("Mismatch in qual size %v and public key shares %v", len(output.Qual), len(output.PublicKeyShares))
+		}
 	}
 	if output.Start <= 0 || output.End < output.Start {
 		return fmt.Errorf("Invalid start %v or end %v", output.Start, output.End)

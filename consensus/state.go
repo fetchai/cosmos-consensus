@@ -1035,7 +1035,7 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 // as it takes to generate entropy (possibly forever)
 func (cs *ConsensusState) getNewEntropy(height int64) {
 
-	debugThing := fmt.Sprintf("getNewEntropy for height %v", height);
+	debugThing := fmt.Sprintf("getNewEntropy for height %v", height)
 	timer := cmn.NewFunctionTimer(10, debugThing, cs.Logger)
 	defer timer.Finish()
 
@@ -1172,7 +1172,6 @@ func (cs *ConsensusState) shuffledCabinet(entropy []byte) types.ValidatorsByAddr
 func (cs *ConsensusState) defaultDecideProposal(height int64, round int) {
 	var block *types.Block
 	var blockParts *types.PartSet
-
 
 	timer := cmn.NewFunctionTimer(10, "defaultDecideProposal", cs.Logger)
 	defer timer.Finish()

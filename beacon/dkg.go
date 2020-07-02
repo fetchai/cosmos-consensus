@@ -70,7 +70,9 @@ func dkgID(validatorHeight int64) int64 {
 	return validatorHeight
 }
 
-//DistributedKeyGeneration handles dkg messages inside block for one dkg run
+// DistributedKeyGeneration handles dkg messages inside block for dkg runs, until a successful dkg is completed.
+// Empty keys are dispatched for the duration of the dkg [dkgStart, dkgEnd + 1] to allow trivial entropy generation
+// if no current keys exist.
 type DistributedKeyGeneration struct {
 	cmn.BaseService
 	mtx sync.RWMutex
@@ -126,7 +128,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		currentAeonEnd:       aeonEnd,
 		aeonLength:           aeonLength,
 		threshold:            dkgThreshold,
-		startHeight:          validatorHeight + dkgResetDelay,
+		startHeight:          validatorHeight,
 		states:               make(map[dkgState]*state),
 		currentState:         dkgStart,
 		dryRunKeys:           make(map[string]DKGOutput),
@@ -248,6 +250,11 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
 	if newStateDuration <= maxDKGStateDuration {
 		dkg.stateDuration = newStateDuration
+	}
+	// Dispatch empty keys to entropy generator. +1 need at the end of aeonEnd because consensus needs entropy for next block
+	// height and the next
+	if dkg.dkgCompletionCallback != nil {
+		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+1))
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
@@ -502,13 +509,16 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	nextAeonStart := dkg.currentAeonEnd + 1
 	dkgEnd := (dkg.startHeight + dkg.duration())
 	if dkgEnd >= nextAeonStart {
-		nextAeonStart = dkgEnd + dkg.config.EntropyChannelCapacity + 1
+		// +2 because the keyless aeon runs until dkgEnd +1 so the new set of keys starts at the block height after that
+		nextAeonStart = dkgEnd + 2
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,
 		nextAeonStart, nextAeonStart+dkg.aeonLength-1)
 	if err != nil {
 		dkg.Logger.Error("computePublicKeys", "err", err.Error())
+		dkg.aeonKeys = nil
+		return
 	}
 	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)
 	msgToSign := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))

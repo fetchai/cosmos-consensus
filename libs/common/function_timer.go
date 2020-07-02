@@ -1,12 +1,11 @@
 package common
 
 import (
-	"time"
 	"fmt"
 	"github.com/tendermint/tendermint/libs/log"
 	"runtime/debug"
+	"time"
 )
-
 
 //----------------------------------------
 // Function timer can be placed anywhere in a function to determine
@@ -25,20 +24,20 @@ type FunctionTimer struct {
 }
 
 // Note the logger can be nil in which case it will fall back to fmt.Print messages
-func NewFunctionTimer(expectedTime int64, timerName string, logger log.Logger) (fn* FunctionTimer) {
+func NewFunctionTimer(expectedTime int64, timerName string, logger log.Logger) (fn *FunctionTimer) {
 
-	fnTimer := FunctionTimer {
-		startTime      : time.Now(),
-		timerName      : timerName,
-		expectedTimeMs : expectedTime,
-		Logger         : logger,
-		stackDisabled  : true,
+	fnTimer := FunctionTimer{
+		startTime:      time.Now(),
+		timerName:      timerName,
+		expectedTimeMs: expectedTime,
+		Logger:         logger,
+		stackDisabled:  true,
 	}
 
 	return &fnTimer
 }
 
-func (fn* FunctionTimer) Finish() {
+func (fn *FunctionTimer) Finish() {
 	timeElapsed := time.Now().Sub(fn.startTime).Milliseconds()
 	if timeElapsed >= fn.expectedTimeMs {
 

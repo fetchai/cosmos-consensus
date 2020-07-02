@@ -171,7 +171,7 @@ func NopMetrics() *Metrics {
 		DKGsCompletedWithPrivateKey: discard.NewCounter(),
 		DKGDuration:                 discard.NewGauge(),
 		DKGFailures:                 discard.NewCounter(),
-		EntropyGenerating:            discard.NewGauge(),
+		EntropyGenerating:           discard.NewGauge(),
 		PeriodsWithNoEntropy:        discard.NewCounter(),
 		AeonStart:                   discard.NewGauge(),
 		AeonEnd:                     discard.NewGauge(),
