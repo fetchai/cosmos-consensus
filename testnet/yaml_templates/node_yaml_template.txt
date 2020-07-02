@@ -53,7 +53,8 @@ spec:
         - name: cosmosledger
           image: {container}
           imagePullPolicy: {pull_policy}
-          command: [ "/tendermint/run.sh" ]
+          command: [ "/bin/bash", "-c", "--" ]
+          args: [ "/tendermint/run.sh; tendermint node --home ./ --proxy_app=kvstore;echo 'FIN';sleep 9999" ]
 
           securityContext:
             capabilities:
@@ -62,12 +63,6 @@ spec:
           env:
           - name: REDIRECT_LOCALHOST
             value: "1"
-
-          args:
-            - node
-            - --home
-            - ./
-            - --proxy_app=kvstore
 
           ports:
             - name: p2p-port
