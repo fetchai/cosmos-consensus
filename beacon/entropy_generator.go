@@ -206,6 +206,8 @@ func (entropyGenerator *EntropyGenerator) trimNextAeons() {
 				entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
 			}
 		} else {
+			// Save next front of aeons to file
+			entropyGenerator.nextAeons[0].save(entropyGenerator.baseConfig.NextEntropyKeyFile())
 			break
 		}
 	}
