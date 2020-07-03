@@ -242,7 +242,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 	if len(entropyGenerator.nextAeons) > 0 && entropyGenerator.nextAeons[0].Start <= entropyGenerator.lastBlockHeight+1 {
 		entropyGenerator.aeon = entropyGenerator.nextAeons[0]
 
-		remove(entropyGenerator.nextAeons, 0)
+		entropyGenerator.nextAeons = remove(entropyGenerator.nextAeons, 0)
 
 		// Set new aeon - save keys for crash recovery
 		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())

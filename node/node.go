@@ -590,9 +590,12 @@ func createBeaconReactor(
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "error loading aeon file")
 		}
-		vals, err1 := sm.LoadValidators(db, currentAeonFile.PublicInfo.ValidatorHeight)
-		if err1 != nil {
-			return nil, nil, nil, errors.Wrap(err1, "error loading validators for aeon keys")
+		var vals *types.ValidatorSet
+		if len(currentAeonFile.PublicInfo.GroupPublicKey) != 0 {
+			vals, err = sm.LoadValidators(db, currentAeonFile.PublicInfo.ValidatorHeight)
+			if err != nil {
+				return nil, nil, nil, errors.Wrap(err, "error loading validators for aeon keys")
+			}
 		}
 		aeonDetails := beacon.LoadAeonDetails(currentAeonFile, vals, privValidator)
 		entropyGenerator.SetAeonDetails(aeonDetails)
@@ -610,9 +613,12 @@ func createBeaconReactor(
 		// start up condition. If the node has started up and has only negotiated the first DKG the next entropy file
 		// will still be populated
 		if !nextAeonFile.IsForSamePeriod(currentAeonFile) {
-			vals, err1 := sm.LoadValidators(db, nextAeonFile.PublicInfo.ValidatorHeight)
-			if err1 != nil {
-				return nil, nil, nil, errors.Wrap(err1, "error loading validators for next aeon keys")
+			var vals *types.ValidatorSet
+			if len(nextAeonFile.PublicInfo.GroupPublicKey) != 0 {
+				vals, err = sm.LoadValidators(db, nextAeonFile.PublicInfo.ValidatorHeight)
+				if err != nil {
+					return nil, nil, nil, errors.Wrap(err, "error loading validators for aeon keys")
+				}
 			}
 			aeonDetails := beacon.LoadAeonDetails(nextAeonFile, vals, privValidator)
 			entropyGenerator.SetNextAeonDetails(aeonDetails)
