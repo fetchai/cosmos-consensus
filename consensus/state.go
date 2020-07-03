@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -351,7 +352,7 @@ rm $WALFILE # remove the corrupt file
 go run scripts/json2wal/main.go wal.json $WALFILE # rebuild the file without corruption
 ----`)
 
-				return err
+				os.Exit(33)
 			}
 
 			cs.Logger.Error("Error on catchup replay. Proceeding to start ConsensusState anyway", "err", err.Error())

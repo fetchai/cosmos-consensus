@@ -583,46 +583,43 @@ func createBeaconReactor(
 		dkgRunner.SetDKGCompletionCallback(entropyGenerator.SetNextAeonDetails)
 	}
 
-	var currentAeonFile *beacon.AeonDetailsFile
-	var err error
-	if cmn.FileExists(config.EntropyKeyFile()) {
-		currentAeonFile, err = beacon.LoadAeonDetailsFile(config.BaseConfig.EntropyKeyFile())
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "error loading aeon file")
-		}
-		vals, err1 := sm.LoadValidators(db, currentAeonFile.PublicInfo.ValidatorHeight)
-		if err1 != nil {
-			return nil, nil, nil, errors.Wrap(err1, "error loading validators for aeon keys")
-		}
-		aeonDetails := beacon.LoadAeonDetails(currentAeonFile, vals, privValidator)
-		entropyGenerator.SetAeonDetails(aeonDetails)
-		if dkgRunner != nil {
-			dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
-		}
-	}
+	//fmt.Printf("LOAG DDDD\n")
 
-	if cmn.FileExists(config.NextEntropyKeyFile()) {
-		nextAeonFile, err := beacon.LoadAeonDetailsFile(config.BaseConfig.NextEntropyKeyFile())
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "error loading next aeon file")
-		}
+	// There are three files for old entropy/keys, current entropy, and next entropy from the previous state.
+	// Load in the old entropy to generate forward from to avoid loading in a file that is higher than
+	// the current block height
+	keyFiles := []string{config.BaseConfig.OldEntropyKeyFile(), config.BaseConfig.EntropyKeyFile(), config.BaseConfig.NextEntropyKeyFile()}
 
-		// start up condition. If the node has started up and has only negotiated the first DKG the next entropy file
-		// will still be populated
-		if !nextAeonFile.IsForSamePeriod(currentAeonFile) {
-			vals, err1 := sm.LoadValidators(db, nextAeonFile.PublicInfo.ValidatorHeight)
-			if err1 != nil {
-				return nil, nil, nil, errors.Wrap(err1, "error loading validators for next aeon keys")
-			}
-			aeonDetails := beacon.LoadAeonDetails(nextAeonFile, vals, privValidator)
-			entropyGenerator.SetNextAeonDetails(aeonDetails)
+	// Loop over the files trying to extract the keys and push them into the entropy generator
+	for _, fileToLoad := range keyFiles {
+		if cmn.FileExists(fileToLoad) {
+			// Load the aeon from file
+			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad);err == nil {
+				// Get the validators for that aeon
+				if vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight);err1 == nil {
 
-			// Set dkg runner to most recent aeon which we generated keys for
-			if dkgRunner != nil {
-				dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+					// Push the complete aeon into the entropy generator
+					aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
+					entropyGenerator.SetNextAeonDetails(aeonDetails)
+
+						// Set dkg runner to most recent aeon which we generated keys for
+					if dkgRunner != nil {
+						dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+					}
+				} else {
+					//fmt.Printf("bad thing 1\n")
+					return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
+				}
+
+			} else {
+				//fmt.Printf("bad thing2\n")
+				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
 			}
 		}
 	}
+
+	//fmt.Printf("\n\nksjdflkasdjfl\n")
+
 	if len(state.LastComputedEntropy) != 0 {
 		entropyGenerator.SetLastComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy)
 	}
@@ -794,7 +791,13 @@ func NewNode(config *cfg.Config,
 		beaconLogger := logger.With("module", "beacon")
 		entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
 			beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
+
+			//fmt.Printf("results: %v %v %v %v\n", entropyChannel, entropyGenerator, beaconReactor, err)
+
 		if err != nil {
+			//fmt.Printf("XXYYY\n")
+			//fmt.Printf("err: %v\n", err)
+			panic(fmt.Sprintf("fail here.\n"))
 			return nil, errors.Wrap(err, "could not load aeon keys from file")
 		}
 
