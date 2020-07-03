@@ -826,10 +826,11 @@ func (cs *State) handleTxsAvailable() {
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(height int64, round int) {
 	logger := cs.Logger.With("height", height, "round", round)
+	logger.Debug("cstate: ************* Enter new round")
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.Step != cstypes.RoundStepNewHeight) {
 		logger.Debug(fmt.Sprintf(
-			"enterNewRound(%v/%v): Invalid args. Current step: %v/%v/%v",
+			"cstate: enterNewRound(%v/%v): Invalid args. Current step: %v/%v/%v",
 			height,
 			round,
 			cs.Height,
@@ -839,10 +840,10 @@ func (cs *State) enterNewRound(height int64, round int) {
 	}
 
 	if now := tmtime.Now(); cs.StartTime.After(now) {
-		logger.Info("Need to set a buffer and log message here for sanity.", "startTime", cs.StartTime, "now", now)
+		logger.Info("cstate: Need to set a buffer and log message here for sanity.", "startTime", cs.StartTime, "now", now)
 	}
 
-	logger.Info(fmt.Sprintf("enterNewRound(%v/%v). Current: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
+	logger.Info(fmt.Sprintf("cstate: enterNewRound(%v/%v). Current: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
 
 	// Increment validators if necessary
 	validators := cs.Validators
@@ -860,8 +861,10 @@ func (cs *State) enterNewRound(height int64, round int) {
 		// We've already reset these upon new height,
 		// and meanwhile we might have received a proposal
 		// for round 0.
+		logger.Debug("cstate: ************* We are round 0 don't reset")
+
 	} else {
-		logger.Info("Resetting Proposal info")
+		logger.Info("cstate: *************** Resetting Proposal info")
 		cs.Proposal = nil
 		cs.ProposalBlock = nil
 		cs.ProposalBlockParts = nil
@@ -903,10 +906,11 @@ func (cs *State) needProofBlock(height int64) bool {
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(height int64, round int) {
 	logger := cs.Logger.With("height", height, "round", round)
+	logger.Debug("cstate: ************* Enter propose")
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPropose <= cs.Step) {
 		logger.Debug(fmt.Sprintf(
-			"enterPropose(%v/%v): Invalid args. Current step: %v/%v/%v",
+			"cstate: enterPropose(%v/%v): Invalid args. Current step: %v/%v/%v",
 			height,
 			round,
 			cs.Height,
@@ -914,7 +918,7 @@ func (cs *State) enterPropose(height int64, round int) {
 			cs.Step))
 		return
 	}
-	logger.Info(fmt.Sprintf("enterPropose(%v/%v). Current: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
+	logger.Info(fmt.Sprintf("cstate: enterPropose(%v/%v). Current: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
 
 	defer func() {
 		// Done enterPropose:
@@ -934,28 +938,28 @@ func (cs *State) enterPropose(height int64, round int) {
 
 	// Nothing more to do if we're not a validator
 	if cs.privValidator == nil {
-		logger.Debug("This node is not a validator")
+		logger.Debug("cstate: This node is not a validator")
 		return
 	}
 
 	// if not a validator, we're done
 	address := cs.privValidator.GetPubKey().Address()
 	if !cs.Validators.HasAddress(address) {
-		logger.Debug("This node is not a validator", "addr", address, "vals", cs.Validators)
+		logger.Debug("cstate: This node is not a validator", "addr", address, "vals", cs.Validators)
 		return
 	}
-	logger.Debug("This node is a validator")
+	logger.Debug("cstate: This node is a validator")
 
 	nextProposer := cs.getProposer(height, round)
 	if bytes.Equal(nextProposer.Address, address) {
-		logger.Info("enterPropose: Our turn to propose",
+		logger.Info("cstate: enterPropose: Our turn to propose",
 			"proposer",
 			nextProposer.Address,
 			"privValidator",
 			cs.privValidator)
 		cs.decideProposal(height, round)
 	} else {
-		logger.Info("enterPropose: Not our turn to propose",
+		logger.Info("cstate: enterPropose: Not our turn to propose",
 			"proposer",
 			nextProposer.Address,
 			"privValidator",
@@ -1025,8 +1029,10 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 	// Decide on block
 	if cs.ValidBlock != nil {
 		// If there is valid block, choose that.
+		cs.Logger.Debug("cstate: we got a valid block, use that")
 		block, blockParts = cs.ValidBlock, cs.ValidBlockParts
 	} else {
+		cs.Logger.Debug("cstate: create new block")
 		// Create a new proposal block from state/txs from the mempool.
 		block, blockParts = cs.createProposalBlock()
 		// Add entropy and reset blockParts
@@ -1163,6 +1169,15 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 	if err != nil {
 		// ProposalBlock is invalid, prevote nil.
 		logger.Error("enterPrevote: ProposalBlock is invalid", "err", err)
+		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
+	// if enabled app will validate proposal block
+	// if turned off this will be nil without app call
+	err = cs.blockExec.AppValidateBlock(cs.ProposalBlock, height, int32(round))
+	if err != nil {
+		logger.Error("enterPrevote: ProposalBlock is invalid, app rejection ", "err", err)
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
@@ -1690,7 +1705,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
 		if hasTwoThirds && !blockID.IsZero() && (cs.ValidRound < cs.Round) {
 			if cs.ProposalBlock.HashesTo(blockID.Hash) {
-				cs.Logger.Info("Updating valid block to new proposal block",
+				cs.Logger.Info("cstate: Updating valid block to new proposal block",
 					"valid-round", cs.Round, "valid-block-hash", cs.ProposalBlock.Hash())
 				cs.ValidRound = cs.Round
 				cs.ValidBlock = cs.ProposalBlock
@@ -1852,7 +1867,7 @@ func (cs *State) addVote(
 
 				if cs.ProposalBlock.HashesTo(blockID.Hash) {
 					cs.Logger.Info(
-						"Updating ValidBlock because of POL.", "validRound", cs.ValidRound, "POLRound", vote.Round)
+						"cstate: Updating ValidBlock because of POL.", "validRound", cs.ValidRound, "POLRound", vote.Round)
 					cs.ValidRound = vote.Round
 					cs.ValidBlock = cs.ProposalBlock
 					cs.ValidBlockParts = cs.ProposalBlockParts

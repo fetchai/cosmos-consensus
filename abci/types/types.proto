@@ -102,6 +102,8 @@ message RequestBlockValidation {
   RequestBeginBlock begin_block = 1;
   repeated bytes    txs         = 2;
   RequestEndBlock   end_block   = 3;
+  int64 height = 4;
+  int32 round  = 5;
 }
 
 message RequestDeliverTx {

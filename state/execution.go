@@ -127,13 +127,21 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+//AppValidateBlock calls the ABCI app to validate the block
+func (blockExec *BlockExecutor) AppValidateBlock(block *types.Block, height int64, round int32) error {
 	if blockExec.appBlockValidation {
 		txs := make([][]byte, len(block.Data.Txs))
 		for i, v := range block.Data.Txs {
 			txs[i] = v
 		}
 		req := abci.RequestBlockValidation{
-			Txs: txs,
+			Txs:    txs,
+			Height: height,
+			Round:  round,
 		}
 		resp, err := blockExec.proxyApp.ValidateBlockSync(req)
 		if err != nil {
