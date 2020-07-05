@@ -62,7 +62,6 @@ func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
 		entropyGenerator.metrics = metrics
 	}
 
-	//fmt.Printf("xxx\n")
 	entropyGenerator.UpdateMetrics()
 }
 
@@ -153,7 +152,6 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 
 	entropyGenerator.aeon = aeon
 
-	//fmt.Printf("BBB\n")
 	entropyGenerator.UpdateMetrics()
 }
 
@@ -466,7 +464,6 @@ OUTER_LOOP:
 				entropyGenerator.metrics.PeriodsWithNoEntropy.Add(1)
 			}
 		}
-		//fmt.Printf("asdfsdf\n")
 		entropyGenerator.UpdateMetrics()
 		// Continue onto the next random value
 		entropyGenerator.sign()
@@ -557,9 +554,6 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 
 func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.BlockEntropy {
 
-
-	//fmt.Printf("Returning block entropy for height %v with round %v  - note, start is %v\n", height, height-entropyGenerator.aeon.Start, entropyGenerator.aeon.Start)
-
 	return *types.NewBlockEntropy(
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
@@ -594,11 +588,9 @@ func (entropyGenerator *EntropyGenerator) UpdateMetrics() {
 		return
 	}
 
-	//fmt.Printf("Here1\n")
 	if entropyGenerator.metrics == nil {
 		return
 	}
-	//fmt.Printf("Here2\n")
 
 	if entropyGenerator.aeon != nil {
 		entropyGenerator.metrics.AeonStart.Set(float64(entropyGenerator.aeon.Start))

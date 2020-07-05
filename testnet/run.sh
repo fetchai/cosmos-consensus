@@ -32,7 +32,7 @@ echo "Executing command tendermint $@"
 tendermint $@
 
 if [ $? == 33 ]; then
-    echo -e "\n\nTHIS FAILED! Attempting file corruption healing and a restart"
+    echo -e "\n\nTHIS FAILED (error code 33 == file corruption)! Attempting file corruption healing and a restart"
 
     echo "running wal2json"
     ./wal2json ./data/cs.wal/wal > wal.json

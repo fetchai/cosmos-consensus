@@ -583,8 +583,6 @@ func createBeaconReactor(
 		dkgRunner.SetDKGCompletionCallback(entropyGenerator.SetNextAeonDetails)
 	}
 
-	//fmt.Printf("LOAG DDDD\n")
-
 	// There are three files for old entropy/keys, current entropy, and next entropy from the previous state.
 	// Load in the old entropy to generate forward from to avoid loading in a file that is higher than
 	// the current block height
@@ -607,18 +605,14 @@ func createBeaconReactor(
 						dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 					}
 				} else {
-					//fmt.Printf("bad thing 1\n")
 					return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
 				}
 
 			} else {
-				//fmt.Printf("bad thing2\n")
 				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
 			}
 		}
 	}
-
-	//fmt.Printf("\n\nksjdflkasdjfl\n")
 
 	if len(state.LastComputedEntropy) != 0 {
 		entropyGenerator.SetLastComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy)
@@ -792,12 +786,7 @@ func NewNode(config *cfg.Config,
 		entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
 			beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
 
-			//fmt.Printf("results: %v %v %v %v\n", entropyChannel, entropyGenerator, beaconReactor, err)
-
 		if err != nil {
-			//fmt.Printf("XXYYY\n")
-			//fmt.Printf("err: %v\n", err)
-			panic(fmt.Sprintf("fail here.\n"))
 			return nil, errors.Wrap(err, "could not load aeon keys from file")
 		}
 
