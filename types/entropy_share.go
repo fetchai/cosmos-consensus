@@ -52,7 +52,7 @@ func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgI
 	}
 }
 
-// Equal compares two block entropies and returns if they are identitical
+// Equal compares two block entropies and returns if they are identical
 func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
 	return bytes.Equal(blockEntropy.GroupSignature, anotherEntropy.GroupSignature) &&
 		blockEntropy.Round == anotherEntropy.Round &&

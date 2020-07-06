@@ -39,6 +39,7 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
+	defaultOldEntropyKeyName     = "old_entropy_key.json"
 	defaultEntropyKeyName     = "entropy_key.json"
 	defaultNextEntropyKeyName = "next_entropy_key.json"
 	defaultNoiseKeyName       = "noise_key.json"
@@ -50,6 +51,7 @@ var (
 	defaultGenesisJSONPath    = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
 	defaultPrivValKeyPath     = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
 	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
+	defaultOldEntropyKeyPath     = filepath.Join(defaultDataDir, defaultOldEntropyKeyName)
 	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
 	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
 	defaultNoiseKeyPath       = filepath.Join(defaultDataDir, defaultNoiseKeyName)
@@ -212,6 +214,9 @@ type BaseConfig struct { //nolint: maligned
 	// Path to the JSON file containing the dkg output for entropy generation
 	EntropyKey string `mapstructure:"entropy_key_file"`
 
+	// Path to the JSON file containing the dkg output for previous entropy generation
+	OldEntropyKey string `mapstructure:"old_entropy_key_file"`
+
 	// Path to the JSON file containing the dkg output for next aeon entropy generation
 	NextEntropyKey string `mapstructure:"next_entropy_key_file"`
 
@@ -239,6 +244,7 @@ func DefaultBaseConfig() BaseConfig {
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
 		EntropyKey:         defaultEntropyKeyPath,
+		OldEntropyKey:      defaultOldEntropyKeyPath,
 		NextEntropyKey:     defaultNextEntropyKeyPath,
 		NoiseKey:           defaultNoiseKeyPath,
 		NodeKey:            defaultNodeKeyPath,
@@ -287,6 +293,11 @@ func (cfg BaseConfig) PrivValidatorStateFile() string {
 // EntropyKeyFile returns the full path to the entropy_key.json file
 func (cfg BaseConfig) EntropyKeyFile() string {
 	return rootify(cfg.EntropyKey, cfg.RootDir)
+}
+
+// EntropyKeyFile returns the full path to the old entropy_key.json file
+func (cfg BaseConfig) OldEntropyKeyFile() string {
+	return rootify(cfg.OldEntropyKey, cfg.RootDir)
 }
 
 // NextEntropyKeyFile returns the full path to the next_entropy_key.json file
