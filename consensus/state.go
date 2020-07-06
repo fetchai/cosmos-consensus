@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -351,7 +352,7 @@ rm $WALFILE # remove the corrupt file
 go run scripts/json2wal/main.go wal.json $WALFILE # rebuild the file without corruption
 ----`)
 
-				return err
+				os.Exit(33)
 			}
 
 			cs.Logger.Error("Error on catchup replay. Proceeding to start ConsensusState anyway", "err", err.Error())
@@ -1096,7 +1097,7 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 				}
 				// Basic check entropy is good
 				if err := newEntropy.ValidateBasic(); err != nil {
-					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v", newEntropy.Height, err))
+					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v. Current block height: %v", newEntropy.Height, err, height))
 				}
 
 				// We want height and height +1, but don't drop older stuff
@@ -1810,8 +1811,11 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 		cs.metrics.BlockWithEntropy.Set(float64(1))
 	}
 
-	if cs.isProposerForHeight != 0 && bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
+	// If we noticed we failed to produce a block when we should have
+	if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
 		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
+	} else {
+		cs.metrics.NumBlockProducer.Add(float64(cs.isProposerForHeight))
 	}
 	cs.isProposerForHeight = 0
 }

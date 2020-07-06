@@ -144,6 +144,12 @@ func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
 		return
 	}
 
+	// When updating the aeon, we save the current aeon so that in the event of a crash we
+	// can load it since the block height may still be within this old aeon (entropy leads block height)
+	if entropyGenerator.aeon != nil {
+		entropyGenerator.aeon.save(entropyGenerator.baseConfig.OldEntropyKeyFile())
+	}
+
 	entropyGenerator.aeon = aeon
 
 	entropyGenerator.UpdateMetrics()
@@ -549,6 +555,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 }
 
 func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.BlockEntropy {
+
 	return *types.NewBlockEntropy(
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
@@ -578,6 +585,10 @@ func (entropyGenerator *EntropyGenerator) isSigningEntropy() bool {
 
 // UpdateMetrics convenience function to update metrics on a state change
 func (entropyGenerator *EntropyGenerator) UpdateMetrics() {
+
+	if entropyGenerator == nil {
+		return
+	}
 
 	if entropyGenerator.metrics == nil {
 		return

@@ -124,6 +124,9 @@ priv_validator_state_file = "{{ js .BaseConfig.PrivValidatorState }}"
 # connections from an external PrivValidator process
 priv_validator_laddr = "{{ .BaseConfig.PrivValidatorListenAddr }}"
 
+# Path to the JSON file containing the old dkg output for entropy generation
+old_entropy_key_file = "{{ .BaseConfig.OldEntropyKey }}"
+
 # Path to the JSON file containing the dkg output for entropy generation
 entropy_key_file = "{{ .BaseConfig.EntropyKey }}"
 

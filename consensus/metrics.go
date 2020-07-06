@@ -64,6 +64,9 @@ type Metrics struct {
 	// Number of times failed as block producer
 	NumFailuresAsBlockProducer metrics.Counter
 
+	// Number of times was the block producer
+	NumBlockProducer metrics.Counter
+
 	// Whether the current block has entropy, 1 if yes, 0 if no
 	BlockWithEntropy metrics.Gauge
 }
@@ -206,6 +209,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "block_producer_failures",
 			Help:      "Number of times failed as block producer",
 		}, labels).With(labelsAndValues...),
+		NumBlockProducer: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "block_producer",
+			Help:      "Number of times was the block producer",
+		}, labels).With(labelsAndValues...),
 		BlockWithEntropy: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -245,6 +254,7 @@ func NopMetrics() *Metrics {
 		BlockParts:      discard.NewCounter(),
 
 		NumFailuresAsBlockProducer: discard.NewCounter(),
+		NumBlockProducer: discard.NewCounter(),
 		BlockWithEntropy:           discard.NewGauge(),
 	}
 }
