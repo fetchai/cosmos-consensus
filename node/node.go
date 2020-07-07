@@ -592,15 +592,15 @@ func createBeaconReactor(
 	for _, fileToLoad := range keyFiles {
 		if cmn.FileExists(fileToLoad) {
 			// Load the aeon from file
-			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad);err == nil {
+			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad); err == nil {
 				// Get the validators for that aeon
-				if vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight);err1 == nil {
+				if vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight); err1 == nil {
 
 					// Push the complete aeon into the entropy generator
 					aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
 					entropyGenerator.SetNextAeonDetails(aeonDetails)
 
-						// Set dkg runner to most recent aeon which we generated keys for
+					// Set dkg runner to most recent aeon which we generated keys for
 					if dkgRunner != nil {
 						dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 					}
