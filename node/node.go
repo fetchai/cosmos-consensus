@@ -594,7 +594,7 @@ func createBeaconReactor(
 	for _, fileToLoad := range keyFiles {
 		if cmn.FileExists(fileToLoad) {
 			// Load the aeon from file
-			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad);err == nil {
+			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad); err == nil {
 
 				// If the aeon has keys in it, load the validators (don't otherwise as
 				// the height can be 0 which causes an error)
@@ -608,7 +608,7 @@ func createBeaconReactor(
 					aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
 					entropyGenerator.SetNextAeonDetails(aeonDetails)
 
-						// Set dkg runner to most recent aeon which we generated keys for
+					// Set dkg runner to most recent aeon which we generated keys for
 					if dkgRunner != nil {
 						dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 					}

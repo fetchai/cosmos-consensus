@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"math/rand"
+	"os"
 	"reflect"
 	"runtime/debug"
 	"sync"
 	"time"
-	"os"
 
 	"github.com/pkg/errors"
 
