@@ -393,6 +393,9 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		entropyGenerator.Logger.Debug("sign: no dkg private key", "height", entropyGenerator.lastBlockHeight+1)
 		return
 	}
+	if entropyGenerator.lastComputedEntropyHeight == -1 {
+		return
+	}
 
 	index, _ := entropyGenerator.aeon.validators.GetByAddress(entropyGenerator.aeon.privValidator.GetPubKey().Address())
 	blockHeight := entropyGenerator.lastBlockHeight + 1
