@@ -261,6 +261,14 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 			"start", entropyGenerator.aeon.Start)
 		didChangeKeys = true
 	}
+
+	// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
+	// only be the case one for first DKG after genesis)
+	if entropyGenerator.lastComputedEntropyHeight == -1 && entropyGenerator.aeon.aeonExecUnit != nil {
+		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
+		entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
+			tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
+	}
 	return
 }
 
@@ -382,13 +390,6 @@ func (entropyGenerator *EntropyGenerator) sign() {
 	if entropyGenerator.aeon.aeonExecUnit == nil || !entropyGenerator.aeon.aeonExecUnit.CanSign() {
 		entropyGenerator.Logger.Debug("sign: no dkg private key", "height", entropyGenerator.lastBlockHeight+1)
 		return
-	}
-	if entropyGenerator.lastComputedEntropyHeight == -1 {
-		// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
-		// only be the case one for first DKG after genesis)
-		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
-		entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
-			tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
 	}
 
 	index, _ := entropyGenerator.aeon.validators.GetByAddress(entropyGenerator.aeon.privValidator.GetPubKey().Address())

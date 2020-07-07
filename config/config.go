@@ -39,7 +39,7 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
-	defaultOldEntropyKeyName     = "old_entropy_key.json"
+	defaultOldEntropyKeyName  = "old_entropy_key.json"
 	defaultEntropyKeyName     = "entropy_key.json"
 	defaultNextEntropyKeyName = "next_entropy_key.json"
 	defaultNoiseKeyName       = "noise_key.json"
@@ -51,7 +51,7 @@ var (
 	defaultGenesisJSONPath    = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
 	defaultPrivValKeyPath     = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
 	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
-	defaultOldEntropyKeyPath     = filepath.Join(defaultDataDir, defaultOldEntropyKeyName)
+	defaultOldEntropyKeyPath  = filepath.Join(defaultDataDir, defaultOldEntropyKeyName)
 	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
 	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
 	defaultNoiseKeyPath       = filepath.Join(defaultDataDir, defaultNoiseKeyName)
