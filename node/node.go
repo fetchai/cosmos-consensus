@@ -587,15 +587,23 @@ func createBeaconReactor(
 	// Load in the old entropy to generate forward from to avoid loading in a file that is higher than
 	// the current block height
 	keyFiles := []string{config.BaseConfig.OldEntropyKeyFile(), config.BaseConfig.EntropyKeyFile(), config.BaseConfig.NextEntropyKeyFile()}
+	var vals *types.ValidatorSet
+	var err1 error
 
 	// Loop over the files trying to extract the keys and push them into the entropy generator
 	for _, fileToLoad := range keyFiles {
 		if cmn.FileExists(fileToLoad) {
 			// Load the aeon from file
 			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad); err == nil {
-				// Get the validators for that aeon
-				if vals, err1 := sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight); err1 == nil {
 
+				// If the aeon has keys in it, load the validators (don't otherwise as
+				// the height can be 0 which causes an error)
+				if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
+					vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+				}
+
+				// Get the validators for that aeon
+				if err1 == nil {
 					// Push the complete aeon into the entropy generator
 					aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
 					entropyGenerator.SetNextAeonDetails(aeonDetails)
@@ -607,7 +615,6 @@ func createBeaconReactor(
 				} else {
 					return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
 				}
-
 			} else {
 				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
 			}

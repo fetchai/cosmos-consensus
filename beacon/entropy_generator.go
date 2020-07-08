@@ -212,6 +212,8 @@ func (entropyGenerator *EntropyGenerator) trimNextAeons() {
 				entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
 			}
 		} else {
+			// Save next front of aeons to file
+			entropyGenerator.nextAeons[0].save(entropyGenerator.baseConfig.NextEntropyKeyFile())
 			break
 		}
 	}
@@ -248,7 +250,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 	if len(entropyGenerator.nextAeons) > 0 && entropyGenerator.nextAeons[0].Start <= entropyGenerator.lastBlockHeight+1 {
 		entropyGenerator.aeon = entropyGenerator.nextAeons[0]
 
-		remove(entropyGenerator.nextAeons, 0)
+		entropyGenerator.nextAeons = remove(entropyGenerator.nextAeons, 0)
 
 		// Set new aeon - save keys for crash recovery
 		entropyGenerator.aeon.save(entropyGenerator.baseConfig.EntropyKeyFile())
@@ -390,6 +392,9 @@ func (entropyGenerator *EntropyGenerator) sign() {
 	if entropyGenerator.aeon.aeonExecUnit == nil || !entropyGenerator.aeon.aeonExecUnit.CanSign() {
 		entropyGenerator.Logger.Debug("sign: no dkg private key", "height", entropyGenerator.lastBlockHeight+1)
 		return
+	}
+	if entropyGenerator.lastComputedEntropyHeight == -1 {
+		panic(fmt.Sprintf("Has keys but previous entropy not set. Height %v", entropyGenerator.lastBlockHeight))
 	}
 
 	index, _ := entropyGenerator.aeon.validators.GetByAddress(entropyGenerator.aeon.privValidator.GetPubKey().Address())
