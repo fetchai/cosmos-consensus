@@ -48,6 +48,7 @@ def parse_commandline():
     parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100ms (node1-0 -> node2-0 delay)')
     # TODO(HUT): correct this.
     parser.add_argument('-x', '--send-html', action='append', nargs="*", help='Send html string to node. Format: node0-0 index.html')
+    parser.add_argument('-l', '--log-level', type=str, default="", help='Change node log level. Uses Tendermint log level format e.g. beacon:info')
     return parser.parse_args()
 
 # Helper function to run commands in their directory, optionally silently (set by STDOUT_DEFAULT)
@@ -145,18 +146,22 @@ def deploy_grafana(args):
     for path in pathlist:
         run_command("kubectl", f"apply -f {path}")
 
-def create_files_for_validators(validators: int):
+def create_files_for_validators(validators: int, log_level : str = ""):
 
     # Ask tendermint to create the desired files
     run_command("tendermint", f"testnet --v {validators}")
 
     # perform a search and replace on the config files to turn on
     # metrics
-    pathlist = Path("mytestnet").glob('**/config.toml')
+    pathlist = sorted(Path("mytestnet").glob('**/config.toml'))
+    i = 0
     for path in pathlist:
         with fileinput.FileInput(str(path), inplace=True) as file:
             for line in file:
-                print(line.replace("prometheus = false", "prometheus = true"), end='')
+                if log_level != "" and "log_level" in line:
+                    print(line.replace('log_level = "main:info,state:info,*:error"', f'log_level = "{log_level},main:info,state:info,*:error"'), end='')
+                else:
+                    print(line.replace("prometheus = false", "prometheus = true"), end='')
 
 def create_network(validators: int):
     """Create a network of N validators
@@ -324,7 +329,7 @@ def main():
         sys.exit(0)
 
     # Note: the docker build needs files created here
-    create_files_for_validators(args.validators)
+    create_files_for_validators(args.validators, args.log_level)
 
     # build the docker image
     if args.build_docker:
