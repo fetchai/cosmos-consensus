@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 
-counter=0
 
-while true
+for nodename in "$@"
 do
-    for nodename in "$@"
+    (
+    counter=0
+    name=$nodename
+    while true
     do
-        for sub_word in $nodename
+        for sub_word in $name
         do
-            rand_str=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 100000)
+            rand_str=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 1000)
             echo "sending TX $rand_str, count $counter to $sub_word"
-            echo "curl -m 2 '$sub_word:26654/broadcast_tx_sync?tx=\"rnd_$rand_str\"'"
+            echo "curl -m 2 '$sub_word:26654/broadcast_tx_async?tx=\"rnd_$rand_str\"'"
             curl -m 2 "$sub_word:26654/broadcast_tx_sync?tx=\"rnd_$rand_str\""
 
             if [ $? -ne 0 ]
@@ -20,8 +22,8 @@ do
             ((counter++))
         done
     done
-
-    sleep 0.1
+    ) &
 done
 
 echo $@
+wait $!
