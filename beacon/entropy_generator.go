@@ -266,7 +266,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 
 	// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
 	// only be the case one for first DKG after genesis)
-	if entropyGenerator.lastComputedEntropyHeight == -1 && entropyGenerator.aeon.aeonExecUnit != nil {
+	if entropyGenerator.lastComputedEntropyHeight == -1 && entropyGenerator.aeon != nil && entropyGenerator.aeon.aeonExecUnit != nil {
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 		entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
 			tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))
