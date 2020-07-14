@@ -94,7 +94,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		newGen.applyEntropyShare(&share)
 	}
 
-	assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() == 1 }, time.Second, 100*time.Microsecond)
+	assert.Eventually(t, func() bool { return newGen.getLastComputedEntropyHeight() == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func TestEntropyGeneratorSign(t *testing.T) {
@@ -223,7 +223,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen.SetLastComputedEntropy(0, []byte("Test Entropy"))
 	newGen.Start()
 
-	assert.Eventually(t, func() bool { return newGen.getComputedEntropy(21) != nil }, 3*time.Second, 100*time.Microsecond)
+	assert.Eventually(t, func() bool { return newGen.getComputedEntropy(21) != nil }, 3*time.Second, 500*time.Millisecond)
 	newGen.Stop()
 	newGen.wait()
 	assert.True(t, len(newGen.entropyShares) <= entropyHistoryLength+1)
@@ -277,7 +277,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 			otherGen.applyEntropyShare(&share)
 		}
 
-		assert.Eventually(t, func() bool { return otherGen.getLastComputedEntropyHeight() >= 2 }, time.Second, 100*time.Microsecond)
+		assert.Eventually(t, func() bool { return otherGen.getLastComputedEntropyHeight() >= 2 }, time.Second, 10*time.Millisecond)
 		newGen.applyComputedEntropy(2, otherGen.getComputedEntropy(2))
 		assert.True(t, bytes.Equal(newGen.getComputedEntropy(2), otherGen.getComputedEntropy(2)))
 	})
@@ -296,7 +296,7 @@ func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	newGen.SetNextAeonDetails(aeonDetails)
 
 	newGen.Start()
-	assert.Eventually(t, func() bool { return newGen.isSigningEntropy() }, time.Second, 100*time.Microsecond)
+	assert.Eventually(t, func() bool { return newGen.isSigningEntropy() }, time.Second, 100*time.Millisecond)
 }
 
 func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {

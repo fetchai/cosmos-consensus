@@ -128,7 +128,7 @@ func TestReactorEntropy(t *testing.T) {
 			}
 		}
 		return true
-	}, 30*time.Second, 100*time.Microsecond)
+	}, 30*time.Second, 500*time.Millisecond)
 	for i := 0; i < N; i++ {
 		assert.Equal(t, int64(29), entropyGenerators[i].getLastComputedEntropyHeight())
 	}
@@ -195,7 +195,7 @@ func TestReactorWithConsensus(t *testing.T) {
 			return true
 		}
 		return false
-	}, 3*time.Minute, 100*time.Microsecond, "Failed to produce 3 blocks. Last block height %v", lastBlockHeight)
+	}, 3*time.Minute, 100*time.Millisecond, "Failed to produce 3 blocks. Last block height %v", lastBlockHeight)
 
 }
 func TestReactorCatchupWithBlocks(t *testing.T) {
@@ -317,7 +317,7 @@ func TestReactorWithDKG(t *testing.T) {
 			}
 		}
 		return running == 0
-	}, 1*time.Second, 100*time.Microsecond)
+	}, 1*time.Second, 100*time.Millisecond)
 
 	// Change keys over
 	for _, entropyGen := range entropyGenerators {
@@ -337,5 +337,5 @@ func TestReactorWithDKG(t *testing.T) {
 			}
 		}
 		return true
-	}, 3*time.Second, 100*time.Microsecond)
+	}, 3*time.Second, 100*time.Millisecond)
 }
