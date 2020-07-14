@@ -70,7 +70,7 @@ func TestPeerResetBlockResponseTimer(t *testing.T) {
 		peerTestMtx.Lock()
 		defer peerTestMtx.Unlock()
 		return numErrFuncCalls == 1 && lastErr == errNoPeerResponse
-	}, 3*time.Millisecond, time.Millisecond, "numErrFuncCalls %v, lastErr %v", numErrFuncCalls, lastErr)
+	}, 3*time.Millisecond, 100*time.Microsecond, "numErrFuncCalls %v, lastErr %v", numErrFuncCalls, lastErr)
 
 }
 

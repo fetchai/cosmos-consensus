@@ -250,7 +250,7 @@ func TestDKGScenarios(t *testing.T) {
 					}
 				}
 				return running == 0
-			}, 1*time.Second, 100*time.Millisecond)
+			}, 1*time.Second, 100*time.Microsecond)
 
 			// Check outputs have been set
 			for _, aeon := range outputs {
