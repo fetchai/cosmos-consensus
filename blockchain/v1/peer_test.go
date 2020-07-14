@@ -64,11 +64,14 @@ func TestPeerResetBlockResponseTimer(t *testing.T) {
 	// ... check timer is not running
 	checkByStoppingPeerTimer(t, peer, false)
 
-	peerTestMtx.Lock()
-	// ... check errNoPeerResponse has been sent
-	assert.Equal(t, 1, numErrFuncCalls)
-	assert.Equal(t, lastErr, errNoPeerResponse)
-	peerTestMtx.Unlock()
+	// Go routine executed after timer times out is not necessarily finished
+	// even though timer has stopped
+	assert.Eventually(t, func() bool {
+		peerTestMtx.Lock()
+		defer peerTestMtx.Unlock()
+		return numErrFuncCalls == 1 && lastErr == errNoPeerResponse
+	}, 3*time.Millisecond, time.Millisecond, "numErrFuncCalls %v, lastErr %v", numErrFuncCalls, lastErr)
+
 }
 
 func TestPeerRequestSent(t *testing.T) {
