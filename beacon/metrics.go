@@ -18,6 +18,12 @@ const (
 type Metrics struct {
 	// Average time for entropy generation
 	AvgEntropyGenTime metrics.Gauge
+	// Last generated entropy height
+	LastGenEntropyHeight metrics.Gauge
+	// Last notified entropy height
+	LastNotifyEntropyHeight metrics.Gauge
+	// Have new entropy pending
+	HaveNewEntropy metrics.Gauge
 	// Number of DKG messages seen in the chain
 	DKGMessagesInChain metrics.Counter
 	// Number of completed DKGs
@@ -60,6 +66,24 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "avg_entropy_gen_time",
 			Help:      "Average time in ms for entropy to be generated once the node decides to generate it",
+		}, labels).With(labelsAndValues...),
+		LastGenEntropyHeight: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_gen_entropy_height",
+			Help:      "Last height entropy was generated at",
+		}, labels).With(labelsAndValues...),
+		LastNotifyEntropyHeight: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_notified_entropy_height",
+			Help:      "Last height we notified the network we are at",
+		}, labels).With(labelsAndValues...),
+		HaveNewEntropy: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "have_new_entropy",
+			Help:      "have new entropy pending",
 		}, labels).With(labelsAndValues...),
 		DKGMessagesInChain: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
@@ -144,6 +168,9 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	// Set default values for the metrics so they appear at /metrics
 	// immediately, which makes testing easier
 	metrics.AvgEntropyGenTime.Add(0)
+	metrics.LastGenEntropyHeight.Add(0)
+	metrics.LastNotifyEntropyHeight.Add(0)
+	metrics.HaveNewEntropy.Add(0)
 	metrics.DKGMessagesInChain.Add(0)
 	metrics.DKGsCompleted.Add(0)
 	metrics.DKGState.Add(0)
@@ -165,6 +192,9 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 func NopMetrics() *Metrics {
 	return &Metrics{
 		AvgEntropyGenTime:           discard.NewGauge(),
+		LastGenEntropyHeight:        discard.NewGauge(),
+		LastNotifyEntropyHeight:     discard.NewGauge(),
+		HaveNewEntropy:              discard.NewGauge(),
 		DKGMessagesInChain:          discard.NewCounter(),
 		DKGsCompleted:               discard.NewCounter(),
 		DKGState:                    discard.NewGauge(),

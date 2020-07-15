@@ -593,27 +593,29 @@ func createBeaconReactor(
 	// Loop over the files trying to extract the keys and push them into the entropy generator
 	for _, fileToLoad := range keyFiles {
 		if cmn.FileExists(fileToLoad) {
-			// Load the aeon from file
-			if aeonFile, err := beacon.LoadAeonDetailsFile(fileToLoad); err == nil {
+			// Load the aeon(s) from file
+			if aeonFiles, err := beacon.LoadAeonDetailsFiles(fileToLoad); err == nil {
+				for _, aeonFile := range aeonFiles {
 
-				// If the aeon has keys in it, load the validators (don't otherwise as
-				// the height can be 0 which causes an error)
-				if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
-					vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
-				}
-
-				// Get the validators for that aeon
-				if err1 == nil {
-					// Push the complete aeon into the entropy generator
-					aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
-					entropyGenerator.SetNextAeonDetails(aeonDetails)
-
-					// Set dkg runner to most recent aeon which we generated keys for
-					if dkgRunner != nil {
-						dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+					// If the aeon has keys in it, load the validators (don't otherwise as
+					// the height can be 0 which causes an error)
+					if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
+						vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
 					}
-				} else {
-					return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
+
+					// Get the validators for that aeon
+					if err1 == nil {
+						// Push the complete aeon into the entropy generator
+						aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
+						entropyGenerator.InjectNextAeonDetails(aeonDetails)
+
+						// Set dkg runner to most recent aeon which we generated keys for
+						if dkgRunner != nil {
+							dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+						}
+					} else {
+						return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
+					}
 				}
 			} else {
 				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))

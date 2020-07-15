@@ -125,14 +125,28 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 	return &output
 }
 
-func (aeon *aeonDetails) save(filePath string) {
-	aeonFile := AeonDetailsFile{
-		PublicInfo: *aeon.dkgOutput(),
+// Save a number of aeonDetails to a file
+func saveAeons(filePath string, aeons ...*aeonDetails) {
+
+	var aeonQueue []*AeonDetailsFile
+
+	for _, aeon := range aeons {
+
+		if aeon == nil {
+			panic(fmt.Sprintf("Attempt to save nil aeon(s) to file: %v %v\n", filePath, aeons))
+		}
+
+		aeonFile := AeonDetailsFile{
+			PublicInfo: *aeon.dkgOutput(),
+		}
+		if aeon.aeonExecUnit != nil {
+			aeonFile.PrivateKey = aeon.aeonExecUnit.PrivateKey()
+		}
+
+		aeonQueue = append(aeonQueue, &aeonFile)
 	}
-	if aeon.aeonExecUnit != nil {
-		aeonFile.PrivateKey = aeon.aeonExecUnit.PrivateKey()
-	}
-	aeonFile.save(filePath)
+
+	saveAeonQueue(filePath, aeonQueue)
 }
 
 // AeonDetailsFile is struct for saving aeon keys to file
@@ -150,8 +164,8 @@ func (aeonFile *AeonDetailsFile) IsForSamePeriod(other *AeonDetailsFile) bool {
 }
 
 // Save creates json with aeon details
-func (aeonFile *AeonDetailsFile) save(outFile string) {
-	jsonBytes, err := cdc.MarshalJSONIndent(aeonFile, "", "  ")
+func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
+	jsonBytes, err := cdc.MarshalJSONIndent(aeonFiles, "", "  ")
 	if err != nil {
 		panic(err)
 	}
@@ -161,19 +175,28 @@ func (aeonFile *AeonDetailsFile) save(outFile string) {
 	}
 }
 
-// LoadAeonDetailsFile creates AeonDetailsFile from json
-func LoadAeonDetailsFile(filePath string) (*AeonDetailsFile, error) {
+// LoadAeonDetailsFile creates a queue of AeonDetailsFiles from json
+func LoadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		cmn.Exit(err.Error())
 	}
-	aeonFile := AeonDetailsFile{}
-	err = cdc.UnmarshalJSON(jsonBytes, &aeonFile)
+	var aeonQueue []*AeonDetailsFile
+
+	err = cdc.UnmarshalJSON(jsonBytes, &aeonQueue)
 	if err != nil {
-		cmn.Exit(fmt.Sprintf("Error reading AeonDetailsFile from %v: %v\n", filePath, err))
+		cmn.Exit(fmt.Sprintf("Error reading AeonDetailsFiles from %v: %v\n", filePath, err))
 	}
-	err = aeonFile.ValidateBasic()
-	return &aeonFile, err
+
+	for _, aeon := range aeonQueue {
+		err = aeon.ValidateBasic()
+
+		if err != nil {
+			break
+		}
+	}
+
+	return aeonQueue, err
 }
 
 // ValidateBasic for basic validity checking of aeon file

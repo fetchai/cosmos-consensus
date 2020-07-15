@@ -704,6 +704,7 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 
 	timer := cmn.NewFunctionTimer(50, "handleMsg", cs.Logger)
 	defer timer.Finish()
+	defer cs.metrics.MessagesProcessed.Add(float64(1))
 
 	cs.mtx.Lock()
 	height := cs.Height
