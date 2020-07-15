@@ -28,11 +28,10 @@ RUN tar -C /usr/local -xzf go1.14.2.linux-amd64.tar.gz
 RUN export CGO_ENABLED=1 && \
     /usr/local/go/bin/go build -o build/tendermint ./cmd/tendermint/
 
-# Build a version of tendermint with remote debugging capabilities. Also install delve, for remote debugging
+# Build a version of tendermint with remote debugging capabilities. Also install delve, for remote debugging.
+# See the run.sh script for usage
 RUN export CGO_ENABLED=1 && /usr/local/go/bin/go build -gcflags="all=-N -l" -o build/tendermint_dbg ./cmd/tendermint/
 RUN export CGO_ENABLED=1 && /usr/local/go/bin/go get github.com/go-delve/delve/cmd/dlv
-
-#RUN find / -name dlv
 
 # Build recovery tools
 RUN export CGO_ENABLED=1 && /usr/local/go/bin/go build -o build/wal2json ./scripts/wal2json/main.go
@@ -47,8 +46,8 @@ RUN apt update && \
 WORKDIR /tendermint
 
 # Copy over binaries from the build-env
-#COPY --from=build-env /project/build/tendermint /usr/bin/tendermint
-COPY --from=build-env /project/build/tendermint_dbg /usr/bin/tendermint
+COPY --from=build-env /project/build/tendermint /usr/bin/tendermint
+COPY --from=build-env /project/build/tendermint_dbg /usr/bin/tendermint_dbg
 COPY --from=build-env /usr/local/lib/libmcl.so /usr/lib/libmcl.so
 COPY --from=build-env /usr/local/lib/libmcl.a /usr/lib/libmcl.a
 
@@ -60,8 +59,6 @@ COPY ./mytestnet/node0/data/priv_validator_state.json .
 COPY run.sh .
 COPY network_control.sh .
 COPY dns_lookup.sh .
-
-
 
 # copy recovery script/binaries
 COPY --from=build-env /project/build/wal2json ./

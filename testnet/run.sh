@@ -41,15 +41,16 @@ for i in `seq 0 1000`;do
         echo "$SERVERNAME is $RESULT"
 done
 
-#RUN_CMD = "dlv --listen=:26657 --headless=true --api-version=2 exec tendermint"
-echo "Executing command tendermint $@"
-#which tendermint
+# If the DELVE_ENABLED environment variable is set we will start with delve remote debugger. This should be port-forwarded to your machine
+# on port 1234 and you can remotely debug the program. By design delve does not stop even if the program panics or quits, so if on a
+# restart tendermint crashes due to file corruption, the wal2json recovery will not be reached.
 
-#if [ "$REDIRECT_LOCALHOST" == "1" ]; then
 if [ "$DELVE_ENABLED" == "1" ]; then
     echo "Enabling Delve for remote debug!"
+    echo "Executing command tendermint dlv --listen=:1234 --headless=true --api-version=2 --accept-multiclient exec --continue /usr/bin/tendermint_dbg \"--\" $@"
     dlv --listen=:1234 --headless=true --api-version=2 --accept-multiclient exec --continue /usr/bin/tendermint "--" $@
 else
+    echo "Executing command tendermint $@"
     tendermint $@
 fi
 

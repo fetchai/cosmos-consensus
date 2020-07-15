@@ -26,7 +26,7 @@ USE_LATEST_TAG = False
 #DOCKER_IMG_PULL_POLICY="Never"
 DOCKER_IMG_PULL_POLICY="Always"
 DOCKER_RESTART_POLICY="Always"
-DELVE_ENABLED="1"
+DELVE_ENABLED="0"
 
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
@@ -191,6 +191,7 @@ def populate_node_yaml(validators: int):
 
         print(container_name)
 
+        # Only enable delve debug mode for node 0 if we want delve
         if i == 0:
             node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY, delve_enabled=DELVE_ENABLED)
         else:
