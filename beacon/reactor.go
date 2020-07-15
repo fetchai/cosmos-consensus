@@ -80,7 +80,6 @@ func (beaconR *Reactor) OnStop() {
 	beaconR.unsubscribeFromBroadcastEvents()
 	if beaconR.entropyGen.IsRunning() {
 		beaconR.entropyGen.Stop()
-		beaconR.entropyGen.wait()
 	}
 }
 
