@@ -230,15 +230,11 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		if keys.aeonExecUnit != nil {
 			dkgRunner.completedDKG = true
 			dkgRunner.metrics.DKGsCompleted.Add(1)
-			fmt.Printf("dkg completed!\n") // DELETEME_NH
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
-				fmt.Printf("can sign.\n") // DELETEME_NH
 			} else {
-				fmt.Printf("cannot sign!\n") // DELETEME_NH
 			}
 
-			fmt.Printf("start: %v\n",keys.Start) // DELETEME_NH
 			dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		}
 		if dkgRunner.dkgCompletionCallback != nil {

@@ -125,6 +125,7 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 	return &output
 }
 
+// Save a number of aeonDetails to a file
 func saveAeons(filePath string, aeons ...*aeonDetails) {
 
 	var aeonQueue []*AeonDetailsFile
@@ -132,7 +133,7 @@ func saveAeons(filePath string, aeons ...*aeonDetails) {
 	for _, aeon := range aeons {
 
 		if aeon == nil {
-			panic(fmt.Sprintf("Attempt to save nil aeon to file %v\n", filePath))
+			panic(fmt.Sprintf("Attempt to save nil aeon(s) to file: %v %v\n", filePath, aeons))
 		}
 
 		aeonFile := AeonDetailsFile{
@@ -145,15 +146,7 @@ func saveAeons(filePath string, aeons ...*aeonDetails) {
 		aeonQueue = append(aeonQueue, &aeonFile)
 	}
 
-	fmt.Printf("?????????????? Saveing aeon queue of len %v\n", len(aeonQueue)) // DELETEME_NH
-
 	saveAeonQueue(filePath, aeonQueue)
-
-	fmt.Printf("Now try reload\n") // DELETEME_NH
-
-	xx, _ := LoadAeonDetailsFiles(filePath)
-
-	fmt.Printf("Len: %v\n", len(xx)) // DELETEME_NH
 }
 
 // AeonDetailsFile is struct for saving aeon keys to file
@@ -199,7 +192,6 @@ func LoadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 		err = aeon.ValidateBasic()
 
 		if err != nil {
-			fmt.Printf("WERRERE znznzn\n\n\n\n") // DELETEME_NH
 			break
 		}
 	}

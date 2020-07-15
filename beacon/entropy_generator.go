@@ -178,7 +178,6 @@ func (entropyGenerator *EntropyGenerator) setLastBlockHeight(height int64) {
 
 	if height > entropyGenerator.lastBlockHeight {
 		entropyGenerator.lastBlockHeight = height
-		fmt.Printf("Set LBH 1 to %v\n", entropyGenerator.lastBlockHeight) // DELETEME_NH
 	}
 }
 
@@ -205,14 +204,6 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 
 	saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
-
-	fmt.Printf("=======================\nSetting next aeon details with aeon len %v start: %v\n", len(entropyGenerator.nextAeons), aeon.Start) // DELETEME_NH
-
-	for _, xx := range(entropyGenerator.nextAeons) {
-		fmt.Printf("%v\n",xx.Start) // DELETEME_NH
-	}
-
-	//debug.PrintStack()
 
 	if entropyGenerator.metrics != nil {
 		entropyGenerator.metrics.AeonKeyBuffer.Set(float64(aeon.Start - entropyGenerator.lastBlockHeight))
@@ -277,20 +268,13 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 		// Set new aeon - save keys for crash recovery
 		saveAeons(entropyGenerator.baseConfig.EntropyKeyFile(), entropyGenerator.aeon)
 
-		fmt.Printf("+++++++ save into key file %v\n", entropyGenerator.aeon.Start) // DELETEME_NH
-
 		if len(entropyGenerator.nextAeons) > 0 {
 			saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
-			fmt.Printf("+++++++ save into next key file %v. Note len %v\n", entropyGenerator.aeon.Start, len(entropyGenerator.nextAeons)) // DELETEME_NH
 		}
 
 		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 			"start", entropyGenerator.aeon.Start)
 		didChangeKeys = true
-	}
-
-	if entropyGenerator.aeon == nil {
-		fmt.Printf("bad things will happen now\n\n\n") // DELETEME_NH
 	}
 
 	// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
@@ -323,11 +307,8 @@ func (entropyGenerator *EntropyGenerator) applyComputedEntropy(height int64, ent
 			entropyGenerator.Logger.Error("received invalid computed entropy", "height", height)
 			entropyGenerator.Logger.Error("Note: aeon is: ", entropyGenerator.aeon)
 		}
-	} else {
-		//entropyGenerator.Logger.Error(fmt.Sprintf("received entropy too far ahead! Entropy height: %v, our desired height: %v", height, entropyGenerator.lastBlockHeight+1))
 	}
 
-	//fmt.Printf("cmpted entropy", height, entropyGenerator.lastBlockHeight+1) // DELETEME_NH
 	//TODO: Should down rate peers which send irrelevant computed entropy or invalid entropy
 }
 
@@ -424,7 +405,6 @@ func (entropyGenerator *EntropyGenerator) sign() {
 
 	if entropyGenerator.aeon.aeonExecUnit == nil || !entropyGenerator.aeon.aeonExecUnit.CanSign() {
 		entropyGenerator.Logger.Debug("sign: no dkg private key", "height", entropyGenerator.lastBlockHeight+1)
-		fmt.Printf("SDfasdfsddsfasdfasdfj %v %v\n", entropyGenerator.aeon.aeonExecUnit, entropyGenerator.aeon) // DELETEME_NH
 		return
 	}
 	if entropyGenerator.lastComputedEntropyHeight == -1 {
@@ -435,7 +415,6 @@ func (entropyGenerator *EntropyGenerator) sign() {
 	blockHeight := entropyGenerator.lastBlockHeight + 1
 	err := entropyGenerator.validInputs(blockHeight, index)
 	if err != nil {
-		fmt.Printf("XXXX=== %v\n", blockHeight) // DELETEME_NH
 		entropyGenerator.Logger.Error(err.Error())
 		return
 	}
@@ -444,8 +423,6 @@ func (entropyGenerator *EntropyGenerator) sign() {
 
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message)
-
-	//fmt.Printf("Inserting sig share for height: ", blockHeight) // DELETEME_NH
 
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[blockHeight] == nil {
@@ -558,8 +535,6 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	if entropyGenerator.aeon.aeonExecUnit == nil {
 		entropyGenerator.lastBlockHeight++
 
-		fmt.Printf("Set LBH 2 to %v\n", entropyGenerator.lastBlockHeight) // DELETEME_NH
-
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
 		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
@@ -568,7 +543,6 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	if entropyGenerator.entropyComputed[height] != nil {
 		entropyGenerator.Logger.Info("New entropy computed", "height", height)
 		entropyGenerator.lastBlockHeight++
-		fmt.Printf("Set LBH 3 to %v\n", entropyGenerator.lastBlockHeight) // DELETEME_NH
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
@@ -590,7 +564,6 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		entropyGenerator.Logger.Info("New entropy computed", "height", height)
 		entropyGenerator.entropyComputed[height] = []byte(groupSignature)
 		entropyGenerator.lastBlockHeight++
-		fmt.Printf("Set LBH 4 to %v\n", entropyGenerator.lastBlockHeight) // DELETEME_NH
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 		entropyGenerator.metrics.LastGenEntropyHeight.Set(float64(height))
 
@@ -603,9 +576,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		}
 
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
-	}// else {
-		//fmt.Printf("shares size: %v height: %v, thresh: %v last block height: %v\n", entropyGenerator.entropyShares[height], height, entropyGenerator.aeon.threshold, entropyGenerator.lastBlockHeight) // DELETEME_NH
-	//}
+	}
 	return false, nil
 }
 
