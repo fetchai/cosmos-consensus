@@ -47,8 +47,6 @@ type EntropyGenerator struct {
 
 	// closed when shutting down to unblock send to full channel
 	quit chan struct{}
-	// closed when we finish shutting down
-	done chan struct{}
 
 	// Metrics and debug below here
 	metrics                 *Metrics
@@ -79,7 +77,6 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		beaconConfig:              beaconConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
-		done:                      make(chan struct{}),
 		metrics:                   NopMetrics(),
 	}
 
@@ -106,17 +103,6 @@ func (entropyGenerator *EntropyGenerator) OnStart() error {
 func (entropyGenerator *EntropyGenerator) OnStop() {
 	entropyGenerator.evsw.Stop()
 	close(entropyGenerator.quit)
-}
-
-// Wait waits for the computeEntropyRoutine to return.
-func (entropyGenerator *EntropyGenerator) wait() {
-	// Try to stop gracefully by waiting for routine to return
-	t := time.NewTimer(2 * entropyGenerator.beaconConfig.ComputeEntropySleepDuration)
-	select {
-	case <-t.C:
-		panic(fmt.Errorf("wait timeout - deadlock in closing channel"))
-	case <-entropyGenerator.done:
-	}
 }
 
 // SetEntropyChannel sets the channel along which entropy should be dispatched
@@ -440,7 +426,6 @@ func (entropyGenerator *EntropyGenerator) computeEntropyRoutine() {
 		if entropyGenerator.computedEntropyChannel != nil {
 			close(entropyGenerator.computedEntropyChannel)
 		}
-		close(entropyGenerator.done)
 	}
 	defer func() {
 		if r := recover(); r != nil {
