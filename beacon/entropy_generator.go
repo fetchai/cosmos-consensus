@@ -134,27 +134,6 @@ func (entropyGenerator *EntropyGenerator) SetLogger(l log.Logger) {
 	entropyGenerator.BaseService.Logger = l
 }
 
-// SetAeonDetails sets the DKG keys for computing DRB (used on creation of NewNode)
-func (entropyGenerator *EntropyGenerator) SetAeonDetails(aeon *aeonDetails) {
-	entropyGenerator.mtx.Lock()
-	defer entropyGenerator.mtx.Unlock()
-
-	// Check entropy keys are not old
-	if entropyGenerator.lastBlockHeight+1 > aeon.End {
-		return
-	}
-
-	// When updating the aeon, we save the current aeon so that in the event of a crash we
-	// can load it since the block height may still be within this old aeon (entropy leads block height)
-	if entropyGenerator.aeon != nil {
-		entropyGenerator.aeon.save(entropyGenerator.baseConfig.OldEntropyKeyFile())
-	}
-
-	entropyGenerator.aeon = aeon
-
-	entropyGenerator.UpdateMetrics()
-}
-
 // SetLastComputedEntropy sets the most recent entropy from catchup
 func (entropyGenerator *EntropyGenerator) SetLastComputedEntropy(height int64, entropy types.ThresholdSignature) {
 	entropyGenerator.mtx.Lock()
@@ -230,6 +209,10 @@ func (entropyGenerator *EntropyGenerator) resetKeys() bool {
 
 	// Reset current aeon to nil if it is no longer relevant
 	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight >= entropyGenerator.aeon.End {
+		// When updating the aeon, we save the current aeon so that in the event of a crash we
+		// can load it since the block height may still be within this old aeon (entropy leads block height)
+		entropyGenerator.aeon.save(entropyGenerator.baseConfig.OldEntropyKeyFile())
+
 		entropyGenerator.Logger.Info("changeKeys: Existing keys expired.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
 		entropyGenerator.aeon = nil
@@ -266,7 +249,7 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 
 	// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
 	// only be the case one for first DKG after genesis)
-	if entropyGenerator.lastComputedEntropyHeight == -1 && entropyGenerator.aeon.aeonExecUnit != nil {
+	if entropyGenerator.lastComputedEntropyHeight == -1 && entropyGenerator.aeon != nil && entropyGenerator.aeon.aeonExecUnit != nil {
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 		entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight] =
 			tmhash.Sum([]byte(entropyGenerator.aeon.aeonExecUnit.GroupPublicKey()))

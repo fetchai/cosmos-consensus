@@ -29,7 +29,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 			state, _ := groupTestSetup(nValidators)
 			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
 			aeonDetails, _ := newAeonDetails(nil, 1, state.Validators, aeonExecUnit, 1, 10)
-			eg.SetAeonDetails(aeonDetails)
+			eg.SetNextAeonDetails(aeonDetails)
 		}},
 	}
 	for _, tc := range testCases {
@@ -64,7 +64,8 @@ func TestEntropyGeneratorSetAeon(t *testing.T) {
 			state, _ := groupTestSetup(4)
 			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
 			aeonDetails, _ := newAeonDetails(nil, 1, state.Validators, aeonExecUnit, tc.start, tc.end)
-			newGen.SetAeonDetails(aeonDetails)
+			newGen.SetNextAeonDetails(aeonDetails)
+			newGen.changeKeys()
 			assert.Equal(t, newGen.isSigningEntropy(), tc.aeonSet)
 		})
 	}
@@ -118,7 +119,7 @@ func TestEntropyGeneratorSign(t *testing.T) {
 }
 
 func TestEntropyGeneratorApplyShare(t *testing.T) {
-	nValidators := 3
+	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 
 	// Set up non-validator
@@ -219,7 +220,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 
 	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
 	aeonDetails, _ := newAeonDetails(privVal[0], 1, state.Validators, aeonExecUnit, 1, 50)
-	newGen.SetAeonDetails(aeonDetails)
+	newGen.SetNextAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(0, []byte("Test Entropy"))
 	newGen.Start()
 
@@ -231,7 +232,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 }
 
 func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
-	nValidators := 3
+	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 
 	// Set up non-validator
@@ -286,7 +287,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	newGen := testEntropyGenerator()
 	newGen.SetLogger(log.TestingLogger())
-	newGen.SetAeonDetails(keylessAeonDetails(0, 4))
+	newGen.SetNextAeonDetails(keylessAeonDetails(0, 4))
 
 	assert.True(t, !newGen.isSigningEntropy())
 
@@ -315,8 +316,9 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 		aeonExecUnit = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(index)) + ".txt")
 	}
 	aeonDetails, _ := newAeonDetails(privVal, 1, validators, aeonExecUnit, 1, 50)
-	newGen.SetAeonDetails(aeonDetails)
+	newGen.SetNextAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(0, []byte("Test Entropy"))
+	newGen.changeKeys()
 	return newGen
 }
 

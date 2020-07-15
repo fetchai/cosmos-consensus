@@ -3,6 +3,7 @@ package p2p
 import (
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 	"time"
 
@@ -239,10 +240,18 @@ func (sw *Switch) OnStop() {
 		sw.stopAndRemovePeer(p, nil)
 	}
 
-	// Stop reactors
+	// Stop reactors in key order - beacon reactor
+	// needs to close entropy channel before consensus reactor
+	// is stopped
+	var keys []string
+	for key := range sw.reactors {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	sw.Logger.Debug("Switch: Stopping reactors")
-	for _, reactor := range sw.reactors {
-		reactor.Stop()
+	for i := 0; i < len(sw.reactors); i++ {
+		sw.reactors[keys[i]].Stop()
 	}
 }
 
