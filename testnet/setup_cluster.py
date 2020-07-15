@@ -26,6 +26,7 @@ USE_LATEST_TAG = False
 #DOCKER_IMG_PULL_POLICY="Never"
 DOCKER_IMG_PULL_POLICY="Always"
 DOCKER_RESTART_POLICY="Always"
+DELVE_ENABLED="1"
 
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
@@ -46,6 +47,7 @@ def parse_commandline():
     parser.add_argument('-y', '--restore-network-size', type=int, default=-1, help='Return the network to N nodes (reapply yaml)')
     parser.add_argument('-c', '--clear-network-delays', action='store_true', help='Clear network delays - must also be done before setting any network delays')
     parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100ms (node1-0 -> node2-0 delay)')
+    parser.add_argument('-l', '--network-loss', action='append', nargs=3, help='Create network loss in packet corruption % when used in the format (pods) node1-0 node2-0 100% (node1-0 -> node2-0 100% corrupt)')
     # TODO(HUT): correct this.
     parser.add_argument('-x', '--send-html', action='append', nargs="*", help='Send html string to node. Format: node0-0 index.html')
     return parser.parse_args()
@@ -189,7 +191,10 @@ def populate_node_yaml(validators: int):
 
         print(container_name)
 
-        node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY)
+        if i == 0:
+            node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY, delve_enabled=DELVE_ENABLED)
+        else:
+            node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY, delve_enabled="0")
 
         with open("{}/{}.yaml".format(YAML_DIR, node_name), mode="w") as f:
             f.write(node_template)
@@ -248,27 +253,28 @@ def run_on_pods(command: str, nodes: list):
         check_node_ready(node)
         run_command("kubectl", f"exec {node} {command}")
 
-def do_network_delays(delays: list):
+# configure the network to have delays or packet corruption (usually delay)
+def do_network_config(operation:str, actions: list):
 
-    # For speed, collect all the delays one node is to have and submit
-    # it in bulk (if the delay is always the same)
+    # For speed, collect all the actions one node is to have and submit
+    # it in bulk (if the action is always the same)
     commands = {}
-    default_delay = delays[0][2]
-    for desired_delay in delays:
-        node_from = desired_delay[0]
-        node_to   = desired_delay[1].split('-')[0] # Need the DNS name of the node here
-        delay     = desired_delay[2]
+    default_action = actions[0][2]
+    for desired_action in actions:
+        node_from = desired_action[0]
+        node_to   = desired_action[1].split('-')[0] # Need the DNS name of the node here
+        action     = desired_action[2]
 
-        if not 'node' in node_from or not 'node' in node_to or not 'ms' in delay:
-            print("Incorrect args when setting delay: use the format node0-0 node1-0 100ms. Make sure to specify by pod.")
+        if not 'node' in node_from or not 'node' in node_to or not ('ms' in action or '%' in action):
+            print("Incorrect args when setting action: use the format node0-0 node1-0 100ms. Make sure to specify by pod.")
             sys.exit(1)
 
-        if delay != default_delay:
-            run_on_pods(f"/tendermint/network_control.sh delay {delay} {node_to}", nodes=[node_from])
+        if action != default_action:
+            run_on_pods(f"/tendermint/network_control.sh {operation} {action} {node_to}", nodes=[node_from])
             continue
 
         if node_from not in commands:
-            commands[node_from] = f"/tendermint/network_control.sh delay {delay} "
+            commands[node_from] = f"/tendermint/network_control.sh {operation} {action} "
 
         commands[node_from] += f" {node_to}"
 
@@ -294,7 +300,11 @@ def main():
         sys.exit(0)
 
     if args.network_delays:
-        do_network_delays(args.network_delays)
+        do_network_config("delay", args.network_delays)
+        sys.exit(0)
+
+    if args.network_loss:
+        do_network_config("loss", args.network_loss)
         sys.exit(0)
 
     if args.traders:
