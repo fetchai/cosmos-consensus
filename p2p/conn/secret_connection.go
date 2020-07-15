@@ -36,7 +36,6 @@ const aeadNonceSize = chacha20poly1305.NonceSize
 var (
 	ErrSmallOrderRemotePubKey = errors.New("detected low order point from remote peer")
 	ErrSharedSecretIsZero     = errors.New("shared secret is all zeroes")
-  //xxx = rand.Seed(time.Now().Unix())
 )
 
 // SecretConnection implements net.Conn.
@@ -213,11 +212,6 @@ func (sc *SecretConnection) Read(data []byte) (n int, err error) {
 	// read off the conn
 	var sealedFrame = pool.Get(aeadSizeOverhead + totalFrameSize)
 	defer pool.Put(sealedFrame)
-
-	//rnd_numb := rand.Int()
-	//fmt.Println("Beginning read of %v", rnd_numb)
-	//defer fmt.Println("Finishing read of %v", rnd_numb)
-
 	_, err = io.ReadFull(sc.conn, sealedFrame)
 	if err != nil {
 		return

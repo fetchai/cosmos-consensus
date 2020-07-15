@@ -222,7 +222,6 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 		switch msg := msg.(type) {
 		case *NewEntropyHeightMessage:
 			ps.setLastComputedEntropyHeight(msg.Height)
-			//fmt.Printf("Set peer %v height to %v\n", ps.String(), ps.lastComputedEntropyHeight) // DELETEME_NH
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -237,10 +236,8 @@ func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 			index, _ := beaconR.entropyGen.aeon.validators.GetByAddress(msg.SignerAddress)
 			ps.hasEntropyShare(msg.EntropyShare.Height, index, beaconR.entropyGen.aeon.validators.Size())
 			beaconR.entropyGen.applyEntropyShare(msg.EntropyShare)
-			//fmt.Printf("Eshare msg.\n", msg.EntropyShare.Height) // DELETEME_NH
 		case *ComputedEntropyMessage:
 			beaconR.entropyGen.applyComputedEntropy(msg.Height, msg.GroupSignature)
-			//fmt.Printf("computed entropy msg. Height: %v.\n", msg.Height) // DELETEME_NH
 		default:
 			beaconR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}

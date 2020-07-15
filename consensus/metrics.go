@@ -25,9 +25,6 @@ type Metrics struct {
 	// Number of rounds.
 	Rounds metrics.Gauge
 
-	// Number of messages processed.
-	MessagesProcessed metrics.Gauge
-
 	// Number of validators.
 	Validators metrics.Gauge
 	// Total power of all validators.
@@ -94,12 +91,6 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "rounds",
 			Help:      "Number of rounds.",
-		}, labels).With(labelsAndValues...),
-		MessagesProcessed: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: MetricsSubsystem,
-			Name:      "messages_processed",
-			Help:      "Number of messages processed.",
 		}, labels).With(labelsAndValues...),
 
 		Validators: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
@@ -241,7 +232,6 @@ func NopMetrics() *Metrics {
 		ValidatorLastSignedHeight: discard.NewGauge(),
 
 		Rounds: discard.NewGauge(),
-		MessagesProcessed: discard.NewGauge(),
 
 		Validators:               discard.NewGauge(),
 		ValidatorsPower:          discard.NewGauge(),
