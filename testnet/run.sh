@@ -27,9 +27,32 @@ else
     echo "not forwarding to localhost port: $REDIRECT_LOCALHOST"
 fi
 
-echo "Executing command tendermint $@"
+# Loop through nodes printing their IP addresses for reference
+for i in `seq 0 1000`;do
+        SERVERNAME=node$i
+        nslookup $SERVERNAME &> /dev/null
 
-tendermint $@
+        if [ $? -ne 0 ]
+        then
+                break
+        fi
+
+        RESULT=`nslookup $SERVERNAME | tail -n 2 | head -n 1 | sed -E 's/Address: (.*)/\1/g'`
+        echo "$SERVERNAME is $RESULT"
+done
+
+# If the DELVE_ENABLED environment variable is set we will start with delve remote debugger. This should be port-forwarded to your machine
+# on port 1234 and you can remotely debug the program. By design delve does not stop even if the program panics or quits, so if on a
+# restart tendermint crashes due to file corruption, the wal2json recovery will not be reached.
+
+if [ "$DELVE_ENABLED" == "1" ]; then
+    echo "Enabling Delve for remote debug!"
+    echo "Executing command tendermint dlv --listen=:1234 --headless=true --api-version=2 --accept-multiclient exec --continue /usr/bin/tendermint_dbg \"--\" $@"
+    dlv --listen=:1234 --headless=true --api-version=2 --accept-multiclient exec --continue /usr/bin/tendermint "--" $@
+else
+    echo "Executing command tendermint $@"
+    tendermint $@
+fi
 
 if [ $? == 33 ]; then
     echo -e "\n\nTHIS FAILED (error code 33 == file corruption)! Attempting file corruption healing and a restart"

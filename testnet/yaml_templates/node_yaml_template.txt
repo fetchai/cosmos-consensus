@@ -17,7 +17,7 @@ spec:
     - name: prom-port
       port: 26660
     - name: test-port
-      port: 26657
+      port: 1234
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -62,6 +62,8 @@ spec:
           env:
           - name: REDIRECT_LOCALHOST
             value: "1"
+          - name: DELVE_ENABLED
+            value: "{delve_enabled}"
 
           args:
             - node
@@ -77,7 +79,7 @@ spec:
             - name: prom-port
               containerPort: 26660
             - name: test-port
-              containerPort: 26657
+              containerPort: 1234
 
           resources:
             requests:
