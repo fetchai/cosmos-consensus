@@ -132,7 +132,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		entropyGenerators[i] = NewEntropyGenerator(&thisConfig.BaseConfig, thisConfig.Beacon, 0)
 		entropyGenerators[i].SetLogger(logger)
 		entropyGenerators[i].SetLastComputedEntropy(0, state.LastComputedEntropy)
-		entropyGenerators[i].SetAeonDetails(aeonDetails)
+		entropyGenerators[i].SetNextAeonDetails(aeonDetails)
 
 		if withConsensus {
 			ensureDir(filepath.Dir(thisConfig.Consensus.WalFile()), 0700) // dir for wal
