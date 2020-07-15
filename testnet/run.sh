@@ -27,31 +27,9 @@ else
     echo "not forwarding to localhost port: $REDIRECT_LOCALHOST"
 fi
 
-# Loop through nodes printing their IP addresses for reference
-for i in `seq 0 1000`;do
-        SERVERNAME=node$i
-        nslookup $SERVERNAME &> /dev/null
-
-        if [ $? -ne 0 ]
-        then
-                break
-        fi
-
-        RESULT=`nslookup $SERVERNAME | tail -n 2 | head -n 1 | sed -E 's/Address: (.*)/\1/g'`
-        echo "$SERVERNAME is $RESULT"
-done
-
-#RUN_CMD = "dlv --listen=:26657 --headless=true --api-version=2 exec tendermint"
 echo "Executing command tendermint $@"
-#which tendermint
 
-#if [ "$REDIRECT_LOCALHOST" == "1" ]; then
-if [ "$DELVE_ENABLED" == "1" ]; then
-    echo "Enabling Delve for remote debug!"
-    dlv --listen=:1234 --headless=true --api-version=2 --accept-multiclient exec --continue /usr/bin/tendermint "--" $@
-else
-    tendermint $@
-fi
+tendermint $@
 
 if [ $? == 33 ]; then
     echo -e "\n\nTHIS FAILED (error code 33 == file corruption)! Attempting file corruption healing and a restart"

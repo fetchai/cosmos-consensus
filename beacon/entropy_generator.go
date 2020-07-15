@@ -415,7 +415,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 	blockHeight := entropyGenerator.lastBlockHeight + 1
 	err := entropyGenerator.validInputs(blockHeight, index)
 	if err != nil {
-		entropyGenerator.Logger.Error(err.Error())
+		entropyGenerator.Logger.Debug(err.Error())
 		return
 	}
 	entropyGenerator.Logger.Debug("sign: block entropy", "blockHeight", blockHeight, "lastEentropyHeight", entropyGenerator.lastComputedEntropyHeight,

@@ -232,9 +232,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			dkgRunner.metrics.DKGsCompleted.Add(1)
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
-			} else {
 			}
-
 			dkgRunner.SetCurrentAeon(keys.Start, keys.End)
 		}
 		if dkgRunner.dkgCompletionCallback != nil {

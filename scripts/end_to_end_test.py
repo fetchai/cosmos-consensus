@@ -15,7 +15,7 @@ import requests
 # Assumes that tendermint is installed and new. Node 0 will display its logs.
 
 NODE_0_PRINTS=True
-VALIDATORS=10
+VALIDATORS=4
 TEST_TIMEOUT_S=60*2
 THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_FILE_DIR)
@@ -119,18 +119,11 @@ if timed_out == False:
             print("Found TX. Quitting test.")
             break
 
-while True:
-    print("killing nodes")
+for node in nodes:
+    node.kill()
 
-    for node in nodes:
-        node.kill()
-
-    for node in nodes:
-        node.wait(timeout=5)
-
-    print("killed nodes")
-
-
+for node in nodes:
+    node.wait(timeout=5)
 
 if timed_out:
     sys.exit(1)

@@ -39,8 +39,6 @@ for i in range (0,30):
 
 for i in range (0,30):
     config_string += static_config.format(node_name = f"sentry{i}", namespace = "james")
-    config_string += static_config.format(node_name = f"node{i}", namespace = "james")
-    config_string += static_config.format(node_name = f"validator{i}", namespace = "james")
 
 
 with open("prometheus.yml", 'w') as myfile:

@@ -26,7 +26,6 @@ USE_LATEST_TAG = False
 #DOCKER_IMG_PULL_POLICY="Never"
 DOCKER_IMG_PULL_POLICY="Always"
 DOCKER_RESTART_POLICY="Always"
-DELVE_ENABLED="1"
 
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
@@ -47,9 +46,10 @@ def parse_commandline():
     parser.add_argument('-y', '--restore-network-size', type=int, default=-1, help='Return the network to N nodes (reapply yaml)')
     parser.add_argument('-c', '--clear-network-delays', action='store_true', help='Clear network delays - must also be done before setting any network delays')
     parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100ms (node1-0 -> node2-0 delay)')
-    parser.add_argument('-l', '--network-loss', action='append', nargs=3, help='Create network loss in packet corruption % when used in the format (pods) node1-0 node2-0 100% (node1-0 -> node2-0 100% corrupt)')
     # TODO(HUT): correct this.
     parser.add_argument('-x', '--send-html', action='append', nargs="*", help='Send html string to node. Format: node0-0 index.html')
+    parser.add_argument('-l', '--log-level', type=str, default="", help='Change node log level. Uses Tendermint log level format e.g. beacon:info')
+    parser.add_argument('-f', '--config', type=str, default="", help="Modifications to config file with as a comma separated list of variable_name:new_value")
     return parser.parse_args()
 
 # Helper function to run commands in their directory, optionally silently (set by STDOUT_DEFAULT)
@@ -147,18 +147,29 @@ def deploy_grafana(args):
     for path in pathlist:
         run_command("kubectl", f"apply -f {path}")
 
-def create_files_for_validators(validators: int):
+def create_files_for_validators(validators: int, log_level : str = "", config : str = ""):
 
     # Ask tendermint to create the desired files
     run_command("tendermint", f"testnet --v {validators}")
 
     # perform a search and replace on the config files to turn on
     # metrics
-    pathlist = Path("mytestnet").glob('**/config.toml')
+    pathlist = sorted(Path("mytestnet").glob('**/config.toml'))
+    i = 0
     for path in pathlist:
         with fileinput.FileInput(str(path), inplace=True) as file:
             for line in file:
-                print(line.replace("prometheus = false", "prometheus = true"), end='')
+                for new_variable in config.split(","):
+                    if len(new_variable) == 0:
+                        continue
+                    new_variable_pair = new_variable.split(":")
+                    if line.startswith(new_variable_pair[0]):
+                        line = f"{new_variable_pair[0]} = {new_variable_pair[1]}\n"
+                        break
+                if log_level != "" and "log_level" in line:
+                    print(line.replace('log_level = "main:info,state:info,*:error"', f'log_level = "{log_level},main:info,state:info,*:error"'), end='')
+                else:
+                    print(line.replace("prometheus = false", "prometheus = true"), end='')
 
 def create_network(validators: int):
     """Create a network of N validators
@@ -191,10 +202,7 @@ def populate_node_yaml(validators: int):
 
         print(container_name)
 
-        if i == 0:
-            node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY, delve_enabled=DELVE_ENABLED)
-        else:
-            node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY, delve_enabled="0")
+        node_template = node_template.format(node = node_name, pull_policy=DOCKER_IMG_PULL_POLICY, container=container_name, restart_policy=DOCKER_RESTART_POLICY)
 
         with open("{}/{}.yaml".format(YAML_DIR, node_name), mode="w") as f:
             f.write(node_template)
@@ -253,28 +261,27 @@ def run_on_pods(command: str, nodes: list):
         check_node_ready(node)
         run_command("kubectl", f"exec {node} {command}")
 
-# configure the network to have delays or packet corruption (usually delay)
-def do_network_config(operation:str, actions: list):
+def do_network_delays(delays: list):
 
-    # For speed, collect all the actions one node is to have and submit
-    # it in bulk (if the action is always the same)
+    # For speed, collect all the delays one node is to have and submit
+    # it in bulk (if the delay is always the same)
     commands = {}
-    default_action = actions[0][2]
-    for desired_action in actions:
-        node_from = desired_action[0]
-        node_to   = desired_action[1].split('-')[0] # Need the DNS name of the node here
-        action     = desired_action[2]
+    default_delay = delays[0][2]
+    for desired_delay in delays:
+        node_from = desired_delay[0]
+        node_to   = desired_delay[1].split('-')[0] # Need the DNS name of the node here
+        delay     = desired_delay[2]
 
-        if not 'node' in node_from or not 'node' in node_to or not ('ms' in action or '%' in action):
-            print("Incorrect args when setting action: use the format node0-0 node1-0 100ms. Make sure to specify by pod.")
+        if not 'node' in node_from or not 'node' in node_to or not 'ms' in delay:
+            print("Incorrect args when setting delay: use the format node0-0 node1-0 100ms. Make sure to specify by pod.")
             sys.exit(1)
 
-        if action != default_action:
-            run_on_pods(f"/tendermint/network_control.sh {operation} {action} {node_to}", nodes=[node_from])
+        if delay != default_delay:
+            run_on_pods(f"/tendermint/network_control.sh delay {delay} {node_to}", nodes=[node_from])
             continue
 
         if node_from not in commands:
-            commands[node_from] = f"/tendermint/network_control.sh {operation} {action} "
+            commands[node_from] = f"/tendermint/network_control.sh delay {delay} "
 
         commands[node_from] += f" {node_to}"
 
@@ -300,11 +307,7 @@ def main():
         sys.exit(0)
 
     if args.network_delays:
-        do_network_config("delay", args.network_delays)
-        sys.exit(0)
-
-    if args.network_loss:
-        do_network_config("loss", args.network_loss)
+        do_network_delays(args.network_delays)
         sys.exit(0)
 
     if args.traders:
@@ -334,7 +337,7 @@ def main():
         sys.exit(0)
 
     # Note: the docker build needs files created here
-    create_files_for_validators(args.validators)
+    create_files_for_validators(args.validators, args.log_level, args.config)
 
     # build the docker image
     if args.build_docker:

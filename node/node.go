@@ -591,11 +591,11 @@ func createBeaconReactor(
 	var err1 error
 
 	// Loop over the files trying to extract the keys and push them into the entropy generator
-	for i, fileToLoad := range keyFiles {
+	for _, fileToLoad := range keyFiles {
 		if cmn.FileExists(fileToLoad) {
 			// Load the aeon(s) from file
 			if aeonFiles, err := beacon.LoadAeonDetailsFiles(fileToLoad); err == nil {
-				for kk, aeonFile := range aeonFiles {
+				for _, aeonFile := range aeonFiles {
 
 					// If the aeon has keys in it, load the validators (don't otherwise as
 					// the height can be 0 which causes an error)
@@ -608,20 +608,16 @@ func createBeaconReactor(
 						// Push the complete aeon into the entropy generator
 						aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
 						entropyGenerator.InjectNextAeonDetails(aeonDetails)
-						fmt.Printf("Setting aeon: %v %v %v\n", aeonDetails.Start, i, kk)
 
 						// Set dkg runner to most recent aeon which we generated keys for
 						if dkgRunner != nil {
-							fmt.Printf("Setting dkg runner: %v\n", aeonDetails.Start)
 							dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
 						}
 					} else {
-						fmt.Printf("asdfsdf!\n") // DELETEME_NH
 						return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
 					}
 				}
 			} else {
-				fmt.Printf("ASDSDF!\n") // DELETEME_NH
 				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
 			}
 		}
