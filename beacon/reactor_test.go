@@ -111,7 +111,7 @@ func TestReactorEntropy(t *testing.T) {
 	// Add second set of keys so entropy generations has patten ON, OFF, ON
 	aeonKeys := setCrypto(N)
 	for i := 0; i < N; i++ {
-		existingAeon := entropyGenerators[i].aeon
+		existingAeon := entropyGenerators[i].nextAeons[0]
 		newKeys, _ := newAeonDetails(existingAeon.privValidator, 1, existingAeon.validators, aeonKeys[i], 20, 29)
 		// Insert in empty keys for gap in entropy generation
 		entropyGenerators[i].SetNextAeonDetails(keylessAeonDetails(10, 19))
