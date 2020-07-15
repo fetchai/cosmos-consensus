@@ -47,7 +47,7 @@ def parse_commandline():
     parser.add_argument('-y', '--restore-network-size', type=int, default=-1, help='Return the network to N nodes (reapply yaml)')
     parser.add_argument('-c', '--clear-network-delays', action='store_true', help='Clear network delays - must also be done before setting any network delays')
     parser.add_argument('-n', '--network-delays', action='append', nargs=3, help='Create network delays in ms when used in the format (pods) node1-0 node2-0 100ms (node1-0 -> node2-0 delay)')
-    parser.add_argument('-l', '--network-loss', action='append', nargs=3, help='Create network loss in packet corruption % when used in the format (pods) node1-0 node2-0 100% (node1-0 -> node2-0 100% corrupt)')
+    parser.add_argument('-s', '--network-loss', action='append', nargs=3, help='Create network loss in packet corruption % when used in the format (pods) node1-0 node2-0 100% (node1-0 -> node2-0 100% corrupt)')
     # TODO(HUT): correct this.
     parser.add_argument('-x', '--send-html', action='append', nargs="*", help='Send html string to node. Format: node0-0 index.html')
     parser.add_argument('-l', '--log-level', type=str, default="", help='Change node log level. Uses Tendermint log level format e.g. beacon:info')
