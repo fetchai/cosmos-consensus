@@ -75,7 +75,7 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 	aeonKeys := NewAeonExecUnit("test_keys/0.txt")
 	newAeon, _ := newAeonDetails(privVals[0], 1, state.Validators, aeonKeys, 1, 10)
 
-	newAeon.save(config.EntropyKeyFile())
+	saveAeons(config.EntropyKeyFile(), newAeon)
 
 	aeonDetailsFile, err := LoadAeonDetailsFile(config.EntropyKeyFile())
 	assert.Equal(t, nil, err)
@@ -97,7 +97,7 @@ func TestAeonDetailsNoKeys(t *testing.T) {
 
 	newAeon := keylessAeonDetails(1, 10)
 	assert.True(t, newAeon.aeonExecUnit == nil)
-	newAeon.save(config.BaseConfig.EntropyKeyFile())
+	saveAeons(config.EntropyKeyFile(), newAeon)
 
 	keyFile, err := LoadAeonDetailsFile(config.BaseConfig.EntropyKeyFile())
 	assert.Equal(t, nil, err)
