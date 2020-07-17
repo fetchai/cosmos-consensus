@@ -89,8 +89,12 @@ func startNewConsensusStateAndWaitForBlock(t *testing.T, consensusReplayConfig *
 	// block, or else something is wrong.
 	newBlockSub, err := cs.eventBus.Subscribe(context.Background(), testSubscriber, types.EventQueryNewBlock)
 	require.NoError(t, err)
+
+	timeNow := time.Now()
 	select {
 	case <-newBlockSub.Out():
+		timeEnd := time.Now()
+		fmt.Printf("Received new block in time %v\n", timeEnd.Sub(timeNow).Milliseconds())
 	case <-newBlockSub.Cancelled():
 		t.Fatal("newBlockSub was cancelled")
 	case <-time.After(120 * time.Second):
