@@ -1,10 +1,12 @@
 package commands
 
 import (
+	gobytes "bytes"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -34,6 +36,8 @@ var (
 	hostnames               []string
 	p2pPort                 int
 	randomMonikers          bool
+
+	setEntropyFiles bool
 )
 
 const (
@@ -72,6 +76,7 @@ func init() {
 		"P2P Port")
 	TestnetFilesCmd.Flags().BoolVar(&randomMonikers, "random-monikers", false,
 		"Randomize the moniker for each generated node")
+	TestnetFilesCmd.Flags().BoolVar(&setEntropyFiles, "set-entropy-files", false, "Enforce existence of entropy key files")
 }
 
 // TestnetFilesCmd allows initialisation of files for a Tendermint testnet.
@@ -117,6 +122,7 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 	}
 
 	genVals := make([]types.GenesisValidator, nValidators)
+	entropyValidators := make(types.ValidatorsByAddress, nValidators)
 
 	for i := 0; i < nValidators; i++ {
 		nodeDirName := fmt.Sprintf("%s%d", nodeDirPrefix, i)
@@ -150,6 +156,26 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 			Power:   1,
 			Name:    nodeDirName,
 		}
+		entropyValidators[i] = &types.Validator{Address: pv.GetPubKey().Address()}
+	}
+
+	// Sort genesis validators
+	if setEntropyFiles {
+		sort.Sort(entropyValidators)
+		for i := 0; i < nValidators; i++ {
+			address := genVals[i].Address
+			idx := sort.Search(len(entropyValidators), func(i int) bool {
+				return gobytes.Compare(address, entropyValidators[i].Address) <= 0
+			})
+			if idx < len(entropyValidators) && gobytes.Equal(entropyValidators[idx].Address, address) {
+				err := moveEntropyFile(idx, i)
+				if err != nil {
+					return err
+				}
+			} else {
+				return fmt.Errorf("genValidators and entropyValidators mismatch")
+			}
+		}
 	}
 
 	for i := 0; i < nNonValidators; i++ {
@@ -169,6 +195,13 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 		}
 
 		initFilesWithConfig(config)
+
+		if setEntropyFiles {
+			err = moveEntropyFile(0, i+nValidators)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// Generate genesis doc from generated validators
@@ -177,6 +210,7 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 		ConsensusParams: types.DefaultConsensusParams(),
 		GenesisTime:     tmtime.Now(),
 		Validators:      genVals,
+		Entropy:         "Fetch.ai Test Genesis Entropy",
 	}
 
 	// Write genesis file.
@@ -217,6 +251,22 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Successfully initialized %v node directories\n", nValidators+nNonValidators)
 	return nil
+}
+
+func moveEntropyFile(entropyIndex int, nodeIndex int) error {
+	relevantIndex := entropyIndex
+	// Check if node is validator
+	if nodeIndex >= nValidators {
+		relevantIndex = nodeIndex
+	}
+	oldEntropyFile := filepath.Join(outputDir, fmt.Sprintf("%d.json", relevantIndex))
+	_, findFileErr := os.Stat(oldEntropyFile)
+	if os.IsNotExist(findFileErr) {
+		return fmt.Errorf("entropy key file %v does not exist", oldEntropyFile)
+	}
+	newEntropyFile := filepath.Join(filepath.Join(outputDir, fmt.Sprintf("%s%d", nodeDirPrefix, nodeIndex)), config.EntropyKey)
+	// Move key file into correct directory
+	return os.Rename(oldEntropyFile, newEntropyFile)
 }
 
 func hostnameOrIP(i int) string {

@@ -1,0 +1,50 @@
+version: '3.3'
+
+services:
+  node0:
+    image: tendermint_drb
+    entrypoint: /usr/bin/run-node.sh
+    environment:
+      P2PPEX: "--p2p.pex=true"
+      TMHOMEDIR: "/tm_data/node0"
+      PERSPEERS: "--p2p.persistent_peers=73d79c5f1f64021b7475c80bb17ef1c3efc58854@node0:26656,fc74c6b803fabcb6764727a6398276c1b41e528b@node1:26656,eb746e7e11a747977a332b84dacfb4a993e0d86f@node2:26656,eb47441c390b6a59078b2d2ef164ab09bff750b7@node3:26656"
+      PRIVPEERS:  ""
+      RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
+      PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"
+
+  node1:
+    image: tendermint_drb
+    entrypoint: /usr/bin/run-node.sh
+    environment:
+      P2PPEX: "--p2p.pex=true"
+      TMHOMEDIR: "/tm_data/node1"
+      PERSPEERS: ""
+      PRIVPEERS:  ""
+      RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
+      PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"
+
+  node2:
+    image: tendermint_drb
+    entrypoint: /usr/bin/run-node.sh
+    environment:
+      P2PPEX: "--p2p.pex=true"
+      TMHOMEDIR: "/tm_data/node2"
+      PERSPEERS: ""
+      PRIVPEERS:  ""
+      RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
+      PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"
+
+  node3:
+    image: tendermint_drb
+    entrypoint: /usr/bin/run-node.sh
+    environment:
+      P2PPEX: "--p2p.pex=true"
+      TMHOMEDIR: "/tm_data/node3"
+      PERSPEERS: ""
+      PRIVPEERS:  ""
+      RPCLADDR: "--rpc.laddr=tcp://0.0.0.0:26657"
+      PROXYAPP: "--proxy_app=kvstore"
+      LOGLEVEL: "--log_level=main:info,state:info,*:error"

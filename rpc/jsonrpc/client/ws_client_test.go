@@ -71,6 +71,7 @@ func TestWSClientReconnectsAfterReadFailure(t *testing.T) {
 	s := httptest.NewServer(h)
 	defer s.Close()
 
+	// https://github.com/golang/go/issues/19297#issuecomment-282651469
 	c := startClient(t, "//"+s.Listener.Addr().String())
 	defer c.Stop()
 
@@ -103,6 +104,7 @@ func TestWSClientReconnectsAfterWriteFailure(t *testing.T) {
 	h := &myHandler{}
 	s := httptest.NewServer(h)
 
+	// https://github.com/golang/go/issues/19297#issuecomment-282651469
 	c := startClient(t, "//"+s.Listener.Addr().String())
 	defer c.Stop()
 
@@ -131,6 +133,7 @@ func TestWSClientReconnectFailure(t *testing.T) {
 	h := &myHandler{}
 	s := httptest.NewServer(h)
 
+	// https://github.com/golang/go/issues/19297#issuecomment-282651469
 	c := startClient(t, "//"+s.Listener.Addr().String())
 	defer c.Stop()
 

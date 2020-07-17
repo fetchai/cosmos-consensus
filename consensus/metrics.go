@@ -25,6 +25,9 @@ type Metrics struct {
 	// Number of rounds.
 	Rounds metrics.Gauge
 
+	// Number of messages processed.
+	MessagesProcessed metrics.Gauge
+
 	// Number of validators.
 	Validators metrics.Gauge
 	// Total power of all validators.
@@ -45,12 +48,14 @@ type Metrics struct {
 	// Time between this and the last block.
 	BlockIntervalSeconds metrics.Gauge
 
-	// Number of transactions.
-	NumTxs metrics.Gauge
+	// Number of transactions (and dkg).
+	NumTxs    metrics.Gauge
+	NumDKGTxs metrics.Gauge
 	// Size of the block.
 	BlockSizeBytes metrics.Gauge
 	// Total number of transactions.
-	TotalTxs metrics.Gauge
+	TotalTxs    metrics.Gauge
+	TotalDKGTxs metrics.Gauge
 	// The latest block height.
 	CommittedHeight metrics.Gauge
 	// Whether or not a node is fast syncing. 1 if yes, 0 if no.
@@ -58,6 +63,15 @@ type Metrics struct {
 
 	// Number of blockparts transmitted by peer.
 	BlockParts metrics.Counter
+
+	// Number of times failed as block producer
+	NumFailuresAsBlockProducer metrics.Counter
+
+	// Number of times was the block producer
+	NumBlockProducer metrics.Counter
+
+	// Whether the current block has entropy, 1 if yes, 0 if no
+	BlockWithEntropy metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -80,6 +94,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "rounds",
 			Help:      "Number of rounds.",
+		}, labels).With(labelsAndValues...),
+		MessagesProcessed: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "messages_processed",
+			Help:      "Number of messages processed.",
 		}, labels).With(labelsAndValues...),
 
 		Validators: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
@@ -150,6 +170,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "num_txs",
 			Help:      "Number of transactions.",
 		}, labels).With(labelsAndValues...),
+		NumDKGTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "num_dkg_txs",
+			Help:      "Number of dkg transactions.",
+		}, labels).With(labelsAndValues...),
 		BlockSizeBytes: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -160,6 +186,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "total_txs",
+			Help:      "Total number of transactions.",
+		}, labels).With(labelsAndValues...),
+		TotalDKGTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "total_dkg_txs",
 			Help:      "Total number of transactions.",
 		}, labels).With(labelsAndValues...),
 		CommittedHeight: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
@@ -180,6 +212,24 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "block_parts",
 			Help:      "Number of blockparts transmitted by peer.",
 		}, append(labels, "peer_id")).With(labelsAndValues...),
+		NumFailuresAsBlockProducer: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "block_producer_failures",
+			Help:      "Number of times failed as block producer",
+		}, labels).With(labelsAndValues...),
+		NumBlockProducer: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "block_producer",
+			Help:      "Number of times was the block producer",
+		}, labels).With(labelsAndValues...),
+		BlockWithEntropy: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "block_with_entropy",
+			Help:      "Whether the current block contains entropy or not",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
@@ -191,6 +241,7 @@ func NopMetrics() *Metrics {
 		ValidatorLastSignedHeight: discard.NewGauge(),
 
 		Rounds: discard.NewGauge(),
+		MessagesProcessed: discard.NewGauge(),
 
 		Validators:               discard.NewGauge(),
 		ValidatorsPower:          discard.NewGauge(),
@@ -204,10 +255,16 @@ func NopMetrics() *Metrics {
 		BlockIntervalSeconds: discard.NewGauge(),
 
 		NumTxs:          discard.NewGauge(),
+		NumDKGTxs:       discard.NewGauge(),
 		BlockSizeBytes:  discard.NewGauge(),
 		TotalTxs:        discard.NewGauge(),
+		TotalDKGTxs:     discard.NewGauge(),
 		CommittedHeight: discard.NewGauge(),
 		FastSyncing:     discard.NewGauge(),
 		BlockParts:      discard.NewCounter(),
+
+		NumFailuresAsBlockProducer: discard.NewCounter(),
+		NumBlockProducer:           discard.NewCounter(),
+		BlockWithEntropy:           discard.NewGauge(),
 	}
 }

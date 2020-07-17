@@ -220,6 +220,7 @@ message ConsensusParams {
   BlockParams     block     = 1;
   EvidenceParams  evidence  = 2;
   ValidatorParams validator = 3;
+  EntropyParams   entropy   = 4;
 }
 
 // BlockParams contains limits on the block size.
@@ -240,6 +241,12 @@ message EvidenceParams {
 // ValidatorParams contains limits on validators.
 message ValidatorParams {
   repeated string pub_key_types = 1;
+}
+
+// EntropyParams contains config for DKG and entropy generation
+message EntropyParams {
+  // Note: must be greater than 0
+  int64 aeon_length = 1;
 }
 
 message LastCommitInfo {
@@ -280,6 +287,8 @@ message Header {
   // consensus info
   bytes evidence_hash    = 13;  // evidence included in the block
   bytes proposer_address = 14;  // original proposer of the block
+
+  BlockEntropy entropy = 15 [(gogoproto.nullable)=false];; // entropy in block 
 }
 
 message Version {
@@ -290,6 +299,13 @@ message Version {
 message BlockID {
   bytes         hash         = 1;
   PartSetHeader parts_header = 2 [(gogoproto.nullable) = false];
+}
+
+message BlockEntropy {
+  bytes group_signature = 1;
+  int64 round = 2;
+  int64 aeon_length = 3;
+  int64 dkg_id = 4;
 }
 
 message PartSetHeader {

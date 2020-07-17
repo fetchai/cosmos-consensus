@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"github.com/pkg/errors"
+	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/tendermint/tendermint/libs/service"
 )
@@ -15,6 +16,7 @@ type AppConns interface {
 	Mempool() AppConnMempool
 	Consensus() AppConnConsensus
 	Query() AppConnQuery
+	SetSpecialTxHandler(*tx_extensions.SpecialTxHandler)
 }
 
 func NewAppConns(clientCreator ClientCreator) AppConns {
@@ -56,6 +58,10 @@ func (app *multiAppConn) Consensus() AppConnConsensus {
 	return app.consensusConn
 }
 
+func (app *multiAppConn) SetSpecialTxHandler(specialTxHandler *tx_extensions.SpecialTxHandler) {
+	app.specialTxHandler = specialTxHandler
+}
+
 // Returns the query Connection
 func (app *multiAppConn) Query() AppConnQuery {
 	return app.queryConn
@@ -93,7 +99,7 @@ func (app *multiAppConn) OnStart() error {
 	if err := concli.Start(); err != nil {
 		return errors.Wrap(err, "Error starting ABCI client (consensus connection)")
 	}
-	app.consensusConn = NewAppConnConsensus(concli)
+	app.consensusConn = NewAppConnConsensus(concli, app.specialTxHandler)
 
 	return nil
 }

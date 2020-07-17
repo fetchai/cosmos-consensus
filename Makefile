@@ -1,4 +1,12 @@
 PACKAGES=$(shell go list ./...)
+
+GOTOOLS = \
+	github.com/mitchellh/gox \
+	github.com/golangci/golangci-lint/cmd/golangci-lint \
+	github.com/gogo/protobuf/protoc-gen-gogo \
+	github.com/square/certstrap
+GOBIN?=${GOPATH}/bin
+
 OUTPUT?=build/tendermint
 
 BUILD_TAGS?=tendermint

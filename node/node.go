@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tendermint/tendermint/beacon"
+	"github.com/tendermint/tendermint/tx_extensions"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -31,6 +34,7 @@ import (
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
@@ -103,20 +107,21 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 	)
 }
 
-// MetricsProvider returns a consensus, p2p and mempool Metrics.
-type MetricsProvider func(chainID string) (*cs.Metrics, *p2p.Metrics, *mempl.Metrics, *sm.Metrics)
+// MetricsProvider returns a consensus, p2p, mempool Metrics, and DRB metrics.
+type MetricsProvider func(chainID string) (*cs.Metrics, *p2p.Metrics, *mempl.Metrics, *sm.Metrics, *beacon.Metrics)
 
 // DefaultMetricsProvider returns Metrics build using Prometheus client library
 // if Prometheus is enabled. Otherwise, it returns no-op Metrics.
 func DefaultMetricsProvider(config *cfg.InstrumentationConfig) MetricsProvider {
-	return func(chainID string) (*cs.Metrics, *p2p.Metrics, *mempl.Metrics, *sm.Metrics) {
+	return func(chainID string) (*cs.Metrics, *p2p.Metrics, *mempl.Metrics, *sm.Metrics, *beacon.Metrics) {
 		if config.Prometheus {
 			return cs.PrometheusMetrics(config.Namespace, "chain_id", chainID),
 				p2p.PrometheusMetrics(config.Namespace, "chain_id", chainID),
 				mempl.PrometheusMetrics(config.Namespace, "chain_id", chainID),
-				sm.PrometheusMetrics(config.Namespace, "chain_id", chainID)
+				sm.PrometheusMetrics(config.Namespace, "chain_id", chainID),
+				beacon.PrometheusMetrics(config.Namespace, "chain_id", chainID)
 		}
-		return cs.NopMetrics(), p2p.NopMetrics(), mempl.NopMetrics(), sm.NopMetrics()
+		return cs.NopMetrics(), p2p.NopMetrics(), mempl.NopMetrics(), sm.NopMetrics(), beacon.NopMetrics()
 	}
 }
 
@@ -168,21 +173,26 @@ type Node struct {
 	isListening bool
 
 	// services
-	eventBus         *types.EventBus // pub/sub for services
-	stateDB          dbm.DB
-	blockStore       *store.BlockStore // store the blockchain to disk
-	bcReactor        p2p.Reactor       // for fast-syncing
-	mempoolReactor   *mempl.Reactor    // for gossipping transactions
-	mempool          mempl.Mempool
-	consensusState   *cs.State      // latest consensus state
-	consensusReactor *cs.Reactor    // for participating in the consensus
-	pexReactor       *pex.Reactor   // for exchanging peer addresses
-	evidencePool     *evidence.Pool // tracking evidence
-	proxyApp         proxy.AppConns // connection to the application
-	rpcListeners     []net.Listener // rpc servers
-	txIndexer        txindex.TxIndexer
-	indexerService   *txindex.IndexerService
-	prometheusSrv    *http.Server
+	bcReactor          p2p.Reactor       // for fast-syncing
+	beaconReactor      *beacon.Reactor // reactor for signature shares
+	blockStore         *store.BlockStore // store the blockchain to disk
+	consensusReactor   *cs.ConsensusReactor   // for participating in the consensus
+	consensusState     *cs.ConsensusState     // latest consensus state
+	dkgRunner          *beacon.DKGRunner
+	entropyGenerator   *beacon.EntropyGenerator
+	eventBus           *types.EventBus // pub/sub for services
+	evidencePool       *evidence.EvidencePool // tracking evidence
+	indexerService     *txindex.IndexerService
+	mempool            mempl.Mempool
+	mempoolReactor     *mempl.Reactor    // for gossipping transactions
+	nativeLogCollector *beacon.NativeLoggingCollector
+	pexReactor         *pex.PEXReactor        // for exchanging peer addresses
+	prometheusSrv      *http.Server
+	proxyApp           proxy.AppConns         // connection to the application
+	rpcListeners       []net.Listener         // rpc servers
+	specialTxHandler   *tx_extensions.SpecialTxHandler
+	stateDB            dbm.DB
+	txIndexer          txindex.TxIndexer
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -201,8 +211,9 @@ func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.Block
 	return
 }
 
-func createAndStartProxyAppConns(clientCreator proxy.ClientCreator, logger log.Logger) (proxy.AppConns, error) {
+func createAndStartProxyAppConns(clientCreator proxy.ClientCreator, logger log.Logger, specialTxHandler *tx_extensions.SpecialTxHandler) (proxy.AppConns, error) {
 	proxyApp := proxy.NewAppConns(clientCreator)
+	proxyApp.SetSpecialTxHandler(specialTxHandler)
 	proxyApp.SetLogger(logger.With("module", "proxy"))
 	if err := proxyApp.Start(); err != nil {
 		return nil, fmt.Errorf("error starting proxy app connections: %v", err)
@@ -378,6 +389,7 @@ func createConsensusReactor(config *cfg.Config,
 		mempool,
 		evidencePool,
 		cs.StateMetrics(csMetrics),
+		cs.StrictTxFiltering(config.Beacon.StrictTxFiltering),
 	)
 	consensusState.SetLogger(consensusLogger)
 	if privValidator != nil {
@@ -539,6 +551,92 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
+func createBeaconReactor(
+	config *cfg.Config,
+	state sm.State,
+	privValidator types.PrivValidator,
+	beaconLogger log.Logger, fastSync bool,
+	blockStore sm.BlockStore,
+	dkgRunner *beacon.DKGRunner,
+	db dbm.DB) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
+
+	beacon.InitialiseMcl()
+	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Beacon, state.LastBlockHeight)
+	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
+	entropyGenerator.SetLogger(beaconLogger)
+	entropyGenerator.SetEntropyChannel(entropyChannel)
+	if dkgRunner != nil {
+		dkgRunner.SetDKGCompletionCallback(entropyGenerator.SetNextAeonDetails)
+	}
+
+	// There are three files for old entropy/keys, current entropy, and next entropy from the previous state.
+	// Load in the old entropy to generate forward from to avoid loading in a file that is higher than
+	// the current block height
+	keyFiles := []string{config.BaseConfig.OldEntropyKeyFile(), config.BaseConfig.EntropyKeyFile(), config.BaseConfig.NextEntropyKeyFile()}
+	var vals *types.ValidatorSet
+	var err1 error
+
+	// Loop over the files trying to extract the keys and push them into the entropy generator
+	for _, fileToLoad := range keyFiles {
+		if cmn.FileExists(fileToLoad) {
+			// Load the aeon(s) from file
+			if aeonFiles, err := beacon.LoadAeonDetailsFiles(fileToLoad); err == nil {
+				for _, aeonFile := range aeonFiles {
+
+					// If the aeon has keys in it, load the validators (don't otherwise as
+					// the height can be 0 which causes an error)
+					if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
+						vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+					}
+
+					// Get the validators for that aeon
+					if err1 == nil {
+						// Push the complete aeon into the entropy generator
+						aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
+						entropyGenerator.InjectNextAeonDetails(aeonDetails)
+
+						// Set dkg runner to most recent aeon which we generated keys for
+						if dkgRunner != nil {
+							dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+						}
+					} else {
+						return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
+					}
+				}
+			} else {
+				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
+			}
+		}
+	}
+
+	if len(state.LastComputedEntropy) != 0 {
+		entropyGenerator.SetLastComputedEntropy(state.LastBlockHeight, state.LastComputedEntropy)
+	}
+
+	reactor := beacon.NewReactor(entropyGenerator, fastSync, blockStore)
+	reactor.SetLogger(beaconLogger)
+
+	return entropyChannel, entropyGenerator, reactor, nil
+}
+
+func createDKGRunner(
+	config *cfg.Config,
+	state sm.State,
+	privValidator types.PrivValidator,
+	logger log.Logger,
+	db dbm.DB,
+	handler tx_extensions.MessageHandler) (*beacon.DKGRunner, error) {
+
+	noiseKeys, err := tmnoise.LoadOrGenNoiseKeys(config)
+	if err != nil {
+		return nil, err
+	}
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight)
+	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
+	dkgRunner.AttachMessageHandler(handler)
+	return dkgRunner, nil
+}
+
 // NewNode returns a new, ready to go, Tendermint Node.
 func NewNode(config *cfg.Config,
 	privValidator types.PrivValidator,
@@ -560,8 +658,10 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 
+	specialTxHandler := tx_extensions.NewSpecialTxHandler(logger)
+
 	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
-	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger)
+	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger, specialTxHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +714,7 @@ func NewNode(config *cfg.Config,
 	// We don't fast-sync when the only validator is us.
 	fastSync := config.FastSyncMode && !onlyValidatorIsUs(state, pubKey)
 
-	csMetrics, p2pMetrics, memplMetrics, smMetrics := metricsProvider(genDoc.ChainID)
+	csMetrics, p2pMetrics, memplMetrics, smMetrics, drbMetrics := metricsProvider(genDoc.ChainID)
 
 	// Make MempoolReactor
 	mempoolReactor, mempool := createMempoolAndMempoolReactor(config, proxyApp, state, memplMetrics, logger)
@@ -661,6 +761,44 @@ func NewNode(config *cfg.Config,
 		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
 		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
 	)
+
+	// create the native log collector
+	nativeLogger := beacon.NewNativeLoggingCollector(logger)
+
+	var entropyGenerator *beacon.EntropyGenerator
+	var beaconReactor *beacon.Reactor
+	var dkgRunner *beacon.DKGRunner
+	if config.Beacon.RunDKG {
+		// Create DKGRunner
+		dkgRunner, err = createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create dkgRunner")
+		}
+
+		// Make BeaconReactor
+		beaconLogger := logger.With("module", "beacon")
+		entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
+			beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "could not load aeon keys from file")
+		}
+
+		// Attach metrics
+		entropyGenerator.AttachMetrics(drbMetrics)
+		dkgRunner.AttachMetrics(drbMetrics)
+
+		consensusState.SetEntropyChannel(entropyChannel)
+		sw.AddReactor("BEACON", beaconReactor)
+
+		// Catch up dkg on messages it has missed for the current aeon
+		if dkgRunner != nil {
+			err = dkgRunner.FastSync(blockStore)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
+			}
+		}
+	}
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
@@ -711,19 +849,24 @@ func NewNode(config *cfg.Config,
 		nodeInfo:  nodeInfo,
 		nodeKey:   nodeKey,
 
-		stateDB:          stateDB,
-		blockStore:       blockStore,
-		bcReactor:        bcReactor,
-		mempoolReactor:   mempoolReactor,
-		mempool:          mempool,
-		consensusState:   consensusState,
-		consensusReactor: consensusReactor,
-		pexReactor:       pexReactor,
-		evidencePool:     evidencePool,
-		proxyApp:         proxyApp,
-		txIndexer:        txIndexer,
-		indexerService:   indexerService,
-		eventBus:         eventBus,
+		stateDB:            stateDB,
+		blockStore:         blockStore,
+		bcReactor:          bcReactor,
+		mempoolReactor:     mempoolReactor,
+		mempool:            mempool,
+		consensusState:     consensusState,
+		consensusReactor:   consensusReactor,
+		pexReactor:         pexReactor,
+		evidencePool:       evidencePool,
+		proxyApp:           proxyApp,
+		txIndexer:          txIndexer,
+		indexerService:     indexerService,
+		eventBus:           eventBus,
+		specialTxHandler:   specialTxHandler,
+		entropyGenerator:   entropyGenerator,
+		beaconReactor:      beaconReactor,
+		nativeLogCollector: nativeLogger,
+		dkgRunner:          dkgRunner,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -791,6 +934,15 @@ func (n *Node) OnStart() error {
 		return errors.Wrap(err, "could not dial peers from persistent_peers field")
 	}
 
+	// Point the TX handler at the mempool
+	n.specialTxHandler.ToSubmitTx(func(as_bytes []byte) { n.mempool.CheckTx(as_bytes, func(resp *abci.Response) {}, mempl.TxInfo{}) })
+
+	if n.dkgRunner != nil {
+		n.dkgRunner.Start()
+	}
+
+	n.nativeLogCollector.Start()
+
 	return nil
 }
 
@@ -836,6 +988,11 @@ func (n *Node) OnStop() {
 			n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
 		}
 	}
+
+	if n.dkgRunner != nil {
+		n.dkgRunner.Stop()
+	}
+	n.nativeLogCollector.Stop()
 }
 
 // ConfigureRPC makes sure RPC has all the objects it needs to operate.
@@ -1030,6 +1187,11 @@ func (n *Node) PEXReactor() *pex.Reactor {
 	return n.pexReactor
 }
 
+// BeaconReactor returns the Node's beacon reactor
+func (n *Node) BeaconReactor() *beacon.Reactor {
+	return n.beaconReactor
+}
+
 // EvidencePool returns the Node's EvidencePool.
 func (n *Node) EvidencePool() *evidence.Pool {
 	return n.evidencePool
@@ -1126,6 +1288,10 @@ func makeNodeInfo(
 
 	if config.P2P.PexReactor {
 		nodeInfo.Channels = append(nodeInfo.Channels, pex.PexChannel)
+	}
+	if len(config.BaseConfig.EntropyKey) != 0 {
+		nodeInfo.Channels = append(nodeInfo.Channels, beacon.StateChannel)
+		nodeInfo.Channels = append(nodeInfo.Channels, beacon.EntropyChannel)
 	}
 
 	lAddr := config.P2P.ExternalAddress

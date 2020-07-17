@@ -4,9 +4,11 @@ go 1.13
 
 require (
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
+	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/Workiva/go-datastructures v1.0.52
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.2
+	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.10.0
 	github.com/go-logfmt/logfmt v0.5.0
@@ -25,6 +27,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.5.1
+	github.com/stumble/gorocksdb v0.0.3 // indirect
 	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tm-db v0.5.1
 	golang.org/x/crypto v0.0.0-20200406173513-056763e48d71

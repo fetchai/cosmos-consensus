@@ -1,0 +1,601 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1564518513258,
+  "links": [],
+  "panels": [
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 13,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_tx_store_get_duration_bucket{lane=\"$Lane\", app=\"$Node\", kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Transaction Store Get Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 15,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_tx_store_set_duration_bucket{lane=\"$Lane\", app=\"$Node\", kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Transaction Store Set Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 14,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_statedb_get_request_seconds_bucket{lane=\"$Lane\", app=\"$Node\",kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "State DB Get Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 19,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_statedb_set_bulk_request_seconds_bucket{lane=\"$Lane\", app=\"$Node\",kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "State DB Bulk Sets Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 18,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_statedb_lock_request_seconds_bucket{lane=\"$Lane\", app=\"$Node\",kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "State DB Lock Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 16,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_statedb_set_request_seconds_bucket{lane=\"$Lane\", app=\"$Node\",kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "State DB Set Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateViridis",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "tsbuckets",
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 20,
+      "legend": {
+        "show": true
+      },
+      "links": [],
+      "options": {},
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "ledger_statedb_unlock_request_seconds_bucket{lane=\"$Lane\", app=\"$Node\",kubernetes_namespace=\"$Network\"}",
+          "format": "heatmap",
+          "instant": false,
+          "intervalFactor": 1,
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "State DB Unlock Access",
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "transparent": true,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 18,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allValue": null,
+        "current": {
+          "text": "ed",
+          "value": "ed"
+        },
+        "datasource": "Prometheus",
+        "definition": "label_values(ledger_log_messages_total,kubernetes_namespace)",
+        "hide": 0,
+        "includeAll": false,
+        "label": null,
+        "multi": false,
+        "name": "Network",
+        "options": [],
+        "query": "label_values(ledger_log_messages_total,kubernetes_namespace)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "text": "node2",
+          "value": "node2"
+        },
+        "datasource": "Prometheus",
+        "definition": "label_values(ledger_log_messages_total{kubernetes_namespace=\"$Network\"},app)",
+        "hide": 0,
+        "includeAll": false,
+        "label": null,
+        "multi": false,
+        "name": "Node",
+        "options": [],
+        "query": "label_values(ledger_log_messages_total{kubernetes_namespace=\"$Network\"},app)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": "Prometheus",
+        "definition": "label_values(ledger_statedb_commit_total{kubernetes_namespace=\"$Network\"},lane)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "",
+        "multi": false,
+        "name": "Lane",
+        "options": [],
+        "query": "label_values(ledger_statedb_commit_total{kubernetes_namespace=\"$Network\"},lane)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "",
+  "title": "State Information",
+  "uid": "1qlNnZHWk",
+  "version": 5
+}

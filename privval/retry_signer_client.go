@@ -2,6 +2,7 @@ package privval
 
 import (
 	"fmt"
+	"errors"
 	"time"
 
 	"github.com/tendermint/tendermint/crypto"

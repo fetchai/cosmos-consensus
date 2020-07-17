@@ -88,7 +88,7 @@ func (cs *State) readReplayMessage(msg *TimedWALMessage, newStepSub types.Subscr
 		cs.handleMsg(m)
 	case timeoutInfo:
 		cs.Logger.Info("Replay: Timeout", "height", m.Height, "round", m.Round, "step", m.Step, "dur", m.Duration)
-		cs.handleTimeout(m, cs.RoundState)
+		go cs.handleTimeout(m, cs.RoundState)
 	default:
 		return fmt.Errorf("replay: Unknown TimedWALMessage type: %v", reflect.TypeOf(msg.Msg))
 	}
@@ -523,7 +523,7 @@ func newMockProxyApp(appHash []byte, abciResponses *sm.ABCIResponses) proxy.AppC
 	if err != nil {
 		panic(err)
 	}
-	return proxy.NewAppConnConsensus(cli)
+	return proxy.NewAppConnConsensus(cli, nil)
 }
 
 type mockProxyApp struct {

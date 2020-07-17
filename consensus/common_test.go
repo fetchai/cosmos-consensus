@@ -168,6 +168,7 @@ func (vss ValidatorStubsByAddress) Swap(i, j int) {
 // Functions for transitioning the consensus state
 
 func startTestRound(cs *State, height int64, round int) {
+	cs.getNewEntropy(height)
 	cs.enterNewRound(height, round)
 	cs.startRoutines(0)
 }

@@ -300,6 +300,8 @@ func TestTransportMultiplexAcceptNonBlocking(t *testing.T) {
 			errc <- err
 			return
 		}
+
+		close(errc)
 	}()
 
 	// Simulate fast Peer.
@@ -322,7 +324,6 @@ func TestTransportMultiplexAcceptNonBlocking(t *testing.T) {
 			return
 		}
 
-		close(errc)
 		close(fastc)
 	}()
 

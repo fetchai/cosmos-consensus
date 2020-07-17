@@ -337,6 +337,12 @@ FOR_LOOP:
 			} else {
 				bcR.pool.PopRequest()
 
+				// Protect against calling SaveBlock on block of incorrect height due to
+				// data race
+				if first.Height != bcR.store.Height()+1 {
+					continue FOR_LOOP
+				}
+
 				// TODO: batch saves so we dont persist to disk every block
 				bcR.store.SaveBlock(first, firstParts, second.LastCommit)
 
@@ -346,7 +352,7 @@ FOR_LOOP:
 				state, _, err = bcR.blockExec.ApplyBlock(state, firstID, first)
 				if err != nil {
 					// TODO This is bad, are we zombie?
-					panic(fmt.Sprintf("Failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
+					panic(fmt.Sprintf("V0 BCR Failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 				}
 				blocksSynced++
 

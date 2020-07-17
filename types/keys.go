@@ -2,5 +2,6 @@ package types
 
 // UNSTABLE
 var (
-	PeerStateKey = "ConsensusReactor.peerState"
+	PeerStateKey       = "ConsensusReactor.peerState"
+	BeaconPeerStateKey = "BeaconReactor.peerState"
 )

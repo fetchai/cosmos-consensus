@@ -77,7 +77,9 @@ func MakeVote(
 func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
 	block := &Block{
 		Header: Header{
-			Height: height,
+			Height:  height,
+			NumTxs:  int64(len(txs)),
+			Entropy: *EmptyBlockEntropy(),
 		},
 		Data: Data{
 			Txs: txs,

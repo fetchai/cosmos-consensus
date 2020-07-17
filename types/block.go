@@ -101,6 +101,15 @@ func (b *Block) ValidateBasic() error {
 		)
 	}
 
+	if len(b.ProposerAddress) != crypto.AddressSize {
+		return fmt.Errorf("Expected len(Header.ProposerAddress) to be %d, got %d",
+			crypto.AddressSize, len(b.ProposerAddress))
+	}
+
+	if err := b.Entropy.ValidateBasic(); err != nil {
+		return fmt.Errorf("Wrong Header.Entropy: %v", err)
+	}
+
 	return nil
 }
 
@@ -306,6 +315,7 @@ type Header struct {
 	// consensus info
 	EvidenceHash    tmbytes.HexBytes `json:"evidence_hash"`    // evidence included in the block
 	ProposerAddress Address          `json:"proposer_address"` // original proposer of the block
+	Entropy BlockEntropy `json:"entropy"` // group signature for this block height
 }
 
 // Populate the Header with state-derived data.
@@ -411,6 +421,7 @@ func (h *Header) Hash() tmbytes.HexBytes {
 		cdcEncode(h.LastResultsHash),
 		cdcEncode(h.EvidenceHash),
 		cdcEncode(h.ProposerAddress),
+		cdcEncode(h.Entropy),
 	})
 }
 
@@ -434,6 +445,7 @@ func (h *Header) StringIndented(indent string) string {
 %s  Results:        %v
 %s  Evidence:       %v
 %s  Proposer:       %v
+%s  Entropy: 		%v
 %s}#%v`,
 		indent, h.Version,
 		indent, h.ChainID,
@@ -449,6 +461,7 @@ func (h *Header) StringIndented(indent string) string {
 		indent, h.LastResultsHash,
 		indent, h.EvidenceHash,
 		indent, h.ProposerAddress,
+		indent, h.Entropy.StringIndented(indent),
 		indent, h.Hash())
 }
 

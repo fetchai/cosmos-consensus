@@ -1,0 +1,769 @@
+
+
+global:
+  scrape_interval:     3s # By default, scrape targets every 15 seconds.
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    monitor: 'manual-prom-monitor'
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'nodes'
+
+    scrape_interval: 3s
+
+    static_configs:
+
+    - targets: [ 'node0.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node0'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node1.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node1'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node2.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node2'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node3.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node3'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node4.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node4'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node5.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node5'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node6.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node6'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node7.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node7'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node8.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node8'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node9.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node9'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node10.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node10'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node11.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node11'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node12.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node12'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node13.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node13'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node14.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node14'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node15.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node15'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node16.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node16'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node17.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node17'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node18.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node18'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node19.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node19'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node20.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node20'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node21.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node21'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node22.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node22'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node23.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node23'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node24.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node24'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node25.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node25'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node26.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node26'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node27.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node27'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node28.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node28'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node29.nathan.svc.cluster.local:26660' ]
+      labels:
+        app: 'node29'
+        kubernetes_namespace: 'nathan'
+
+    - targets: [ 'node0.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node0'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node1.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node1'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node2.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node2'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node3.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node3'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node4.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node4'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node5.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node5'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node6.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node6'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node7.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node7'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node8.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node8'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node9.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node9'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node10.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node10'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node11.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node11'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node12.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node12'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node13.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node13'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node14.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node14'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node15.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node15'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node16.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node16'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node17.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node17'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node18.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node18'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node19.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node19'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node20.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node20'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node21.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node21'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node22.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node22'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node23.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node23'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node24.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node24'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node25.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node25'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node26.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node26'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node27.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node27'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node28.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node28'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'node29.jenny.svc.cluster.local:26660' ]
+      labels:
+        app: 'node29'
+        kubernetes_namespace: 'jenny'
+
+    - targets: [ 'sentry0.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry0'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node0.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node0'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator0.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator0'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry1.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry1'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node1.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node1'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator1.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator1'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry2.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry2'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node2.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node2'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator2.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator2'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry3.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry3'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node3.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node3'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator3.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator3'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry4.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry4'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node4.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node4'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator4.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator4'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry5.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry5'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node5.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node5'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator5.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator5'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry6.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry6'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node6.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node6'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator6.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator6'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry7.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry7'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node7.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node7'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator7.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator7'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry8.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry8'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node8.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node8'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator8.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator8'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry9.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry9'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node9.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node9'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator9.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator9'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry10.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry10'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node10.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node10'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator10.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator10'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry11.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry11'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node11.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node11'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator11.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator11'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry12.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry12'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node12.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node12'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator12.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator12'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry13.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry13'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node13.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node13'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator13.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator13'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry14.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry14'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node14.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node14'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator14.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator14'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry15.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry15'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node15.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node15'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator15.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator15'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry16.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry16'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node16.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node16'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator16.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator16'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry17.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry17'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node17.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node17'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator17.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator17'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry18.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry18'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node18.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node18'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator18.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator18'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry19.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry19'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node19.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node19'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator19.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator19'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry20.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry20'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node20.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node20'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator20.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator20'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry21.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry21'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node21.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node21'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator21.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator21'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry22.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry22'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node22.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node22'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator22.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator22'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry23.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry23'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node23.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node23'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator23.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator23'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry24.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry24'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node24.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node24'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator24.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator24'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry25.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry25'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node25.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node25'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator25.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator25'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry26.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry26'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node26.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node26'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator26.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator26'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry27.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry27'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node27.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node27'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator27.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator27'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry28.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry28'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node28.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node28'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator28.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator28'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'sentry29.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'sentry29'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'node29.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'node29'
+        kubernetes_namespace: 'james'
+
+    - targets: [ 'validator29.james.svc.cluster.local:26660' ]
+      labels:
+        app: 'validator29'
+        kubernetes_namespace: 'james'

@@ -1,6 +1,5 @@
 ## v0.33.7
 
-
 \*\*
 
 Special thanks to external contributors on this release:
@@ -27,3 +26,4 @@ Friendly reminder, we have a [bug bounty program](https://hackerone.com/tendermi
 
 
 ### BUG FIXES:
+ - Removed dkg and entropy generation config variables out of `ConsensusConfig` into new `BeaconConfig`

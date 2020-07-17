@@ -65,6 +65,8 @@ func (tm2pb) Header(header *Header) abci.Header {
 
 		EvidenceHash:    header.EvidenceHash,
 		ProposerAddress: header.ProposerAddress,
+
+		Entropy: TM2PB.BlockEntropy(header.Entropy),
 	}
 }
 
@@ -79,6 +81,15 @@ func (tm2pb) BlockID(blockID BlockID) abci.BlockID {
 	return abci.BlockID{
 		Hash:        blockID.Hash,
 		PartsHeader: TM2PB.PartSetHeader(blockID.PartsHeader),
+	}
+}
+
+func (tm2pb) BlockEntropy(entropy BlockEntropy) abci.BlockEntropy {
+	return abci.BlockEntropy{
+		GroupSignature: entropy.GroupSignature,
+		Round:          entropy.Round,
+		AeonLength:     entropy.AeonLength,
+		DkgId:          entropy.DKGID,
 	}
 }
 
@@ -142,6 +153,9 @@ func (tm2pb) ConsensusParams(params *ConsensusParams) *abci.ConsensusParams {
 		},
 		Validator: &abci.ValidatorParams{
 			PubKeyTypes: params.Validator.PubKeyTypes,
+		},
+		Entropy: &abci.EntropyParams{
+			AeonLength: params.Entropy.AeonLength,
 		},
 	}
 }

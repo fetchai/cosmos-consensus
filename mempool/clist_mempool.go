@@ -17,10 +17,13 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
+	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
 )
 
 //--------------------------------------------------------------------------------
+
+type OnDKGFunc func(types.Tx) error
 
 // CListMempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
@@ -310,6 +313,7 @@ func (mem *CListMempool) globalCb(req *abci.Request, res *abci.Response) {
 
 	// update metrics
 	mem.metrics.Size.Set(float64(mem.Size()))
+	mem.metrics.SizeBytes.Set(float64(mem.TxsBytes()))
 }
 
 // Request specific callback that should be set on individual reqRes objects
@@ -337,6 +341,7 @@ func (mem *CListMempool) reqResCb(
 
 		// update metrics
 		mem.metrics.Size.Set(float64(mem.Size()))
+		mem.metrics.SizeBytes.Set(float64(mem.TxsBytes()))
 
 		// passed in by the caller of CheckTx, eg. the RPC
 		if externalCb != nil {
@@ -502,10 +507,9 @@ func (mem *CListMempool) notifyTxsAvailable() {
 	}
 }
 
-// Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	mem.updateMtx.RLock()
-	defer mem.updateMtx.RUnlock()
+func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
+	mem.proxyMtx.Lock()
+	defer mem.proxyMtx.Unlock()
 
 	var (
 		totalBytes int64
@@ -517,6 +521,11 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	txs := make([]types.Tx, 0, mem.txs.Len())
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
+
+		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
+			continue
+		}
+
 		// Check total size requirement
 		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
 		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
@@ -613,6 +622,7 @@ func (mem *CListMempool) Update(
 
 	// Update metrics
 	mem.metrics.Size.Set(float64(mem.Size()))
+	mem.metrics.SizeBytes.Set(float64(mem.TxsBytes()))
 
 	return nil
 }

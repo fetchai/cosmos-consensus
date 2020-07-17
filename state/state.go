@@ -80,6 +80,8 @@ type State struct {
 
 	// the latest AppHash we've received from calling abci.Commit()
 	AppHash []byte
+
+	LastComputedEntropy types.ThresholdSignature
 }
 
 // Copy makes a copy of the State for mutating.
@@ -103,6 +105,8 @@ func (state State) Copy() State {
 		AppHash: state.AppHash,
 
 		LastResultsHash: state.LastResultsHash,
+
+		LastComputedEntropy: state.LastComputedEntropy,
 	}
 }
 
@@ -246,6 +250,7 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		ConsensusParams:                  *genDoc.ConsensusParams,
 		LastHeightConsensusParamsChanged: 1,
 
-		AppHash: genDoc.AppHash,
+		AppHash:             genDoc.AppHash,
+		LastComputedEntropy: []byte(genDoc.Entropy),
 	}, nil
 }

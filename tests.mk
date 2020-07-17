@@ -103,7 +103,7 @@ vagrant_test:
 ### go tests
 test:
 	@echo "--> Running go test"
-	@go test -p 1 $(PACKAGES)
+	@go test -timeout 180s -p 1 $(PACKAGES)
 .PHONY: test
 
 test_race:
