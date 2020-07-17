@@ -11,6 +11,7 @@ import (
 
 	"github.com/tendermint/tendermint/abci/example/code"
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/libs/log"
 	mempl "github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
@@ -77,6 +78,7 @@ func TestMempoolProgressInHigherRound(t *testing.T) {
 		}
 		return cs.defaultSetProposal(proposal)
 	}
+	cs.SetLogger(log.NewTMLogger(os.Stdout))
 	startTestRound(cs, height, round)
 
 	ensureNewRound(newRoundCh, height, round) // first round at first height
