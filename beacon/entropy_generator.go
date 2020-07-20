@@ -380,15 +380,17 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		panic(fmt.Sprintf("Has keys but previous entropy not set. Height %v", entropyGenerator.lastBlockHeight))
 	}
 
-	index, _ := entropyGenerator.aeon.validators.GetByAddress(entropyGenerator.aeon.privValidator.GetPubKey().Address())
+	pubKey, _ := entropyGenerator.aeon.privValidator.GetPubKey()
+	index, _ := entropyGenerator.aeon.validators.GetByAddress(pubKey.Address())
 	blockHeight := entropyGenerator.lastBlockHeight + 1
 	err := entropyGenerator.validInputs(blockHeight, index)
 	if err != nil {
 		entropyGenerator.Logger.Debug(err.Error())
 		return
 	}
+
 	entropyGenerator.Logger.Debug("sign: block entropy", "blockHeight", blockHeight, "lastEentropyHeight", entropyGenerator.lastComputedEntropyHeight,
-		"nodeAddress", entropyGenerator.aeon.privValidator.GetPubKey().Address())
+		"nodeAddress", pubKey.Address())
 
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message)
@@ -404,7 +406,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 
 	share := types.EntropyShare{
 		Height:         blockHeight,
-		SignerAddress:  entropyGenerator.aeon.privValidator.GetPubKey().Address(),
+		SignerAddress:  pubKey.Address(),
 		SignatureShare: signature,
 	}
 	// Sign message

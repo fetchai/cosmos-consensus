@@ -472,11 +472,11 @@ func ResetTestRootWithChainID(testName string, chainID string) *Config {
 }
 
 func AddTestEntropyKey(config *Config) {
-	cmn.MustWriteFile(config.EntropyKeyFile(), []byte(testEntropyKey), 0644)
+	tmos.MustWriteFile(config.EntropyKeyFile(), []byte(testEntropyKey), 0644)
 }
 
 func AddTestNoiseKey(config *Config) {
-	cmn.MustWriteFile(config.NoiseKeyFile(), []byte(testNoiseKey), 0644)
+	tmos.MustWriteFile(config.NoiseKeyFile(), []byte(testNoiseKey), 0644)
 }
 
 var testGenesisFmt = `{

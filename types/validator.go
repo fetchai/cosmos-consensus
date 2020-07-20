@@ -154,5 +154,5 @@ func RandValidator(randPower bool, minPower int64) (*Validator, PrivValidator) {
 		panic(fmt.Errorf("could not retrieve pubkey %w", err))
 	}
 	val := NewValidator(pubKey, votePower)
-	return val, privVal
+	return val, &privVal
 }

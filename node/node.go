@@ -31,6 +31,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -173,26 +174,26 @@ type Node struct {
 	isListening bool
 
 	// services
-	bcReactor          p2p.Reactor       // for fast-syncing
+	eventBus         *types.EventBus // pub/sub for services
+	stateDB          dbm.DB
+	blockStore       *store.BlockStore // store the blockchain to disk
+	bcReactor        p2p.Reactor       // for fast-syncing
+	mempoolReactor   *mempl.Reactor    // for gossipping transactions
+	mempool          mempl.Mempool
+	consensusState   *cs.State      // latest consensus state
+	consensusReactor *cs.Reactor    // for participating in the consensus
+	pexReactor       *pex.Reactor   // for exchanging peer addresses
+	evidencePool     *evidence.Pool // tracking evidence
+	proxyApp         proxy.AppConns // connection to the application
+	rpcListeners     []net.Listener // rpc servers
+	txIndexer        txindex.TxIndexer
+	indexerService   *txindex.IndexerService
+	prometheusSrv    *http.Server
 	beaconReactor      *beacon.Reactor // reactor for signature shares
-	blockStore         *store.BlockStore // store the blockchain to disk
-	consensusReactor   *cs.ConsensusReactor   // for participating in the consensus
-	consensusState     *cs.ConsensusState     // latest consensus state
 	dkgRunner          *beacon.DKGRunner
 	entropyGenerator   *beacon.EntropyGenerator
-	eventBus           *types.EventBus // pub/sub for services
-	evidencePool       *evidence.EvidencePool // tracking evidence
-	indexerService     *txindex.IndexerService
-	mempool            mempl.Mempool
-	mempoolReactor     *mempl.Reactor    // for gossipping transactions
-	nativeLogCollector *beacon.NativeLoggingCollector
-	pexReactor         *pex.PEXReactor        // for exchanging peer addresses
-	prometheusSrv      *http.Server
-	proxyApp           proxy.AppConns         // connection to the application
-	rpcListeners       []net.Listener         // rpc servers
 	specialTxHandler   *tx_extensions.SpecialTxHandler
-	stateDB            dbm.DB
-	txIndexer          txindex.TxIndexer
+	nativeLogCollector *beacon.NativeLoggingCollector
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -578,7 +579,7 @@ func createBeaconReactor(
 
 	// Loop over the files trying to extract the keys and push them into the entropy generator
 	for _, fileToLoad := range keyFiles {
-		if cmn.FileExists(fileToLoad) {
+		if tmos.FileExists(fileToLoad) {
 			// Load the aeon(s) from file
 			if aeonFiles, err := beacon.LoadAeonDetailsFiles(fileToLoad); err == nil {
 				for _, aeonFile := range aeonFiles {

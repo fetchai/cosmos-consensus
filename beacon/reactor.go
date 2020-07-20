@@ -37,11 +37,11 @@ type Reactor struct {
 	fastSync bool
 
 	// Access blockchain through RPC for catching up peers
-	blockStore sm.BlockStoreRPC
+	blockStore sm.BlockStore
 }
 
 // NewReactor returns a new Reactor with the given entropyGenerator.
-func NewReactor(entropyGenerator *EntropyGenerator, fastSync bool, blockStore sm.BlockStoreRPC) *Reactor {
+func NewReactor(entropyGenerator *EntropyGenerator, fastSync bool, blockStore sm.BlockStore) *Reactor {
 	if entropyGenerator == nil {
 		panic(fmt.Sprintf("NewReactor with nil entropy generator"))
 	}

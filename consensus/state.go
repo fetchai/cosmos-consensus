@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	"github.com/tendermint/tendermint/libs/bytes"
+	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
@@ -217,7 +217,7 @@ func (cs *State) SetEventBus(b *types.EventBus) {
 }
 
 // SetEntropyChannel sets channel along which to receive entropy
-func (cs *ConsensusState) SetEntropyChannel(channel <-chan types.ChannelEntropy) {
+func (cs *State) SetEntropyChannel(channel <-chan types.ChannelEntropy) {
 	if cs.entropyChannel == nil {
 		cs.haveSetEntropyChannel = true
 		cs.entropyChannel = channel
@@ -231,13 +231,13 @@ func StateMetrics(metrics *Metrics) StateOption {
 
 // StateMetrics sets the metrics.
 func StrictTxFiltering(filtering bool) StateOption {
-	return func(cs *ConsensusState) { cs.strictFiltering = filtering }
+	return func(cs *State) { cs.strictFiltering = filtering }
 }
 
 // String returns a string.
 func (cs *State) String() string {
 	// better not to access shared variables
-	return fmt.Sprintf("ConsensusState") //(H:%v R:%v S:%v", cs.Height, cs.Round, cs.Step)
+	return fmt.Sprintf("State") //(H:%v R:%v S:%v", cs.Height, cs.Round, cs.Step)
 }
 
 // GetState returns a copy of the chain state.
@@ -707,9 +707,9 @@ func (cs *State) receiveRoutine(maxSteps int) {
 }
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
-func (cs *ConsensusState) handleMsg(mi msgInfo) {
+func (cs *State) handleMsg(mi msgInfo) {
 
-	timer := bytes.NewFunctionTimer(50, "handleMsg", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "handleMsg", cs.Logger)
 	defer timer.Finish()
 	defer cs.metrics.MessagesProcessed.Add(float64(1))
 
@@ -790,7 +790,7 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	cs.Logger.Debug("Received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
-	timer := bytes.NewFunctionTimer(50, "handleTimeout", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "handleTimeout", cs.Logger)
 	defer timer.Finish()
 
 	// timeouts must be for current height, round, step
@@ -948,9 +948,9 @@ func (cs *State) needProofBlock(height int64) bool {
 // Enter (CreateEmptyBlocks, CreateEmptyBlocksInterval > 0 ):
 // 		after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
-func (cs *ConsensusState) enterPropose(height int64, round int) {
+func (cs *State) enterPropose(height int64, round int) {
 
-	timer := bytes.NewFunctionTimer(50, "enterPropose", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "enterPropose", cs.Logger)
 	defer timer.Finish()
 
 	logger := cs.Logger.With("height", height, "round", round)
@@ -1023,9 +1023,9 @@ func (cs *ConsensusState) enterPropose(height int64, round int) {
 	}
 }
 
-func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator {
+func (cs *State) getProposer(height int64, round int) *types.Validator {
 
-	timer := bytes.NewFunctionTimer(10, "getProposer", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(10, "getProposer", cs.Logger)
 	defer timer.Finish()
 
 	// Get entropy for this round if not already set
@@ -1053,10 +1053,10 @@ func (cs *ConsensusState) getProposer(height int64, round int) *types.Validator 
 // generator. Older entropy is trimmed. Subsequent requests for entropy can thus either
 // use the map, or the block store to get entropy. This function can block for as long
 // as it takes to generate entropy (possibly forever)
-func (cs *ConsensusState) getNewEntropy(height int64) {
+func (cs *State) getNewEntropy(height int64) {
 
 	debugThing := fmt.Sprintf("getNewEntropy for height %v", height)
-	timer := bytes.NewFunctionTimer(50, debugThing, cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, debugThing, cs.Logger)
 	defer timer.Finish()
 
 	// Global lock needed for this check
@@ -1134,9 +1134,9 @@ func (cs *ConsensusState) getNewEntropy(height int64) {
 
 // Convenience function to return the entropy, checking that when it is requested,
 // it is set and the height is correct
-func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
+func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 
-	timer := bytes.NewFunctionTimer(50, "getEntropy", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "getEntropy", cs.Logger)
 	defer timer.Finish()
 
 	// Return default entropy when testing
@@ -1170,7 +1170,7 @@ func (cs *ConsensusState) getEntropy(height int64) *types.ChannelEntropy {
 }
 
 // TODO: Check that rand.Shuffle is same across different platforms
-func (cs *ConsensusState) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
+func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
 	if len(entropy) < 8 {
 		cs.Logger.Error("Entropy byte array too small for int64 for random seed", "size", len(entropy))
 		return nil
@@ -1193,7 +1193,7 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 	var block *types.Block
 	var blockParts *types.PartSet
 
-	timer := bytes.NewFunctionTimer(50, "defaultDecideProposal", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "defaultDecideProposal", cs.Logger)
 	defer timer.Finish()
 
 	// Decide on block
@@ -1257,9 +1257,9 @@ func (cs *State) isProposalComplete() bool {
 //
 // NOTE: keep it side-effect free for clarity.
 // CONTRACT: cs.privValidator is not nil.
-func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts *types.PartSet) {
+func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.PartSet) {
 
-	timer := bytes.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
 	defer timer.Finish()
 
 	var commit *types.Commit
@@ -1286,7 +1286,6 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 		cs.Logger.Error("Error on retrival of pubkey", "err", err)
 		return
 	}
-	proposerAddr := pubKey.Address()
 
 	onlyDKGTxs := false
 
@@ -1296,7 +1295,7 @@ func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts 
 		onlyDKGTxs = true
 	}
 
-	proposerAddr := cs.privValidator.GetPubKey().Address()
+	proposerAddr := pubKey.Address()
 	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, onlyDKGTxs)
 }
 
@@ -1334,7 +1333,7 @@ func (cs *State) enterPrevote(height int64, round int) {
 func (cs *State) defaultDoPrevote(height int64, round int) {
 	logger := cs.Logger.With("height", height, "round", round)
 
-	timer := bytes.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
 	defer timer.Finish()
 
 	// If a block is locked, prevote that.
@@ -1606,7 +1605,7 @@ func (cs *State) enterCommit(height int64, commitRound int) {
 func (cs *State) tryFinalizeCommit(height int64) {
 	logger := cs.Logger.With("height", height)
 
-	timer := bytes.NewFunctionTimer(50, "tryFinalizeCommit", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "tryFinalizeCommit", cs.Logger)
 	defer timer.Finish()
 
 	if cs.Height != height {
@@ -1645,7 +1644,7 @@ func (cs *State) finalizeCommit(height int64) {
 		return
 	}
 
-	timer := bytes.NewFunctionTimer(50, "finalizeCommit", cs.Logger)
+	timer := tmbytes.NewFunctionTimer(50, "finalizeCommit", cs.Logger)
 	defer timer.Finish()
 
 	blockID, ok := cs.Votes.Precommits(cs.CommitRound).TwoThirdsMajority()
@@ -1878,8 +1877,9 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 		cs.metrics.BlockWithEntropy.Set(float64(1))
 	}
 
+	ourPubkey, _ := cs.privValidator.GetPubKey()
 	// If we noticed we failed to produce a block when we should have
-	if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
+	if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, ourPubkey.Address()) {
 		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
 	} else {
 		cs.metrics.NumBlockProducer.Add(float64(cs.isProposerForHeight))

@@ -7,6 +7,7 @@ import (
 	"github.com/flynn/noise"
 	"github.com/pkg/errors"
 	cfg "github.com/tendermint/tendermint/config"
+	tempfile "github.com/tendermint/tendermint/libs/tempfile"
 	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
@@ -74,7 +75,7 @@ func LoadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
 		if err != nil {
 			return noiseKeys, errors.Wrap(err, "error marshalling noise key pair")
 		}
-		err = tmos.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
+		err = tempfile.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
 		if err != nil {
 			return noiseKeys, errors.Wrap(err, "error writing noise key pair")
 		}

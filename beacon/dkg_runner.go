@@ -99,7 +99,7 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
 
 // FastSync runs a dkg from block messages up to current block height
 // for catch up
-func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStoreRPC) error {
+func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStore) error {
 	if dkgRunner.IsRunning() {
 		return fmt.Errorf("FastSync: dkgRunner running!")
 	}

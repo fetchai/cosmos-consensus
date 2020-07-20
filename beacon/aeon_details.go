@@ -6,6 +6,7 @@ import (
 
 	"github.com/tendermint/tendermint/libs/tempfile"
 	"github.com/tendermint/tendermint/types"
+	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 // aeonDetails stores entropy generation details for each aeon
@@ -65,7 +66,8 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 		if newPrivValidator == nil {
 			panic(fmt.Errorf("aeonDetails has DKG keys but no privValidator"))
 		}
-		index, _ := validators.GetByAddress(newPrivValidator.GetPubKey().Address())
+		pubKey, _ := newPrivValidator.GetPubKey()
+		index, _ := validators.GetByAddress(pubKey.Address())
 		if index < 0 || !aeonKeys.InQual(uint(index)) {
 			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators or qual"))
 		}
@@ -179,13 +181,13 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 func LoadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		cmn.Exit(err.Error())
+		tmos.Exit(err.Error())
 	}
 	var aeonQueue []*AeonDetailsFile
 
 	err = cdc.UnmarshalJSON(jsonBytes, &aeonQueue)
 	if err != nil {
-		cmn.Exit(fmt.Sprintf("Error reading AeonDetailsFiles from %v: %v\n", filePath, err))
+		tmos.Exit(fmt.Sprintf("Error reading AeonDetailsFiles from %v: %v\n", filePath, err))
 	}
 
 	for _, aeon := range aeonQueue {

@@ -35,6 +35,7 @@ type multiAppConn struct {
 	mempoolConn   AppConnMempool
 	consensusConn AppConnConsensus
 	queryConn     AppConnQuery
+	specialTxHandler *tx_extensions.SpecialTxHandler
 
 	clientCreator ClientCreator
 }

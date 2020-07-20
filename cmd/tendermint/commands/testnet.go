@@ -156,7 +156,8 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 			Power:   1,
 			Name:    nodeDirName,
 		}
-		entropyValidators[i] = &types.Validator{Address: pv.GetPubKey().Address()}
+
+		entropyValidators[i] = &types.Validator{Address: pubKey.Address()}
 	}
 
 	// Sort genesis validators

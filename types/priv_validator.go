@@ -108,7 +108,7 @@ func (pv MockPV) SignProposal(chainID string, proposal *Proposal) error {
 // Implements PrivValidator
 func (pv *MockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
 	signBytes := entropy.SignBytes(chainID)
-	sig, err := pv.privKey.Sign(signBytes)
+	sig, err := pv.PrivKey.Sign(signBytes)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (pv *MockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
 // Implements PrivValidator
 func (pv *MockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
 	signBytes := msg.SignBytes(chainID)
-	sig, err := pv.privKey.Sign(signBytes)
+	sig, err := pv.PrivKey.Sign(signBytes)
 	if err != nil {
 		return err
 	}
@@ -152,16 +152,6 @@ func (pv *ErroringMockPV) SignVote(chainID string, vote *Vote) error {
 
 // Implements PrivValidator.
 func (pv *ErroringMockPV) SignProposal(chainID string, proposal *Proposal) error {
-	return ErroringMockPVErr
-}
-
-// Implements PrivValidator
-func (pv *erroringMockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
-	return ErroringMockPVErr
-}
-
-// Implements PrivValidator
-func (pv *erroringMockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
 	return ErroringMockPVErr
 }
 
