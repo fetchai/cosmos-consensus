@@ -42,7 +42,7 @@ public:
   CabinetIndex VerifyQualComplaint(CabinetIndex const & from_index, ComplaintAnswer const &answer) override;
   bool RunReconstruction() override;
   void ComputePublicKeys() override;
-  AeonExecUnit GetDkgOutput() const override;
+  std::shared_ptr<BaseAeon> GetDkgOutput() const override;
 
 private:
   std::vector<VerificationKey> g__a_i_;

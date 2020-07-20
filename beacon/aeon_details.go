@@ -14,7 +14,7 @@ type aeonDetails struct {
 	validatorHeight int64 // Height at which validator set obtained
 	validators      *types.ValidatorSet
 	threshold       int
-	aeonExecUnit    AeonExecUnit
+	aeonExecUnit    aeonType
 	// start and end are inclusive
 	Start int64
 	End   int64
@@ -39,7 +39,7 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 		qual.Add(aeonDetailsFile.PublicInfo.Qual[i])
 	}
 
-	aeonExecUnit := NewAeonExecUnit(aeonDetailsFile.PublicInfo.Generator, keys, qual)
+	aeonExecUnit := newAeonExecUnit(aeonDetailsFile.PublicInfo.Generator, keys, qual)
 	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, validators, aeonExecUnit,
 		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	return aeonDetails
@@ -47,7 +47,7 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
 func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
-	validators *types.ValidatorSet, aeonKeys AeonExecUnit,
+	validators *types.ValidatorSet, aeonKeys aeonType,
 	startHeight int64, endHeight int64) (*aeonDetails, error) {
 	if valHeight <= 0 {
 		panic(fmt.Errorf("aeonDetails in validator height less than 1"))

@@ -16,8 +16,8 @@
 //
 //------------------------------------------------------------------------------
 
-#include "bls_dkg.hpp"
 #include "beacon_setup_service.hpp"
+#include "bls_dkg.hpp"
 #include "logging.hpp"
 #include "serialisers.hpp"
 #include "set_intersection.hpp"
@@ -39,7 +39,7 @@ BeaconSetupService::BeaconSetupService(Identifier cabinet_size, CabinetIndex thr
     return;
   }
 
-  beacon_ = std::make_unique<BlsDkg>();
+  beacon_ = std::make_unique<DkgImplemention>();
   beacon_->NewCabinet(cabinet_size, threshold, index);
   complaints_manager_.ResetCabinet(index, threshold);
   complaint_answers_manager_.ResetCabinet();
@@ -156,7 +156,9 @@ AeonExecUnit BeaconSetupService::ComputePublicKeys()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputePublicKeys();
-  return beacon_-> GetDkgOutput();
+  auto aeon_ptr = std::dynamic_pointer_cast<AeonExecUnit>(beacon_-> GetDkgOutput());
+  assert(aeon_ptr);
+  return *aeon_ptr;
 }
 
 BeaconSetupService::SerialisedMsg BeaconSetupService::GetCoefficients()

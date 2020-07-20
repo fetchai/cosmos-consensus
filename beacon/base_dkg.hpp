@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <iostream>
 #include <mutex>
+#include <memory>
 
 namespace fetch {
 namespace beacon {    
@@ -49,8 +50,6 @@ public:
   using ExposedShare     = std::pair<CabinetIndex, std::pair<Share, Share>>;
   using SharesExposedMap = std::unordered_map<CabinetIndex, std::pair<Share, Share>>;
 
-  BaseDkg() = default;
-
   virtual ~BaseDkg() = default;
   virtual VerificationKey const & GetGroupG() const = 0;
   virtual VerificationKey const & GetGroupH() const = 0;
@@ -63,7 +62,7 @@ public:
   virtual CabinetIndex VerifyQualComplaint(CabinetIndex const & from_index, ComplaintAnswer const &answer) = 0;
   virtual bool RunReconstruction() = 0;
   virtual void ComputePublicKeys() = 0;
-  virtual AeonExecUnit GetDkgOutput() const = 0;
+  virtual std::shared_ptr<BaseAeon> GetDkgOutput() const = 0;
   
   std::vector<Coefficient> GetCoefficients()
   {
@@ -239,7 +238,8 @@ protected:
       reconstruction_shares;  ///< Map from id of node_i in complaints to a pair <parties which
   ///< exposed shares of node_i, the shares that were exposed>
 
-  
+  BaseDkg() = default;
+
   void AddReconstructionShare(CabinetIndex const &from_index,
                                            std::pair<CabinetIndex, Share> const &share) 
   {

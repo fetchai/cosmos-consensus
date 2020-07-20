@@ -12,8 +12,8 @@ func TestCryptoSign(t *testing.T) {
 	cabinetSize := uint(4)
 
 	directory := "test_keys/"
-	aeonExecUnit := NewAeonExecUnit(directory + "0.txt")
-	defer DeleteAeonExecUnit(aeonExecUnit)
+	aeonExecUnit := testAeonFromFile(directory + "0.txt")
+	defer deleteAeonExecUnit(aeonExecUnit)
 
 	assert.True(t, aeonExecUnit.CanSign())
 	message := "HelloWorld"
@@ -27,8 +27,8 @@ func TestCryptoSign(t *testing.T) {
 
 	// Create aeon keys for each cabinet member and entropy generators
 	for i := uint(1); i < cabinetSize; i++ {
-		aeonExecUnitTemp := NewAeonExecUnit(directory + strconv.Itoa(int(i)) + ".txt")
-		defer DeleteAeonExecUnit(aeonExecUnitTemp)
+		aeonExecUnitTemp := testAeonFromFile(directory + strconv.Itoa(int(i)) + ".txt")
+		defer deleteAeonExecUnit(aeonExecUnitTemp)
 
 		assert.True(t, aeonExecUnitTemp.CanSign())
 		signatureTemp := aeonExecUnitTemp.Sign(message)
@@ -43,8 +43,8 @@ func TestCryptoSign(t *testing.T) {
 }
 
 func TestCryptoNonValidator(t *testing.T) {
-	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
-	defer DeleteAeonExecUnit(aeonExecUnit)
+	aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
+	defer deleteAeonExecUnit(aeonExecUnit)
 
 	assert.False(t, aeonExecUnit.CanSign())
 }
@@ -147,7 +147,7 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	outputs := make([]AeonExecUnit, cabinetSize)
+	outputs := make([]aeonType, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllReconstructionShares())
@@ -173,4 +173,9 @@ func TestHonestDkg(t *testing.T) {
 		assert.True(t, outputs[index].VerifyGroupSignature(message, groupSig))
 	}
 
+}
+
+func testAeonFromFile(filename string) aeonType {
+	//Aeon type here must match those in key files
+	return NewBLSAeon(filename)
 }

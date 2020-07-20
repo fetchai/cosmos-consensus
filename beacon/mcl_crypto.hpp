@@ -171,7 +171,12 @@ static void SetGenerators(Generator &generator_g, Generator &generator_h,
 
 
 Signature Sign(std::string const &message, PrivateKey x_i);
+bool PairingVerify(const std::string &message, const mcl::Signature &sign, const mcl::GroupPublicKey &y, const mcl::GroupPublicKey &G);
 Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> const &shares);
+void ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
+                        std::vector<PrivateKey> const &b_i, CabinetIndex index);
+std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
+                                           std::vector<PrivateKey> const &b);
 
 struct DkgKeyInformation
 {
@@ -271,18 +276,6 @@ DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIn
 
   return output;
 }
-
-
-void ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
-                        std::vector<PrivateKey> const &b_i, CabinetIndex index);
-std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
-                                           std::vector<PrivateKey> const &b);
-
-
-/*
-bool      Verify(std::string const &message, Signature const &sign, PublicKey const &public_key,
-                 Generator const &G);
-                 */
 
 }  // namespace mcl
 }  // namespace beacon

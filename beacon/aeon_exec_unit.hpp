@@ -36,20 +36,16 @@ struct DKGKeyInformation {
   std::string group_public_key;
 };
 
-class AeonExecUnit {
+class BaseAeon {
 public:
   using MessagePayload     = std::string;
   using Signature          = std::string;
   using CabinetIndex       = uint32_t;
 
-  // Called externally in go
-  AeonExecUnit(std::string const &filename);
-  AeonExecUnit(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
-  // Constructor used beacon manager
-  AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
-
-  Signature Sign(MessagePayload const &message) const;
-  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const;
+  virtual ~BaseAeon() = default;
+  virtual Signature Sign(MessagePayload const &message) const = 0;
+  virtual bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const = 0;
+  
   Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature) const;
 
@@ -63,12 +59,28 @@ public:
   std::vector<CabinetIndex> Qual() const;
   std::string Generator() const;
 
-private:
+protected:
   DKGKeyInformation aeon_keys_;
   std::string generator_;
   std::set<CabinetIndex> qual_;
 
+ // Called externally in go
+  BaseAeon(std::string const &filename);
+  BaseAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
+  // Constructor used beacon manager
+  BaseAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
   void CheckKeys() const;
+};
+
+class BLSAeon : public BaseAeon {
+public:
+  BLSAeon(std::string const &filename);
+  BLSAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
+  // Constructor used beacon manager
+  BLSAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
+
+  Signature Sign(MessagePayload const &message) const override;
+  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const override;
 };
 
 }  // namespace crypto

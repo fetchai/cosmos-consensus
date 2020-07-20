@@ -300,7 +300,7 @@ void BlsDkg::ComputePublicKeys()
   }
 }
 
-AeonExecUnit BlsDkg::GetDkgOutput() const
+std::shared_ptr<BaseAeon> BlsDkg::GetDkgOutput() const
 {
   assert(qual_.size() != 0);
   auto output             = DKGKeyInformation();
@@ -310,8 +310,7 @@ AeonExecUnit BlsDkg::GetDkgOutput() const
   {
     output.public_key_shares.push_back(elem.ToString());
   }
-  AeonExecUnit aeon{GetGroupG().ToString(), output, qual_};
-  return aeon;
+  return std::make_shared<BLSAeon>(GetGroupG().ToString(), output, qual_);
 }
 
 BlsDkg::VerificationKey const &BlsDkg::GetGroupG() const

@@ -25,7 +25,9 @@
 namespace fetch {
 namespace beacon {
 
-class BlsDkg;
+// Choose implementation
+using DkgImplemention = class BlsDkg;
+using AeonExecUnit = BLSAeon;
 
 class BeaconSetupService
 {
@@ -86,8 +88,8 @@ private:
   QualComplaintsManager   qual_complaints_manager_;
 
     // Members below protected by mutex
-  mutable std::mutex             mutex_;
-  std::unique_ptr<BlsDkg> beacon_;
+  mutable std::mutex               mutex_;
+  std::unique_ptr<DkgImplemention> beacon_;
 
   // Counters for types of messages received
   std::set<CabinetIndex>                   shares_received_;

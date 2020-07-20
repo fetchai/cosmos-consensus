@@ -51,12 +51,12 @@ func beaconLogger() log.Logger {
 	}).With("module", "beacon")
 }
 
-func setCrypto(nValidators int) []AeonExecUnit {
+func setCrypto(nValidators int) []aeonType {
 	InitialiseMcl()
 
-	aeonExecUnits := make([]AeonExecUnit, nValidators)
+	aeonExecUnits := make([]aeonType, nValidators)
 	for i := 0; i < nValidators; i++ {
-		aeonExecUnits[i] = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(i)) + ".txt")
+		aeonExecUnits[i] = testAeonFromFile("test_keys/" + strconv.Itoa(int(i)) + ".txt")
 	}
 
 	return aeonExecUnits
@@ -102,12 +102,12 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
 	configRootDirs := make([]string, 0, nValidators)
-	aeonExecUnits := make([]AeonExecUnit, nValidators)
+	aeonExecUnits := make([]aeonType, nValidators)
 
 	if nValidators == 4 {
 		aeonExecUnits = setCrypto(nValidators)
 	} else if nValidators == 1 {
-		aeonExecUnits[0] = NewAeonExecUnit("test_keys/single_validator.txt")
+		aeonExecUnits[0] = testAeonFromFile("test_keys/single_validator.txt")
 	} else {
 		panic(fmt.Errorf("Invalid number of validators"))
 	}

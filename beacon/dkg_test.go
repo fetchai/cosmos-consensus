@@ -287,7 +287,7 @@ func TestDKGScenarios(t *testing.T) {
 // Test MaxDKGDataSize is large enough for the dry run messages for committee of size 200
 func TestDKGMessageMaxDataSize(t *testing.T) {
 	_, privVal := types.RandValidator(false, 10)
-	aeonExecUnit := NewAeonExecUnit("test_keys/200.txt")
+	aeonExecUnit := testAeonFromFile("test_keys/200.txt")
 	validators := types.ValidatorSet{Validators: make([]*types.Validator, 200)}
 	aeonKeys := aeonDetails{
 		validatorHeight: 0,

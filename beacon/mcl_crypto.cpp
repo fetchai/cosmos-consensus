@@ -178,6 +178,26 @@ Signature Sign(std::string const &message, PrivateKey x_i)
 }
 
 /**
+ * Verifies a signature
+ *
+ * @param y The public key (can be the group public key, or public key share)
+ * @param message Message that was signed
+ * @param sign Signature to be verified
+ * @param G Generator used in DKG
+ * @return
+ */
+bool PairingVerify(const std::string &message, const mcl::Signature &sign, const mcl::GroupPublicKey &y, const mcl::GroupPublicKey &G) 
+{
+  mcl::Pairing e1, e2;
+  mcl::Signature PH;
+  PH.HashAndMap(message);
+
+  e1.Map(sign, G);
+  e2.Map(PH, y);
+  return e1 == e2;
+}
+
+/**
  * Computes the group signature using the indices and signature shares of threshold_ + 1
  * parties
  *
