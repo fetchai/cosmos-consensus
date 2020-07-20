@@ -16,7 +16,7 @@
 //
 //------------------------------------------------------------------------------
 
-#include "beacon_manager.hpp"
+#include "bls_dkg.hpp"
 #include "beacon_setup_service.hpp"
 #include "logging.hpp"
 #include "serialisers.hpp"
@@ -39,7 +39,7 @@ BeaconSetupService::BeaconSetupService(Identifier cabinet_size, CabinetIndex thr
     return;
   }
 
-  beacon_ = std::make_unique<BeaconManager>();
+  beacon_ = std::make_unique<BlsDkg>();
   beacon_->NewCabinet(cabinet_size, threshold, index);
   complaints_manager_.ResetCabinet(index, threshold);
   complaint_answers_manager_.ResetCabinet();

@@ -94,13 +94,13 @@ void AeonExecUnit::CheckKeys() const {
     mcl::PrivateKey temp_private_key;
     assert(temp_private_key.FromString(aeon_keys_.private_key));
   }
-  mcl::PublicKey temp_group_key;
+  mcl::GroupPublicKey temp_group_key;
   assert(temp_group_key.FromString(aeon_keys_.group_public_key));
   for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
-     mcl::PublicKey temp_key_share;
+     mcl::GroupPublicKey temp_key_share;
      assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
   }
-  mcl::Generator generator;
+  mcl::GroupPublicKey generator;
   assert(generator.FromString(generator_));
 }
 
@@ -116,9 +116,29 @@ AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) const 
      assert(CanSign());
      return Signature{};
   }
-  mcl::PrivateKey x_i{aeon_keys_.private_key};
-  return mcl::Sign(message, x_i).getStr();
+  mcl::PrivateKey x_i;
+  x_i.FromString(aeon_keys_.private_key);
+  return mcl::Sign(message, x_i).ToString();
 }
+
+  /**
+ * Verifies a signature
+ *
+ * @param y The public key (can be the group public key, or public key share)
+ * @param message Message that was signed
+ * @param sign Signature to be verified
+ * @param G Generator used in DKG
+ * @return
+ */
+  bool PairingVerify(const AeonExecUnit::MessagePayload &message, const mcl::Signature &sign, const mcl::GroupPublicKey &y, const mcl::GroupPublicKey &G) {
+    mcl::Pairing e1, e2;
+    mcl::Signature PH;
+    PH.HashAndMap(message);
+
+    e1.Map(sign, G);
+    e2.Map(PH, y);
+    return e1 == e2;
+  }
 
 /**
  * Verifies a signature
@@ -132,11 +152,14 @@ AeonExecUnit::Signature AeonExecUnit::Sign(MessagePayload const &message) const 
 bool
 AeonExecUnit::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
   assert(sender < aeon_keys_.public_key_shares.size());
-  mcl::Signature signature{sign};
-  mcl::PublicKey public_key{aeon_keys_.public_key_shares[sender]};
-  mcl::Generator generator{generator_};
+  mcl::Signature signature;
+  mcl::GroupPublicKey public_key{};
+  mcl::GroupPublicKey generator;
 
-  return mcl::Verify(message, signature, public_key, generator);
+  signature.FromString(sign);
+  public_key.FromString(aeon_keys_.public_key_shares[sender]);
+  generator.FromString(generator_);
+  return PairingVerify(message, signature, public_key, generator);
 }
 
 AeonExecUnit::Signature
@@ -144,20 +167,24 @@ AeonExecUnit::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &sh
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
     assert(share.first < aeon_keys_.public_key_shares.size());
-    mcl::Signature sig{share.second};
+    mcl::Signature sig;
+    sig.FromString(share.second);
     signature_shares.insert({share.first, sig});
   }
 
   mcl::Signature group_sig = mcl::LagrangeInterpolation(signature_shares);
-  return group_sig.getStr();
+  return group_sig.ToString();
 }
 
 bool AeonExecUnit::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) const {
-  mcl::Signature signature{sign};
-  mcl::PublicKey public_key{aeon_keys_.group_public_key};
-  mcl::Generator generator{generator_};
+  mcl::Signature signature;
+  mcl::GroupPublicKey public_key;
+  mcl::GroupPublicKey generator;
 
-  return mcl::Verify(message, signature, public_key, generator);
+  signature.FromString(sign);
+  public_key.FromString(aeon_keys_.group_public_key);
+  generator.FromString(generator_);
+  return PairingVerify(message, signature, public_key, generator);
 }
 
 bool AeonExecUnit::CanSign() const {
@@ -168,8 +195,11 @@ bool AeonExecUnit::CheckIndex(CabinetIndex index) const {
   if (index >= aeon_keys_.public_key_shares.size()) {
     return false;
   }
-  mcl::PrivateKey private_key{aeon_keys_.private_key};
-  mcl::PublicKey public_key{aeon_keys_.public_key_shares[index]};
+  mcl::PrivateKey private_key;
+  mcl::GroupPublicKey public_key;
+
+  private_key.FromString(aeon_keys_.private_key);
+  public_key.FromString(aeon_keys_.public_key_shares[index]);
 
   auto test_message = "Test";
   auto sig = Sign(test_message);

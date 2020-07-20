@@ -25,7 +25,7 @@
 namespace fetch {
 namespace beacon {
 
-class BeaconManager;
+class BlsDkg;
 
 class BeaconSetupService
 {
@@ -87,7 +87,7 @@ private:
 
     // Members below protected by mutex
   mutable std::mutex             mutex_;
-  std::unique_ptr<BeaconManager> beacon_;
+  std::unique_ptr<BlsDkg> beacon_;
 
   // Counters for types of messages received
   std::set<CabinetIndex>                   shares_received_;
