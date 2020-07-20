@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/tempfile"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -169,7 +169,7 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 	if err != nil {
 		panic(err)
 	}
-	err = cmn.WriteFileAtomic(outFile, jsonBytes, 0600)
+	err = tempfile.WriteFileAtomic(outFile, jsonBytes, 0600)
 	if err != nil {
 		panic(err)
 	}

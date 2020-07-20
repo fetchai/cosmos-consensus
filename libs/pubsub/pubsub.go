@@ -41,7 +41,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/tendermint/tendermint/libs/service"
-	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 type operation int

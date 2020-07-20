@@ -14,7 +14,7 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
@@ -35,7 +35,7 @@ var config *cfg.Config
 type cleanupFunc func()
 
 func ensureDir(dir string, mode os.FileMode) {
-	if err := cmn.EnsureDir(dir, mode); err != nil {
+	if err := tmos.EnsureDir(dir, mode); err != nil {
 		panic(err)
 	}
 }

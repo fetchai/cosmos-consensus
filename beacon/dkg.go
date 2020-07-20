@@ -8,7 +8,8 @@ import (
 	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	bits "github.com/tendermint/tendermint/libs/bits"
+	"github.com/tendermint/tendermint/libs/service"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/types"
 )
@@ -74,7 +75,7 @@ func dkgID(validatorHeight int64) int64 {
 // Empty keys are dispatched for the duration of the dkg [dkgStart, dkgEnd + 1] to allow trivial entropy generation
 // if no current keys exist.
 type DistributedKeyGeneration struct {
-	cmn.BaseService
+	service.BaseService
 	mtx sync.RWMutex
 
 	config       *cfg.BeaconConfig
@@ -100,7 +101,7 @@ type DistributedKeyGeneration struct {
 
 	dryRunKeys       map[string]DKGOutput
 	dryRunSignatures map[string]map[string]string
-	dryRunCount      *cmn.BitArray
+	dryRunCount      *bits.BitArray
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
@@ -133,12 +134,12 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		currentState:         dkgStart,
 		dryRunKeys:           make(map[string]DKGOutput),
 		dryRunSignatures:     make(map[string]map[string]string),
-		dryRunCount:          cmn.NewBitArray(vals.Size()),
+		dryRunCount:          bits.NewBitArray(vals.Size()),
 		encryptionKey:        dhKey,
 		encryptionPublicKeys: make(map[uint][]byte),
 		metrics:              NopMetrics(),
 	}
-	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
+	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
 	if dkg.index() < 0 {
 		dkg.Logger.Debug("startNewDKG: not in validators", "height", dkg.validatorHeight)
@@ -265,7 +266,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.encryptionPublicKeys = make(map[uint][]byte)
 	dkg.dryRunKeys = make(map[string]DKGOutput)
 	dkg.dryRunSignatures = make(map[string]map[string]string)
-	dkg.dryRunCount = cmn.NewBitArray(dkg.validators.Size())
+	dkg.dryRunCount = bits.NewBitArray(dkg.validators.Size())
 	dkg.aeonKeys = nil
 	return nil
 }

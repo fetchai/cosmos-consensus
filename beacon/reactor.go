@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	bits "github.com/tendermint/tendermint/libs/bits"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
@@ -345,7 +345,7 @@ type PeerState struct {
 	mtx sync.Mutex // NOTE: Modify below using setters, never directly.
 
 	// Keep track of entropy shares for each block height
-	entropyShares             map[int64]*cmn.BitArray
+	entropyShares             map[int64]*bits.BitArray
 	lastComputedEntropyHeight int64
 }
 
@@ -354,7 +354,7 @@ func NewPeerState(peer p2p.Peer) *PeerState {
 	return &PeerState{
 		peer:                      peer,
 		logger:                    log.NewNopLogger(),
-		entropyShares:             make(map[int64]*cmn.BitArray),
+		entropyShares:             make(map[int64]*bits.BitArray),
 		lastComputedEntropyHeight: types.GenesisHeight,
 	}
 }
@@ -445,7 +445,7 @@ func (ps *PeerState) hasEntropyShare(height int64, index int, numValidators int)
 
 	// Make sure bit array is initialised
 	if ps.entropyShares[height] == nil {
-		ps.entropyShares[height] = cmn.NewBitArray(numValidators)
+		ps.entropyShares[height] = bits.NewBitArray(numValidators)
 	}
 
 	ps.entropyShares[height].SetIndex(index, true)

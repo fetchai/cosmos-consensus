@@ -23,7 +23,6 @@ import (
 	math_rand "math/rand"
 	testing "testing"
 	time "time"
-	_ "github.com/tendermint/tendermint/libs/common"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

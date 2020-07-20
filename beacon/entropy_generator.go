@@ -8,7 +8,7 @@ import (
 
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/service"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
@@ -24,7 +24,7 @@ const (
 // keys for the current block height from the dkg - including for trivial entropy periods, for which the
 // dkg sends an empty set of keys.
 type EntropyGenerator struct {
-	cmn.BaseService
+	service.BaseService
 
 	mtx sync.RWMutex
 
@@ -80,7 +80,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		metrics:                   NopMetrics(),
 	}
 
-	es.BaseService = *cmn.NewBaseService(nil, "EntropyGenerator", es)
+	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
 	return es
 }
 
