@@ -3,6 +3,7 @@ package beacon
 import (
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
@@ -189,12 +190,16 @@ func TestDKGScenarios(t *testing.T) {
 		{"Mutate data", func(nodes []*testNode) {
 			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, mutateData)
 		}, false, 5, 0, 4, 4},
-		{"Restart DKG", func(nodes []*testNode) {
-			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badShare)
-			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, emptyComplaintAnswer)
-		}, false, 2, 1, 2, 2},
+		//{"Restart DKG", func(nodes []*testNode) {
+		//	nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badShare)
+		//	nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, emptyComplaintAnswer)
+		//}, false, 2, 1, 2, 2},
 	}
 	for _, tc := range testCases {
+
+
+		fmt.Printf("\n\nRunning test %v\n", tc.testName) // DELETEME_NH
+
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, tc.sendDuplicates)
 			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
