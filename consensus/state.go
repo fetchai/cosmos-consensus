@@ -1877,12 +1877,14 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 		cs.metrics.BlockWithEntropy.Set(float64(1))
 	}
 
-	ourPubkey, _ := cs.privValidator.GetPubKey()
-	// If we noticed we failed to produce a block when we should have
-	if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, ourPubkey.Address()) {
-		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
-	} else {
-		cs.metrics.NumBlockProducer.Add(float64(cs.isProposerForHeight))
+	if cs.privValidator != nil {
+		ourPubkey, _ := cs.privValidator.GetPubKey()
+		// If we noticed we failed to produce a block when we should have
+		if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, ourPubkey.Address()) {
+			cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
+		} else {
+			cs.metrics.NumBlockProducer.Add(float64(cs.isProposerForHeight))
+		}
 	}
 	cs.isProposerForHeight = 0
 }
