@@ -8,15 +8,11 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-type aeonType = BaseAeon
-
-func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, qual IntVector) aeonType {
+func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, qual IntVector) BaseAeon {
 	switch keyType {
-	case "BaseAeon":
-		panic("Returned base aeon")
-	case "BlsAeon":
+	case GetBLS_AEON():
 		return NewBlsAeon(generator, keys, qual)
-	case "GlowAeon":
+	case GetGLOW_AEON():
 		return NewGlowAeon(generator, keys, qual)
 	default:
 		panic(fmt.Errorf("Unknown type %v", keyType))
@@ -29,7 +25,7 @@ type aeonDetails struct {
 	validatorHeight int64 // Height at which validator set obtained
 	validators      *types.ValidatorSet
 	threshold       int
-	aeonExecUnit    aeonType
+	aeonExecUnit    BaseAeon
 	// start and end are inclusive
 	Start int64
 	End   int64
@@ -62,7 +58,7 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
 func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
-	validators *types.ValidatorSet, aeonKeys aeonType,
+	validators *types.ValidatorSet, aeonKeys BaseAeon,
 	startHeight int64, endHeight int64) (*aeonDetails, error) {
 	if valHeight <= 0 {
 		panic(fmt.Errorf("aeonDetails in validator height less than 1"))

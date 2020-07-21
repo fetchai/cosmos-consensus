@@ -24,10 +24,6 @@
 namespace fetch {
 namespace beacon {
 
-const std::string BASE_AEON = "BaseAeon";  
-const std::string BLS_AEON  = "BlsAeon";
-const std::string GLOW_AEON = "GlowAeon";
-
 void InitialiseMcl() {
   mcl::details::MCLInitialiser();
 }
@@ -140,13 +136,10 @@ std::string BaseAeon::Generator() const {
   return generator_;
 }
 
-std::string BaseAeon::Name() const{
-  return BASE_AEON;
-}
-
 BlsAeon::BlsAeon(std::string const &filename): BaseAeon{filename}{
    CheckKeys();
 }
+
 BlsAeon::BlsAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual)
 : BaseAeon{keys, qual} {
   generator_ = generator;

@@ -27,6 +27,9 @@
 
 namespace fetch {
 namespace beacon {
+ 
+const std::string BLS_AEON  = "BlsAeon";
+const std::string GLOW_AEON = "GlowAeon";
 
 void InitialiseMcl();
 
@@ -47,6 +50,7 @@ public:
   virtual bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const = 0;
   virtual bool CheckIndex(CabinetIndex index) const = 0;
   virtual Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const = 0;
+  virtual std::string Name() const = 0;
 
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature) const;
 
@@ -58,7 +62,6 @@ public:
   std::vector<std::string> PublicKeyShares() const;
   std::vector<CabinetIndex> Qual() const;
   virtual std::string Generator() const;
-  virtual std::string Name() const;
 
 protected:
   DKGKeyInformation aeon_keys_;

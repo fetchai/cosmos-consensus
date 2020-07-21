@@ -51,10 +51,10 @@ func beaconLogger() log.Logger {
 	}).With("module", "beacon")
 }
 
-func setCrypto(nValidators int) []aeonType {
+func setCrypto(nValidators int) []BaseAeon {
 	InitialiseMcl()
 
-	aeonExecUnits := make([]aeonType, nValidators)
+	aeonExecUnits := make([]BaseAeon, nValidators)
 	for i := 0; i < nValidators; i++ {
 		aeonExecUnits[i] = testAeonFromFile("test_keys/" + strconv.Itoa(int(i)) + ".txt")
 	}
@@ -102,7 +102,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
 	configRootDirs := make([]string, 0, nValidators)
-	aeonExecUnits := make([]aeonType, nValidators)
+	aeonExecUnits := make([]BaseAeon, nValidators)
 
 	if nValidators == 4 {
 		aeonExecUnits = setCrypto(nValidators)

@@ -144,7 +144,7 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	outputs := make([]aeonType, cabinetSize)
+	outputs := make([]BaseAeon, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllReconstructionShares())
@@ -172,7 +172,7 @@ func TestHonestDkg(t *testing.T) {
 
 }
 
-func testAeonFromFile(filename string) aeonType {
+func testAeonFromFile(filename string) BaseAeon {
 	//Aeon type here must match those in key files
 	return NewBlsAeon(filename)
 }
