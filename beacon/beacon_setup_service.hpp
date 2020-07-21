@@ -27,7 +27,7 @@ namespace beacon {
 
 // Choose implementation
 using DkgImplemention = class BlsDkg;
-using AeonExecUnit = BLSAeon;
+using AeonExecUnit = BlsAeon;
 
 class BeaconSetupService
 {

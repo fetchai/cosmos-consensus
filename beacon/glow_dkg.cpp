@@ -16,7 +16,7 @@
 //
 //------------------------------------------------------------------------------
 
-#include "bls_dkg.hpp"
+#include "glow_dkg.hpp"
 
 #include <memory>
 #include <mutex>
@@ -32,10 +32,11 @@ class CurveParameters
 private:
   struct Params
   {
-    BlsDkg::PrivateKey zeroFr_{};
+    GlowDkg::PrivateKey zeroFr_{};
 
-    BlsDkg::VerificationKey group_g_{};
-    BlsDkg::VerificationKey group_h_{};
+    GlowDkg::VerificationKey group_g_{};
+    GlowDkg::VerificationKey group_h_{};
+    GlowDkg::GroupPublicKey generator_g2_{};
   };
 
   std::unique_ptr<Params> params_;
@@ -48,25 +49,32 @@ public:
   CurveParameters(CurveParameters &&)      = delete;
   ~CurveParameters()                       = default;
 
-  BlsDkg::PrivateKey const &GetZeroFr()
+  GlowDkg::PrivateKey const &GetZeroFr()
   {
     EnsureInitialised();
     std::lock_guard<std::mutex> lock(mutex_);
     return params_->zeroFr_;
   }
 
-  BlsDkg::VerificationKey const &GetGroupG()
+  GlowDkg::VerificationKey const &GetGroupG()
   {
     EnsureInitialised();
     std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_g_;
   }
 
-  BlsDkg::VerificationKey const &GetGroupH()
+  GlowDkg::VerificationKey const &GetGroupH()
   {
     EnsureInitialised();
     std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_h_;
+  }
+
+  GlowDkg::GroupPublicKey const &GetGeneratorG2()
+  {
+    EnsureInitialised();
+    std::lock_guard<std::mutex> lock(mutex_);
+    return params_->generator_g2_;
   }
 
   void EnsureInitialised()
@@ -76,6 +84,7 @@ public:
     {
       params_ = std::make_unique<Params>();
       beacon::mcl::SetGenerators(params_->group_g_, params_->group_h_);
+      beacon::mcl::SetGenerator(params_->generator_g2_);
     }
   }
 
@@ -88,12 +97,12 @@ CurveParameters curve_params_{};
 
 }  // namespace
 
-BlsDkg::BlsDkg()
+GlowDkg::GlowDkg()
 {
   curve_params_.EnsureInitialised();
 }
 
-void BlsDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) {
+void GlowDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) {
   assert(threshold > 0);
   this->cabinet_size_      = cabinet_size;
   this->polynomial_degree_ = threshold - 1;
@@ -107,13 +116,14 @@ void BlsDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabin
   mcl::Init(this->C_ik_, cabinet_size_, polynomial_degree_ + 1);
   mcl::Init(this->A_ik_, cabinet_size_, polynomial_degree_ + 1);
   mcl::Init(this->g__s_ij_, cabinet_size_, cabinet_size_);
-  mcl::Init(this->g__a_i_, polynomial_degree_ + 1);
+  mcl::Init(a_i_, this->polynomial_degree_ + 1);
+  mcl::Init(B_i_, this->cabinet_size_);
 
   this->qual_.clear();
   this->reconstruction_shares.clear();
 }
 
-void BlsDkg::GenerateCoefficients()
+void GlowDkg::GenerateCoefficients()
 {
   std::vector<PrivateKey> a_i(polynomial_degree_ + 1, GetZeroFr());
   std::vector<PrivateKey> b_i(polynomial_degree_ + 1, GetZeroFr());
@@ -126,7 +136,7 @@ void BlsDkg::GenerateCoefficients()
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
     this->C_ik_[cabinet_index_][k] =
-        mcl::ComputeLHS(g__a_i_[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
+        mcl::ComputeLHS(GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
   }
 
   for (CabinetIndex l = 0; l < cabinet_size_; l++)
@@ -135,27 +145,41 @@ void BlsDkg::GenerateCoefficients()
   }
 }
 
-std::vector<BlsDkg::Coefficient> BlsDkg::GetQualCoefficients()
+std::vector<GlowDkg::Coefficient> GlowDkg::GetQualCoefficients()
 {
-  std::vector<Coefficient> coefficients;
-  for (std::size_t k = 0; k <= polynomial_degree_; k++)
-  {
-    this->A_ik_[cabinet_index_][k] = g__a_i_[k];
+  std::vector<Coefficient> coefficients;  
+  B_i_[cabinet_index_].Mult(GetGeneratorG2(), a_i_[0]);
+
+  // Make first element in coefficients message B_i_
+  coefficients.push_back(B_i_[cabinet_index_].ToString());
+
+  // Now add later coefficients
+  for (size_t k = 0; k <= this->polynomial_degree_; k++) {
+    this->A_ik_[cabinet_index_][k].Mult(GetGroupG(), a_i_[k]);
     coefficients.push_back(this->A_ik_[cabinet_index_][k].ToString());
   }
+
   return coefficients;
 }
 
-void BlsDkg::AddQualCoefficients(CabinetIndex const &            from_index,
+void GlowDkg::AddQualCoefficients(CabinetIndex const &            from_index,
                                         std::vector<Coefficient> const &coefficients)
 {
-  if (coefficients.size() != this->polynomial_degree_ + 1)
+  if (coefficients.size() != this->polynomial_degree_ + 2)
   {
     return;
   }
-  for (CabinetIndex i = 0; i <= this->polynomial_degree_; ++i)
+
+  for (CabinetIndex i = 0; i <= coefficients.size(); ++i)
   {
-    this->A_ik_[from_index][i].FromString(coefficients[i]);
+    if (i == 0) 
+    {
+        B_i_[from_index].FromString(coefficients[i]);
+    } 
+    else 
+    {
+      this->A_ik_[from_index][i-1].FromString(coefficients[i]);
+    }
   }
 }
 
@@ -165,7 +189,7 @@ void BlsDkg::AddQualCoefficients(CabinetIndex const &            from_index,
  *
  * @return Map of address and pair of secret shares for each qual member we wish to complain against
  */
-BlsDkg::SharesExposedMap BlsDkg::ComputeQualComplaints(
+GlowDkg::SharesExposedMap GlowDkg::ComputeQualComplaints(
     std::set<CabinetIndex> const &coeff_received) const
 {
   SharesExposedMap qual_complaints;
@@ -180,23 +204,26 @@ BlsDkg::SharesExposedMap BlsDkg::ComputeQualComplaints(
         VerificationKey lhs;
         lhs = this->g__s_ij_[i][cabinet_index_];
         rhs = mcl::ComputeRHS(cabinet_index_, this->A_ik_[i]);
-        if (lhs != rhs || rhs.isZero())
+        if (lhs == rhs && !lhs.isZero())
         {
-          qual_complaints.insert(
-              {i, {this->s_ij_[i][cabinet_index_].ToString(), this->sprime_ij_[i][cabinet_index_].ToString()}});
+          mcl::Pairing e1, e2;
+          e1.Map(GetGroupG(), B_i_[i]);
+          e2.Map(this->A_ik_[i][0], GetGeneratorG2());
+          if (e1 == e2)
+          {
+            // All checks passed and not added to complaints
+            continue;
+          }
         }
       }
-      else
-      {
-        qual_complaints.insert(
+      qual_complaints.insert(
             {i, {this->s_ij_[i][cabinet_index_].ToString(), this->sprime_ij_[i][cabinet_index_].ToString()}});
-      }
     }
   }
   return qual_complaints;
 }
 
-BlsDkg::CabinetIndex BlsDkg::VerifyQualComplaint(CabinetIndex const &   from_index,
+GlowDkg::CabinetIndex GlowDkg::VerifyQualComplaint(CabinetIndex const &   from_index,
                                                                ComplaintAnswer const &answer)
 {
   CabinetIndex victim_index = answer.first;
@@ -215,7 +242,10 @@ BlsDkg::CabinetIndex BlsDkg::VerifyQualComplaint(CabinetIndex const &   from_ind
 
   lhs.Mult(GetGroupG(), s);  // G^s
   rhs = mcl::ComputeRHS(from_index, this->A_ik_[victim_index]);
-  if (lhs != rhs || rhs.isZero())
+  mcl::Pairing e1, e2;
+  e1.Map(GetGroupG(), B_i_[victim_index]);
+  e2.Map(this->A_ik_[victim_index][0], GetGeneratorG2());
+  if (rhs.isZero() || lhs != rhs || e1 != e2)
   {
     return answer.first;
   }
@@ -229,7 +259,7 @@ BlsDkg::CabinetIndex BlsDkg::VerifyQualComplaint(CabinetIndex const &   from_ind
  *
  * @return Bool for whether reconstruction from shares was successful
  */
-bool BlsDkg::RunReconstruction()
+bool GlowDkg::RunReconstruction()
 {
   std::vector<std::vector<PrivateKey>> a_ik;
   a_ik.resize(static_cast<CabinetIndex>(this->cabinet_size_));
@@ -260,6 +290,7 @@ bool BlsDkg::RunReconstruction()
     {
       this->A_ik_[victim_index][k].Mult(GetGroupG(), a_ik[victim_index][k]);
     }
+    B_i_[victim_index].Mult(GetGeneratorG2(), a_ik[victim_index][0]);
   }
   return true;
 }
@@ -267,20 +298,12 @@ bool BlsDkg::RunReconstruction()
 /**
  * Compute group public key and individual public key shares
  */
-void BlsDkg::ComputePublicKeys()
+void GlowDkg::ComputePublicKeys()
 {
-  std::vector<VerificationKey> y_i;
-  mcl::Init(y_i, this->cabinet_size_);
   this->public_key_.clear();
-  // For all parties in $QUAL$, set $y_i = A_{i0}
   for (auto const &it : qual_)
   {
-    y_i[it] = this->A_ik_[it][0];
-  }
-  // Compute public key $y = \prod_{i \in QUAL} y_i \bmod p$
-  for (auto const &it : qual_)
-  {
-    this->public_key_.Add(this->public_key_, y_i[it]);
+    this->public_key_.Add(this->public_key_, B_i_[it]);
   }
   // Compute public_key_shares_ $v_j = \prod_{i \in QUAL} \prod_{k=0}^t (A_{ik})^{j^k} \bmod
   // p$
@@ -300,7 +323,7 @@ void BlsDkg::ComputePublicKeys()
   }
 }
 
-std::shared_ptr<BaseAeon> BlsDkg::GetDkgOutput() const
+std::shared_ptr<BaseAeon> GlowDkg::GetDkgOutput() const
 {
   assert(qual_.size() != 0);
   auto output             = DKGKeyInformation();
@@ -310,20 +333,25 @@ std::shared_ptr<BaseAeon> BlsDkg::GetDkgOutput() const
   {
     output.public_key_shares.push_back(elem.ToString());
   }
-  return std::make_shared<BlsAeon>(GetGroupG().ToString(), output, qual_);
+  return std::make_shared<GlowAeon>(GetGeneratorG2().ToString(), GetGroupG().ToString(), output, qual_, cabinet_index_);
 }
 
-BlsDkg::VerificationKey const &BlsDkg::GetGroupG() const
+GlowDkg::GroupPublicKey const &GlowDkg::GetGeneratorG2() const
+{
+  return curve_params_.GetGeneratorG2();
+}
+
+GlowDkg::VerificationKey const &GlowDkg::GetGroupG() const
 {
   return curve_params_.GetGroupG();
 }
 
-BlsDkg::VerificationKey const &BlsDkg::GetGroupH() const
+GlowDkg::VerificationKey const &GlowDkg::GetGroupH() const
 {
   return curve_params_.GetGroupH();
 }
 
-BlsDkg::PrivateKey const &BlsDkg::GetZeroFr() const
+GlowDkg::PrivateKey const &GlowDkg::GetZeroFr() const
 {
   return curve_params_.GetZeroFr();
 }

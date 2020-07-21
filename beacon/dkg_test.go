@@ -269,7 +269,7 @@ func TestDKGScenarios(t *testing.T) {
 				signature := outputs[index].aeonExecUnit.Sign(message)
 				for index1 := 0; index1 < nTotal; index1++ {
 					if index != index1 {
-						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())))
+						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())).GetFirst())
 					}
 				}
 				sigShares.Set(uint(node.dkg.index()), signature)

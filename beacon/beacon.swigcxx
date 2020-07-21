@@ -13,11 +13,13 @@ using namespace fetch::beacon;
 %include "std_vector.i"
 %include "stdint.i"
 %include "std_map.i"
+%include "std_pair.i"
 
 namespace std {
  %template(StringVector) vector<string>;
  %template(IntStringMap) map<uint32_t, string>;
  %template(IntVector) vector<uint32_t>;
+ %template(BoolStringPair) pair<bool, string>;
 }
 
 %include "aeon_exec_unit.hpp"

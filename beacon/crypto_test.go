@@ -18,7 +18,9 @@ func TestCryptoSign(t *testing.T) {
 	assert.True(t, aeonExecUnit.CanSign())
 	message := "HelloWorld"
 	signature := aeonExecUnit.Sign(message)
-	assert.True(t, aeonExecUnit.Verify(message, signature, uint(0)))
+	checkAndSig := aeonExecUnit.Verify(message, signature, uint(0))
+	assert.True(t, checkAndSig.GetFirst())
+	assert.Equal(t, signature, checkAndSig.GetSecond())
 
 	// Collect signatures in map
 	signatureShares := NewIntStringMap()
@@ -33,7 +35,7 @@ func TestCryptoSign(t *testing.T) {
 		assert.True(t, aeonExecUnitTemp.CanSign())
 		signatureTemp := aeonExecUnitTemp.Sign(message)
 		assert.True(t, len([]byte(signatureTemp)) <= types.MaxEntropyShareSize)
-		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i))
+		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i).GetFirst())
 
 		signatureShares.Set(i, signatureTemp)
 	}
@@ -163,7 +165,7 @@ func TestHonestDkg(t *testing.T) {
 		signature := outputs[index].Sign(message)
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
 			if index != index1 {
-				assert.True(t, outputs[index1].Verify(message, signature, index))
+				assert.True(t, outputs[index1].Verify(message, signature, index).GetFirst())
 			}
 		}
 		sigShares.Set(index, signature)
@@ -177,5 +179,5 @@ func TestHonestDkg(t *testing.T) {
 
 func testAeonFromFile(filename string) aeonType {
 	//Aeon type here must match those in key files
-	return NewBLSAeon(filename)
+	return NewBlsAeon(filename)
 }

@@ -22,17 +22,17 @@
 namespace fetch {
 namespace beacon {
 
-class BlsDkg : public BaseDkg<mcl::GroupPublicKey> {
+class GlowDkg : public BaseDkg<mcl::Signature> {
 public:
-  using Base = BaseDkg<mcl::GroupPublicKey>;
+  using Base = BaseDkg<mcl::Signature>;
   using PrivateKey = Base::PrivateKey;
   using Signature = Base::Signature;
   using GroupPublicKey = Base::GroupPublicKey;
   using VerificationKey = Base::VerificationKey;
   using MessagePayload = std::string;
 
-  BlsDkg();
-  ~BlsDkg() = default;
+  GlowDkg();
+  ~GlowDkg() = default;
 
   void NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) override;
   void GenerateCoefficients() override;
@@ -45,8 +45,10 @@ public:
   std::shared_ptr<BaseAeon> GetDkgOutput() const override;
 
 private:
-  std::vector<VerificationKey> g__a_i_;
+  std::vector<PrivateKey> a_i_;
+  std::vector<GroupPublicKey> B_i_;
 
+  GroupPublicKey const & GetGeneratorG2() const;
   VerificationKey const & GetGroupG() const override;
   VerificationKey const & GetGroupH() const override;
   PrivateKey const &GetZeroFr() const override;

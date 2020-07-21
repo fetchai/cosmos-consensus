@@ -197,6 +197,46 @@ bool PairingVerify(const std::string &message, const mcl::Signature &sign, const
   return e1 == e2;
 }
 
+Proof ComputeProof(const Signature &G, const std::string &message, const Signature &y, const Signature &sig, const PrivateKey &x) {
+  Signature PH;
+  PH.HashAndMap(message);
+
+  PrivateKey r;
+  r.Random();
+  Signature com1, com2;
+  com1.Mult(G, r);
+  com2.Mult(PH, r);
+
+  Proof pi;
+  pi.first.SetHashOf(G, PH, y, sig, com1, com2);
+  PrivateKey localVar;
+  localVar.Mult(x, pi.first);
+  pi.second.Add(r, localVar);
+  return pi;
+}
+
+bool VerifyProof(const Signature &y, const std::string &message, const Signature &sign, const Signature &G,
+                     const Proof &proof) 
+{
+  Signature PH;
+  PH.HashAndMap(message);
+
+  Signature tmp, c1, c2;
+  PrivateKey tmps;
+  tmps.Negate(proof.first);
+  c1.Mult(G, proof.second);
+  tmp.Mult(y, tmps);
+  c1.Add(c1, tmp);
+  c2.Mult(PH, proof.second);
+  tmp.Mult(sign, tmps);
+  c2.Add(c2, tmp);
+
+  PrivateKey ch_cmp;
+  ch_cmp.SetHashOf(G, PH, y, sign, c1, c2);
+
+  return proof.first == ch_cmp;
+}
+
 /**
  * Computes the group signature using the indices and signature shares of threshold_ + 1
  * parties

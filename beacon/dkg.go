@@ -627,8 +627,9 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 		if index < 0 {
 			continue
 		}
-		if tempKeys.aeonExecUnit.Verify(encodedOutput, signature, uint(index)) {
-			signatureShares.Set(uint(index), signature)
+		checkAndSig := tempKeys.aeonExecUnit.Verify(encodedOutput, signature, uint(index))
+		if checkAndSig.GetFirst() {
+			signatureShares.Set(uint(index), checkAndSig.GetSecond())
 		}
 	}
 

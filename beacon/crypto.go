@@ -7,12 +7,12 @@ package beacon
 import "C"
 
 // Needs to match settings in beacon_setup_service.hpp
-type aeonType = BLSAeon
+type aeonType = BlsAeon
 
 func newAeonExecUnit(generator string, keys DKGKeyInformation, qual IntVector) aeonType {
-	return NewBLSAeon(generator, keys, qual)
+	return NewBlsAeon(generator, keys, qual)
 }
 
 func deleteAeonExecUnit(aeon aeonType) {
-	DeleteBLSAeon(aeon)
+	DeleteBlsAeon(aeon)
 }

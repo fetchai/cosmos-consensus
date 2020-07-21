@@ -172,6 +172,8 @@ static void SetGenerators(Generator &generator_g, Generator &generator_h,
 
 Signature Sign(std::string const &message, PrivateKey x_i);
 bool PairingVerify(const std::string &message, const mcl::Signature &sign, const mcl::GroupPublicKey &y, const mcl::GroupPublicKey &G);
+Proof ComputeProof(const Signature &G, const std::string &message, const Signature &y, const Signature &sig, const PrivateKey &x);
+bool VerifyProof(const Signature &y, const std::string &message, const Signature &sign, const Signature &G, const Proof &proof);
 Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> const &shares);
 void ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
                         std::vector<PrivateKey> const &b_i, CabinetIndex index);

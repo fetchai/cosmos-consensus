@@ -307,7 +307,8 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 	// Verify share
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-	if !entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index)) {
+	checkAndSig := entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index))
+	if !checkAndSig.GetFirst() {
 		entropyGenerator.Logger.Error("applyEntropyShare: invalid entropy share", "height", share.Height,
 			"lastComputedEntropyHeight", entropyGenerator.lastComputedEntropyHeight, "lastBlockHeight",
 			entropyGenerator.lastBlockHeight, "validator", share.SignerAddress, "index", index)
@@ -319,7 +320,10 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 		entropyGenerator.entropyShares[share.Height] = make(map[uint]types.EntropyShare)
 	}
 
-	entropyGenerator.entropyShares[share.Height][uint(index)] = share.Copy()
+	// Necessary to accommodate glow drb case
+	newShare := share.Copy()
+	newShare.SignatureShare = checkAndSig.GetSecond()
+	entropyGenerator.entropyShares[share.Height][uint(index)] = newShare
 	return
 }
 
