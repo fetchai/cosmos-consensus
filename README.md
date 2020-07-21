@@ -31,17 +31,7 @@ This creates genesis and validator information. To start the node
 ```
 The logs should show the node running the DKG and executing blocks, which contain the entropy in hex format after DKG completion.
 
-For creating testnet with 4 validator nodes first build the trusted dealer executable
-```bash
-cd beacon/beacon_cpp && \
-	rm -Rf build && \
-	mkdir build && \
-	cd build && \
-	cmake ../.. && \ 
-	make TrustedDealer && \ 
-	cd ../..
-```
-Now run
+For creating testnet with 4 validator nodes run
 ```bash
 ./tendermint testnet
 ```
