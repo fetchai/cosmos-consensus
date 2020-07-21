@@ -131,7 +131,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		_, privVal := types.RandValidator(false, 30)
 		aeonExecUnitInvalid := testAeonFromFile("test_keys/" + strconv.Itoa(int(3)) + ".txt")
 		message := string(tmhash.Sum(newGen.entropyComputed[1]))
-		signature := aeonExecUnitInvalid.Sign(message)
+		signature := aeonExecUnitInvalid.Sign(message, 3)
 		share := types.EntropyShare{
 			Height:         2,
 			SignerAddress:  privVal.GetPubKey().Address(),
@@ -172,7 +172,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(privVal.GetPubKey().Address())
 		aeonExecUnitInvalid := testAeonFromFile("test_keys/" + strconv.Itoa(int((index+1)%3)) + ".txt")
 		message := string(tmhash.Sum(newGen.entropyComputed[1]))
-		signature := aeonExecUnitInvalid.Sign(message)
+		signature := aeonExecUnitInvalid.Sign(message, uint(index))
 		share := types.EntropyShare{
 			Height:         2,
 			SignerAddress:  privVal.GetPubKey().Address(),

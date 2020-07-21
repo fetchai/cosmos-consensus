@@ -8,6 +8,21 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+type aeonType = BaseAeon
+
+func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, qual IntVector) aeonType {
+	switch keyType {
+	case "BaseAeon":
+		panic("Returned base aeon")
+	case "BlsAeon":
+		return NewBlsAeon(generator, keys, qual)
+	case "GlowAeon":
+		return NewGlowAeon(generator, keys, qual)
+	default:
+		panic(fmt.Errorf("Unknown type %v", keyType))
+	}
+}
+
 // aeonDetails stores entropy generation details for each aeon
 type aeonDetails struct {
 	privValidator   types.PrivValidator
@@ -39,7 +54,7 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 		qual.Add(aeonDetailsFile.PublicInfo.Qual[i])
 	}
 
-	aeonExecUnit := newAeonExecUnit(aeonDetailsFile.PublicInfo.Generator, keys, qual)
+	aeonExecUnit := newAeonExecUnit(aeonDetailsFile.PublicInfo.KeyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
 	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, validators, aeonExecUnit,
 		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	return aeonDetails
@@ -106,6 +121,7 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 		}
 	}
 	output := DKGOutput{
+		KeyType:         aeon.aeonExecUnit.Name(),
 		GroupPublicKey:  aeon.aeonExecUnit.GroupPublicKey(),
 		Generator:       aeon.aeonExecUnit.Generator(),
 		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
@@ -210,6 +226,7 @@ func (aeonFile *AeonDetailsFile) ValidateBasic() error {
 
 // DKGOutput is struct for broadcasting dkg completion info
 type DKGOutput struct {
+	KeyType         string   `json:"key_type"`
 	GroupPublicKey  string   `json:"group_public_key"`
 	PublicKeyShares []string `json:"public_key_shares"`
 	Generator       string   `json:"generator"`
@@ -222,6 +239,9 @@ type DKGOutput struct {
 // ValidateBasic for basic validity checking of dkg output
 func (output *DKGOutput) ValidateBasic() error {
 	if len(output.GroupPublicKey) != 0 {
+		if len(output.KeyType) == 0 {
+			return fmt.Errorf("Empty key type")
+		}
 		if len(output.Generator) == 0 {
 			return fmt.Errorf("Empty generator")
 		}

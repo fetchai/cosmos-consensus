@@ -13,14 +13,11 @@ func TestCryptoSign(t *testing.T) {
 
 	directory := "test_keys/"
 	aeonExecUnit := testAeonFromFile(directory + "0.txt")
-	defer deleteAeonExecUnit(aeonExecUnit)
 
 	assert.True(t, aeonExecUnit.CanSign())
 	message := "HelloWorld"
-	signature := aeonExecUnit.Sign(message)
-	checkAndSig := aeonExecUnit.Verify(message, signature, uint(0))
-	assert.True(t, checkAndSig.GetFirst())
-	assert.Equal(t, signature, checkAndSig.GetSecond())
+	signature := aeonExecUnit.Sign(message, 0)
+	assert.True(t, aeonExecUnit.Verify(message, signature, uint(0)))
 
 	// Collect signatures in map
 	signatureShares := NewIntStringMap()
@@ -30,12 +27,11 @@ func TestCryptoSign(t *testing.T) {
 	// Create aeon keys for each cabinet member and entropy generators
 	for i := uint(1); i < cabinetSize; i++ {
 		aeonExecUnitTemp := testAeonFromFile(directory + strconv.Itoa(int(i)) + ".txt")
-		defer deleteAeonExecUnit(aeonExecUnitTemp)
 
 		assert.True(t, aeonExecUnitTemp.CanSign())
-		signatureTemp := aeonExecUnitTemp.Sign(message)
+		signatureTemp := aeonExecUnitTemp.Sign(message, i)
 		assert.True(t, len([]byte(signatureTemp)) <= types.MaxEntropyShareSize)
-		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i).GetFirst())
+		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i))
 
 		signatureShares.Set(i, signatureTemp)
 	}
@@ -46,7 +42,6 @@ func TestCryptoSign(t *testing.T) {
 
 func TestCryptoNonValidator(t *testing.T) {
 	aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
-	defer deleteAeonExecUnit(aeonExecUnit)
 
 	assert.False(t, aeonExecUnit.CanSign())
 }
@@ -162,10 +157,10 @@ func TestHonestDkg(t *testing.T) {
 	sigShares := NewIntStringMap()
 	defer DeleteIntStringMap(sigShares)
 	for index := uint(0); index < cabinetSize; index++ {
-		signature := outputs[index].Sign(message)
+		signature := outputs[index].Sign(message, index)
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
 			if index != index1 {
-				assert.True(t, outputs[index1].Verify(message, signature, index).GetFirst())
+				assert.True(t, outputs[index1].Verify(message, signature, index))
 			}
 		}
 		sigShares.Set(index, signature)

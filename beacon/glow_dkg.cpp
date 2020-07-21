@@ -125,23 +125,22 @@ void GlowDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabi
 
 void GlowDkg::GenerateCoefficients()
 {
-  std::vector<PrivateKey> a_i(polynomial_degree_ + 1, GetZeroFr());
   std::vector<PrivateKey> b_i(polynomial_degree_ + 1, GetZeroFr());
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
-    a_i[k].Random();
+    a_i_[k].Random();
     b_i[k].Random();
   }
 
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
     this->C_ik_[cabinet_index_][k] =
-        mcl::ComputeLHS(GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
+        mcl::ComputeLHS(GetGroupG(), GetGroupH(), a_i_[k], b_i[k]);
   }
 
   for (CabinetIndex l = 0; l < cabinet_size_; l++)
   {
-    mcl::ComputeShares(this->s_ij_[cabinet_index_][l], this->sprime_ij_[cabinet_index_][l], a_i, b_i, l);
+    mcl::ComputeShares(this->s_ij_[cabinet_index_][l], this->sprime_ij_[cabinet_index_][l], a_i_, b_i, l);
   }
 }
 
@@ -170,11 +169,11 @@ void GlowDkg::AddQualCoefficients(CabinetIndex const &            from_index,
     return;
   }
 
-  for (CabinetIndex i = 0; i <= coefficients.size(); ++i)
+  for (CabinetIndex i = 0; i < coefficients.size(); ++i)
   {
     if (i == 0) 
     {
-        B_i_[from_index].FromString(coefficients[i]);
+      B_i_[from_index].FromString(coefficients[i]);
     } 
     else 
     {
@@ -189,8 +188,7 @@ void GlowDkg::AddQualCoefficients(CabinetIndex const &            from_index,
  *
  * @return Map of address and pair of secret shares for each qual member we wish to complain against
  */
-GlowDkg::SharesExposedMap GlowDkg::ComputeQualComplaints(
-    std::set<CabinetIndex> const &coeff_received) const
+GlowDkg::SharesExposedMap GlowDkg::ComputeQualComplaints(std::set<CabinetIndex> const &coeff_received) const
 {
   SharesExposedMap qual_complaints;
 
@@ -333,7 +331,7 @@ std::shared_ptr<BaseAeon> GlowDkg::GetDkgOutput() const
   {
     output.public_key_shares.push_back(elem.ToString());
   }
-  return std::make_shared<GlowAeon>(GetGeneratorG2().ToString(), GetGroupG().ToString(), output, qual_, cabinet_index_);
+  return std::make_shared<GlowAeon>(GetGeneratorG2().ToString(), GetGroupG().ToString(), output, qual_);
 }
 
 GlowDkg::GroupPublicKey const &GlowDkg::GetGeneratorG2() const

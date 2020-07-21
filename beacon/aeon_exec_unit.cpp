@@ -24,6 +24,10 @@
 namespace fetch {
 namespace beacon {
 
+const std::string BASE_AEON = "BaseAeon";  
+const std::string BLS_AEON  = "BlsAeon";
+const std::string GLOW_AEON = "GlowAeon";
+
 void InitialiseMcl() {
   mcl::details::MCLInitialiser();
 }
@@ -58,7 +62,6 @@ BaseAeon::BaseAeon(std::string const &filename) {
 
       myfile.close();
 
-      CheckKeys();
     } else {
       // AeonExecUnit can not open file
       assert(false);
@@ -70,7 +73,6 @@ BaseAeon::BaseAeon(std::string generator, DKGKeyInformation keys, std::set<Cabin
   , generator_{std::move(generator)}
   , qual_{std::move(qual)} 
   {
-  CheckKeys();
 }
 
 BaseAeon::BaseAeon(DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual) 
@@ -79,42 +81,6 @@ BaseAeon::BaseAeon(DKGKeyInformation const &keys, std::vector<CabinetIndex> cons
     qual_.insert(index);
   }
   aeon_keys_ = keys;
-}
-
-/**
- * Check strings from file are correct for initialising the corresponding 
- * mcl type
- * 
- * @return Whether check succeeded or failed
- */
-void BaseAeon::CheckKeys() const {
-  if (CanSign()) {
-    mcl::PrivateKey temp_private_key;
-    assert(temp_private_key.FromString(aeon_keys_.private_key));
-  }
-  mcl::GroupPublicKey temp_group_key;
-  assert(temp_group_key.FromString(aeon_keys_.group_public_key));
-  for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
-     mcl::GroupPublicKey temp_key_share;
-     assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
-  }
-  mcl::GroupPublicKey generator;
-  assert(generator.FromString(generator_));
-}
-
-
-BaseAeon::Signature
-BaseAeon::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &shares) const {
-  std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
-  for (auto const &share : shares) {
-    assert(share.first < aeon_keys_.public_key_shares.size());
-    mcl::Signature sig;
-    sig.FromString(share.second);
-    signature_shares.insert({share.first, sig});
-  }
-
-  mcl::Signature group_sig = mcl::LagrangeInterpolation(signature_shares);
-  return group_sig.ToString();
 }
 
 bool BaseAeon::VerifyGroupSignature(MessagePayload const &message, Signature const &sign) const {
@@ -130,22 +96,6 @@ bool BaseAeon::VerifyGroupSignature(MessagePayload const &message, Signature con
 
 bool BaseAeon::CanSign() const {
     return !aeon_keys_.private_key.empty();
-}
-
-bool BaseAeon::CheckIndex(CabinetIndex index) const {
-  if (index >= aeon_keys_.public_key_shares.size()) {
-    return false;
-  }
-  mcl::PrivateKey private_key;
-  mcl::GroupPublicKey public_key;
-
-  private_key.FromString(aeon_keys_.private_key);
-  public_key.FromString(aeon_keys_.public_key_shares[index]);
-
-  auto test_message = "Test";
-  auto sig = Sign(test_message);
-
-  return Verify(test_message, sig, index).first;
 }
 
 void BaseAeon::WriteToFile(std::string const &filename) const {
@@ -190,7 +140,13 @@ std::string BaseAeon::Generator() const {
   return generator_;
 }
 
-BlsAeon::BlsAeon(std::string const &filename): BaseAeon{filename}{}
+std::string BaseAeon::Name() const{
+  return BASE_AEON;
+}
+
+BlsAeon::BlsAeon(std::string const &filename): BaseAeon{filename}{
+   CheckKeys();
+}
 BlsAeon::BlsAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual)
 : BaseAeon{keys, qual} {
   generator_ = generator;
@@ -198,7 +154,46 @@ BlsAeon::BlsAeon(std::string const &generator, DKGKeyInformation const &keys, st
 }
 // Constructor used beacon manager
 BlsAeon::BlsAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual)
-: BaseAeon{generator, keys, qual} {}
+: BaseAeon{generator, keys, qual} {
+  CheckKeys();
+}
+
+bool BlsAeon::CheckIndex(CabinetIndex index) const {
+  if (index >= aeon_keys_.public_key_shares.size()) {
+    return false;
+  }
+  mcl::PrivateKey private_key;
+  mcl::GroupPublicKey public_key;
+
+  private_key.FromString(aeon_keys_.private_key);
+  public_key.FromString(aeon_keys_.public_key_shares[index]);
+
+  auto test_message = "Test";
+  auto sig = Sign(test_message, index);
+
+  return Verify(test_message, sig, index);
+}
+
+/**
+ * Check strings from file are correct for initialising the corresponding 
+ * mcl type
+ * 
+ * @return Whether check succeeded or failed
+ */
+void BlsAeon::CheckKeys() const {
+  if (CanSign()) {
+    mcl::PrivateKey temp_private_key;
+    assert(temp_private_key.FromString(aeon_keys_.private_key));
+  }
+  mcl::GroupPublicKey temp_group_key;
+  assert(temp_group_key.FromString(aeon_keys_.group_public_key));
+  for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
+     mcl::GroupPublicKey temp_key_share;
+     assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
+  }
+  mcl::GroupPublicKey generator;
+  assert(generator.FromString(generator_));
+}
 
 /**
  * Computes signature share of a message
@@ -207,7 +202,7 @@ BlsAeon::BlsAeon(std::string generator, DKGKeyInformation keys, std::set<Cabinet
  * @param x_i Secret key share
  * @return Signature share
  */
-BlsAeon::Signature BlsAeon::Sign(MessagePayload const &message) const {
+BlsAeon::Signature BlsAeon::Sign(MessagePayload const &message, CabinetIndex) const {
   if (!CanSign()) {
      assert(CanSign());
      return Signature{};
@@ -226,7 +221,7 @@ BlsAeon::Signature BlsAeon::Sign(MessagePayload const &message) const {
  * @param G Generator used in DKG
  * @return
  */
-std::pair<bool, std::string>
+bool
 BlsAeon::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
   assert(sender < aeon_keys_.public_key_shares.size());
   mcl::Signature signature;
@@ -236,11 +231,29 @@ BlsAeon::Verify(MessagePayload const &message, Signature const &sign, CabinetInd
   signature.FromString(sign);
   public_key.FromString(aeon_keys_.public_key_shares[sender]);
   generator.FromString(generator_);
-  return std::make_pair(mcl::PairingVerify(message, signature, public_key, generator), sign);
+  return mcl::PairingVerify(message, signature, public_key, generator);
 }
 
-GlowAeon::GlowAeon(std::string const &generator_strs, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual, 
-  uint32_t cabinet_index) : BaseAeon{keys, qual}
+BlsAeon::Signature
+BlsAeon::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &shares) const {
+  std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
+  for (auto const &share : shares) {
+    assert(share.first < aeon_keys_.public_key_shares.size());
+    mcl::Signature sig;
+    sig.FromString(share.second);
+    signature_shares.insert({share.first, sig});
+  }
+
+  mcl::Signature group_sig = mcl::LagrangeInterpolation(signature_shares);
+  return group_sig.ToString();
+}
+
+std::string BlsAeon::Name() const{
+  return BLS_AEON;
+}
+
+GlowAeon::GlowAeon(std::string const &generator_strs, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual) 
+: BaseAeon{keys, qual}
 {
   std::pair<std::string, std::string> generators;
   bool ok = serialisers::Deserialise(generator_strs, generators);
@@ -249,12 +262,53 @@ GlowAeon::GlowAeon(std::string const &generator_strs, DKGKeyInformation const &k
   generator_ = generators.first;
   generator_g1_ = generators.second;
   CheckKeys();
+}
+
+GlowAeon::GlowAeon(std::string generator, std::string generator_g1, DKGKeyInformation keys, std::set<CabinetIndex> qual)
+: BaseAeon{generator, keys, qual}, generator_g1_{std::move(generator_g1)} {
+  CheckKeys();
+}
+
+/**
+ * Check strings from file are correct for initialising the corresponding 
+ * mcl type
+ * 
+ * @return Whether check succeeded or failed
+ */
+void GlowAeon::CheckKeys() const {
+  if (CanSign()) {
+    mcl::PrivateKey temp_private_key;
+    assert(temp_private_key.FromString(aeon_keys_.private_key));
+  }
+  mcl::GroupPublicKey temp_group_key;
+  assert(temp_group_key.FromString(aeon_keys_.group_public_key));
+  for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
+     mcl::Signature temp_key_share;
+     assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
+  }
+  mcl::GroupPublicKey generator;
+  assert(generator.FromString(generator_));
+
   mcl::Signature gen_g1;
   assert(gen_g1.FromString(generator_g1_));
 }
 
-GlowAeon::GlowAeon(std::string generator, std::string generator_g1, DKGKeyInformation keys, std::set<CabinetIndex> qual, uint32_t cabinet_index)
-: BaseAeon{generator, keys, qual}, generator_g1_{std::move(generator_g1)}, cabinet_index_{cabinet_index} {}
+
+bool GlowAeon::CheckIndex(CabinetIndex index) const {
+  if (index >= aeon_keys_.public_key_shares.size()) {
+    return false;
+  }
+  mcl::PrivateKey private_key;
+  mcl::Signature public_key;
+
+  private_key.FromString(aeon_keys_.private_key);
+  public_key.FromString(aeon_keys_.public_key_shares[index]);
+
+  auto test_message = "Test";
+  auto sig = Sign(test_message, index);
+
+  return Verify(test_message, sig, index);
+}
 
 /**
  * Computes signature share of a message
@@ -263,7 +317,7 @@ GlowAeon::GlowAeon(std::string generator, std::string generator_g1, DKGKeyInform
  * @param x_i Secret key share)
  * @return Signature share
  */
-GlowAeon::Signature GlowAeon::Sign(MessagePayload const &message) const {
+GlowAeon::Signature GlowAeon::Sign(MessagePayload const &message, CabinetIndex index) const {
   if (!CanSign()) {
      assert(CanSign());
      return Signature{};
@@ -273,7 +327,7 @@ GlowAeon::Signature GlowAeon::Sign(MessagePayload const &message) const {
   mcl::Signature public_key;
   x_i.FromString(aeon_keys_.private_key);
   generator.FromString(generator_g1_);
-  public_key.FromString(aeon_keys_.public_key_shares[cabinet_index_]);
+  public_key.FromString(aeon_keys_.public_key_shares[index]);
 
   mcl::Signature sig = mcl::Sign(message, x_i);
   mcl::Proof proof = mcl::ComputeProof(generator, message, public_key, sig, x_i);
@@ -289,12 +343,12 @@ GlowAeon::Signature GlowAeon::Sign(MessagePayload const &message) const {
  * @param G Generator used in DKG
  * @return
  */
-std::pair<bool, std::string>
+bool
 GlowAeon::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
   assert(sender < aeon_keys_.public_key_shares.size());
   std::vector<std::string> sig_and_proof;
   if (!serialisers::Deserialise(sign, sig_and_proof) || sig_and_proof.size() != 3) {
-    return std::make_pair(false, "");
+    return false;
   }
 
   mcl::Signature signature;
@@ -307,11 +361,31 @@ GlowAeon::Verify(MessagePayload const &message, Signature const &sign, CabinetIn
   public_key.FromString(aeon_keys_.public_key_shares[sender]);
   generator.FromString(generator_g1_);
 
-  return std::make_pair(mcl::VerifyProof(public_key, message, signature, generator, proof), sig_and_proof[0]);
+  return mcl::VerifyProof(public_key, message, signature, generator, proof);
+}
+
+GlowAeon::Signature
+GlowAeon::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &shares) const {
+  std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
+  for (auto const &share : shares) {
+    assert(share.first < aeon_keys_.public_key_shares.size());
+    std::vector<std::string> sig_and_proof;
+    assert(serialisers::Deserialise(share.second, sig_and_proof));
+    mcl::Signature sig;
+    sig.FromString(sig_and_proof[0]);
+    signature_shares.insert({share.first, sig});
+  }
+
+  mcl::Signature group_sig = mcl::LagrangeInterpolation(signature_shares);
+  return group_sig.ToString();
 }
 
 std::string GlowAeon::Generator() const {
   return serialisers::Serialise(std::make_pair(generator_, generator_g1_));
+}
+
+std::string GlowAeon::Name() const {
+  return GLOW_AEON;
 }
 
 }  // namespace crypto

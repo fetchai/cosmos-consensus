@@ -307,8 +307,7 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 
 	// Verify share
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-	checkAndSig := entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index))
-	if !checkAndSig.GetFirst() {
+	if !entropyGenerator.aeon.aeonExecUnit.Verify(message, share.SignatureShare, uint(index)) {
 		entropyGenerator.Logger.Error("applyEntropyShare: invalid entropy share", "height", share.Height,
 			"lastComputedEntropyHeight", entropyGenerator.lastComputedEntropyHeight, "lastBlockHeight",
 			entropyGenerator.lastBlockHeight, "validator", share.SignerAddress, "index", index)
@@ -320,10 +319,7 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 		entropyGenerator.entropyShares[share.Height] = make(map[uint]types.EntropyShare)
 	}
 
-	// Necessary to accommodate glow drb case
-	newShare := share.Copy()
-	newShare.SignatureShare = checkAndSig.GetSecond()
-	entropyGenerator.entropyShares[share.Height][uint(index)] = newShare
+	entropyGenerator.entropyShares[share.Height][uint(index)] = share.Copy()
 	return
 }
 
@@ -395,7 +391,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		"nodeAddress", entropyGenerator.aeon.privValidator.GetPubKey().Address())
 
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message)
+	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message, uint(index))
 
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[blockHeight] == nil {

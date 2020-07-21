@@ -37,7 +37,7 @@ public:
   void NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) override;
   void GenerateCoefficients() override;
   std::vector<Coefficient> GetQualCoefficients() override;
-  void AddQualCoefficients(CabinetIndex const &from_index,std::vector<Coefficient> const &coefficients) override;
+  void AddQualCoefficients(CabinetIndex const &from_index, std::vector<Coefficient> const &coefficients) override;
   SharesExposedMap ComputeQualComplaints(std::set<CabinetIndex> const &coeff_received) const override;
   CabinetIndex VerifyQualComplaint(CabinetIndex const & from_index, ComplaintAnswer const &answer) override;
   bool RunReconstruction() override;

@@ -18,6 +18,7 @@
 
 #include "beacon_setup_service.hpp"
 #include "bls_dkg.hpp"
+#include "glow_dkg.hpp"
 #include "logging.hpp"
 #include "serialisers.hpp"
 #include "set_intersection.hpp"
@@ -528,5 +529,6 @@ bool BeaconSetupService::CheckQualComplaints()
   }
   return true;
 }
+
 }  // namespace beacon
 }  // namespace fetch

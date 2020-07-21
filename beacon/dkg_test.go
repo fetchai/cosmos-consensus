@@ -266,10 +266,10 @@ func TestDKGScenarios(t *testing.T) {
 			defer DeleteIntStringMap(sigShares)
 			for index := 0; index < tc.completionSize; index++ {
 				node := nodes[index]
-				signature := outputs[index].aeonExecUnit.Sign(message)
+				signature := outputs[index].aeonExecUnit.Sign(message, uint(node.dkg.index()))
 				for index1 := 0; index1 < nTotal; index1++ {
 					if index != index1 {
-						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())).GetFirst())
+						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())))
 					}
 				}
 				sigShares.Set(uint(node.dkg.index()), signature)
@@ -297,7 +297,7 @@ func TestDKGMessageMaxDataSize(t *testing.T) {
 		End:             100,
 	}
 	msgToSign := string(cdc.MustMarshalBinaryBare(aeonKeys.dkgOutput()))
-	signature := aeonKeys.aeonExecUnit.Sign(msgToSign)
+	signature := aeonKeys.aeonExecUnit.Sign(msgToSign, 200)
 
 	dryRun := DryRunSignature{
 		PublicInfo:     *aeonKeys.dkgOutput(),

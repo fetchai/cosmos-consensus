@@ -26,8 +26,8 @@ namespace fetch {
 namespace beacon {
 
 // Choose implementation
-using DkgImplemention = class BlsDkg;
-using AeonExecUnit = BlsAeon;
+using DkgImplemention = class GlowDkg;
+using AeonExecUnit = GlowAeon;
 
 class BeaconSetupService
 {

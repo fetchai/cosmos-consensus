@@ -522,7 +522,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	}
 	dkg.Logger.Debug("sendDryRun", "iteration", dkg.dkgIteration)
 	msgToSign := string(cdc.MustMarshalBinaryBare(dkg.aeonKeys.dkgOutput()))
-	signature := dkg.aeonKeys.aeonExecUnit.Sign(msgToSign)
+	signature := dkg.aeonKeys.aeonExecUnit.Sign(msgToSign, uint(dkg.index()))
 	// Broadcast message to notify everyone of completion
 	dryRun := DryRunSignature{
 		PublicInfo:     *dkg.aeonKeys.dkgOutput(),
@@ -627,9 +627,8 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 		if index < 0 {
 			continue
 		}
-		checkAndSig := tempKeys.aeonExecUnit.Verify(encodedOutput, signature, uint(index))
-		if checkAndSig.GetFirst() {
-			signatureShares.Set(uint(index), checkAndSig.GetSecond())
+		if tempKeys.aeonExecUnit.Verify(encodedOutput, signature, uint(index)) {
+			signatureShares.Set(uint(index), signature)
 		}
 	}
 
@@ -683,7 +682,7 @@ func (dryRun *DryRunSignature) ValidateBasic() error {
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
-	if len(dryRun.SignatureShare) == 0 || len(dryRun.SignatureShare) > types.MaxThresholdSignatureSize {
+	if len(dryRun.SignatureShare) == 0 || len(dryRun.SignatureShare) > types.MaxEntropyShareSize {
 		return fmt.Errorf("Invalid signature share size %v", len(dryRun.SignatureShare))
 	}
 	return nil
