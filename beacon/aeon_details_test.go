@@ -13,7 +13,7 @@ func TestAeonDetailsNew(t *testing.T) {
 	state, privVals := groupTestSetup(nValidators)
 	aeonNonSigning := testAeonFromFile("test_keys/non_validator.txt")
 	assert.False(t, aeonNonSigning.CanSign())
-	aeonSigning := testAeonFromFile("test_keys/0.txt")
+	aeonSigning := testAeonFromFile("test_keys/validator_0_of_4.txt")
 	assert.True(t, aeonSigning.CanSign())
 
 	// Panic with no validator set
@@ -72,7 +72,7 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
-	aeonKeys := testAeonFromFile("test_keys/0.txt")
+	aeonKeys := testAeonFromFile("test_keys/validator_0_of_4.txt")
 	newAeon, _ := newAeonDetails(privVals[0], 1, state.Validators, aeonKeys, 1, 10)
 
 	saveAeons(config.EntropyKeyFile(), newAeon)

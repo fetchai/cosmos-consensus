@@ -45,11 +45,11 @@ public:
   std::shared_ptr<BaseAeon> GetDkgOutput() const override;
 
 private:
-  std::vector<VerificationKey> g__a_i_;
+  std::vector<VerificationKey> temp_qual_coeffs_;
 
-  VerificationKey const & GetGroupG() const override;
-  VerificationKey const & GetGroupH() const override;
-  PrivateKey const &GetZeroFr() const override;
+  VerificationKey GetGroupG() const override;
+  VerificationKey GetGroupH() const override;
+  PrivateKey GetZeroFr() const override;
 };
 } //beacon
 } //fetch

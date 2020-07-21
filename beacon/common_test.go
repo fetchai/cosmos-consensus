@@ -56,7 +56,7 @@ func setCrypto(nValidators int) []BaseAeon {
 
 	aeonExecUnits := make([]BaseAeon, nValidators)
 	for i := 0; i < nValidators; i++ {
-		aeonExecUnits[i] = testAeonFromFile("test_keys/" + strconv.Itoa(int(i)) + ".txt")
+		aeonExecUnits[i] = testAeonFromFile("test_keys/validator_" + strconv.Itoa(int(i)) + "_of_4.txt")
 	}
 
 	return aeonExecUnits

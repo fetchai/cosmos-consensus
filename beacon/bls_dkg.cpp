@@ -50,22 +50,16 @@ public:
 
   BlsDkg::PrivateKey const &GetZeroFr()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->zeroFr_;
   }
 
   BlsDkg::VerificationKey const &GetGroupG()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_g_;
   }
 
   BlsDkg::VerificationKey const &GetGroupH()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_h_;
   }
 
@@ -106,8 +100,8 @@ void BlsDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabin
   mcl::Init(this->sprime_ij_, cabinet_size_, cabinet_size_);
   mcl::Init(this->C_ik_, cabinet_size_, polynomial_degree_ + 1);
   mcl::Init(this->A_ik_, cabinet_size_, polynomial_degree_ + 1);
-  mcl::Init(this->g__s_ij_, cabinet_size_, cabinet_size_);
-  mcl::Init(this->g__a_i_, polynomial_degree_ + 1);
+  mcl::Init(this->secret_commitments_, cabinet_size_, cabinet_size_);
+  mcl::Init(temp_qual_coeffs_, polynomial_degree_ + 1);
 
   this->qual_.clear();
   this->reconstruction_shares.clear();
@@ -126,7 +120,7 @@ void BlsDkg::GenerateCoefficients()
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
   {
     this->C_ik_[cabinet_index_][k] =
-        mcl::ComputeLHS(g__a_i_[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
+        mcl::ComputeLHS(temp_qual_coeffs_[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
   }
 
   for (CabinetIndex l = 0; l < cabinet_size_; l++)
@@ -140,7 +134,7 @@ std::vector<BlsDkg::Coefficient> BlsDkg::GetQualCoefficients()
   std::vector<Coefficient> coefficients;
   for (std::size_t k = 0; k <= polynomial_degree_; k++)
   {
-    this->A_ik_[cabinet_index_][k] = g__a_i_[k];
+    this->A_ik_[cabinet_index_][k] = temp_qual_coeffs_[k];
     coefficients.push_back(this->A_ik_[cabinet_index_][k].ToString());
   }
   return coefficients;
@@ -178,7 +172,7 @@ BlsDkg::SharesExposedMap BlsDkg::ComputeQualComplaints(
       {
         VerificationKey rhs;
         VerificationKey lhs;
-        lhs = this->g__s_ij_[i][cabinet_index_];
+        lhs = this->secret_commitments_[i][cabinet_index_];
         rhs = mcl::ComputeRHS(cabinet_index_, this->A_ik_[i]);
         if (lhs != rhs || rhs.isZero())
         {
@@ -313,17 +307,17 @@ std::shared_ptr<BaseAeon> BlsDkg::GetDkgOutput() const
   return std::make_shared<BlsAeon>(GetGroupG().ToString(), output, qual_);
 }
 
-BlsDkg::VerificationKey const &BlsDkg::GetGroupG() const
+BlsDkg::VerificationKey BlsDkg::GetGroupG() const
 {
   return curve_params_.GetGroupG();
 }
 
-BlsDkg::VerificationKey const &BlsDkg::GetGroupH() const
+BlsDkg::VerificationKey BlsDkg::GetGroupH() const
 {
   return curve_params_.GetGroupH();
 }
 
-BlsDkg::PrivateKey const &BlsDkg::GetZeroFr() const
+BlsDkg::PrivateKey BlsDkg::GetZeroFr() const
 {
   return curve_params_.GetZeroFr();
 }

@@ -21,9 +21,13 @@
 
 #include <memory>
 
+#define GLOW
+
 namespace fetch {
 namespace beacon {
 
+// DKG mmplementation is switched depending on whether GLOW is defined. 
+// Default is the DFinity/BLS implementation.
 class BeaconSetupService
 {
 public:

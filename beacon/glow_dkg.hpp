@@ -48,10 +48,10 @@ private:
   std::vector<PrivateKey> a_i_;
   std::vector<GroupPublicKey> B_i_;
 
-  GroupPublicKey const & GetGeneratorG2() const;
-  VerificationKey const & GetGroupG() const override;
-  VerificationKey const & GetGroupH() const override;
-  PrivateKey const &GetZeroFr() const override;
+  GroupPublicKey GetGeneratorG2() const;
+  VerificationKey GetGroupG() const override;
+  VerificationKey GetGroupH() const override;
+  PrivateKey GetZeroFr() const override;
 };
 } //beacon
 } //fetch

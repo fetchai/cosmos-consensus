@@ -51,29 +51,21 @@ public:
 
   GlowDkg::PrivateKey const &GetZeroFr()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->zeroFr_;
   }
 
   GlowDkg::VerificationKey const &GetGroupG()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_g_;
   }
 
   GlowDkg::VerificationKey const &GetGroupH()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->group_h_;
   }
 
   GlowDkg::GroupPublicKey const &GetGeneratorG2()
   {
-    EnsureInitialised();
-    std::lock_guard<std::mutex> lock(mutex_);
     return params_->generator_g2_;
   }
 
@@ -115,7 +107,7 @@ void GlowDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabi
   mcl::Init(this->sprime_ij_, cabinet_size_, cabinet_size_);
   mcl::Init(this->C_ik_, cabinet_size_, polynomial_degree_ + 1);
   mcl::Init(this->A_ik_, cabinet_size_, polynomial_degree_ + 1);
-  mcl::Init(this->g__s_ij_, cabinet_size_, cabinet_size_);
+  mcl::Init(this->secret_commitments_, cabinet_size_, cabinet_size_);
   mcl::Init(a_i_, this->polynomial_degree_ + 1);
   mcl::Init(B_i_, this->cabinet_size_);
 
@@ -200,7 +192,7 @@ GlowDkg::SharesExposedMap GlowDkg::ComputeQualComplaints(std::set<CabinetIndex> 
       {
         VerificationKey rhs;
         VerificationKey lhs;
-        lhs = this->g__s_ij_[i][cabinet_index_];
+        lhs = this->secret_commitments_[i][cabinet_index_];
         rhs = mcl::ComputeRHS(cabinet_index_, this->A_ik_[i]);
         if (lhs == rhs && !lhs.isZero())
         {
@@ -334,22 +326,22 @@ std::shared_ptr<BaseAeon> GlowDkg::GetDkgOutput() const
   return std::make_shared<GlowAeon>(GetGeneratorG2().ToString(), GetGroupG().ToString(), output, qual_);
 }
 
-GlowDkg::GroupPublicKey const &GlowDkg::GetGeneratorG2() const
+GlowDkg::GroupPublicKey GlowDkg::GetGeneratorG2() const
 {
   return curve_params_.GetGeneratorG2();
 }
 
-GlowDkg::VerificationKey const &GlowDkg::GetGroupG() const
+GlowDkg::VerificationKey GlowDkg::GetGroupG() const
 {
   return curve_params_.GetGroupG();
 }
 
-GlowDkg::VerificationKey const &GlowDkg::GetGroupH() const
+GlowDkg::VerificationKey GlowDkg::GetGroupH() const
 {
   return curve_params_.GetGroupH();
 }
 
-GlowDkg::PrivateKey const &GlowDkg::GetZeroFr() const
+GlowDkg::PrivateKey GlowDkg::GetZeroFr() const
 {
   return curve_params_.GetZeroFr();
 }

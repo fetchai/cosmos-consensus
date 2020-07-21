@@ -12,7 +12,7 @@ func TestCryptoSign(t *testing.T) {
 	cabinetSize := uint(4)
 
 	directory := "test_keys/"
-	aeonExecUnit := testAeonFromFile(directory + "0.txt")
+	aeonExecUnit := testAeonFromFile(directory + "validator_0_of_4.txt")
 
 	assert.True(t, aeonExecUnit.CanSign())
 	message := "HelloWorld"
@@ -26,7 +26,7 @@ func TestCryptoSign(t *testing.T) {
 
 	// Create aeon keys for each cabinet member and entropy generators
 	for i := uint(1); i < cabinetSize; i++ {
-		aeonExecUnitTemp := testAeonFromFile(directory + strconv.Itoa(int(i)) + ".txt")
+		aeonExecUnitTemp := testAeonFromFile(directory + "validator_" + strconv.Itoa(int(i)) + "_of_4.txt")
 
 		assert.True(t, aeonExecUnitTemp.CanSign())
 		signatureTemp := aeonExecUnitTemp.Sign(message, i)

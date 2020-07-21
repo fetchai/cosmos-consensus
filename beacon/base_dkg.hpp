@@ -51,9 +51,9 @@ public:
   using SharesExposedMap = std::unordered_map<CabinetIndex, std::pair<Share, Share>>;
 
   virtual ~BaseDkg() = default;
-  virtual VerificationKey const & GetGroupG() const = 0;
-  virtual VerificationKey const & GetGroupH() const = 0;
-  virtual PrivateKey const &GetZeroFr() const = 0;
+  virtual VerificationKey GetGroupG() const = 0;
+  virtual VerificationKey GetGroupH() const = 0;
+  virtual PrivateKey GetZeroFr() const = 0;
   virtual void NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) = 0;
   virtual void GenerateCoefficients() = 0;
   virtual std::vector<Coefficient> GetQualCoefficients() = 0;
@@ -113,7 +113,7 @@ public:
       {
         VerificationKey rhs;
         VerificationKey lhs;
-        lhs = mcl::ComputeLHS(g__s_ij_[i][cabinet_index_], GetGroupG(), GetGroupH(),
+        lhs = mcl::ComputeLHS(secret_commitments_[i][cabinet_index_], GetGroupG(), GetGroupH(),
                                     s_ij_[i][cabinet_index_], sprime_ij_[i][cabinet_index_]);
         rhs = mcl::ComputeRHS(cabinet_index_, C_ik_[i]);
         if (lhs != rhs || lhs.isZero())
@@ -143,8 +143,8 @@ public:
       {
         s_ij_[from_index][cabinet_index_] = s;
         sprime_ij_[from_index][cabinet_index_] = sprime;
-        g__s_ij_[from_index][cabinet_index_].SetZero();
-        g__s_ij_[from_index][cabinet_index_].Mult(GetGroupG(), s_ij_[from_index][cabinet_index_]);
+        secret_commitments_[from_index][cabinet_index_].SetZero();
+        secret_commitments_[from_index][cabinet_index_].Mult(GetGroupG(), s_ij_[from_index][cabinet_index_]);
       }
       return true;
     }
@@ -232,7 +232,7 @@ protected:
   std::vector<std::vector<PrivateKey> > s_ij_, sprime_ij_;
   std::vector<std::vector<VerificationKey>> C_ik_;
   std::vector<std::vector<VerificationKey>> A_ik_;
-  std::vector<std::vector<VerificationKey>> g__s_ij_;
+  std::vector<std::vector<VerificationKey>> secret_commitments_;
 
   std::unordered_map<CabinetIndex, std::pair<std::set<CabinetIndex>, std::vector<PrivateKey>>>
       reconstruction_shares;  ///< Map from id of node_i in complaints to a pair <parties which

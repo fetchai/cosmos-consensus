@@ -21,6 +21,7 @@
 
 #include <atomic>
 #include <unordered_map>
+#include "serialisers.hpp"
 
 namespace bn = mcl::bls12;
 
@@ -239,7 +240,13 @@ DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIn
   GroupPublicKey generator2;
   SetGenerator(generator);
   SetGenerator(generator2);
-  output.generator = generator2.ToString();
+
+  if (generator == generator2) {
+    output.generator = generator2.ToString();
+  } else {
+    std::pair<std::string, std::string> generators{generator2, generator};
+    output.generator = serialisers::Serialise(generators);
+  }
 
   // Construct polynomial of degree threshold - 1
   std::vector<PrivateKey> vec_a;
