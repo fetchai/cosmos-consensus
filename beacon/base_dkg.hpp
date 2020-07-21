@@ -32,7 +32,7 @@ namespace fetch {
 namespace beacon {    
 
 /**
- * This class implemnents defines the functions required for the DKG
+ * This class defines the functions required for the DKG
  */
 
 template<class CryptoVerificationKey>
