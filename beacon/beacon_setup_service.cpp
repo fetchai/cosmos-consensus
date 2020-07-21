@@ -153,7 +153,7 @@ bool BeaconSetupService::RunReconstruction()
   return beacon_->RunReconstruction();
 }
 
-AeonExecUnit BeaconSetupService::ComputePublicKeys()
+BeaconSetupService::AeonExecUnit BeaconSetupService::ComputePublicKeys()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   beacon_->ComputePublicKeys();

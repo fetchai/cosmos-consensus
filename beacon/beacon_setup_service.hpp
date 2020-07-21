@@ -16,7 +16,6 @@
 //   limitations under the License.
 //
 //------------------------------------------------------------------------------
-
 #include "aeon_exec_unit.hpp"
 #include "complaints_manager.hpp"
 
@@ -24,10 +23,6 @@
 
 namespace fetch {
 namespace beacon {
-
-// Choose implementation
-using DkgImplemention = class GlowDkg;
-using AeonExecUnit = GlowAeon;
 
 class BeaconSetupService
 {
@@ -38,6 +33,13 @@ public:
   using Share            = std::string;
   using Coefficient      = std::string;
   using SharesExposedMap = std::unordered_map<Identifier, std::pair<Share, Share>>;
+#ifdef GLOW
+using DkgImplemention = class GlowDkg;
+using AeonExecUnit    = GlowAeon;
+#else
+using DkgImplemention = class BlsDkg;
+using AeonExecUnit    = BlsAeon;
+#endif
 
   BeaconSetupService(Identifier cabinet_size, CabinetIndex threshold, Identifier index);
   BeaconSetupService(BeaconSetupService const &) = delete;
