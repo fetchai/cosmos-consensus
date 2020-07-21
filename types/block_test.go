@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"math"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/bits"
 	"github.com/tendermint/tendermint/libs/bytes"
@@ -250,69 +252,69 @@ func TestCommitValidateBasic(t *testing.T) {
 	}
 }
 
-//func TestHeaderHash(t *testing.T) {
-//	testCases := []struct {
-//		desc       string
-//		header     *Header
-//		expectHash bytes.HexBytes
-//	}{
-//		{"Generates expected hash", &Header{
-//			Version:            version.Consensus{Block: 1, App: 2},
-//			ChainID:            "chainId",
-//			Height:             3,
-//			Time:               time.Date(2019, 10, 13, 16, 14, 44, 0, time.UTC),
-//			LastBlockID:        makeBlockID(make([]byte, tmhash.Size), 6, make([]byte, tmhash.Size)),
-//			LastCommitHash:     tmhash.Sum([]byte("last_commit_hash")),
-//			DataHash:           tmhash.Sum([]byte("data_hash")),
-//			ValidatorsHash:     tmhash.Sum([]byte("validators_hash")),
-//			NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
-//			ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
-//			AppHash:            tmhash.Sum([]byte("app_hash")),
-//			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
-//			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
-//			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
-//			Entropy:            *NewBlockEntropy(tmhash.Sum([]byte("group_signature")), 0, 1, 0),
-//		}, hexBytesFromString("9378321A750C43C689EA7D626D8BFB970B9D9461CCB3BFC859D853E5BF8129CA")},
-//		{"nil header yields nil", nil, nil},
-//		{"nil ValidatorsHash yields nil", &Header{
-//			Version:            version.Consensus{Block: 1, App: 2},
-//			ChainID:            "chainId",
-//			Height:             3,
-//			Time:               time.Date(2019, 10, 13, 16, 14, 44, 0, time.UTC),
-//			LastBlockID:        makeBlockID(make([]byte, tmhash.Size), 6, make([]byte, tmhash.Size)),
-//			LastCommitHash:     tmhash.Sum([]byte("last_commit_hash")),
-//			DataHash:           tmhash.Sum([]byte("data_hash")),
-//			ValidatorsHash:     nil,
-//			NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
-//			ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
-//			AppHash:            tmhash.Sum([]byte("app_hash")),
-//			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
-//			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
-//			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
-//		}, nil},
-//	}
-//	for _, tc := range testCases {
-//		tc := tc
-//		t.Run(tc.desc, func(t *testing.T) {
-//			assert.Equal(t, tc.expectHash, tc.header.Hash())
-//
-//			// We also make sure that all fields are hashed in struct order, and that all
-//			// fields in the test struct are non-zero.
-//			if tc.header != nil && tc.expectHash != nil {
-//				byteSlices := [][]byte{}
-//				s := reflect.ValueOf(*tc.header)
-//				for i := 0; i < s.NumField(); i++ {
-//					f := s.Field(i)
-//					assert.False(t, f.IsZero(), "Found zero-valued field %v",
-//						s.Type().Field(i).Name)
-//					byteSlices = append(byteSlices, cdcEncode(f.Interface()))
-//				}
-//				assert.Equal(t,
-//					bytes.HexBytes(merkle.SimpleHashFromByteSlices(byteSlices)), tc.header.Hash())
-//			}
-//		})
-//	}
-//}
+func TestHeaderHash(t *testing.T) {
+	testCases := []struct {
+		desc       string
+		header     *Header
+		expectHash bytes.HexBytes
+	}{
+		{"Generates expected hash", &Header{
+			Version:            version.Consensus{Block: 1, App: 2},
+			ChainID:            "chainId",
+			Height:             3,
+			Time:               time.Date(2019, 10, 13, 16, 14, 44, 0, time.UTC),
+			LastBlockID:        makeBlockID(make([]byte, tmhash.Size), 6, make([]byte, tmhash.Size)),
+			LastCommitHash:     tmhash.Sum([]byte("last_commit_hash")),
+			DataHash:           tmhash.Sum([]byte("data_hash")),
+			ValidatorsHash:     tmhash.Sum([]byte("validators_hash")),
+			NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
+			ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
+			AppHash:            tmhash.Sum([]byte("app_hash")),
+			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
+			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
+			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
+			Entropy:            *NewBlockEntropy(tmhash.Sum([]byte("group_signature")), 0, 1, 0),
+		}, hexBytesFromString("3BF2FD9A5E3223EB08289B3DCB759642E13DDE75D66EAD05A8ABDE71566B2A0C")},
+		{"nil header yields nil", nil, nil},
+		{"nil ValidatorsHash yields nil", &Header{
+			Version:            version.Consensus{Block: 1, App: 2},
+			ChainID:            "chainId",
+			Height:             3,
+			Time:               time.Date(2019, 10, 13, 16, 14, 44, 0, time.UTC),
+			LastBlockID:        makeBlockID(make([]byte, tmhash.Size), 6, make([]byte, tmhash.Size)),
+			LastCommitHash:     tmhash.Sum([]byte("last_commit_hash")),
+			DataHash:           tmhash.Sum([]byte("data_hash")),
+			ValidatorsHash:     nil,
+			NextValidatorsHash: tmhash.Sum([]byte("next_validators_hash")),
+			ConsensusHash:      tmhash.Sum([]byte("consensus_hash")),
+			AppHash:            tmhash.Sum([]byte("app_hash")),
+			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
+			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
+			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
+		}, nil},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			assert.Equal(t, tc.expectHash, tc.header.Hash())
+
+			// We also make sure that all fields are hashed in struct order, and that all
+			// fields in the test struct are non-zero.
+			if tc.header != nil && tc.expectHash != nil {
+				byteSlices := [][]byte{}
+				s := reflect.ValueOf(*tc.header)
+				for i := 0; i < s.NumField(); i++ {
+					f := s.Field(i)
+					assert.False(t, f.IsZero(), "Found zero-valued field %v",
+						s.Type().Field(i).Name)
+					byteSlices = append(byteSlices, cdcEncode(f.Interface()))
+				}
+				assert.Equal(t,
+					bytes.HexBytes(merkle.SimpleHashFromByteSlices(byteSlices)), tc.header.Hash())
+			}
+		})
+	}
+}
 
 func TestMaxHeaderBytes(t *testing.T) {
 	// Construct a UTF-8 string of MaxChainIDLen length using the supplementary
