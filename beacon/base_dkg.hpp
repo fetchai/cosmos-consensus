@@ -214,7 +214,6 @@ public:
   {
     return cabinet_size_;
   }
-  ///}
 
 protected:
   // What the DKG should return
