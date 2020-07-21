@@ -128,19 +128,19 @@ func (pv MockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
 }
 
 // String returns a string representation of the MockPV.
-func (pv MockPV) String() string {
+func (pv *MockPV) String() string {
 	mpv, _ := pv.GetPubKey() // mockPV will never return an error, ignored here
 	return fmt.Sprintf("MockPV{%v}", mpv.Address())
 }
 
 // XXX: Implement.
-func (pv MockPV) DisableChecks() {
+func (pv *MockPV) DisableChecks() {
 	// Currently this does nothing,
 	// as MockPV has no safety checks at all.
 }
 
 type ErroringMockPV struct {
-	MockPV
+	*MockPV
 }
 
 var ErroringMockPVErr = errors.New("erroringMockPV always returns an error")
@@ -155,8 +155,18 @@ func (pv *ErroringMockPV) SignProposal(chainID string, proposal *Proposal) error
 	return ErroringMockPVErr
 }
 
+// Implements PrivValidator
+func (pv *ErroringMockPV) SignEntropy(chainID string, entropy *EntropyShare) error {
+	return ErroringMockPVErr
+}
+
+// Implements PrivValidator
+func (pv *ErroringMockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
+	return ErroringMockPVErr
+}
+
 // NewErroringMockPV returns a MockPV that fails on each signing request. Again, for testing only.
 
 func NewErroringMockPV() *ErroringMockPV {
-	return &ErroringMockPV{MockPV{ed25519.GenPrivKey(), false, false}}
+	return &ErroringMockPV{&MockPV{ed25519.GenPrivKey(), false, false}}
 }

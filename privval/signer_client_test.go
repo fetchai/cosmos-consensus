@@ -251,51 +251,51 @@ func TestSignerSignVoteErrors(t *testing.T) {
 	}
 }
 
-//func TestSignerSignEntropyErrors(t *testing.T) {
-//	for _, tc := range getSignerTestCases(t) {
-//		pubKey, _ := tc.mockPV.GetPubKey()
-//		entropy := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: pubKey.Address()}
-//
-//		// Replace signer service privval with one that always fails
-//		tc.signerServer.privVal = types.NewErroringMockPV()
-//		tc.mockPV = types.NewErroringMockPV()
-//
-//		defer tc.signerServer.Stop()
-//		defer tc.signerClient.Close()
-//
-//		err := tc.signerClient.SignEntropy(tc.chainID, entropy)
-//		require.Equal(t, err.(*RemoteSignerError).Description, types.ErroringMockPVErr.Error())
-//
-//		err = tc.mockPV.SignEntropy(tc.chainID, entropy)
-//		require.Error(t, err)
-//
-//		err = tc.signerClient.SignEntropy(tc.chainID, entropy)
-//		require.Error(t, err)
-//	}
-//}
+func TestSignerSignEntropyErrors(t *testing.T) {
+	for _, tc := range getSignerTestCases(t) {
+		pubKey, _ := tc.mockPV.GetPubKey()
+		entropy := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: pubKey.Address()}
 
-//func TestSignerSignDKGErrors(t *testing.T) {
-//	for _, tc := range getSignerTestCases(t) {
-//		pubKey, _ := tc.mockPV.GetPubKey()
-//		msg := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: pubKey.Address()}
-//
-//		// Replace signer service privval with one that always fails
-//		tc.signerServer.privVal = types.NewErroringMockPV()
-//		tc.mockPV = types.NewErroringMockPV()
-//
-//		defer tc.signerServer.Stop()
-//		defer tc.signerClient.Close()
-//
-//		err := tc.signerClient.SignDKGMessage(tc.chainID, msg)
-//		require.Equal(t, err.(*RemoteSignerError).Description, types.ErroringMockPVErr.Error())
-//
-//		err = tc.mockPV.SignDKGMessage(tc.chainID, msg)
-//		require.Error(t, err)
-//
-//		err = tc.signerClient.SignDKGMessage(tc.chainID, msg)
-//		require.Error(t, err)
-//	}
-//}
+		// Replace signer service privval with one that always fails
+		tc.signerServer.privVal = types.NewErroringMockPV()
+		tc.mockPV = types.NewErroringMockPV()
+
+		defer tc.signerServer.Stop()
+		defer tc.signerClient.Close()
+
+		err := tc.signerClient.SignEntropy(tc.chainID, entropy)
+		require.Equal(t, err.(*RemoteSignerError).Description, types.ErroringMockPVErr.Error())
+
+		err = tc.mockPV.SignEntropy(tc.chainID, entropy)
+		require.Error(t, err)
+
+		err = tc.signerClient.SignEntropy(tc.chainID, entropy)
+		require.Error(t, err)
+	}
+}
+
+func TestSignerSignDKGErrors(t *testing.T) {
+	for _, tc := range getSignerTestCases(t) {
+		pubKey, err := tc.mockPV.GetPubKey()
+		msg := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: pubKey.Address()}
+
+		// Replace signer service privval with one that always fails
+		tc.signerServer.privVal = types.NewErroringMockPV()
+		tc.mockPV = types.NewErroringMockPV()
+
+		defer tc.signerServer.Stop()
+		defer tc.signerClient.Close()
+
+		err = tc.signerClient.SignDKGMessage(tc.chainID, msg)
+		require.Equal(t, err.(*RemoteSignerError).Description, types.ErroringMockPVErr.Error())
+
+		err = tc.mockPV.SignDKGMessage(tc.chainID, msg)
+		require.Error(t, err)
+
+		err = tc.signerClient.SignDKGMessage(tc.chainID, msg)
+		require.Error(t, err)
+	}
+}
 
 func brokenHandler(privVal types.PrivValidator, request SignerMessage, chainID string) (SignerMessage, error) {
 	var res SignerMessage
