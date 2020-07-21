@@ -36,7 +36,7 @@ import (
 
 func TestMain(m *testing.M) {
 	config = ResetConfig("consensus_reactor_test")
-	/*consensusReplayConfig = ResetConfig("consensus_replay_test")*/
+	consensusReplayConfig = ResetConfig("consensus_replay_test")
 	configStateTest := ResetConfig("consensus_state_test")
 	configMempoolTest := ResetConfig("consensus_mempool_test")
 	configByzantineTest := ResetConfig("consensus_byzantine_test")
