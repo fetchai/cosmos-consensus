@@ -31,14 +31,14 @@ func getSignerTestCases(t *testing.T) []signerTestCase {
 		sl, sd := getMockEndpoints(t, dtc.addr, dtc.dialer)
 		sc, err := NewSignerClient(sl)
 		require.NoError(t, err)
-		ss := NewSignerServer(sd, chainID, &mockPV)
+		ss := NewSignerServer(sd, chainID, mockPV)
 
 		err = ss.Start()
 		require.NoError(t, err)
 
 		tc := signerTestCase{
 			chainID:      chainID,
-			mockPV:       &mockPV,
+			mockPV:       mockPV,
 			signerClient: sc,
 			signerServer: ss,
 		}
@@ -325,9 +325,8 @@ func brokenHandler(privVal types.PrivValidator, request SignerMessage, chainID s
 
 func TestSignerUnexpectedResponse(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		mockPV := types.NewMockPV()
-		tc.signerServer.privVal = &mockPV
-		tc.mockPV = &mockPV
+		tc.signerServer.privVal = types.NewMockPV()
+		tc.mockPV = types.NewMockPV()
 
 		tc.signerServer.SetRequestHandler(brokenHandler)
 

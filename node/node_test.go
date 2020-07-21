@@ -201,11 +201,10 @@ func TestNodeSetPrivValTCP(t *testing.T) {
 	)
 	privval.SignerDialerEndpointTimeoutReadWrite(100 * time.Millisecond)(dialerEndpoint)
 
-	newMockPv := types.NewMockPV()
 	signerServer := privval.NewSignerServer(
 		dialerEndpoint,
 		config.ChainID(),
-		&newMockPv,
+		types.NewMockPV(),
 	)
 
 	go func() {
@@ -248,12 +247,10 @@ func TestNodeSetPrivValIPC(t *testing.T) {
 	)
 	privval.SignerDialerEndpointTimeoutReadWrite(100 * time.Millisecond)(dialerEndpoint)
 
-	mockPV := types.NewMockPV()
-
 	pvsc := privval.NewSignerServer(
 		dialerEndpoint,
 		config.ChainID(),
-		&mockPV,
+		types.NewMockPV(),
 	)
 
 	go func() {
