@@ -235,7 +235,7 @@ func TestStateBadProposal(t *testing.T) {
 }
 
 func TestStateBeaconProposerSelection(t *testing.T) {
-	cs1, _ := randConsensusState(4)
+	cs1, _ := randState(4)
 
 	entropyChannel := make(chan types.ChannelEntropy, 5)
 	cs1.SetEntropyChannel(entropyChannel)

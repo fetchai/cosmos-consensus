@@ -31,6 +31,7 @@ import (
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
+	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 func TestNodeStartStop(t *testing.T) {
@@ -110,7 +111,7 @@ func TestNodeDKGFastSync(t *testing.T) {
 	// Use node to generate DKG messages in chain
 	n, _ := DefaultNewNode(config, log.NewNopLogger())
 	_ = n.Start()
-	assert.Eventually(t, func() bool { return cmn.FileExists(config.NextEntropyKeyFile()) }, 5*time.Second, 500*time.Millisecond)
+	assert.Eventually(t, func() bool { return tmos.FileExists(config.NextEntropyKeyFile()) }, 5*time.Second, 500*time.Millisecond)
 	n.Stop()
 
 	// Get rough estimate of last block height
@@ -200,10 +201,11 @@ func TestNodeSetPrivValTCP(t *testing.T) {
 	)
 	privval.SignerDialerEndpointTimeoutReadWrite(100 * time.Millisecond)(dialerEndpoint)
 
+	newMockPv := types.NewMockPV()
 	signerServer := privval.NewSignerServer(
 		dialerEndpoint,
 		config.ChainID(),
-		types.NewMockPV(),
+		&newMockPv,
 	)
 
 	go func() {
@@ -246,10 +248,12 @@ func TestNodeSetPrivValIPC(t *testing.T) {
 	)
 	privval.SignerDialerEndpointTimeoutReadWrite(100 * time.Millisecond)(dialerEndpoint)
 
+	mockPV := types.NewMockPV()
+
 	pvsc := privval.NewSignerServer(
 		dialerEndpoint,
 		config.ChainID(),
-		types.NewMockPV(),
+		&mockPV,
 	)
 
 	go func() {

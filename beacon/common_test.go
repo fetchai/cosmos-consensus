@@ -67,7 +67,7 @@ func newStateWithConfigAndBlockStore(
 	state sm.State,
 	pv types.PrivValidator,
 	blockDB dbm.DB,
-) *consensus.ConsensusState {
+) *consensus.State {
 	// Get BlockStore
 	blockStore := store.NewBlockStore(blockDB)
 
@@ -90,14 +90,14 @@ func newStateWithConfigAndBlockStore(
 	stateDB := blockDB
 	sm.SaveState(stateDB, state) //for save height 1's validators info
 	blockExec := sm.NewBlockExecutor(stateDB, log.TestingLogger(), proxyAppConnCon, mempool, evpool)
-	cs := consensus.NewConsensusState(thisConfig.Consensus, state, blockExec, blockStore, mempool, evpool)
+	cs := consensus.NewState(thisConfig.Consensus, state, blockExec, blockStore, mempool, evpool)
 	cs.SetLogger(log.TestingLogger().With("module", "consensus"))
 	cs.SetPrivValidator(pv)
 
 	return cs
 }
 
-func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus bool) (css []*consensus.ConsensusState, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, cleanup cleanupFunc) {
+func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus bool) (css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, cleanup cleanupFunc) {
 	entropyGenerators = make([]*EntropyGenerator, nValidators)
 	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
@@ -116,7 +116,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 	var entropyChannels []chan types.ChannelEntropy
 	if withConsensus {
 		entropyChannels = make([]chan types.ChannelEntropy, nValidators)
-		css = make([]*consensus.ConsensusState, nValidators)
+		css = make([]*consensus.State, nValidators)
 	}
 
 	for i := 0; i < nValidators; i++ {
@@ -125,7 +125,8 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		thisConfig := cfg.ResetTestRoot(fmt.Sprintf("%s_%d", testName, i))
 		configRootDirs = append(configRootDirs, thisConfig.RootDir)
 
-		index, _ := state.Validators.GetByAddress(privVals[i].GetPubKey().Address())
+		pubKey, _ := privVals[i].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 
 		aeonDetails, _ := newAeonDetails(privVals[i], 1, state.Validators, aeonExecUnits[index], 1, 9)

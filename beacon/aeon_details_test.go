@@ -39,7 +39,8 @@ func TestAeonDetailsNew(t *testing.T) {
 
 	// Panic if validator index does not match dkg index
 	for _, val := range privVals {
-		index, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
+		pubKey, _ := val.GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index != 0 {
 			assert.Panics(t, func() {
 				newAeonDetails(val, 1, state.Validators, aeonSigning, 1, 10)
@@ -57,7 +58,8 @@ func TestAeonDetailsNew(t *testing.T) {
 
 	// Does not panic for all valid inputs
 	for _, val := range privVals {
-		index, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
+		pubKey, _ := val.GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index == 0 {
 			assert.NotPanics(t, func() {
 				newAeonDetails(val, 1, state.Validators, aeonSigning, 1, 10)
