@@ -16,7 +16,6 @@
 //   limitations under the License.
 //
 //------------------------------------------------------------------------------
-
 #include "aeon_exec_unit.hpp"
 #include "complaints_manager.hpp"
 
@@ -25,8 +24,14 @@
 namespace fetch {
 namespace beacon {
 
-class BeaconManager;
+#ifdef GLOW
+const std::string AeonType = GLOW_AEON;
+#else
+const std::string AeonType = BLS_AEON;
+#endif  
 
+// DKG mmplementation is switched depending on whether GLOW is defined. 
+// Default is the DFinity/BLS implementation.
 class BeaconSetupService
 {
 public:
@@ -36,6 +41,13 @@ public:
   using Share            = std::string;
   using Coefficient      = std::string;
   using SharesExposedMap = std::unordered_map<Identifier, std::pair<Share, Share>>;
+#ifdef GLOW
+using DkgImplemention = class GlowDkg;
+using AeonExecUnit    = GlowAeon;
+#else
+using DkgImplemention = class BlsDkg;
+using AeonExecUnit    = BlsAeon;
+#endif
 
   BeaconSetupService(Identifier cabinet_size, CabinetIndex threshold, Identifier index);
   BeaconSetupService(BeaconSetupService const &) = delete;
@@ -86,8 +98,8 @@ private:
   QualComplaintsManager   qual_complaints_manager_;
 
     // Members below protected by mutex
-  mutable std::mutex             mutex_;
-  std::unique_ptr<BeaconManager> beacon_;
+  mutable std::mutex               mutex_;
+  std::unique_ptr<DkgImplemention> beacon_;
 
   // Counters for types of messages received
   std::set<CabinetIndex>                   shares_received_;

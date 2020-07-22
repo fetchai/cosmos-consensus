@@ -270,7 +270,7 @@ func TestDKGScenarios(t *testing.T) {
 			defer DeleteIntStringMap(sigShares)
 			for index := 0; index < tc.completionSize; index++ {
 				node := nodes[index]
-				signature := outputs[index].aeonExecUnit.Sign(message)
+				signature := outputs[index].aeonExecUnit.Sign(message, uint(node.dkg.index()))
 				for index1 := 0; index1 < nTotal; index1++ {
 					if index != index1 {
 						assert.True(t, outputs[index1].aeonExecUnit.Verify(message, signature, uint(node.dkg.index())))
@@ -291,7 +291,7 @@ func TestDKGScenarios(t *testing.T) {
 // Test MaxDKGDataSize is large enough for the dry run messages for committee of size 200
 func TestDKGMessageMaxDataSize(t *testing.T) {
 	_, privVal := types.RandValidator(false, 10)
-	aeonExecUnit := NewAeonExecUnit("test_keys/200.txt")
+	aeonExecUnit := testAeonFromFile("test_keys/validator_0_of_200.txt")
 	validators := types.ValidatorSet{Validators: make([]*types.Validator, 200)}
 	aeonKeys := aeonDetails{
 		validatorHeight: 0,
@@ -301,7 +301,7 @@ func TestDKGMessageMaxDataSize(t *testing.T) {
 		End:             100,
 	}
 	msgToSign := string(cdc.MustMarshalBinaryBare(aeonKeys.dkgOutput()))
-	signature := aeonKeys.aeonExecUnit.Sign(msgToSign)
+	signature := aeonKeys.aeonExecUnit.Sign(msgToSign, 200)
 
 	dryRun := DryRunSignature{
 		PublicInfo:     *aeonKeys.dkgOutput(),

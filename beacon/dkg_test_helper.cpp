@@ -45,7 +45,7 @@ void MutateCoefficient(std::string &msg, Failure failure)
   if (failure == Failure::BAD_COEFFICIENT)
   {
     std::vector<std::string> coeff;  
-    mcl::PublicKey fake;
+    mcl::GroupPublicKey fake;
     coeff.push_back(fake.ToString());
     msg = serialisers::Serialise(coeff);
   }
@@ -110,7 +110,7 @@ void MutateQualCoefficient(std::string &msg, Failure failure)
   if (failure == Failure::BAD_QUAL_COEFFICIENT)
   {
     std::vector<std::string> coeff;  
-    mcl::PublicKey fake;
+    mcl::GroupPublicKey fake;
     coeff.push_back(fake.ToString());
     msg = serialisers::Serialise(coeff);
   }

@@ -21,6 +21,7 @@
 
 #include <atomic>
 #include <unordered_map>
+#include "serialisers.hpp"
 
 namespace bn = mcl::bls12;
 
@@ -48,131 +49,75 @@ struct MCLInitialiser
 };
 }  // namespace details
 
-class PrivateKey : public bn::Fr
-{
+class Signature;
+
+class PrivateKey : public bn::Fr {
 public:
-  PrivateKey()
-  {
-    clear();
-  }
+  PrivateKey();
+  PrivateKey(uint32_t num);
 
-  explicit PrivateKey(std::string const &pk)
-  {
-    FromString(pk);
-  }
+  void Random();
+  void Increment();
+  std::string ToString() const;
+  bool FromString(const std::string &s);
+  void SetZero();
+  void Add(const PrivateKey &left, const PrivateKey &right);
+  void Sub(const PrivateKey &left, const PrivateKey &right);
+  void Mult(const PrivateKey &left, const PrivateKey &right);
+  void Inv(const PrivateKey &inv);
+  void Negate(const PrivateKey &neg);
+  void Pow(const PrivateKey &left, uint32_t pow);
+  void Div(const PrivateKey &left, const PrivateKey &right);
 
-  explicit PrivateKey(CabinetIndex value)
-  {
-    clear();
-    bn::Fr::add(*this, *this, value);
-  }
-  std::string ToString() const
-  {
-    return getStr();
-  }
-  bool FromString(std::string const &pk)
-  {
-    clear();
-    bool set{false};
-    setStr(&set, pk.data());
-    return set;
-  }
-};
+  // For ZKP
+  void SetHashOf(const Signature &generator, const Signature &Hm, const Signature &publicKey, const Signature &sig,
+                const Signature &com1, const Signature &com2);
+  };
 
-class Signature : public bn::G1
-{
+class Signature : public bn::G1 {
 public:
-  Signature()
-  {
-    clear();
-  }
+  Signature();
 
-  explicit Signature(std::string const sig)
-  {
-    FromString(sig);
-  }
-  std::string ToString() const
-  {
-    return getStr();
-  }
-  void FromString(std::string const &sig)
-  {
-    clear();
-    bool set{false};
-    setStr(&set, sig.data());
-  }
+  void SetZero();
+  bool FromString(const std::string &s);
+  void Mult(const Signature &left, const PrivateKey &right);
+  void Add(const Signature &left, const Signature &right);
+  void HashAndMap(const std::string &payload);
+  std::string ToString() const;
 };
 
-class Generator : public bn::G2
-{
+class GroupPublicKey : public bn::G2 {
 public:
-  Generator()
-  {
-    clear();
-  }
+  GroupPublicKey();
 
-  explicit Generator(std::string const &generator)
-  {
-    FromString(generator);
-  }
-  std::string ToString() const
-  {
-    return getStr();
-  }
-  bool FromString(std::string const &gen)
-  {
-    clear();
-    bool set{false};
-    setStr(&set, gen.data());
-    return set;
-  }
+  void SetZero();
+  bool FromString(const std::string &s);
+  void Mult(const GroupPublicKey &left, const PrivateKey &right);
+  void Add(const GroupPublicKey &left, const GroupPublicKey &right);
+  void HashAndMap(const std::string &payload);
+  std::string ToString() const;
 };
 
-class PublicKey : public bn::G2
-{
+/// Class for computing pairings
+/// @{
+class Pairing : public bn::Fp12 {
 public:
-  PublicKey()
-  {
-    clear();
-  }
+  Pairing();
 
-  explicit PublicKey(std::string const &public_key)
-  {
-    FromString(public_key);
-  }
-
-  PublicKey(Generator const &G, PrivateKey const &p)
-  {
-    clear();
-    bn::G2::mul(*this, G, p);
-  }
-  std::string ToString() const
-  {
-    return getStr();
-  }
-  bool FromString(std::string const &pk)
-  {
-    clear();
-    bool set{false};
-    setStr(&set, pk.data());
-    return set;
-  }
+  void Map(const Signature &g1, const GroupPublicKey &g2);
 };
+/// @}
 
-Signature Sign(std::string const &message, PrivateKey x_i);
-bool      Verify(std::string const &message, Signature const &sign, PublicKey const &public_key,
-                 Generator const &G);
-Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> const &shares);
+/// Class for ZKP
+/// @{
+class Proof : public std::pair<PrivateKey, PrivateKey> {
+public:
+  Proof() = default;
 
-struct DkgKeyInformation
-{
-  std::string              group_public_key;
-  std::vector<std::string> public_key_shares;
-  std::vector<std::string> private_key_shares;
-  std::string              generator;
+  std::pair<std::string, std::string> ToString() const;
+  bool FromString(const std::pair<std::string, std::string> &s);
 };
-
-DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold);
+/// @}
 
 /**
  * Helper functions for computations used in the DKG
@@ -207,21 +152,139 @@ void Init(std::vector<std::vector<T>> &data, CabinetIndex i, CabinetIndex j)
     data_i.resize(j);
   }
 }
-void      SetGenerator(Generator &        generator_g,
-                       std::string const &string_to_hash = "Fetch.ai Elliptic Curve Generator G");
-void      SetGenerators(Generator &generator_g, Generator &generator_h,
+
+
+template<class Generator>
+static void SetGenerator(Generator &generator_g,
+                       std::string const &string_to_hash = "Fetch.ai Elliptic Curve Generator G") {
+  assert(!string_to_hash.empty());
+  generator_g.SetZero();
+  generator_g.HashAndMap(string_to_hash + std::string(typeid(generator_g).name()));
+}
+
+template<class Generator>
+static void SetGenerators(Generator &generator_g, Generator &generator_h,
                         std::string const &string_to_hash  = "Fetch.ai Elliptic Curve Generator G",
-                        std::string const &string_to_hash2 = "Fetch.ai Elliptic Curve Generator H");
-PublicKey ComputeLHS(PublicKey &tmpG, Generator const &G, Generator const &H,
-                     PrivateKey const &share1, PrivateKey const &share2);
-PublicKey ComputeLHS(Generator const &G, Generator const &H, PrivateKey const &share1,
-                     PrivateKey const &share2);
-void      UpdateRHS(CabinetIndex rank, PublicKey &rhsG, std::vector<PublicKey> const &input);
-PublicKey ComputeRHS(CabinetIndex rank, std::vector<PublicKey> const &input);
-void      ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
+                        std::string const &string_to_hash2 = "Fetch.ai Elliptic Curve Generator H") {
+  SetGenerator(generator_g, string_to_hash);
+  SetGenerator(generator_h, string_to_hash2);
+}
+
+
+Signature Sign(std::string const &message, PrivateKey x_i);
+bool PairingVerify(const std::string &message, const mcl::Signature &sign, const mcl::GroupPublicKey &y, const mcl::GroupPublicKey &G);
+Proof ComputeProof(const Signature &G, const std::string &message, const Signature &y, const Signature &sig, const PrivateKey &x);
+bool VerifyProof(const Signature &y, const std::string &message, const Signature &sign, const Signature &G, const Proof &proof);
+Signature LagrangeInterpolation(std::unordered_map<CabinetIndex, Signature> const &shares);
+void ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey> const &a_i,
                         std::vector<PrivateKey> const &b_i, CabinetIndex index);
 std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
                                            std::vector<PrivateKey> const &b);
+
+struct DkgKeyInformation
+{
+  std::string              group_public_key;
+  std::vector<std::string> public_key_shares;
+  std::vector<std::string> private_key_shares;
+  std::string              generator;
+};
+
+template<class VerificationKey>
+VerificationKey ComputeLHS(VerificationKey &tmpG, VerificationKey const &G, VerificationKey const &H,
+                     PrivateKey const &share1, PrivateKey const &share2)
+{
+  VerificationKey tmp2G, lhsG;
+  tmpG.Mult(G, share1);
+  tmp2G.Mult(H, share2);
+  lhsG.Add(tmpG, tmp2G);
+
+  return lhsG;
+}
+
+template<class VerificationKey>
+VerificationKey ComputeLHS(VerificationKey const &G, VerificationKey const &H, PrivateKey const &share1,
+                     PrivateKey const &share2)
+{
+  VerificationKey tmpG;
+  return ComputeLHS(tmpG, G, H, share1, share2);
+}
+
+template<class VerificationKey>
+void UpdateRHS(CabinetIndex rank, VerificationKey &rhsG, std::vector<VerificationKey> const &input)
+{
+  PrivateKey tmpF{uint32_t(rank + 1)};
+  PrivateKey crypto_rank{uint32_t(rank + 1)};
+  VerificationKey tmpG;
+  assert(input.size() > 0);
+  for (size_t k = 1; k < input.size(); k++) {
+    tmpG.Mult(input[k], tmpF);
+    rhsG.Add(rhsG, tmpG);
+    tmpF.Mult(tmpF, crypto_rank); // adjust index $i$ in computation
+  }
+}
+
+template<class VerificationKey>
+VerificationKey ComputeRHS(CabinetIndex rank, std::vector<VerificationKey> const &input) 
+{
+  VerificationKey rhsG{input[0]};
+  assert(!input.empty());
+  UpdateRHS(rank, rhsG, input);
+  return rhsG;
+}
+
+template<class VerificationKey>
+DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold)
+{
+  DkgKeyInformation output;
+  VerificationKey generator;
+  GroupPublicKey generator2;
+  SetGenerator(generator);
+  SetGenerator(generator2);
+
+  if (generator == generator2) {
+    output.generator = generator2.ToString();
+  } else {
+    std::pair<std::string, std::string> generators{generator2, generator};
+    output.generator = serialisers::Serialise(generators);
+  }
+
+  // Construct polynomial of degree threshold - 1
+  std::vector<PrivateKey> vec_a;
+  vec_a.resize(threshold);
+  for (CabinetIndex ii = 0; ii < threshold; ++ii)
+  {
+    vec_a[ii].Random();
+  }
+
+  // Group secret key is polynomial evaluated at 0
+  GroupPublicKey  group_public_key;
+  PrivateKey group_private_key = vec_a[0];
+  group_public_key.Mult(generator2, group_private_key);
+  output.group_public_key = group_public_key.ToString();
+
+  // Generate cabinet public keys from their private key contributions
+  for (CabinetIndex i = 0; i < cabinet_size; ++i)
+  {
+    PrivateKey pow{i+1};
+    PrivateKey tmpF;
+    PrivateKey crypto_rank{i+1};
+    // Private key is polynomial evaluated at index i
+    PrivateKey private_key{vec_a[0]};
+    for (CabinetIndex k = 1; k < vec_a.size(); k++)
+    {
+      tmpF.Mult(pow, vec_a[k]);  // j^k * a_i[k]
+      private_key.Add(private_key, tmpF);
+      pow.Mult(pow, crypto_rank);
+    }
+    // Public key from private
+    VerificationKey public_key;
+    public_key.Mult(generator, private_key);
+    output.public_key_shares.push_back(public_key.ToString());
+    output.private_key_shares.push_back(private_key.ToString());
+  }
+
+  return output;
+}
 
 }  // namespace mcl
 }  // namespace beacon

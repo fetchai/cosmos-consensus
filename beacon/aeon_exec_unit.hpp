@@ -27,6 +27,9 @@
 
 namespace fetch {
 namespace beacon {
+ 
+const std::string BLS_AEON  = "BlsAeon";
+const std::string GLOW_AEON = "GlowAeon";
 
 void InitialiseMcl();
 
@@ -36,39 +39,79 @@ struct DKGKeyInformation {
   std::string group_public_key;
 };
 
-class AeonExecUnit {
+class BaseAeon {
 public:
   using MessagePayload     = std::string;
   using Signature          = std::string;
   using CabinetIndex       = uint32_t;
 
-  // Called externally in go
-  AeonExecUnit(std::string const &filename);
-  AeonExecUnit(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
-  // Constructor used beacon manager
-  AeonExecUnit(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
+  virtual ~BaseAeon() = default;
+  virtual Signature Sign(MessagePayload const &message, CabinetIndex index) const = 0;
+  virtual bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const = 0;
+  virtual bool CheckIndex(CabinetIndex index) const = 0;
+  virtual Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const = 0;
+  virtual std::string Name() const = 0;
 
-  Signature Sign(MessagePayload const &message) const;
-  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const;
-  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
   bool VerifyGroupSignature(MessagePayload const &message, Signature const &signature) const;
 
   bool CanSign() const;
-  bool CheckIndex(CabinetIndex index) const;
   void WriteToFile(std::string const &filename) const;
   bool InQual(CabinetIndex index) const;
   std::string GroupPublicKey() const;
   std::string PrivateKey() const;
   std::vector<std::string> PublicKeyShares() const;
   std::vector<CabinetIndex> Qual() const;
-  std::string Generator() const;
+  virtual std::string Generator() const;
 
-private:
+protected:
   DKGKeyInformation aeon_keys_;
   std::string generator_;
   std::set<CabinetIndex> qual_;
 
-  void CheckKeys() const;
+
+  explicit BaseAeon(std::string const &filename);
+  BaseAeon(DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
+  BaseAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
+
+  virtual void CheckKeys() const = 0;
+};
+
+class BlsAeon : public BaseAeon {
+public:
+  explicit BlsAeon(std::string const &filename);
+  BlsAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
+  // Constructor used in bls dkg
+  BlsAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual);
+  ~BlsAeon() = default;
+
+  Signature Sign(MessagePayload const &message, CabinetIndex) const override;
+  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const override;
+  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
+  bool CheckIndex(CabinetIndex index) const override;
+  std::string Name() const override;
+
+private:  
+  void CheckKeys() const override;
+};
+
+class GlowAeon : public BaseAeon {
+public:
+  GlowAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual); 
+ // Constructor used in glow dkg
+  GlowAeon(std::string generator_, std::string generate_g1, DKGKeyInformation keys, std::set<CabinetIndex> qual);
+  ~GlowAeon() = default;
+
+  Signature Sign(MessagePayload const &message, CabinetIndex index) const override;
+  bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const override;
+  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
+  bool CheckIndex(CabinetIndex index) const override;
+  std::string Generator() const override;
+  std::string Name() const override;
+
+private:
+  std::string generator_g1_;
+
+  void CheckKeys() const override;
 };
 
 }  // namespace crypto

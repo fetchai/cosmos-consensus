@@ -27,7 +27,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 		{"With aeon", func(eg *EntropyGenerator) {
 			nValidators := 4
 			state, _ := groupTestSetup(nValidators)
-			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
+			aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
 			aeonDetails, _ := newAeonDetails(nil, 1, state.Validators, aeonExecUnit, 1, 10)
 			eg.SetNextAeonDetails(aeonDetails)
 		}},
@@ -62,7 +62,7 @@ func TestEntropyGeneratorSetAeon(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			state, _ := groupTestSetup(4)
-			aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
+			aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
 			aeonDetails, _ := newAeonDetails(nil, 1, state.Validators, aeonExecUnit, tc.start, tc.end)
 			newGen.SetNextAeonDetails(aeonDetails)
 			newGen.changeKeys()
@@ -132,9 +132,9 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	t.Run("applyShare non-validator", func(t *testing.T) {
 		_, privVal := types.RandValidator(false, 30)
 		pubKey, _ := privVal.GetPubKey()
-		aeonExecUnitInvalid := NewAeonExecUnit("test_keys/" + strconv.Itoa(int(3)) + ".txt")
+		aeonExecUnitInvalid := testAeonFromFile("test_keys/validator_" + strconv.Itoa(int(3)) + "_of_4.txt")
 		message := string(tmhash.Sum(newGen.entropyComputed[1]))
-		signature := aeonExecUnitInvalid.Sign(message)
+		signature := aeonExecUnitInvalid.Sign(message, 3)
 		share := types.EntropyShare{
 			Height:         2,
 			SignerAddress:  pubKey.Address(),
@@ -176,9 +176,9 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		privVal := privVals[0]
 		pubKey, _ := privVal.GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		aeonExecUnitInvalid := NewAeonExecUnit("test_keys/" + strconv.Itoa(int((index+1)%3)) + ".txt")
+		aeonExecUnitInvalid := testAeonFromFile("test_keys/validator_" + strconv.Itoa(int((index+1)%3)) + "_of_4.txt")
 		message := string(tmhash.Sum(newGen.entropyComputed[1]))
-		signature := aeonExecUnitInvalid.Sign(message)
+		signature := aeonExecUnitInvalid.Sign(message, uint(index))
 
 		share := types.EntropyShare{
 			Height:         2,
@@ -227,7 +227,7 @@ func TestEntropyGeneratorFlush(t *testing.T) {
 	newGen := testEntropyGenerator()
 	newGen.SetLogger(log.TestingLogger())
 
-	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
+	aeonExecUnit := testAeonFromFile("test_keys/single_validator.txt")
 	aeonDetails, _ := newAeonDetails(privVal[0], 1, state.Validators, aeonExecUnit, 1, 50)
 	newGen.SetNextAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(0, []byte("Test Entropy"))
@@ -303,7 +303,7 @@ func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	assert.True(t, !newGen.isSigningEntropy())
 
 	state, privVal := groupTestSetup(1)
-	aeonExecUnit := NewAeonExecUnit("test_keys/single_validator.txt")
+	aeonExecUnit := testAeonFromFile("test_keys/single_validator.txt")
 	aeonDetails, _ := newAeonDetails(privVal[0], 1, state.Validators, aeonExecUnit, 5, 50)
 	newGen.SetNextAeonDetails(aeonDetails)
 
@@ -322,9 +322,9 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 	newGen := testEntropyGenerator()
 	newGen.SetLogger(log.TestingLogger())
 
-	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
+	aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
 	if index >= 0 {
-		aeonExecUnit = NewAeonExecUnit("test_keys/" + strconv.Itoa(int(index)) + ".txt")
+		aeonExecUnit = testAeonFromFile("test_keys/validator_" + strconv.Itoa(int(index)) + "_of_4.txt")
 	}
 	aeonDetails, _ := newAeonDetails(privVal, 1, validators, aeonExecUnit, 1, 50)
 	newGen.SetNextAeonDetails(aeonDetails)

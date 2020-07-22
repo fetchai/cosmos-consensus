@@ -12,12 +12,11 @@ func TestCryptoSign(t *testing.T) {
 	cabinetSize := uint(4)
 
 	directory := "test_keys/"
-	aeonExecUnit := NewAeonExecUnit(directory + "0.txt")
-	defer DeleteAeonExecUnit(aeonExecUnit)
+	aeonExecUnit := testAeonFromFile(directory + "validator_0_of_4.txt")
 
 	assert.True(t, aeonExecUnit.CanSign())
 	message := "HelloWorld"
-	signature := aeonExecUnit.Sign(message)
+	signature := aeonExecUnit.Sign(message, 0)
 	assert.True(t, aeonExecUnit.Verify(message, signature, uint(0)))
 
 	// Collect signatures in map
@@ -27,11 +26,10 @@ func TestCryptoSign(t *testing.T) {
 
 	// Create aeon keys for each cabinet member and entropy generators
 	for i := uint(1); i < cabinetSize; i++ {
-		aeonExecUnitTemp := NewAeonExecUnit(directory + strconv.Itoa(int(i)) + ".txt")
-		defer DeleteAeonExecUnit(aeonExecUnitTemp)
+		aeonExecUnitTemp := testAeonFromFile(directory + "validator_" + strconv.Itoa(int(i)) + "_of_4.txt")
 
 		assert.True(t, aeonExecUnitTemp.CanSign())
-		signatureTemp := aeonExecUnitTemp.Sign(message)
+		signatureTemp := aeonExecUnitTemp.Sign(message, i)
 		assert.True(t, len([]byte(signatureTemp)) <= types.MaxEntropyShareSize)
 		assert.True(t, aeonExecUnitTemp.Verify(message, signatureTemp, i))
 
@@ -43,8 +41,7 @@ func TestCryptoSign(t *testing.T) {
 }
 
 func TestCryptoNonValidator(t *testing.T) {
-	aeonExecUnit := NewAeonExecUnit("test_keys/non_validator.txt")
-	defer DeleteAeonExecUnit(aeonExecUnit)
+	aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
 
 	assert.False(t, aeonExecUnit.CanSign())
 }
@@ -147,7 +144,7 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	outputs := make([]AeonExecUnit, cabinetSize)
+	outputs := make([]BaseAeon, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllReconstructionShares())
@@ -160,7 +157,7 @@ func TestHonestDkg(t *testing.T) {
 	sigShares := NewIntStringMap()
 	defer DeleteIntStringMap(sigShares)
 	for index := uint(0); index < cabinetSize; index++ {
-		signature := outputs[index].Sign(message)
+		signature := outputs[index].Sign(message, index)
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
 			if index != index1 {
 				assert.True(t, outputs[index1].Verify(message, signature, index))
@@ -173,4 +170,9 @@ func TestHonestDkg(t *testing.T) {
 		assert.True(t, outputs[index].VerifyGroupSignature(message, groupSig))
 	}
 
+}
+
+func testAeonFromFile(filename string) BaseAeon {
+	//Aeon type here must match those in key files
+	return NewBlsAeon(filename)
 }

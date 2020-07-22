@@ -393,7 +393,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		"nodeAddress", pubKey.Address())
 
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message)
+	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message, uint(index))
 
 	// Insert own signature into entropy shares
 	if entropyGenerator.entropyShares[blockHeight] == nil {
