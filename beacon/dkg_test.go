@@ -3,7 +3,6 @@ package beacon
 import (
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
