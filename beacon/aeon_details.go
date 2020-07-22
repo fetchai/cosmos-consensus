@@ -50,7 +50,13 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 		qual.Add(aeonDetailsFile.PublicInfo.Qual[i])
 	}
 
-	aeonExecUnit := newAeonExecUnit(aeonDetailsFile.PublicInfo.KeyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
+	keyType := aeonDetailsFile.PublicInfo.KeyType
+	if len(keyType) == 0 {
+		// If no key type in file, attempt to use the default type specified in beacon_setup_service.hpp
+		keyType = GetAeonType()
+	}
+
+	aeonExecUnit := newAeonExecUnit(keyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
 	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, validators, aeonExecUnit,
 		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	return aeonDetails
@@ -235,9 +241,6 @@ type DKGOutput struct {
 // ValidateBasic for basic validity checking of dkg output
 func (output *DKGOutput) ValidateBasic() error {
 	if len(output.GroupPublicKey) != 0 {
-		if len(output.KeyType) == 0 {
-			return fmt.Errorf("Empty key type")
-		}
 		if len(output.Generator) == 0 {
 			return fmt.Errorf("Empty generator")
 		}

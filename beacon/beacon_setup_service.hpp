@@ -21,10 +21,14 @@
 
 #include <memory>
 
-#define GLOW
-
 namespace fetch {
 namespace beacon {
+
+#ifdef GLOW
+const std::string AeonType = GLOW_AEON;
+#else
+const std::string AeonType = BLS_AEON;
+#endif  
 
 // DKG mmplementation is switched depending on whether GLOW is defined. 
 // Default is the DFinity/BLS implementation.
