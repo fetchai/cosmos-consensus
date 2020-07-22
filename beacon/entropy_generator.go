@@ -518,7 +518,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
-		//message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
+		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 		signatureShares := NewIntStringMap()
 		defer DeleteIntStringMap(signatureShares)
 
@@ -526,10 +526,10 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 			signatureShares.Set(key, share.SignatureShare)
 		}
 		groupSignature := entropyGenerator.aeon.aeonExecUnit.ComputeGroupSignature(signatureShares)
-		//if !entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, groupSignature) {
-		//	entropyGenerator.Logger.Error("entropy_generator.VerifyGroupSignature == false")
-		//	return false, nil
-		//}
+		if !entropyGenerator.aeon.aeonExecUnit.VerifyGroupSignature(message, groupSignature) {
+			entropyGenerator.Logger.Error("entropy_generator.VerifyGroupSignature == false")
+			return false, nil
+		}
 
 		entropyGenerator.Logger.Info("New entropy computed", "height", height)
 		entropyGenerator.entropyComputed[height] = []byte(groupSignature)
