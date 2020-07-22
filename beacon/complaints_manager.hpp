@@ -42,6 +42,7 @@ class ComplaintsManager
   using Cabinet        = std::set<Identifier>;
   using ComplaintsList = std::set<Identifier>;
 
+  mutable std::mutex mutex_;
   uint32_t   threshold_{0};  ///< DKG threshold
   Identifier identifier_;    ///< Address of node
   std::unordered_map<Identifier, std::unordered_set<Identifier>>
@@ -52,7 +53,7 @@ class ComplaintsManager
   ///< and their complaints
   bool finished_{
       false};  ///< Bool denoting whether we have collected complaint messages from everyone
-  mutable std::mutex mutex_;
+
 
 public:
   ComplaintsManager() = default;
@@ -84,10 +85,10 @@ class ComplaintAnswersManager
   using ComplaintsList   = std::set<Identifier>;
   using Cabinet          = std::set<Identifier>;
 
+  mutable std::mutex mutex_;
   ComplaintsList     complaints_;
   ComplaintAnswers   complaint_answers_received_;
   bool               finished_{false};
-  mutable std::mutex mutex_;
 
 public:
   ComplaintAnswersManager() = default;
@@ -116,11 +117,11 @@ class QualComplaintsManager
   using ComplaintsList   = std::set<Identifier>;
   using Cabinet          = std::set<Identifier>;
 
+  mutable std::mutex mutex_;
   bool           finished_{false};
   ComplaintsList complaints_;           ///< Cabinet members we complain against
   QualComplaints complaints_received_;  ///< Set of cabinet members we have received a qual
   ///< complaint message from
-  mutable std::mutex mutex_;
 
 public:
   QualComplaintsManager() = default;
