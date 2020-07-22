@@ -261,6 +261,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	if dkg.index() >= 0 {
 		DeleteBeaconSetupService(dkg.beaconService)
 		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(dkg.index()))
+		dkg.setStates()
 	}
 	// Reset dkg details
 	dkg.encryptionPublicKeys = make(map[uint][]byte)
