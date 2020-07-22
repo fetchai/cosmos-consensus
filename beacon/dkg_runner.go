@@ -138,6 +138,8 @@ func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStore) error {
 
 // OnStart overrides BaseService. Starts first DKG.
 func (dkgRunner *DKGRunner) OnStart() error {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
 	dkgRunner.checkNextDKG()
 	return nil
 }

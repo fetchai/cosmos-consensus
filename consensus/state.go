@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/tendermint/tendermint/tx_extensions"
 	"math/rand"
 	"os"
 	"reflect"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/pkg/errors"
 
@@ -667,7 +668,9 @@ func (cs *State) receiveRoutine(maxSteps int) {
 				return
 			}
 		}
+		cs.mtx.RLock()
 		rs := cs.RoundState
+		cs.mtx.RUnlock()
 		var mi msgInfo
 
 		select {
