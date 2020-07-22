@@ -7,7 +7,7 @@ import (
 
 	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/service"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
@@ -18,7 +18,7 @@ import (
 // the output of the DKG. New DKGs are started at the beginning of every aeon assuming the previous
 // DKG completed on time.
 type DKGRunner struct {
-	cmn.BaseService
+	service.BaseService
 	beaconConfig   *cfg.BeaconConfig
 	chainID        string
 	stateDB        dbm.DB
@@ -60,7 +60,7 @@ func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.P
 		fastSync:      false,
 		encryptionKey: encryptionKey,
 	}
-	dkgRunner.BaseService = *cmn.NewBaseService(nil, "DKGRunner", dkgRunner)
+	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
 
 	return dkgRunner
 }
@@ -99,7 +99,7 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
 
 // FastSync runs a dkg from block messages up to current block height
 // for catch up
-func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStoreRPC) error {
+func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStore) error {
 	if dkgRunner.IsRunning() {
 		return fmt.Errorf("FastSync: dkgRunner running!")
 	}

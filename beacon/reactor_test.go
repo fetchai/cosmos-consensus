@@ -28,8 +28,8 @@ func TestMain(m *testing.M) {
 //----------------------------------------------
 // in-process testnets
 
-func startBeaconNet(t *testing.T, css []*consensus.ConsensusState, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, n int, nStart int) (
-	consensusReactors []*consensus.ConsensusReactor,
+func startBeaconNet(t *testing.T, css []*consensus.State, entropyGenerators []*EntropyGenerator, blockStores []*store.BlockStore, n int, nStart int) (
+	consensusReactors []*consensus.Reactor,
 	reactors []*Reactor,
 	eventBuses []*types.EventBus,
 ) {
@@ -37,7 +37,7 @@ func startBeaconNet(t *testing.T, css []*consensus.ConsensusState, entropyGenera
 	blocksSubs := make([]types.Subscription, 0)
 
 	if css != nil {
-		consensusReactors = make([]*consensus.ConsensusReactor, n)
+		consensusReactors = make([]*consensus.Reactor, n)
 		eventBuses = make([]*types.EventBus, n)
 	}
 
@@ -52,7 +52,7 @@ func startBeaconNet(t *testing.T, css []*consensus.ConsensusState, entropyGenera
 		reactors[i].SetLogger(entropyGenerators[i].Logger)
 
 		if css != nil {
-			consensusReactors[i] = consensus.NewConsensusReactor(css[i], true) // so we dont start the consensus states
+			consensusReactors[i] = consensus.NewReactor(css[i], true) // so we dont start the consensus states
 			consensusReactors[i].SetLogger(css[i].Logger)
 
 			// eventBus is already started with the cs
@@ -86,7 +86,7 @@ func startBeaconNet(t *testing.T, css []*consensus.ConsensusState, entropyGenera
 	return consensusReactors, reactors, eventBuses
 }
 
-func stopBeaconNet(logger log.Logger, consensusReactors []*consensus.ConsensusReactor, eventBuses []*types.EventBus, reactors []*Reactor) {
+func stopBeaconNet(logger log.Logger, consensusReactors []*consensus.Reactor, eventBuses []*types.EventBus, reactors []*Reactor) {
 	logger.Info("stopBeaconNet", "n", len(reactors))
 
 	if eventBuses != nil {

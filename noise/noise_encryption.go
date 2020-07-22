@@ -7,7 +7,8 @@ import (
 	"github.com/flynn/noise"
 	"github.com/pkg/errors"
 	cfg "github.com/tendermint/tendermint/config"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	tempfile "github.com/tendermint/tendermint/libs/tempfile"
+	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 func newHandshake(staticKeyPair noise.DHKey, peerStaticPublic []byte, initiator bool) *noise.HandshakeState {
@@ -59,7 +60,7 @@ func NewEncryptionKey() noise.DHKey {
 // to file
 func LoadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
 	noiseKeys := noise.DHKey{}
-	if cmn.FileExists(config.NoiseKeyFile()) {
+	if tmos.FileExists(config.NoiseKeyFile()) {
 		jsonBytes, err := ioutil.ReadFile(config.NoiseKeyFile())
 		if err != nil {
 			return noiseKeys, errors.Wrap(err, "error reading noise key file")
@@ -74,7 +75,7 @@ func LoadOrGenNoiseKeys(config *cfg.Config) (noise.DHKey, error) {
 		if err != nil {
 			return noiseKeys, errors.Wrap(err, "error marshalling noise key pair")
 		}
-		err = cmn.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
+		err = tempfile.WriteFileAtomic(config.NoiseKeyFile(), keyBytes, 0600)
 		if err != nil {
 			return noiseKeys, errors.Wrap(err, "error writing noise key pair")
 		}

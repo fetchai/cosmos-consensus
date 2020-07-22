@@ -1,11 +1,10 @@
-## v0.32.12
+## v0.33.7
 
 \*\*
 
 Special thanks to external contributors on this release:
 
-Friendly reminder, we have a [bug bounty
-program](https://hackerone.com/tendermint).
+Friendly reminder, we have a [bug bounty program](https://hackerone.com/tendermint).
 
 ### BREAKING CHANGES:
 
@@ -13,13 +12,18 @@ program](https://hackerone.com/tendermint).
 
 - Apps
 
+- P2P Protocol
+
 - Go API
+
+- Blockchain Protocol
 
 ### FEATURES:
 
+
+
 ### IMPROVEMENTS:
- 
- - Removed dkg and entropy generation config variables out of `ConsensusConfig` into new `BeaconConfig`
+
 
 ### BUG FIXES:
-
+ - Removed dkg and entropy generation config variables out of `ConsensusConfig` into new `BeaconConfig`

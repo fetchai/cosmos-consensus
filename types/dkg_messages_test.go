@@ -32,7 +32,7 @@ func TestDKGSignable(t *testing.T) {
 
 func TestDKGVerifySignature(t *testing.T) {
 	privVal := NewMockPV()
-	pubkey := privVal.GetPubKey()
+	pubkey, _ := privVal.GetPubKey()
 
 	msg := exampleDKGMessage(DKGShare)
 	signBytes := msg.SignBytes("test_chain_id")

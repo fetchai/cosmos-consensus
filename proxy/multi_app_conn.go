@@ -4,14 +4,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/tx_extensions"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/service"
 )
 
 //-----------------------------
 
 // Tendermint's interface to the application consists of multiple connections
 type AppConns interface {
-	cmn.Service
+	service.Service
 
 	Mempool() AppConnMempool
 	Consensus() AppConnConsensus
@@ -30,22 +30,22 @@ func NewAppConns(clientCreator ClientCreator) AppConns {
 // and manages their underlying abci clients
 // TODO: on app restart, clients must reboot together
 type multiAppConn struct {
-	cmn.BaseService
+	service.BaseService
 
-	mempoolConn      *appConnMempool
-	consensusConn    *appConnConsensus
-	queryConn        *appConnQuery
+	mempoolConn   AppConnMempool
+	consensusConn AppConnConsensus
+	queryConn     AppConnQuery
 	specialTxHandler *tx_extensions.SpecialTxHandler
 
 	clientCreator ClientCreator
 }
 
 // Make all necessary abci connections to the application
-func NewMultiAppConn(clientCreator ClientCreator) *multiAppConn {
+func NewMultiAppConn(clientCreator ClientCreator) AppConns {
 	multiAppConn := &multiAppConn{
 		clientCreator: clientCreator,
 	}
-	multiAppConn.BaseService = *cmn.NewBaseService(nil, "multiAppConn", multiAppConn)
+	multiAppConn.BaseService = *service.NewBaseService(nil, "multiAppConn", multiAppConn)
 	return multiAppConn
 }
 

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/libs/common"
+	tmrand "github.com/tendermint/tendermint/libs/rand"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -24,7 +24,7 @@ func getSignerTestCases(t *testing.T) []signerTestCase {
 
 	// Get test cases for each possible dialer (DialTCP / DialUnix / etc)
 	for _, dtc := range getDialerTestCases(t) {
-		chainID := common.RandStr(12)
+		chainID := tmrand.Str(12)
 		mockPV := types.NewMockPV()
 
 		// get a pair of signer listener, signer dialer endpoints
@@ -74,15 +74,20 @@ func TestSignerGetPubKey(t *testing.T) {
 		defer tc.signerServer.Stop()
 		defer tc.signerClient.Close()
 
-		pubKey := tc.signerClient.GetPubKey()
-		expectedPubKey := tc.mockPV.GetPubKey()
+		pubKey, err := tc.signerClient.GetPubKey()
+		require.NoError(t, err)
+		expectedPubKey, err := tc.mockPV.GetPubKey()
+		require.NoError(t, err)
 
 		assert.Equal(t, expectedPubKey, pubKey)
 
-		addr := tc.signerClient.GetPubKey().Address()
-		expectedAddr := tc.mockPV.GetPubKey().Address()
+		pubKey, err = tc.signerClient.GetPubKey()
+		require.NoError(t, err)
+		expectedpk, err := tc.mockPV.GetPubKey()
+		require.NoError(t, err)
+		expectedAddr := expectedpk.Address()
 
-		assert.Equal(t, expectedAddr, addr)
+		assert.Equal(t, expectedAddr, pubKey.Address())
 	}
 }
 
@@ -120,8 +125,9 @@ func TestSignerVote(t *testing.T) {
 
 func TestSignerEntropy(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		want := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: tc.mockPV.GetPubKey().Address()}
-		have := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: tc.mockPV.GetPubKey().Address()}
+		pubKey, _ := tc.mockPV.GetPubKey()
+		want := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: pubKey.Address()}
+		have := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: pubKey.Address()}
 
 		defer tc.signerServer.Stop()
 		defer tc.signerClient.Close()
@@ -135,8 +141,9 @@ func TestSignerEntropy(t *testing.T) {
 
 func TestSignerDKGMessage(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		want := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: tc.mockPV.GetPubKey().Address()}
-		have := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: tc.mockPV.GetPubKey().Address()}
+		pubKey, _ := tc.mockPV.GetPubKey()
+		want := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: pubKey.Address()}
+		have := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: pubKey.Address()}
 
 		defer tc.signerServer.Stop()
 		defer tc.signerClient.Close()
@@ -246,7 +253,8 @@ func TestSignerSignVoteErrors(t *testing.T) {
 
 func TestSignerSignEntropyErrors(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		entropy := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: tc.mockPV.GetPubKey().Address()}
+		pubKey, _ := tc.mockPV.GetPubKey()
+		entropy := &types.EntropyShare{Height: 1, SignatureShare: "signature", SignerAddress: pubKey.Address()}
 
 		// Replace signer service privval with one that always fails
 		tc.signerServer.privVal = types.NewErroringMockPV()
@@ -268,7 +276,8 @@ func TestSignerSignEntropyErrors(t *testing.T) {
 
 func TestSignerSignDKGErrors(t *testing.T) {
 	for _, tc := range getSignerTestCases(t) {
-		msg := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: tc.mockPV.GetPubKey().Address()}
+		pubKey, err := tc.mockPV.GetPubKey()
+		msg := &types.DKGMessage{Type: types.DKGShare, Data: "share", FromAddress: pubKey.Address()}
 
 		// Replace signer service privval with one that always fails
 		tc.signerServer.privVal = types.NewErroringMockPV()
@@ -277,7 +286,7 @@ func TestSignerSignDKGErrors(t *testing.T) {
 		defer tc.signerServer.Stop()
 		defer tc.signerClient.Close()
 
-		err := tc.signerClient.SignDKGMessage(tc.chainID, msg)
+		err = tc.signerClient.SignDKGMessage(tc.chainID, msg)
 		require.Equal(t, err.(*RemoteSignerError).Description, types.ErroringMockPVErr.Error())
 
 		err = tc.mockPV.SignDKGMessage(tc.chainID, msg)

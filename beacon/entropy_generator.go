@@ -8,7 +8,7 @@ import (
 
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/service"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
@@ -24,7 +24,7 @@ const (
 // keys for the current block height from the dkg - including for trivial entropy periods, for which the
 // dkg sends an empty set of keys.
 type EntropyGenerator struct {
-	cmn.BaseService
+	service.BaseService
 
 	mtx sync.RWMutex
 
@@ -80,7 +80,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		metrics:                   NopMetrics(),
 	}
 
-	es.BaseService = *cmn.NewBaseService(nil, "EntropyGenerator", es)
+	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
 	return es
 }
 
@@ -380,15 +380,17 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		panic(fmt.Sprintf("Has keys but previous entropy not set. Height %v", entropyGenerator.lastBlockHeight))
 	}
 
-	index, _ := entropyGenerator.aeon.validators.GetByAddress(entropyGenerator.aeon.privValidator.GetPubKey().Address())
+	pubKey, _ := entropyGenerator.aeon.privValidator.GetPubKey()
+	index, _ := entropyGenerator.aeon.validators.GetByAddress(pubKey.Address())
 	blockHeight := entropyGenerator.lastBlockHeight + 1
 	err := entropyGenerator.validInputs(blockHeight, index)
 	if err != nil {
 		entropyGenerator.Logger.Debug(err.Error())
 		return
 	}
+
 	entropyGenerator.Logger.Debug("sign: block entropy", "blockHeight", blockHeight, "lastEentropyHeight", entropyGenerator.lastComputedEntropyHeight,
-		"nodeAddress", entropyGenerator.aeon.privValidator.GetPubKey().Address())
+		"nodeAddress", pubKey.Address())
 
 	message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
 	signature := entropyGenerator.aeon.aeonExecUnit.Sign(message)
@@ -404,7 +406,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 
 	share := types.EntropyShare{
 		Height:         blockHeight,
-		SignerAddress:  entropyGenerator.aeon.privValidator.GetPubKey().Address(),
+		SignerAddress:  pubKey.Address(),
 		SignatureShare: signature,
 	}
 	// Sign message

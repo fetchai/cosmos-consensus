@@ -5,7 +5,7 @@ var (
 	GitCommit string
 
 	// Version is the built softwares version.
-	Version string = TMCoreSemVer
+	Version = TMCoreSemVer
 )
 
 func init() {
@@ -26,7 +26,7 @@ const (
 	TMBaselineSemVer = "0.32.12"
 
 	// ABCISemVer is the semantic version of the ABCI library
-	ABCISemVer  = "0.16.1"
+	ABCISemVer  = "0.16.2"
 	ABCIVersion = ABCISemVer
 )
 

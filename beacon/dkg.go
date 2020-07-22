@@ -8,7 +8,8 @@ import (
 	"github.com/flynn/noise"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	bits "github.com/tendermint/tendermint/libs/bits"
+	"github.com/tendermint/tendermint/libs/service"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/types"
 )
@@ -74,7 +75,7 @@ func dkgID(validatorHeight int64) int64 {
 // Empty keys are dispatched for the duration of the dkg [dkgStart, dkgEnd + 1] to allow trivial entropy generation
 // if no current keys exist.
 type DistributedKeyGeneration struct {
-	cmn.BaseService
+	service.BaseService
 	mtx sync.RWMutex
 
 	config       *cfg.BeaconConfig
@@ -100,7 +101,7 @@ type DistributedKeyGeneration struct {
 
 	dryRunKeys       map[string]DKGOutput
 	dryRunSignatures map[string]map[string]string
-	dryRunCount      *cmn.BitArray
+	dryRunCount      *bits.BitArray
 
 	sendMsgCallback       func(tx *types.DKGMessage)
 	dkgCompletionCallback func(*aeonDetails)
@@ -133,12 +134,12 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		currentState:         dkgStart,
 		dryRunKeys:           make(map[string]DKGOutput),
 		dryRunSignatures:     make(map[string]map[string]string),
-		dryRunCount:          cmn.NewBitArray(vals.Size()),
+		dryRunCount:          bits.NewBitArray(vals.Size()),
 		encryptionKey:        dhKey,
 		encryptionPublicKeys: make(map[uint][]byte),
 		metrics:              NopMetrics(),
 	}
-	dkg.BaseService = *cmn.NewBaseService(nil, "DKG", dkg)
+	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
 	if dkg.index() < 0 {
 		dkg.Logger.Debug("startNewDKG: not in validators", "height", dkg.validatorHeight)
@@ -265,7 +266,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.encryptionPublicKeys = make(map[uint][]byte)
 	dkg.dryRunKeys = make(map[string]DKGOutput)
 	dkg.dryRunSignatures = make(map[string]map[string]string)
-	dkg.dryRunCount = cmn.NewBitArray(dkg.validators.Size())
+	dkg.dryRunCount = bits.NewBitArray(dkg.validators.Size())
 	dkg.aeonKeys = nil
 	return nil
 }
@@ -348,7 +349,8 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 }
 
 func (dkg *DistributedKeyGeneration) index() int {
-	index, _ := dkg.validators.GetByAddress(dkg.privValidator.GetPubKey().Address())
+	pubKey, _ := dkg.privValidator.GetPubKey()
+	index, _ := dkg.validators.GetByAddress(pubKey.Address())
 	return index
 }
 
@@ -373,7 +375,8 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 	if msg.DKGIteration != dkg.dkgIteration {
 		return fmt.Errorf("checkMsg: incorrect dkgIteration %v", msg.DKGIteration)
 	}
-	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
+	pubKey, _ := dkg.privValidator.GetPubKey()
+	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, pubKey.Address()) {
 		return fmt.Errorf("checkMsg: not ToAddress")
 	}
 	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
@@ -423,11 +426,12 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 	if toAddress == nil {
 		toAddress = []byte{}
 	}
+	pubKey, _ := dkg.privValidator.GetPubKey()
 	newMsg := &types.DKGMessage{
 		Type:         msgType,
 		DKGID:        dkg.dkgID,
 		DKGIteration: dkg.dkgIteration,
-		FromAddress:  dkg.privValidator.GetPubKey().Address(),
+		FromAddress:  pubKey.Address(),
 		ToAddress:    toAddress,
 		Data:         data,
 	}
@@ -532,7 +536,8 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		dkg.dryRunKeys[msgToSign] = *dkg.aeonKeys.dkgOutput()
 		dkg.dryRunSignatures[msgToSign] = make(map[string]string)
 	}
-	dkg.dryRunSignatures[msgToSign][string(dkg.privValidator.GetPubKey().Address())] = signature
+	pubKey, _ := dkg.privValidator.GetPubKey()
+	dkg.dryRunSignatures[msgToSign][string(pubKey.Address())] = signature
 	dkg.dryRunCount.SetIndex(int(dkg.index()), true)
 
 	msg := cdc.MustMarshalBinaryBare(&dryRun)
