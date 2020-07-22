@@ -3,7 +3,6 @@ package beacon
 import (
 	"testing"
 	"time"
-
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
@@ -117,23 +116,27 @@ func TestDKGCheckMessage(t *testing.T) {
 		}, false},
 		{"Not from validator", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
-			msg.FromAddress = privVal.GetPubKey().Address()
+			pubKey, _ := privVal.GetPubKey()
+			msg.FromAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Correct ToAddress", func(msg *types.DKGMessage) {
-			msg.ToAddress = dkgToProcessMsg.privValidator.GetPubKey().Address()
+			pubKey, _ := dkgToProcessMsg.privValidator.GetPubKey()
+			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, true},
 		{"Incorrect ToAddress", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
-			msg.ToAddress = privVal.GetPubKey().Address()
+			pubKey, _ := privVal.GetPubKey()
+			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Incorrect Signature", func(msg *types.DKGMessage) {
 			msg.Data = "changed data"
 		}, false},
 		{"Message from self", func(msg *types.DKGMessage) {
-			msg.FromAddress = dkgToProcessMsg.privValidator.GetPubKey().Address()
+			pubKey, _ := dkgToProcessMsg.privValidator.GetPubKey()
+			msg.FromAddress = pubKey.Address()
 		}, false},
 	}
 	for _, tc := range testCases {
@@ -191,6 +194,7 @@ func TestDKGScenarios(t *testing.T) {
 		}, false, 2, 1, 2, 2},
 	}
 	for _, tc := range testCases {
+
 		t.Run(tc.testName, func(t *testing.T) {
 			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, tc.sendDuplicates)
 			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
@@ -303,9 +307,12 @@ func TestDKGMessageMaxDataSize(t *testing.T) {
 		PublicInfo:     *aeonKeys.dkgOutput(),
 		SignatureShare: signature,
 	}
+
+	pubKey, _ := privVal.GetPubKey()
+
 	dkgMessage := types.DKGMessage{
 		Type:         types.DKGDryRun,
-		FromAddress:  privVal.GetPubKey().Address(),
+		FromAddress:  pubKey.Address(),
 		DKGID:        0,
 		DKGIteration: 0,
 		Data:         string(cdc.MustMarshalBinaryBare(&dryRun)),
@@ -342,7 +349,10 @@ func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivVal
 		failures:     make([]dkgFailure, 0),
 		sentBadShare: false,
 	}
-	index, _ := vals.GetByAddress(privVal.GetPubKey().Address())
+
+	pubKey, _ := privVal.GetPubKey()
+
+	index, _ := vals.GetByAddress(pubKey.Address())
 	node.dkg.SetLogger(log.TestingLogger().With("dkgIndex", index))
 
 	node.dkg.SetSendMsgCallback(func(msg *types.DKGMessage) {

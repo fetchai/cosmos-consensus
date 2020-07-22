@@ -121,7 +121,7 @@ type appConnMempool struct {
 	appConn abcicli.Client
 }
 
-func NewAppConnMempool(appConn abcicli.Client) *appConnMempool {
+func NewAppConnMempool(appConn abcicli.Client) AppConnMempool {
 	return &appConnMempool{
 		appConn: appConn,
 	}
@@ -169,7 +169,7 @@ type appConnQuery struct {
 	appConn abcicli.Client
 }
 
-func NewAppConnQuery(appConn abcicli.Client) *appConnQuery {
+func NewAppConnQuery(appConn abcicli.Client) AppConnQuery {
 	return &appConnQuery{
 		appConn: appConn,
 	}

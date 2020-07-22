@@ -87,7 +87,8 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 	// Give it entropy shares
 	for i := 0; i < 3; i++ {
 		privVal := privVals[i]
-		index, _ := state.Validators.GetByAddress(privVal.GetPubKey().Address())
+		pubKey, _ := privVal.GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		tempGen := testEntropyGen(state.Validators, privVal, index)
 		tempGen.sign()
 
@@ -102,7 +103,8 @@ func TestEntropyGeneratorSign(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 
-	index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+	pubKey, _ := privVals[0].GetPubKey()
+	index, _ := state.Validators.GetByAddress(pubKey.Address())
 	newGen := testEntropyGen(state.Validators, privVals[0], index)
 	newGen.SetLastComputedEntropy(2, []byte("Test Entropy"))
 	newGen.setLastBlockHeight(2)
@@ -129,12 +131,13 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 
 	t.Run("applyShare non-validator", func(t *testing.T) {
 		_, privVal := types.RandValidator(false, 30)
+		pubKey, _ := privVal.GetPubKey()
 		aeonExecUnitInvalid := testAeonFromFile("test_keys/validator_" + strconv.Itoa(int(3)) + "_of_4.txt")
 		message := string(tmhash.Sum(newGen.entropyComputed[1]))
 		signature := aeonExecUnitInvalid.Sign(message, 3)
 		share := types.EntropyShare{
 			Height:         2,
-			SignerAddress:  privVal.GetPubKey().Address(),
+			SignerAddress:  pubKey.Address(),
 			SignatureShare: signature,
 		}
 		// Sign message
@@ -144,7 +147,8 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		assert.True(t, len(newGen.entropyShares[2]) == 0)
 	})
 	t.Run("applyShare old height", func(t *testing.T) {
-		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		pubKey, _ := privVals[0].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
@@ -156,7 +160,8 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		assert.True(t, len(newGen.entropyShares[1]) == 0)
 	})
 	t.Run("applyShare height far ahead", func(t *testing.T) {
-		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		pubKey, _ := privVals[0].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(3, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(3)
@@ -169,13 +174,22 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	})
 	t.Run("applyShare invalid share", func(t *testing.T) {
 		privVal := privVals[0]
+<<<<<<< HEAD
 		index, _ := state.Validators.GetByAddress(privVal.GetPubKey().Address())
 		aeonExecUnitInvalid := testAeonFromFile("test_keys/validator_" + strconv.Itoa(int((index+1)%3)) + "_of_4.txt")
 		message := string(tmhash.Sum(newGen.entropyComputed[1]))
 		signature := aeonExecUnitInvalid.Sign(message, uint(index))
+=======
+		pubKey, _ := privVal.GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
+		aeonExecUnitInvalid := NewAeonExecUnit("test_keys/" + strconv.Itoa(int((index+1)%3)) + ".txt")
+		message := string(tmhash.Sum(newGen.entropyComputed[1]))
+		signature := aeonExecUnitInvalid.Sign(message)
+
+>>>>>>> master
 		share := types.EntropyShare{
 			Height:         2,
-			SignerAddress:  privVal.GetPubKey().Address(),
+			SignerAddress:  pubKey.Address(),
 			SignatureShare: signature,
 		}
 		// Sign message
@@ -185,7 +199,8 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		assert.True(t, len(newGen.entropyShares[2]) == 0)
 	})
 	t.Run("applyShare invalid validator signature", func(t *testing.T) {
-		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		pubKey, _ := privVals[0].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
@@ -199,7 +214,8 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 		assert.True(t, len(newGen.entropyShares[2]) == 0)
 	})
 	t.Run("applyShare correct", func(t *testing.T) {
-		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		pubKey, _ := privVals[0].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
@@ -249,7 +265,8 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		assert.True(t, newGen.getComputedEntropy(3) == nil)
 	})
 	t.Run("applyEntropy invalid entropy", func(t *testing.T) {
-		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		pubKey, _ := privVals[0].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
@@ -260,14 +277,16 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		assert.True(t, newGen.getComputedEntropy(2) == nil)
 	})
 	t.Run("applyEntropy correct", func(t *testing.T) {
-		index, _ := state.Validators.GetByAddress(privVals[0].GetPubKey().Address())
+		pubKey, _ := privVals[0].GetPubKey()
+		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		otherGen := testEntropyGen(state.Validators, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
 		otherGen.Start()
 
 		for _, val := range privVals {
-			tempIndex, _ := state.Validators.GetByAddress(val.GetPubKey().Address())
+			pubKey, _ := val.GetPubKey()
+			tempIndex, _ := state.Validators.GetByAddress(pubKey.Address())
 			tempGen := testEntropyGen(state.Validators, val, tempIndex)
 			tempGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 			tempGen.setLastBlockHeight(1)

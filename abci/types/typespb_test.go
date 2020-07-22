@@ -5,19 +5,19 @@ package types
 
 import (
 	fmt "fmt"
-	math "math"
-	math_rand "math/rand"
-	testing "testing"
-	time "time"
-
 	_ "github.com/gogo/protobuf/gogoproto"
 	github_com_gogo_protobuf_jsonpb "github.com/gogo/protobuf/jsonpb"
 	github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
 	proto "github.com/gogo/protobuf/proto"
 	golang_proto "github.com/golang/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/duration"
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	_ "github.com/tendermint/tendermint/crypto/merkle"
-	_ "github.com/tendermint/tendermint/libs/common"
+	_ "github.com/tendermint/tendermint/libs/kv"
+	math "math"
+	math_rand "math/rand"
+	testing "testing"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
