@@ -331,9 +331,6 @@ func (sw *Switch) Peers() IPeerSet {
 // TODO: make record depending on reason.
 func (sw *Switch) StopPeerForError(peer Peer, reason interface{}) {
 	sw.Logger.Error("Stopping peer for error", "peer", peer, "err", reason)
-	defer func() {
-		sw.Logger.Error("Finished stopping peer for error", "peer", peer, "err", reason)
-	}()
 	sw.stopAndRemovePeer(peer, reason)
 
 	if peer.IsPersistent() {
