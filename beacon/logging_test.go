@@ -1,10 +1,12 @@
 package beacon
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/tendermint/tendermint/libs/log"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/tendermint/tendermint/libs/log"
 )
 
 type bufferedLogMessage struct {
@@ -14,15 +16,18 @@ type bufferedLogMessage struct {
 
 type bufferedLogger struct {
 	Messages []bufferedLogMessage
+	mtx      sync.Mutex
 }
 
 func NewBufferedLogger() *bufferedLogger {
 	return &bufferedLogger{
-		[]bufferedLogMessage{},
+		Messages: make([]bufferedLogMessage, 0),
 	}
 }
 
 func (l *bufferedLogger) addMessage(msg bufferedLogMessage) {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
 	l.Messages = append(l.Messages, msg)
 }
 
@@ -51,6 +56,13 @@ func (l *bufferedLogger) Error(msg string, _ ...interface{}) {
 
 func (l *bufferedLogger) With(...interface{}) log.Logger {
 	return l
+}
+
+func (l *bufferedLogger) numMessages() int {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+
+	return len(l.Messages)
 }
 
 func TestNativeSinkCollection(t *testing.T) {
@@ -89,7 +101,7 @@ func TestLoggingSink(t *testing.T) {
 	collector.Start()
 
 	for i := 0; i < 20; i++ {
-		if len(sink.Messages) > 0 {
+		if sink.numMessages() > 0 {
 			break
 		}
 
@@ -97,7 +109,7 @@ func TestLoggingSink(t *testing.T) {
 	}
 
 	// check that the messages have made it to the sink
-	assert.Equal(t, 1, len(sink.Messages))
+	assert.Equal(t, 1, sink.numMessages())
 
 	// wait for the
 	assert.Equal(t, LevelError, sink.Messages[0].Level)

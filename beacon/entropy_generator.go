@@ -8,9 +8,9 @@ import (
 
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	"github.com/tendermint/tendermint/libs/service"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -573,10 +573,17 @@ func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
 }
 
 func (entropyGenerator *EntropyGenerator) isSigningEntropy() bool {
-	entropyGenerator.mtx.Lock()
-	defer entropyGenerator.mtx.Unlock()
+	entropyGenerator.mtx.RLock()
+	defer entropyGenerator.mtx.RUnlock()
 
 	return entropyGenerator.aeon != nil && entropyGenerator.aeon.aeonExecUnit != nil
+}
+
+func (entropyGenerator *EntropyGenerator) validators() *types.ValidatorSet {
+	entropyGenerator.mtx.RLock()
+	defer entropyGenerator.mtx.RUnlock()
+
+	return entropyGenerator.aeon.validators
 }
 
 // UpdateMetrics convenience function to update metrics on a state change
