@@ -86,11 +86,11 @@ public:
 
   Signature Sign(MessagePayload const &message, CabinetIndex) const override;
   bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const override;
-  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
+  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const override;
   bool CheckIndex(CabinetIndex index) const override;
   std::string Name() const override;
 
-private:  
+private:
   void CheckKeys() const override;
 };
 
@@ -103,7 +103,7 @@ public:
 
   Signature Sign(MessagePayload const &message, CabinetIndex index) const override;
   bool Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const override;
-  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const;
+  Signature ComputeGroupSignature(std::map <CabinetIndex, Signature> const &signature_shares) const override;
   bool CheckIndex(CabinetIndex index) const override;
   std::string Generator() const override;
   std::string Name() const override;
