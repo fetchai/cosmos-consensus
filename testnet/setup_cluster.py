@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import sys
 import os
+import re
 import traceback
 import ipdb
 import fileinput
@@ -18,7 +19,7 @@ TRADER_CONTAINER = DOCKER_HOST+"traders:latest"
 
 # Whether to supress stdout when calling programs like kubectl
 SILENT_MODE=False
-STDOUT_DEFAULT=None if True else subprocess.DEVNULL
+STDOUT_DEFAULT=None if False else subprocess.DEVNULL
 
 # If this is true, deployments use :latest rather than the commit tag
 USE_LATEST_TAG = False
@@ -27,6 +28,7 @@ USE_LATEST_TAG = False
 DOCKER_IMG_PULL_POLICY="Always"
 DOCKER_RESTART_POLICY="Always"
 DELVE_ENABLED="0"
+MAX_CONNECTIONS_PER_NODE=10
 
 YAML_DIR = "yaml_files"
 GRAFANA_DIR = "monitoring"
@@ -57,11 +59,17 @@ def parse_commandline():
 # Helper function to run commands in their directory, optionally silently (set by STDOUT_DEFAULT)
 def run_command(command: str, command_args: str = ""):
 
-    return_obj = subprocess.run([command, *command_args.split()], cwd=THIS_FILE_DIR, stdout=STDOUT_DEFAULT)
+    for i in range(0,5):
+        return_obj = subprocess.run([command, *command_args.split()], cwd=THIS_FILE_DIR, stdout=STDOUT_DEFAULT)
 
-    if return_obj.returncode:
-        print(f"Failed to run command {command} {command_args}, error code: {return_obj.returncode}")
-        sys.exit(1)
+        if not return_obj.returncode:
+            return
+        else:
+            print("Failed to run the command! Retrying...")
+            time.sleep(10)
+
+    print(f"Failed to run command {command} {command_args}, error code: {return_obj.returncode}")
+    sys.exit(1)
 
 # Check that the docker image your network is to use actually has it at the remote
 # to avoid an image pull error
@@ -155,7 +163,7 @@ def create_files_for_validators(validators: int, log_level : str = "", config : 
     run_command("tendermint", f"testnet --v {validators}")
 
     # perform a search and replace on the config files to turn on
-    # metrics
+    # metrics, and set log level
     pathlist = sorted(Path("mytestnet").glob('**/config.toml'))
     i = 0
     for path in pathlist:
@@ -172,6 +180,39 @@ def create_files_for_validators(validators: int, log_level : str = "", config : 
                     print(line.replace('log_level = "main:info,state:info,*:error"', f'log_level = "{log_level},main:info,state:info,*:error"'), end='')
                 else:
                     print(line.replace("prometheus = false", "prometheus = true"), end='')
+
+    # Additionally, if there are > MAX_CONNECTIONS_PER_NODE, change the persistent peers so that it is MAX_CONNECTIONS_PER_NODE for all (modulo validator size)
+    for path in pathlist:
+        with fileinput.FileInput(str(path), inplace=True) as file:
+            for line in file:
+                # Limit outbound peers to 0 (persistent peers don't count)
+                if "max_num_outbound_peers" in line:
+                    print(line.replace("max_num_outbound_peers = 10", "max_num_outbound_peers = 0"), end='')
+                else:
+                    trimmed_peers = ""
+                    # Line of format persistent_peers = "bf1c2e8ce06e954be6b3be4c918270389dee0920@node0:26656,1986019a6973b71a570eaa4c91037bcf34e18311@node1:26656...
+                    if 'persistent_peers =' in line:
+                        file_name = file.filename()
+                        validator_index = re.sub(r".*(node[0-9]+).*", r"\1", file_name) # get the node from the file path
+
+                        original_line = line
+                        trimmed_peers = original_line.split()[2].strip('"') # get just the peers
+                        trimmed_peers = trimmed_peers.split(',') # turn into a list
+
+                        if len(trimmed_peers) > MAX_CONNECTIONS_PER_NODE:
+                            # Rotate this list until the node is the first item here (so includes self)
+                            while f"{validator_index}:" not in trimmed_peers[0]:
+                                trimmed_peers = trimmed_peers[1:] + trimmed_peers[:1]
+
+                            # Trim the list down to MAX_CONNECTIONS_PER_NODE items and rejoin
+                            trimmed_peers = ",".join(trimmed_peers[:MAX_CONNECTIONS_PER_NODE])
+                            trimmed_peers = f"persistent_peers = \"{trimmed_peers}\""
+                        else:
+                            trimmed_peers = original_line
+
+                        print(re.sub("persistent_peers = .*", f"{trimmed_peers}", line))
+                    else:
+                        print(line, end='')
 
 def create_network(validators: int):
     """Create a network of N validators
@@ -347,11 +388,11 @@ def main():
         push_docker_image(args)
         sys.exit(0)
 
-    # Note: the docker build needs files created here
-    create_files_for_validators(args.validators, args.log_level, args.config)
-
     # build the docker image
     if args.build_docker:
+        # Note: the docker build needs files created here (at least one validator)
+        create_files_for_validators(1, args.log_level, args.config)
+
         build_docker_image(args)
 
         # optionally push
@@ -359,6 +400,8 @@ def main():
             print("pushing docker image")
             push_docker_image(args)
         sys.exit(0)
+
+    create_files_for_validators(args.validators, args.log_level, args.config)
 
     # At this point it is deploy-network mode
     if args.validators <= 0:
