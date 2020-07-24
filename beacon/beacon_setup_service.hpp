@@ -28,7 +28,7 @@ namespace beacon {
 const std::string AeonType = GLOW_AEON;
 #else
 const std::string AeonType = BLS_AEON;
-#endif  
+#endif
 
 // DKG mmplementation is switched depending on whether GLOW is defined. 
 // Default is the DFinity/BLS implementation.
