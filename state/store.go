@@ -25,6 +25,10 @@ func calcValidatorsKey(height int64) []byte {
 	return []byte(fmt.Sprintf("validatorsKey:%v", height))
 }
 
+func calcDKGValidatorsKey(height int64) []byte {
+	return []byte(fmt.Sprintf("nextDKGValidatorsKey:%v", height))
+}
+
 func calcConsensusParamsKey(height int64) []byte {
 	return []byte(fmt.Sprintf("consensusParamsKey:%v", height))
 }
@@ -106,11 +110,14 @@ func saveState(db dbm.DB, state State, key []byte) {
 		// It may get overwritten due to InitChain validator updates.
 		lastHeightVoteChanged := int64(1)
 		saveValidatorsInfo(db, nextHeight, lastHeightVoteChanged, state.Validators)
+		saveDKGValidatorsInfo(db, nextHeight, lastHeightVoteChanged, state.DKGValidators)
 	}
 	// Save next validators.
 	saveValidatorsInfo(db, nextHeight+1, state.LastHeightValidatorsChanged, state.NextValidators)
 	// Save next consensus params.
 	saveConsensusParamsInfo(db, nextHeight, state.LastHeightConsensusParamsChanged, state.ConsensusParams)
+	// Save next DKG validators
+	saveDKGValidatorsInfo(db, nextHeight, state.LastHeightDKGValidatorsChanged, state.DKGValidators)
 	db.SetSync(key, state.Bytes())
 }
 
@@ -148,6 +155,10 @@ func PruneStates(db dbm.DB, from int64, to int64) error {
 	if paramsInfo == nil {
 		return fmt.Errorf("consensus params at height %v not found", to)
 	}
+	dkgValInfo := loadDKGValidatorsInfo(db, to)
+	if dkgValInfo == nil {
+		return fmt.Errorf("dkg validators at height %v not found", to)
+	}
 
 	keepVals := make(map[int64]bool)
 	if valInfo.ValidatorSet == nil {
@@ -157,6 +168,11 @@ func PruneStates(db dbm.DB, from int64, to int64) error {
 	keepParams := make(map[int64]bool)
 	if paramsInfo.ConsensusParams.Equals(&types.ConsensusParams{}) {
 		keepParams[paramsInfo.LastHeightChanged] = true
+	}
+	keepDKGVals := make(map[int64]bool)
+	if dkgValInfo.ValidatorSet == nil {
+		keepDKGVals[dkgValInfo.LastHeightChanged] = true
+		keepDKGVals[lastStoredHeightFor(to, dkgValInfo.LastHeightChanged)] = true
 	}
 
 	batch := db.NewBatch()
@@ -196,6 +212,20 @@ func PruneStates(db dbm.DB, from int64, to int64) error {
 			}
 		} else {
 			batch.Delete(calcConsensusParamsKey(h))
+		}
+
+		if keepDKGVals[h] {
+			v := loadDKGValidatorsInfo(db, h)
+			if v.ValidatorSet == nil {
+				v.ValidatorSet, err = LoadDKGValidators(db, h)
+				if err != nil {
+					return err
+				}
+				v.LastHeightChanged = h
+				batch.Set(calcDKGValidatorsKey(h), v.Bytes())
+			}
+		} else {
+			batch.Delete(calcDKGValidatorsKey(h))
 		}
 
 		batch.Delete(calcABCIResponsesKey(h))
@@ -434,4 +464,69 @@ func saveConsensusParamsInfo(db dbm.DB, nextHeight, changeHeight int64, params t
 		paramsInfo.ConsensusParams = params
 	}
 	db.Set(calcConsensusParamsKey(nextHeight), paramsInfo.Bytes())
+}
+
+//-----------------------------------------------------------------------------
+
+// LoadDKGValidators loads the DKG ValidatorSet for a given height.
+// Returns ErrNoValSetForHeight if the validator set can't be found for this height.
+func LoadDKGValidators(db dbm.DB, height int64) (*types.ValidatorSet, error) {
+	valInfo := loadDKGValidatorsInfo(db, height)
+	if valInfo == nil {
+		return nil, ErrNoValSetForHeight{height}
+	}
+	if valInfo.ValidatorSet == nil {
+		lastStoredHeight := lastStoredHeightFor(height, valInfo.LastHeightChanged)
+		valInfo2 := loadDKGValidatorsInfo(db, lastStoredHeight)
+		if valInfo2 == nil || valInfo2.ValidatorSet == nil {
+			panic(
+				fmt.Sprintf("Couldn't find dkg validators at height %d (height %d was originally requested)",
+					lastStoredHeight,
+					height,
+				),
+			)
+		}
+		valInfo2.ValidatorSet.IncrementProposerPriority(int(height - lastStoredHeight)) // mutate
+		valInfo = valInfo2
+	}
+
+	return valInfo.ValidatorSet, nil
+}
+
+// CONTRACT: Returned ValidatorsInfo can be mutated.
+func loadDKGValidatorsInfo(db dbm.DB, height int64) *ValidatorsInfo {
+	buf, err := db.Get(calcDKGValidatorsKey(height))
+	if err != nil {
+		panic(err)
+	}
+	if len(buf) == 0 {
+		return nil
+	}
+
+	v := new(ValidatorsInfo)
+	err = cdc.UnmarshalBinaryBare(buf, v)
+	if err != nil {
+		// DATA HAS BEEN CORRUPTED OR THE SPEC HAS CHANGED
+		tmos.Exit(fmt.Sprintf(`LoadDKGValidators: Data has been corrupted or its spec has changed:
+                %v\n`, err))
+	}
+	// TODO: ensure that buf is completely read.
+
+	return v
+}
+
+// saveDKGValidatorsInfo persists the dkg validator set.
+func saveDKGValidatorsInfo(db dbm.DB, height, lastHeightChanged int64, valSet *types.ValidatorSet) {
+	if lastHeightChanged > height {
+		panic("LastHeightChanged cannot be greater than ValidatorsInfo height")
+	}
+	valInfo := &ValidatorsInfo{
+		LastHeightChanged: lastHeightChanged,
+	}
+	// Only persist validator set if it was updated or checkpoint height (see
+	// valSetCheckpointInterval) is reached.
+	if height == lastHeightChanged || height%valSetCheckpointInterval == 0 {
+		valInfo.ValidatorSet = valSet
+	}
+	db.Set(calcDKGValidatorsKey(height), valInfo.Bytes())
 }

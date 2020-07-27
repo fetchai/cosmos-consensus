@@ -68,23 +68,24 @@ func BenchmarkLoadValidators(b *testing.B) {
 
 func TestPruneStates(t *testing.T) {
 	testcases := map[string]struct {
-		makeHeights  int64
-		pruneFrom    int64
-		pruneTo      int64
-		expectErr    bool
-		expectVals   []int64
-		expectParams []int64
-		expectABCI   []int64
+		makeHeights   int64
+		pruneFrom     int64
+		pruneTo       int64
+		expectErr     bool
+		expectVals    []int64
+		expectParams  []int64
+		expectABCI    []int64
+		expectDKGVals []int64
 	}{
-		"error on pruning from 0":      {100, 0, 5, true, nil, nil, nil},
-		"error when from > to":         {100, 3, 2, true, nil, nil, nil},
-		"error when from == to":        {100, 3, 3, true, nil, nil, nil},
-		"error when to does not exist": {100, 1, 101, true, nil, nil, nil},
-		"prune all":                    {100, 1, 100, false, []int64{93, 100}, []int64{95, 100}, []int64{100}},
+		"error on pruning from 0":      {100, 0, 5, true, nil, nil, nil, nil},
+		"error when from > to":         {100, 3, 2, true, nil, nil, nil, nil},
+		"error when from == to":        {100, 3, 3, true, nil, nil, nil, nil},
+		"error when to does not exist": {100, 1, 101, true, nil, nil, nil, nil},
+		"prune all":                    {100, 1, 100, false, []int64{93, 100}, []int64{95, 100}, []int64{100}, []int64{95, 100}},
 		"prune some": {10, 2, 8, false, []int64{1, 3, 8, 9, 10},
-			[]int64{1, 5, 8, 9, 10}, []int64{1, 8, 9, 10}},
+			[]int64{1, 5, 8, 9, 10}, []int64{1, 8, 9, 10}, []int64{1, 5, 8, 9, 10}},
 		"prune across checkpoint": {100001, 1, 100001, false, []int64{99993, 100000, 100001},
-			[]int64{99995, 100001}, []int64{100001}},
+			[]int64{99995, 100001}, []int64{100001}, []int64{99995, 100000, 100001}},
 	}
 	for name, tc := range testcases {
 		tc := tc
@@ -118,6 +119,8 @@ func TestPruneStates(t *testing.T) {
 					},
 					LastHeightValidatorsChanged:      valsChanged,
 					LastHeightConsensusParamsChanged: paramsChanged,
+					DKGValidators:                    validatorSet,
+					LastHeightDKGValidatorsChanged:   paramsChanged,
 				})
 				sm.SaveABCIResponses(db, h, sm.NewABCIResponses(&types.Block{
 					Header: types.Header{Height: h},
@@ -142,6 +145,7 @@ func TestPruneStates(t *testing.T) {
 			expectVals := sliceToMap(tc.expectVals)
 			expectParams := sliceToMap(tc.expectParams)
 			expectABCI := sliceToMap(tc.expectABCI)
+			expectDKGVals := sliceToMap(tc.expectDKGVals)
 
 			for h := int64(1); h <= tc.makeHeights; h++ {
 				vals, err := sm.LoadValidators(db, h)
@@ -169,6 +173,15 @@ func TestPruneStates(t *testing.T) {
 				} else {
 					require.Error(t, err, "abci height %v", h)
 					require.Equal(t, sm.ErrNoABCIResponsesForHeight{Height: h}, err)
+				}
+
+				dkgVals, err := sm.LoadDKGValidators(db, h)
+				if expectDKGVals[h] {
+					require.NoError(t, err, "dkg validators height %v", h)
+					require.NotNil(t, dkgVals)
+				} else {
+					require.Error(t, err, "dkg validators height %v", h)
+					require.Equal(t, sm.ErrNoValSetForHeight{Height: h}, err)
 				}
 			}
 		})

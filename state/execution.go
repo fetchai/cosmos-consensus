@@ -161,8 +161,22 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		blockExec.logger.Info("Updates to validators", "updates", types.ValidatorListString(validatorUpdates))
 	}
 
+	// validate the dkg validator updates and convert to tendermint types
+	abciDKGValUpdates := abciResponses.EndBlock.DkgValidatorUpdates
+	err = validateValidatorUpdates(abciDKGValUpdates, state.ConsensusParams.Validator)
+	if err != nil {
+		return state, 0, fmt.Errorf("error in validator updates: %v", err)
+	}
+	dkgValidatorUpdates, err := types.PB2TM.ValidatorUpdates(abciDKGValUpdates)
+	if err != nil {
+		return state, 0, err
+	}
+	if len(dkgValidatorUpdates) > 0 {
+		blockExec.logger.Info("Updates to dkg validators", "updates", types.ValidatorListString(dkgValidatorUpdates))
+	}
+
 	// Update the state with the block and responses.
-	state, err = updateState(state, blockID, &block.Header, abciResponses, validatorUpdates)
+	state, err = updateState(state, blockID, &block.Header, abciResponses, validatorUpdates, dkgValidatorUpdates)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
@@ -397,6 +411,7 @@ func updateState(
 	header *types.Header,
 	abciResponses *ABCIResponses,
 	validatorUpdates []*types.Validator,
+	dkgValidatorUpdates []*types.Validator,
 ) (State, error) {
 
 	// Copy the valset so we can apply changes from EndBlock
@@ -416,6 +431,18 @@ func updateState(
 
 	// Update validator proposer priority and set state variables.
 	nValSet.IncrementProposerPriority(1)
+
+	// Copy the dkg val set so we can apply changes from EndBlock
+	nDKGValSet := state.DKGValidators.Copy()
+	lastHeightDKGValsChanged := state.LastHeightDKGValidatorsChanged
+	if len(dkgValidatorUpdates) > 0 {
+		err := nDKGValSet.UpdateWithChangeSet(dkgValidatorUpdates)
+		if err != nil {
+			return state, fmt.Errorf("error changing dkg validator set: %v", err)
+		}
+		// Change results from this height applies at next height
+		lastHeightDKGValsChanged = header.Height + 1
+	}
 
 	// Update the params with the latest abciResponses.
 	nextParams := state.ConsensusParams
@@ -451,6 +478,8 @@ func updateState(
 		LastResultsHash:                  abciResponses.ResultsHash(),
 		AppHash:                          nil,
 		LastComputedEntropy:              header.Entropy.GroupSignature,
+		DKGValidators:                    nDKGValSet,
+		LastHeightDKGValidatorsChanged:   lastHeightDKGValsChanged,
 	}, nil
 }
 

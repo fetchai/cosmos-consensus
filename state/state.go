@@ -81,7 +81,9 @@ type State struct {
 	// the latest AppHash we've received from calling abci.Commit()
 	AppHash []byte
 
-	LastComputedEntropy types.ThresholdSignature
+	LastComputedEntropy            types.ThresholdSignature
+	DKGValidators                  *types.ValidatorSet
+	LastHeightDKGValidatorsChanged int64
 }
 
 // Copy makes a copy of the State for mutating.
@@ -106,7 +108,9 @@ func (state State) Copy() State {
 
 		LastResultsHash: state.LastResultsHash,
 
-		LastComputedEntropy: state.LastComputedEntropy,
+		LastComputedEntropy:            state.LastComputedEntropy,
+		DKGValidators:                  state.DKGValidators.Copy(),
+		LastHeightDKGValidatorsChanged: state.LastHeightDKGValidatorsChanged,
 	}
 }
 
@@ -250,7 +254,9 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		ConsensusParams:                  *genDoc.ConsensusParams,
 		LastHeightConsensusParamsChanged: 1,
 
-		AppHash:             genDoc.AppHash,
-		LastComputedEntropy: []byte(genDoc.Entropy),
+		AppHash:                        genDoc.AppHash,
+		LastComputedEntropy:            []byte(genDoc.Entropy),
+		DKGValidators:                  validatorSet,
+		LastHeightDKGValidatorsChanged: 1,
 	}, nil
 }
