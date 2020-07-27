@@ -510,8 +510,6 @@ func loadDKGValidatorsInfo(db dbm.DB, height int64) *ValidatorsInfo {
 		tmos.Exit(fmt.Sprintf(`LoadDKGValidators: Data has been corrupted or its spec has changed:
                 %v\n`, err))
 	}
-	// TODO: ensure that buf is completely read.
-
 	return v
 }
 
