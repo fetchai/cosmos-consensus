@@ -174,7 +174,7 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 			return nil, 0
 		}
 
-		newVals, err := sm.LoadValidators(dkgRunner.stateDB, height)
+		newVals, err := sm.LoadDKGValidators(dkgRunner.stateDB, height)
 		newParams, err1 := sm.LoadConsensusParams(dkgRunner.stateDB, height)
 		if err != nil || err1 != nil {
 			time.Sleep(100 * time.Millisecond)
