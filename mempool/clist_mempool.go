@@ -23,8 +23,6 @@ import (
 
 //--------------------------------------------------------------------------------
 
-type OnDKGFunc func(types.Tx) error
-
 // CListMempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
