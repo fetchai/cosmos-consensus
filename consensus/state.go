@@ -1210,7 +1210,7 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 
 		block.Header.Entropy = cs.getEntropy(height).Entropy
 		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
-		if block == nil { // on error
+		if block == nil {
 			return
 		}
 	}
@@ -1299,6 +1299,7 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 	}
 
 	proposerAddr := pubKey.Address()
+
 	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, onlyDKGTxs)
 }
 
@@ -1850,11 +1851,13 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 
 	if height > 1 {
 		lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
-		calculatedTimeS := block.Time.Sub(lastBlockMeta.Header.Time).Seconds()
-		cs.metrics.BlockIntervalSeconds.Set(calculatedTimeS)
+		if lastBlockMeta != nil {
+			calculatedTimeS := block.Time.Sub(lastBlockMeta.Header.Time).Seconds()
+			cs.metrics.BlockIntervalSeconds.Set(calculatedTimeS)
 
-		if calculatedTimeS >= unacceptableBlockTime {
-			cs.Logger.Error(fmt.Sprintf("Unacceptable block time detected: %vs", calculatedTimeS))
+			if calculatedTimeS >= unacceptableBlockTime {
+				cs.Logger.Error(fmt.Sprintf("Unacceptable block time detected: %vs", calculatedTimeS))
+			}
 		}
 	}
 

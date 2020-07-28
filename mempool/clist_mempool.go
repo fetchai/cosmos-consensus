@@ -507,6 +507,7 @@ func (mem *CListMempool) notifyTxsAvailable() {
 	}
 }
 
+// Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()

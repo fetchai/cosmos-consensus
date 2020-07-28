@@ -101,11 +101,6 @@ func (b *Block) ValidateBasic() error {
 		)
 	}
 
-	if len(b.ProposerAddress) != crypto.AddressSize {
-		return fmt.Errorf("Expected len(Header.ProposerAddress) to be %d, got %d",
-			crypto.AddressSize, len(b.ProposerAddress))
-	}
-
 	if err := b.Entropy.ValidateBasic(); err != nil {
 		return fmt.Errorf("Wrong Header.Entropy: %v", err)
 	}

@@ -314,12 +314,6 @@ func (cfg BaseConfig) NoiseKeyFile() string {
 	return rootify(cfg.NoiseKey, cfg.RootDir)
 }
 
-// OldPrivValidatorFile returns the full path of the priv_validator.json from pre v0.28.0.
-// TODO: eventually remove.
-func (cfg BaseConfig) OldPrivValidatorFile() string {
-	return rootify(oldPrivValPath, cfg.RootDir)
-}
-
 // NodeKeyFile returns the full path to the node_key.json file
 func (cfg BaseConfig) NodeKeyFile() string {
 	return rootify(cfg.NodeKey, cfg.RootDir)
