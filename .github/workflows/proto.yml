@@ -4,9 +4,10 @@ jobs:
   proto-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       - uses: docker-practice/actions-setup-docker@master
       - name: lint
         run: make proto-lint
-      - name: check-breakage
-        run: make proto-check-breaking-ci
+      # Breaking protobuf changes not relevant at the moment, but should be reinstated in the future
+      # - name: check-breakage
+      #   run: make proto-check-breaking-ci
