@@ -507,6 +507,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*MempoolTx) {
 	// point to the front of the list
 	if _, exists := mem.peerPointers[peerID]; !exists {
 		mem.peerPointers[peerID] = mem.txs.Front()
+		ret = append(ret, mem.txs.Front().Value.(*MempoolTx)) // corner case where we want this + next
 	}
 
 	peerPointer := mem.peerPointers[peerID]
