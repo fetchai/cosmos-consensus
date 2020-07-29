@@ -1121,6 +1121,15 @@ func (cs *State) getNewEntropy(height int64) {
 				if err := newEntropy.ValidateBasic(); err != nil {
 					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v. Current block height: %v", newEntropy.Height, err, height))
 				}
+				// Check validator hash matches
+				valHash := cs.Validators.Hash()
+				if newEntropy.Height == height+1 {
+					valHash = cs.state.NextValidators.Hash()
+				}
+				if newEntropy.Enabled && !bytes.Equal(newEntropy.ValidatorHash, valHash) {
+					panic(fmt.Sprintf("getNewEntropy(h:%d): invalid entropy validator hash: %v. Consensus validator hash %v", newEntropy.Height,
+						newEntropy.ValidatorHash, valHash))
+				}
 
 				// We want height and height +1, but don't drop older stuff
 				// as it will be cleared anyway when advancing the height
@@ -1144,7 +1153,7 @@ func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 
 	// Return default entropy when testing
 	if cs.haveSetEntropyChannel == false {
-		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false)
+		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false, nil)
 	}
 
 	// Attempt to get from the map

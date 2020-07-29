@@ -507,7 +507,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
-		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false)
+		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false, nil)
 	}
 
 	if entropyGenerator.entropyComputed[height] != nil {
@@ -515,7 +515,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 		entropyGenerator.lastBlockHeight++
 		entropyGenerator.lastComputedEntropyHeight = entropyGenerator.lastBlockHeight
 
-		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
+		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true, entropyGenerator.aeon.validators.Hash())
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
@@ -545,7 +545,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 			entropyGenerator.metrics.AvgEntropyGenTime.Set(avgTime)
 		}
 
-		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true)
+		return true, types.NewChannelEntropy(height, entropyGenerator.blockEntropy(height), true, entropyGenerator.aeon.validators.Hash())
 	}
 	return false, nil
 }
