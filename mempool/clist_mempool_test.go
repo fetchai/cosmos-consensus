@@ -99,7 +99,7 @@ func TestReapMaxBytesMaxGas(t *testing.T) {
 	// Ensure gas calculation behaves as expected
 	checkTxs(t, mempool, 1, UnknownPeerID)
 
-	const dummyId int16 = 0
+	const dummyId uint16 = 0
 	const numTxs int = 1
 
 	newTxs := mempool.GetNewTxs(dummyId, numTxs)
