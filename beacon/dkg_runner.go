@@ -90,11 +90,15 @@ func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHa
 }
 
 // SetCurrentAeon sets the entropy generation aeon currently active
-func (dkgRunner *DKGRunner) SetCurrentAeon(start int64, end int64) {
+func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
-	dkgRunner.aeonStart = start
-	dkgRunner.aeonEnd = end
+
+	if aeon.IsKeyless() {
+		return
+	}
+	dkgRunner.aeonStart = aeon.Start
+	dkgRunner.aeonEnd = aeon.End
 }
 
 // FastSync runs a dkg from block messages up to current block height
@@ -104,7 +108,7 @@ func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStore) error {
 		return fmt.Errorf("FastSync: dkgRunner running!")
 	}
 
-	dkgHeight := dkgRunner.aeonStart
+	dkgHeight := dkgRunner.aeonEnd
 	if dkgHeight < 0 {
 		dkgHeight = 1
 	}
@@ -174,7 +178,7 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 			return nil, 0
 		}
 
-		newVals, err := sm.LoadDKGValidators(dkgRunner.stateDB, height)
+		newVals, err := sm.LoadValidators(dkgRunner.stateDB, height)
 		newParams, err1 := sm.LoadConsensusParams(dkgRunner.stateDB, height)
 		if err != nil || err1 != nil {
 			time.Sleep(100 * time.Millisecond)
@@ -194,10 +198,10 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 
 	// Start new dkg if there is currently no aeon active and if we are in the next
 	// aeon
-	if dkgRunner.activeDKG == nil && dkgRunner.height >= dkgRunner.aeonStart {
+	if dkgRunner.activeDKG == nil && dkgRunner.height >= dkgRunner.aeonEnd+1 {
 		// Set height at which validators are determined
-		validatorHeight := dkgRunner.aeonStart
-		if validatorHeight < 0 {
+		validatorHeight := dkgRunner.aeonEnd + 1
+		if validatorHeight <= 0 {
 			// Only time when there is no previous aeon is first dkg from genesis
 			validatorHeight = 1
 		}
@@ -235,10 +239,12 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
 			}
-			dkgRunner.SetCurrentAeon(keys.Start, keys.End)
+			dkgRunner.SetCurrentAeon(keys)
 		}
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
+			// Dispatch off empty keys in case entropy generator to bridge gap
+			dkgRunner.dkgCompletionCallback(keylessAeonDetails(keys.End+1, keys.End+2))
 		}
 	})
 	// Dispatch off empty keys in case entropy generator has no keys
