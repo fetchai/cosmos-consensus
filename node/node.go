@@ -324,9 +324,9 @@ func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
 		mempl.WithPostCheck(sm.TxPostCheck(state)),
 	)
 
+	mempoolLogger := logger.With("module", "mempool")
 	mempool.SetLogger(mempoolLogger)
 
-	mempoolLogger := logger.With("module", "mempool")
 	mempoolReactor := mempl.NewReactor(config.Mempool, mempool)
 	mempoolReactor.SetLogger(mempoolLogger)
 
