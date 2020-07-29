@@ -160,7 +160,6 @@ func (memR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // It adds any received transactions to the mempool.
 func (memR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 
-	fmt.Printf("received a TX\n") // DELETEME_NH
 
 	msg, err := memR.decodeMsg(msgBytes)
 	if err != nil {
