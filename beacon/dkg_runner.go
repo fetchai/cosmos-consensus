@@ -243,7 +243,8 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		}
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
-			// Dispatch off empty keys in case entropy generator to bridge gap
+			// Dispatch off empty keys to bridge validator changeover point as consensus
+			// needs two consecutive entropies
 			dkgRunner.dkgCompletionCallback(keylessAeonDetails(keys.End+1, keys.End+2))
 		}
 	})
