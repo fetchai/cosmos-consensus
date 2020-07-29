@@ -102,8 +102,6 @@ func TestReapMaxBytesMaxGas(t *testing.T) {
 	const dummyId uint16 = 0
 	const numTxs int = 1
 
-	fmt.Printf("numTxs %v\n", numTxs) // DELETEME_NH
-
 	newTxs := mempool.GetNewTxs(dummyId, numTxs)
 	require.Equal(t, len(newTxs), numTxs, "No new Tx found in mempool!")
 	tx0 := newTxs[0]

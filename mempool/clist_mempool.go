@@ -792,12 +792,6 @@ func (cache *mapTxCache) Remove(tx types.Tx) {
 	cache.mtx.Unlock()
 }
 
-//// Function that should be called periodically to detect
-//// whether there are peers in the peer map that are stale.
-//// Lock() must be held.
-//updatePeerPointers() {
-//}
-
 type nopTxCache struct{}
 
 var _ txCache = (*nopTxCache)(nil)
