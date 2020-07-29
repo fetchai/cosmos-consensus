@@ -49,6 +49,9 @@ type CListMempool struct {
 	txs          *clist.CList   // concurrent linked-list of good txs
 	proxyAppConn proxy.AppConnMempool
 
+	// Map of peerID to location in the linked list they have broadcast to
+	peerPointers map[uint16]*clist.CElement
+
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
 	// serial (ie. by abci responses which are called in serial).
@@ -84,6 +87,7 @@ func NewCListMempool(
 		config:        config,
 		proxyAppConn:  proxyAppConn,
 		txs:           clist.New(),
+		peerPointers:  make(map[uint16]*clist.CElement),
 		height:        height,
 		recheckCursor: nil,
 		recheckEnd:    nil,
@@ -200,14 +204,14 @@ func (mem *CListMempool) Flush() {
 	})
 }
 
-// TxsFront returns the first transaction in the ordered list for peer
-// goroutines to call .NextWait() on.
-// FIXME: leaking implementation details!
-//
-// Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) TxsFront() *clist.CElement {
-	return mem.txs.Front()
-}
+//// TxsFront returns the first transaction in the ordered list for peer
+//// goroutines to call .NextWait() on.
+//// FIXME: leaking implementation details!
+////
+//// Safe for concurrent use by multiple goroutines.
+//func (mem *CListMempool) TxsFront() *clist.CElement {
+//	return mem.txs.Front()
+//}
 
 // TxsWaitChan returns a channel to wait on transactions. It will be closed
 // once the mempool is not empty (ie. the internal `mem.txs` has at least one
@@ -255,7 +259,7 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		// (eg. after committing a block, txs are removed from mempool but not cache),
 		// so we only record the sender for txs still in the mempool.
 		if e, ok := mem.txsMap.Load(txKey(tx)); ok {
-			memTx := e.(*clist.CElement).Value.(*mempoolTx)
+			memTx := e.(*clist.CElement).Value.(*MempoolTx)
 			memTx.senders.LoadOrStore(txInfo.SenderID, true)
 			// TODO: consider punishing peer for dups,
 			// its non-trivial since invalid txs can become valid,
@@ -350,7 +354,7 @@ func (mem *CListMempool) reqResCb(
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *CListMempool) addTx(memTx *mempoolTx) {
+func (mem *CListMempool) addTx(memTx *MempoolTx) {
 	e := mem.txs.PushBack(memTx)
 	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
@@ -413,7 +417,7 @@ func (mem *CListMempool) resCbFirstTime(
 				return
 			}
 
-			memTx := &mempoolTx{
+			memTx := &MempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
 				tx:        tx,
@@ -448,7 +452,7 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 	switch r := res.Value.(type) {
 	case *abci.Response_CheckTx:
 		tx := req.GetCheckTx().Tx
-		memTx := mem.recheckCursor.Value.(*mempoolTx)
+		memTx := mem.recheckCursor.Value.(*MempoolTx)
 		if !bytes.Equal(tx, memTx.tx) {
 			panic(fmt.Sprintf(
 				"Unexpected tx response from proxy during recheck\nExpected %X, got %X",
@@ -491,6 +495,63 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 	return mem.txsAvailable
 }
 
+// Function to return Txs that as far as we know,
+// this peer hasn't seen. We maintain a map from
+// peer id to pointer in the list. We can know that the
+// peer id is stale because it points to an invalid element
+// (behind the back of the list). If the element pointed to
+// is removed normally, the pointer can follow still valid
+// forward references in the list.
+func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*MempoolTx) {
+
+	// There isn't any new Txs
+	if mem.txs.Len() == 0 {
+		return
+	}
+
+	// Lock here protects peer pointers map
+	mem.updateMtx.Lock()
+
+	// Does this peer already exist in the map? If not, create and
+	// point to the front of the list
+	if _, exists := mem.peerPointers[peerID]; !exists {
+		mem.peerPointers[peerID] = mem.txs.Front()
+	}
+
+	peerPointer := mem.peerPointers[peerID]
+	mem.updateMtx.Unlock()
+
+	// Find the first non-removed mempool entry
+	advanceUntilNotRemoved(peerPointer)
+
+	// Collect up to max Txs
+	next := peerPointer.Next()
+
+	for next != nil && len(ret) < max {
+		ret = append(ret, next.Value.(*MempoolTx))
+		peerPointer = next
+		next = next.Next()
+	}
+
+	// Update position in the map
+	mem.updateMtx.Lock()
+	mem.peerPointers[peerID] = peerPointer
+	mem.updateMtx.Unlock()
+	return
+}
+
+// Given a non-nil element, follow its references forward until a non-removed
+// one is found. Never return nil. Do not modify the element
+func advanceUntilNotRemoved(elem *clist.CElement) (ret *clist.CElement) {
+	ret = elem
+
+	for elem != nil && !elem.Removed() {
+		ret = elem
+		elem = elem.Next()
+	}
+	return
+}
+
 func (mem *CListMempool) notifyTxsAvailable() {
 	if mem.Size() == 0 {
 		panic("notified txs available but mempool is empty!")
@@ -518,7 +579,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
+		memTx := e.Value.(*MempoolTx)
 
 		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
 			continue
@@ -555,13 +616,13 @@ func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 
 	txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max))
 	for e := mem.txs.Front(); e != nil && len(txs) <= max; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
+		memTx := e.Value.(*MempoolTx)
 		txs = append(txs, memTx.tx)
 	}
 	return txs
 }
 
-// Lock() must be help by the caller during execution.
+// Lock() must be held by the caller during execution.
 func (mem *CListMempool) Update(
 	height int64,
 	txs types.Txs,
@@ -636,7 +697,7 @@ func (mem *CListMempool) recheckTxs() {
 	// Push txs to proxyAppConn
 	// NOTE: globalCb may be called concurrently.
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
+		memTx := e.Value.(*MempoolTx)
 		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
 			Tx:   memTx.tx,
 			Type: abci.CheckTxType_Recheck,
@@ -648,8 +709,8 @@ func (mem *CListMempool) recheckTxs() {
 
 //--------------------------------------------------------------------------------
 
-// mempoolTx is a transaction that successfully ran
-type mempoolTx struct {
+// MempoolTx is a transaction that successfully ran
+type MempoolTx struct {
 	height    int64    // height that this tx had been validated in
 	gasWanted int64    // amount of gas this tx states it will require
 	tx        types.Tx //
@@ -660,7 +721,7 @@ type mempoolTx struct {
 }
 
 // Height returns the height for this transaction
-func (memTx *mempoolTx) Height() int64 {
+func (memTx *MempoolTx) Height() int64 {
 	return atomic.LoadInt64(&memTx.height)
 }
 
@@ -738,6 +799,12 @@ func (cache *mapTxCache) Remove(tx types.Tx) {
 
 	cache.mtx.Unlock()
 }
+
+//// Function that should be called periodically to detect
+//// whether there are peers in the peer map that are stale.
+//// Lock() must be held.
+//updatePeerPointers() {
+//}
 
 type nopTxCache struct{}
 

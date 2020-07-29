@@ -10,7 +10,6 @@ import (
 	amino "github.com/tendermint/go-amino"
 
 	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/clist"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
@@ -22,6 +21,7 @@ const (
 	aminoOverheadForTxMessage = 8
 
 	peerCatchupSleepIntervalMS = 100 // If peer is behind, sleep this amount
+	txPollIntervalMS           = 10  // Poll this often to check for new Txs
 
 	// UnknownPeerID is the peer ID to use when running CheckTx when there is
 	// no peer (e.g. RPC)
@@ -36,7 +36,7 @@ const (
 type Reactor struct {
 	p2p.BaseReactor
 	config  *cfg.MempoolConfig
-	mempool *CListMempool
+	mempool Mempool
 	ids     *mempoolIDs
 }
 
@@ -104,7 +104,7 @@ func newMempoolIDs() *mempoolIDs {
 }
 
 // NewReactor returns a new Reactor with the given config and mempool.
-func NewReactor(config *cfg.MempoolConfig, mempool *CListMempool) *Reactor {
+func NewReactor(config *cfg.MempoolConfig, mempool Mempool) *Reactor {
 	memR := &Reactor{
 		config:  config,
 		mempool: mempool,
@@ -123,7 +123,7 @@ func (memR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
 // SetLogger sets the Logger on the reactor and the underlying mempool.
 func (memR *Reactor) SetLogger(l log.Logger) {
 	memR.Logger = l
-	memR.mempool.SetLogger(l)
+	//memR.mempool.SetLogger(l)
 }
 
 // OnStart implements p2p.BaseReactor.
@@ -160,6 +160,9 @@ func (memR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // Receive implements Reactor.
 // It adds any received transactions to the mempool.
 func (memR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+
+	fmt.Printf("received a TX\n") // DELETEME_NH
+
 	msg, err := memR.decodeMsg(msgBytes)
 	if err != nil {
 		memR.Logger.Error("Error decoding message", "src", src, "chId", chID, "msg", msg, "err", err, "bytes", msgBytes)
@@ -196,29 +199,22 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 	}
 
 	peerID := memR.ids.GetForPeer(peer)
-	var next *clist.CElement
+
 	for {
 		// In case of both next.NextWaitChan() and peer.Quit() are variable at the same time
 		if !memR.IsRunning() || !peer.IsRunning() {
 			return
 		}
-		// This happens because the CElement we were looking at got garbage
-		// collected (removed). That is, .NextWait() returned nil. Go ahead and
-		// start from the beginning.
-		if next == nil {
-			select {
-			case <-memR.mempool.TxsWaitChan(): // Wait until a tx is available
-				if next = memR.mempool.TxsFront(); next == nil {
-					continue
-				}
-			case <-peer.Quit():
-				return
-			case <-memR.Quit():
-				return
-			}
-		}
 
-		memTx := next.Value.(*mempoolTx)
+		// check it's not time to quit this loop
+		select {
+		//case <-memR.mempool.TxsWaitChan():
+		case <-peer.Quit():
+			return
+		case <-memR.Quit():
+			return
+		default:
+		}
 
 		// make sure the peer is up to date
 		peerState, ok := peer.Get(types.PeerStateKey).(PeerState)
@@ -231,31 +227,35 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 			time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
 			continue
 		}
-		if peerState.GetHeight() < memTx.Height()-1 { // Allow for a lag of 1 block
-			time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
-			continue
-		}
 
-		// ensure peer hasn't already sent us this tx
-		if _, ok := memTx.senders.Load(peerID); !ok {
-			// send memTx
-			msg := &TxMessage{Tx: memTx.tx}
-			success := peer.Send(MempoolChannel, cdc.MustMarshalBinaryBare(msg))
-			if !success {
-				time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
-				continue
+		const txsToRequest int = 100
+
+		// We know at least one TX is available. Collect new TXs from the mempool in bulk and send them to our peer
+		// (so long as the peer hasn't already seen the TX)
+		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest);len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, 100) {
+			for _, memTx := range(newTxs) {
+
+				// ensure peer isn't too far behind
+				if peerState.GetHeight() < memTx.Height()-1 { // Allow for a lag of 1 block
+					time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
+					continue
+				}
+
+				// ensure peer hasn't already sent us this tx
+				if _, ok := memTx.senders.Load(peerID); !ok {
+					// send memTx
+					msg := &TxMessage{Tx: memTx.tx}
+					success := peer.Send(MempoolChannel, cdc.MustMarshalBinaryBare(msg))
+					if !success {
+						time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
+						continue
+					}
+				}
 			}
 		}
 
-		select {
-		case <-next.NextWaitChan():
-			// see the start of the for loop for nil check
-			next = next.Next()
-		case <-peer.Quit():
-			return
-		case <-memR.Quit():
-			return
-		}
+		// Finished gossiping all Txs now. Sleep until the next poll
+		time.Sleep(txPollIntervalMS * time.Millisecond)
 	}
 }
 
