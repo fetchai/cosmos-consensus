@@ -204,15 +204,6 @@ func (mem *CListMempool) Flush() {
 	})
 }
 
-//// TxsFront returns the first transaction in the ordered list for peer
-//// goroutines to call .NextWait() on.
-//// FIXME: leaking implementation details!
-////
-//// Safe for concurrent use by multiple goroutines.
-//func (mem *CListMempool) TxsFront() *clist.CElement {
-//	return mem.txs.Front()
-//}
-
 // TxsWaitChan returns a channel to wait on transactions. It will be closed
 // once the mempool is not empty (ie. the internal `mem.txs` has at least one
 // element)
