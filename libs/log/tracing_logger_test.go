@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-
 	"github.com/tendermint/tendermint/libs/log"
 )
 

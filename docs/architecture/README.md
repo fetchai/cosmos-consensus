@@ -72,4 +72,3 @@ Note the context/background should be written in the present tense.
 - [ADR-052-Tendermint-Mode](./adr-052-tendermint-mode.md)
 - [ADR-053-State-Sync-Prototype](./adr-053-state-sync-prototype.md)
 - [ADR-054-crypto-encoding-2](./adr-054-crypto-encoding-2.md)
-- [ADR-055-protobuf-design](./adr-055-protobuf-design.md)

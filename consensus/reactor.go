@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	amino "github.com/tendermint/go-amino"
-
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	"github.com/tendermint/tendermint/libs/bits"
 	tmevents "github.com/tendermint/tendermint/libs/events"
@@ -579,8 +578,8 @@ func (conR *Reactor) gossipDataForCatchup(logger log.Logger, rs *cstypes.RoundSt
 		// Ensure that the peer's PartSetHeader is correct
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
 		if blockMeta == nil {
-			logger.Error("Failed to load block meta", "ourHeight", rs.Height,
-				"blockstoreBase", conR.conS.blockStore.Base(), "blockstoreHeight", conR.conS.blockStore.Height())
+			logger.Error("Failed to load block meta",
+				"ourHeight", rs.Height, "blockstoreHeight", conR.conS.blockStore.Height())
 			time.Sleep(conR.conS.config.PeerGossipSleepDuration)
 			return
 		} else if !blockMeta.BlockID.PartsHeader.Equals(prs.ProposalBlockPartsHeader) {
@@ -815,17 +814,15 @@ OUTER_LOOP:
 		// Maybe send Height/CatchupCommitRound/CatchupCommit.
 		{
 			prs := ps.GetRoundState()
-			if prs.CatchupCommitRound != -1 && prs.Height > 0 && prs.Height <= conR.conS.blockStore.Height() &&
-				prs.Height >= conR.conS.blockStore.Base() {
-				if commit := conR.conS.LoadCommit(prs.Height); commit != nil {
-					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
-						Height:  prs.Height,
-						Round:   commit.Round,
-						Type:    types.PrecommitType,
-						BlockID: commit.BlockID,
-					}))
-					time.Sleep(conR.conS.config.PeerQueryMaj23SleepDuration)
-				}
+			if prs.CatchupCommitRound != -1 && 0 < prs.Height && prs.Height <= conR.conS.blockStore.Height() {
+				commit := conR.conS.LoadCommit(prs.Height)
+				peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
+					Height:  prs.Height,
+					Round:   commit.Round,
+					Type:    types.PrecommitType,
+					BlockID: commit.BlockID,
+				}))
+				time.Sleep(conR.conS.config.PeerQueryMaj23SleepDuration)
 			}
 		}
 

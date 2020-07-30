@@ -25,6 +25,7 @@ import (
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
+	dbm "github.com/tendermint/tm-db"
 )
 
 type mockPeer struct {
@@ -77,11 +78,9 @@ type mockBlockApplier struct {
 }
 
 // XXX: Add whitelist/blacklist?
-func (mba *mockBlockApplier) ApplyBlock(
-	state sm.State, blockID types.BlockID, block *types.Block,
-) (sm.State, int64, error) {
+func (mba *mockBlockApplier) ApplyBlock(state sm.State, blockID types.BlockID, block *types.Block) (sm.State, error) {
 	state.LastBlockHeight++
-	return state, 0, nil
+	return state, nil
 }
 
 type mockSwitchIo struct {
@@ -123,7 +122,13 @@ func (sio *mockSwitchIo) trySwitchToConsensus(state sm.State, blocksSynced int) 
 	sio.switchedToConsensus = true
 }
 
-func (sio *mockSwitchIo) broadcastStatusRequest(base int64, height int64) {
+func (sio *mockSwitchIo) hasSwitchedToConsensus() bool {
+	sio.mtx.Lock()
+	defer sio.mtx.Unlock()
+	return sio.switchedToConsensus
+}
+
+func (sio *mockSwitchIo) broadcastStatusRequest(height int64) {
 }
 
 type testReactorParams struct {
@@ -156,7 +161,7 @@ func newTestReactor(p testReactorParams) *BlockchainReactor {
 		sm.SaveState(db, state)
 	}
 
-	r := newReactor(state, store, reporter, appl, p.bufferSize, true)
+	r := newReactor(state, store, reporter, appl, p.bufferSize)
 	logger := log.TestingLogger()
 	r.SetLogger(logger.With("module", "blockchain"))
 
@@ -411,22 +416,6 @@ func TestReactorHelperMode(t *testing.T) {
 	}
 }
 
-func TestReactorSetSwitchNil(t *testing.T) {
-	config := cfg.ResetTestRoot("blockchain_reactor_v2_test")
-	defer os.RemoveAll(config.RootDir)
-	genDoc, privVals := randGenesisDoc(config.ChainID(), 1, false, 30)
-
-	reactor := newTestReactor(testReactorParams{
-		logger:   log.TestingLogger(),
-		genDoc:   genDoc,
-		privVals: privVals,
-	})
-	reactor.SetSwitch(nil)
-
-	assert.Nil(t, reactor.Switch)
-	assert.Nil(t, reactor.io)
-}
-
 //----------------------------------------------
 // utility funcs
 
@@ -523,7 +512,7 @@ func newReactorStore(
 		thisParts := thisBlock.MakePartSet(types.BlockPartSizeBytes)
 		blockID := types.BlockID{Hash: thisBlock.Hash(), PartsHeader: thisParts.Header()}
 
-		state, _, err = blockExec.ApplyBlock(state, blockID, thisBlock)
+		state, err = blockExec.ApplyBlock(state, blockID, thisBlock)
 		if err != nil {
 			panic(errors.Wrap(err, "error apply block"))
 		}

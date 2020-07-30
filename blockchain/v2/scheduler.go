@@ -111,22 +111,20 @@ type scPeer struct {
 	// updated to Removed when peer is removed
 	state peerState
 
-	base        int64 // updated when statusResponse is received
 	height      int64 // updated when statusResponse is received
 	lastTouched time.Time
 	lastRate    int64 // last receive rate in bytes
 }
 
 func (p scPeer) String() string {
-	return fmt.Sprintf("{state %v, base %d, height %d, lastTouched %v, lastRate %d, id %v}",
-		p.state, p.base, p.height, p.lastTouched, p.lastRate, p.peerID)
+	return fmt.Sprintf("{state %v, height %d, lastTouched %v, lastRate %d, id %v}",
+		p.state, p.height, p.lastTouched, p.lastRate, p.peerID)
 }
 
 func newScPeer(peerID p2p.ID) *scPeer {
 	return &scPeer{
 		peerID:      peerID,
 		state:       peerStateNew,
-		base:        -1,
 		height:      -1,
 		lastTouched: time.Time{},
 	}
@@ -282,7 +280,7 @@ func (sc *scheduler) addNewBlocks() {
 	}
 }
 
-func (sc *scheduler) setPeerRange(peerID p2p.ID, base int64, height int64) error {
+func (sc *scheduler) setPeerHeight(peerID p2p.ID, height int64) error {
 	peer, ok := sc.peers[peerID]
 	if !ok {
 		return fmt.Errorf("cannot find peer %s", peerID)
@@ -297,11 +295,6 @@ func (sc *scheduler) setPeerRange(peerID p2p.ID, base int64, height int64) error
 		return fmt.Errorf("cannot move peer height lower. from %d to %d", peer.height, height)
 	}
 
-	if base > height {
-		return fmt.Errorf("cannot set peer base higher than its height")
-	}
-
-	peer.base = base
 	peer.height = height
 	peer.state = peerStateReady
 
@@ -319,13 +312,13 @@ func (sc *scheduler) getStateAtHeight(height int64) blockState {
 	}
 }
 
-func (sc *scheduler) getPeersWithHeight(height int64) []p2p.ID {
+func (sc *scheduler) getPeersAtHeightOrAbove(height int64) []p2p.ID {
 	peers := make([]p2p.ID, 0)
 	for _, peer := range sc.peers {
 		if peer.state != peerStateReady {
 			continue
 		}
-		if peer.base <= height && peer.height >= height {
+		if peer.height >= height {
 			peers = append(peers, peer.peerID)
 		}
 	}
@@ -402,11 +395,6 @@ func (sc *scheduler) markPending(peerID p2p.ID, height int64, time time.Time) er
 			height, peerID, peer.height)
 	}
 
-	if height < peer.base {
-		return fmt.Errorf("cannot request height %d for peer %s with base %d",
-			height, peerID, peer.base)
-	}
-
 	sc.setStateAtHeight(height, blockStatePending)
 	sc.pendingBlocks[height] = peerID
 	sc.pendingTime[height] = time
@@ -475,7 +463,7 @@ func (sc *scheduler) pendingFrom(peerID p2p.ID) []int64 {
 }
 
 func (sc *scheduler) selectPeer(height int64) (p2p.ID, error) {
-	peers := sc.getPeersWithHeight(height)
+	peers := sc.getPeersAtHeightOrAbove(height)
 	if len(peers) == 0 {
 		return "", fmt.Errorf("cannot find peer for height %d", height)
 	}
@@ -547,8 +535,8 @@ func (sc *scheduler) handleNoBlockResponse(event bcNoBlockResponse) (Event, erro
 	_ = sc.removePeer(event.peerID)
 
 	return scPeerError{peerID: event.peerID,
-		reason: fmt.Errorf("peer %v with base %d height %d claims no block for %d",
-			event.peerID, peer.base, peer.height, event.height)}, nil
+		reason: fmt.Errorf("peer %v with height %d claims no block for %d",
+			event.peerID, peer.height, event.height)}, nil
 }
 
 func (sc *scheduler) handleBlockProcessed(event pcBlockProcessed) (Event, error) {
@@ -665,7 +653,7 @@ func (sc *scheduler) handleTrySchedule(event rTrySchedule) (Event, error) {
 }
 
 func (sc *scheduler) handleStatusResponse(event bcStatusResponse) (Event, error) {
-	err := sc.setPeerRange(event.peerID, event.base, event.height)
+	err := sc.setPeerHeight(event.peerID, event.height)
 	if err != nil {
 		return scPeerError{peerID: event.peerID, reason: err}, nil
 	}

@@ -3,9 +3,8 @@ package evidence
 import (
 	"fmt"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 /*
@@ -140,22 +139,16 @@ func (store *Store) GetInfo(height int64, hash []byte) Info {
 	return ei
 }
 
-// Has checks if the evidence is already stored
-func (store *Store) Has(evidence types.Evidence) bool {
-	key := keyLookup(evidence)
-	ok, _ := store.db.Has(key)
-	return ok
-}
-
 // AddNewEvidence adds the given evidence to the database.
 // It returns false if the evidence is already stored.
-func (store *Store) AddNewEvidence(evidence types.Evidence, priority int64) (bool, error) {
+func (store *Store) AddNewEvidence(evidence types.Evidence, priority int64) bool {
 	// check if we already have seen it
-	if store.Has(evidence) {
-		return false, nil
+	ei := store.getInfo(evidence)
+	if ei.Evidence != nil {
+		return false
 	}
 
-	ei := Info{
+	ei = Info{
 		Committed: false,
 		Priority:  priority,
 		Evidence:  evidence,
@@ -163,23 +156,16 @@ func (store *Store) AddNewEvidence(evidence types.Evidence, priority int64) (boo
 	eiBytes := cdc.MustMarshalBinaryBare(ei)
 
 	// add it to the store
-	var err error
 	key := keyOutqueue(evidence, priority)
-	if err = store.db.Set(key, eiBytes); err != nil {
-		return false, err
-	}
+	store.db.Set(key, eiBytes)
 
 	key = keyPending(evidence)
-	if err = store.db.Set(key, eiBytes); err != nil {
-		return false, err
-	}
+	store.db.Set(key, eiBytes)
 
 	key = keyLookup(evidence)
-	if err = store.db.SetSync(key, eiBytes); err != nil {
-		return false, err
-	}
+	store.db.SetSync(key, eiBytes)
 
-	return true, nil
+	return true
 }
 
 // MarkEvidenceAsBroadcasted removes evidence from Outqueue.

@@ -74,20 +74,15 @@ func TestSignerGetPubKey(t *testing.T) {
 		defer tc.signerServer.Stop()
 		defer tc.signerClient.Close()
 
-		pubKey, err := tc.signerClient.GetPubKey()
-		require.NoError(t, err)
-		expectedPubKey, err := tc.mockPV.GetPubKey()
-		require.NoError(t, err)
+		pubKey := tc.signerClient.GetPubKey()
+		expectedPubKey := tc.mockPV.GetPubKey()
 
 		assert.Equal(t, expectedPubKey, pubKey)
 
-		pubKey, err = tc.signerClient.GetPubKey()
-		require.NoError(t, err)
-		expectedpk, err := tc.mockPV.GetPubKey()
-		require.NoError(t, err)
-		expectedAddr := expectedpk.Address()
+		addr := tc.signerClient.GetPubKey().Address()
+		expectedAddr := tc.mockPV.GetPubKey().Address()
 
-		assert.Equal(t, expectedAddr, pubKey.Address())
+		assert.Equal(t, expectedAddr, addr)
 	}
 }
 

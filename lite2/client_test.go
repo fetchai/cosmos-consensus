@@ -1,4 +1,4 @@
-package lite_test
+package lite
 
 import (
 	"sync"
@@ -11,7 +11,6 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/libs/log"
-	lite "github.com/tendermint/tendermint/lite2"
 	"github.com/tendermint/tendermint/lite2/provider"
 	mockp "github.com/tendermint/tendermint/lite2/provider/mock"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
@@ -27,15 +26,15 @@ var (
 	vals     = keys.ToValidators(20, 10)
 	bTime, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	h1       = keys.GenSignedHeader(chainID, 1, bTime, nil, vals, vals,
-		hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys))
+		[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys))
 	// 3/3 signed
 	h2 = keys.GenSignedHeaderLastBlockID(chainID, 2, bTime.Add(30*time.Minute), nil, vals, vals,
-		hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys), types.BlockID{Hash: h1.Hash()})
+		[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys), types.BlockID{Hash: h1.Hash()})
 	// 3/3 signed
 	h3 = keys.GenSignedHeaderLastBlockID(chainID, 3, bTime.Add(1*time.Hour), nil, vals, vals,
-		hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys), types.BlockID{Hash: h2.Hash()})
+		[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys), types.BlockID{Hash: h2.Hash()})
 	trustPeriod  = 4 * time.Hour
-	trustOptions = lite.TrustOptions{
+	trustOptions = TrustOptions{
 		Period: 4 * time.Hour,
 		Height: 1,
 		Hash:   h1.Hash(),
@@ -58,8 +57,7 @@ var (
 		headerSet,
 		valSet,
 	)
-	deadNode      = mockp.NewDeadMock(chainID)
-	largeFullNode = mockp.New(GenMockNode(chainID, 10, 3, 0, bTime))
+	deadNode = mockp.NewDeadMock(chainID)
 )
 
 func TestClient_SequentialVerification(t *testing.T) {
@@ -85,7 +83,7 @@ func TestClient_SequentialVerification(t *testing.T) {
 			map[int64]*types.SignedHeader{
 				// different header
 				1: keys.GenSignedHeader(chainID, 1, bTime.Add(1*time.Hour), nil, vals, vals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys)),
 			},
 			map[int64]*types.ValidatorSet{
 				1: vals,
@@ -100,10 +98,10 @@ func TestClient_SequentialVerification(t *testing.T) {
 				1: h1,
 				// interim header (1/3 signed)
 				2: keys.GenSignedHeader(chainID, 2, bTime.Add(1*time.Hour), nil, vals, vals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), len(keys)-1, len(keys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), len(keys)-1, len(keys)),
 				// last header (3/3 signed)
 				3: keys.GenSignedHeader(chainID, 3, bTime.Add(2*time.Hour), nil, vals, vals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys)),
 			},
 			valSet,
 			false,
@@ -116,10 +114,10 @@ func TestClient_SequentialVerification(t *testing.T) {
 				1: h1,
 				// interim header (3/3 signed)
 				2: keys.GenSignedHeader(chainID, 2, bTime.Add(1*time.Hour), nil, vals, vals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys)),
 				// last header (1/3 signed)
 				3: keys.GenSignedHeader(chainID, 3, bTime.Add(2*time.Hour), nil, vals, vals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), len(keys)-1, len(keys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), len(keys)-1, len(keys)),
 			},
 			valSet,
 			false,
@@ -141,7 +139,7 @@ func TestClient_SequentialVerification(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			c, err := lite.NewClient(
+			c, err := NewClient(
 				chainID,
 				trustOptions,
 				mockp.New(
@@ -155,7 +153,7 @@ func TestClient_SequentialVerification(t *testing.T) {
 					tc.vals,
 				)},
 				dbs.New(dbm.NewMemDB(), chainID),
-				lite.SequentialVerification(),
+				SequentialVerification(),
 			)
 
 			if tc.initErr {
@@ -209,7 +207,7 @@ func TestClient_SkippingVerification(t *testing.T) {
 				// trusted header
 				1: h1,
 				3: transitKeys.GenSignedHeader(chainID, 3, bTime.Add(2*time.Hour), nil, transitVals, transitVals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(transitKeys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(transitKeys)),
 			},
 			map[int64]*types.ValidatorSet{
 				1: vals,
@@ -226,10 +224,10 @@ func TestClient_SkippingVerification(t *testing.T) {
 				1: h1,
 				// interim header (3/3 signed)
 				2: keys.GenSignedHeader(chainID, 2, bTime.Add(1*time.Hour), nil, vals, newVals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys)),
 				// last header (0/4 of the original val set signed)
 				3: newKeys.GenSignedHeader(chainID, 3, bTime.Add(2*time.Hour), nil, newVals, newVals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(newKeys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(newKeys)),
 			},
 			map[int64]*types.ValidatorSet{
 				1: vals,
@@ -246,10 +244,10 @@ func TestClient_SkippingVerification(t *testing.T) {
 				1: h1,
 				// last header (0/4 of the original val set signed)
 				2: keys.GenSignedHeader(chainID, 2, bTime.Add(1*time.Hour), nil, vals, newVals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, 0),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, 0),
 				// last header (0/4 of the original val set signed)
 				3: newKeys.GenSignedHeader(chainID, 3, bTime.Add(2*time.Hour), nil, newVals, newVals,
-					hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(newKeys)),
+					[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(newKeys)),
 			},
 			map[int64]*types.ValidatorSet{
 				1: vals,
@@ -264,7 +262,7 @@ func TestClient_SkippingVerification(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			c, err := lite.NewClient(
+			c, err := NewClient(
 				chainID,
 				trustOptions,
 				mockp.New(
@@ -278,7 +276,7 @@ func TestClient_SkippingVerification(t *testing.T) {
 					tc.vals,
 				)},
 				dbs.New(dbm.NewMemDB(), chainID),
-				lite.SkippingVerification(lite.DefaultTrustLevel),
+				SkippingVerification(DefaultTrustLevel),
 			)
 			if tc.initErr {
 				require.Error(t, err)
@@ -295,40 +293,16 @@ func TestClient_SkippingVerification(t *testing.T) {
 			}
 		})
 	}
-
-	// start from a large header to make sure that the pivot height doesn't select a height outside
-	// the appropriate range
-	veryLargeFullNode := mockp.New(GenMockNode(chainID, 100, 3, 1, bTime))
-	h1, err := veryLargeFullNode.SignedHeader(90)
-	require.NoError(t, err)
-	c, err := lite.NewClient(
-		chainID,
-		lite.TrustOptions{
-			Period: 4 * time.Hour,
-			Height: 90,
-			Hash:   h1.Hash(),
-		},
-		veryLargeFullNode,
-		[]provider.Provider{veryLargeFullNode},
-		dbs.New(dbm.NewMemDB(), chainID),
-		lite.SkippingVerification(lite.DefaultTrustLevel),
-	)
-	require.NoError(t, err)
-	h, err := c.Update(bTime.Add(100 * time.Minute))
-	assert.NoError(t, err)
-	h2, err := veryLargeFullNode.SignedHeader(100)
-	require.NoError(t, err)
-	assert.Equal(t, h, h2)
 }
 
 func TestClient_Cleanup(t *testing.T) {
-	c, err := lite.NewClient(
+	c, err := NewClient(
 		chainID,
 		trustOptions,
 		fullNode,
 		[]provider.Provider{fullNode},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
+		Logger(log.TestingLogger()),
 	)
 	require.NoError(t, err)
 	_, err = c.TrustedHeader(1)
@@ -355,13 +329,13 @@ func TestClientRestoresTrustedHeaderAfterStartup1(t *testing.T) {
 		err := trustedStore.SaveSignedHeaderAndValidatorSet(h1, vals)
 		require.NoError(t, err)
 
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
 			trustOptions,
 			fullNode,
 			[]provider.Provider{fullNode},
 			trustedStore,
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
@@ -386,7 +360,7 @@ func TestClientRestoresTrustedHeaderAfterStartup1(t *testing.T) {
 
 		// header1 != header
 		header1 := keys.GenSignedHeader(chainID, 1, bTime.Add(1*time.Hour), nil, vals, vals,
-			hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys))
+			[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys))
 
 		primary := mockp.New(
 			chainID,
@@ -397,9 +371,9 @@ func TestClientRestoresTrustedHeaderAfterStartup1(t *testing.T) {
 			valSet,
 		)
 
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
-			lite.TrustOptions{
+			TrustOptions{
 				Period: 4 * time.Hour,
 				Height: 1,
 				Hash:   header1.Hash(),
@@ -407,7 +381,7 @@ func TestClientRestoresTrustedHeaderAfterStartup1(t *testing.T) {
 			primary,
 			[]provider.Provider{primary},
 			trustedStore,
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
@@ -434,9 +408,9 @@ func TestClientRestoresTrustedHeaderAfterStartup2(t *testing.T) {
 		err := trustedStore.SaveSignedHeaderAndValidatorSet(h1, vals)
 		require.NoError(t, err)
 
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
-			lite.TrustOptions{
+			TrustOptions{
 				Period: 4 * time.Hour,
 				Height: 2,
 				Hash:   h2.Hash(),
@@ -444,7 +418,7 @@ func TestClientRestoresTrustedHeaderAfterStartup2(t *testing.T) {
 			fullNode,
 			[]provider.Provider{fullNode},
 			trustedStore,
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
@@ -471,10 +445,10 @@ func TestClientRestoresTrustedHeaderAfterStartup2(t *testing.T) {
 
 		// header1 != header
 		diffHeader1 := keys.GenSignedHeader(chainID, 1, bTime.Add(1*time.Hour), nil, vals, vals,
-			hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys))
+			[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys))
 
 		diffHeader2 := keys.GenSignedHeader(chainID, 2, bTime.Add(2*time.Hour), nil, vals, vals,
-			hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys))
+			[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys))
 
 		primary := mockp.New(
 			chainID,
@@ -485,9 +459,9 @@ func TestClientRestoresTrustedHeaderAfterStartup2(t *testing.T) {
 			valSet,
 		)
 
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
-			lite.TrustOptions{
+			TrustOptions{
 				Period: 4 * time.Hour,
 				Height: 2,
 				Hash:   diffHeader2.Hash(),
@@ -495,7 +469,7 @@ func TestClientRestoresTrustedHeaderAfterStartup2(t *testing.T) {
 			primary,
 			[]provider.Provider{primary},
 			trustedStore,
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
@@ -523,13 +497,13 @@ func TestClientRestoresTrustedHeaderAfterStartup3(t *testing.T) {
 		err = trustedStore.SaveSignedHeaderAndValidatorSet(h2, vals)
 		require.NoError(t, err)
 
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
 			trustOptions,
 			fullNode,
 			[]provider.Provider{fullNode},
 			trustedStore,
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
@@ -565,10 +539,10 @@ func TestClientRestoresTrustedHeaderAfterStartup3(t *testing.T) {
 
 		// header1 != header
 		header1 := keys.GenSignedHeader(chainID, 1, bTime.Add(1*time.Hour), nil, vals, vals,
-			hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys))
+			[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys))
 
 		header2 := keys.GenSignedHeader(chainID, 2, bTime.Add(2*time.Hour), nil, vals, vals,
-			hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys))
+			[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys))
 		err = trustedStore.SaveSignedHeaderAndValidatorSet(header2, vals)
 		require.NoError(t, err)
 
@@ -580,9 +554,9 @@ func TestClientRestoresTrustedHeaderAfterStartup3(t *testing.T) {
 			valSet,
 		)
 
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
-			lite.TrustOptions{
+			TrustOptions{
 				Period: 4 * time.Hour,
 				Height: 1,
 				Hash:   header1.Hash(),
@@ -590,7 +564,7 @@ func TestClientRestoresTrustedHeaderAfterStartup3(t *testing.T) {
 			primary,
 			[]provider.Provider{primary},
 			trustedStore,
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
@@ -619,13 +593,13 @@ func TestClientRestoresTrustedHeaderAfterStartup3(t *testing.T) {
 }
 
 func TestClient_Update(t *testing.T) {
-	c, err := lite.NewClient(
+	c, err := NewClient(
 		chainID,
 		trustOptions,
 		fullNode,
 		[]provider.Provider{fullNode},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
+		Logger(log.TestingLogger()),
 	)
 	require.NoError(t, err)
 
@@ -644,13 +618,13 @@ func TestClient_Update(t *testing.T) {
 }
 
 func TestClient_Concurrency(t *testing.T) {
-	c, err := lite.NewClient(
+	c, err := NewClient(
 		chainID,
 		trustOptions,
 		fullNode,
 		[]provider.Provider{fullNode},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
+		Logger(log.TestingLogger()),
 	)
 	require.NoError(t, err)
 
@@ -688,14 +662,14 @@ func TestClient_Concurrency(t *testing.T) {
 }
 
 func TestClientReplacesPrimaryWithWitnessIfPrimaryIsUnavailable(t *testing.T) {
-	c, err := lite.NewClient(
+	c, err := NewClient(
 		chainID,
 		trustOptions,
 		deadNode,
 		[]provider.Provider{fullNode, fullNode},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
-		lite.MaxRetryAttempts(1),
+		Logger(log.TestingLogger()),
+		MaxRetryAttempts(1),
 	)
 
 	require.NoError(t, err)
@@ -708,84 +682,81 @@ func TestClientReplacesPrimaryWithWitnessIfPrimaryIsUnavailable(t *testing.T) {
 
 func TestClient_BackwardsVerification(t *testing.T) {
 	{
-		trustHeader, _ := largeFullNode.SignedHeader(6)
-		c, err := lite.NewClient(
+		c, err := NewClient(
 			chainID,
-			lite.TrustOptions{
-				Period: 4 * time.Minute,
-				Height: trustHeader.Height,
-				Hash:   trustHeader.Hash(),
+			TrustOptions{
+				Period: 1 * time.Hour,
+				Height: 3,
+				Hash:   h3.Hash(),
 			},
-			largeFullNode,
-			[]provider.Provider{largeFullNode},
+			fullNode,
+			[]provider.Provider{fullNode},
 			dbs.New(dbm.NewMemDB(), chainID),
-			lite.Logger(log.TestingLogger()),
+			Logger(log.TestingLogger()),
 		)
 		require.NoError(t, err)
 
-		// 1) verify before the trusted header using backwards => expect no error
-		h, err := c.VerifyHeaderAtHeight(5, bTime.Add(6*time.Minute))
+		// 1) header is missing => expect no error
+		h, err := c.VerifyHeaderAtHeight(2, bTime.Add(1*time.Hour).Add(1*time.Second))
 		require.NoError(t, err)
 		if assert.NotNil(t, h) {
-			assert.EqualValues(t, 5, h.Height)
+			assert.EqualValues(t, 2, h.Height)
 		}
 
 		// 2) untrusted header is expired but trusted header is not => expect no error
-		h, err = c.VerifyHeaderAtHeight(3, bTime.Add(8*time.Minute))
+		h, err = c.VerifyHeaderAtHeight(1, bTime.Add(1*time.Hour).Add(1*time.Second))
 		assert.NoError(t, err)
 		assert.NotNil(t, h)
 
 		// 3) already stored headers should return the header without error
-		h, err = c.VerifyHeaderAtHeight(5, bTime.Add(6*time.Minute))
+		h, err = c.VerifyHeaderAtHeight(2, bTime.Add(1*time.Hour).Add(1*time.Second))
 		assert.NoError(t, err)
 		assert.NotNil(t, h)
-
-		// 4a) First verify latest header
-		_, err = c.VerifyHeaderAtHeight(9, bTime.Add(9*time.Minute))
+	}
+	{
+		c, err := NewClient(
+			chainID,
+			TrustOptions{
+				Period: 1 * time.Hour,
+				Height: 3,
+				Hash:   h3.Hash(),
+			},
+			fullNode,
+			[]provider.Provider{fullNode},
+			dbs.New(dbm.NewMemDB(), chainID),
+			Logger(log.TestingLogger()),
+		)
 		require.NoError(t, err)
 
-		// 4b) Verify backwards using bisection => expect no error
-		_, err = c.VerifyHeaderAtHeight(7, bTime.Add(10*time.Minute))
-		assert.NoError(t, err)
-		// shouldn't have verified this header in the process
-		_, err = c.TrustedHeader(8)
+		// 3) trusted header has expired => expect error
+		_, err = c.VerifyHeaderAtHeight(1, bTime.Add(4*time.Hour).Add(1*time.Second))
 		assert.Error(t, err)
-
-		// 5) trusted header has expired => expect error
-		_, err = c.VerifyHeaderAtHeight(1, bTime.Add(20*time.Minute))
-		assert.Error(t, err)
-
-		// 6) Try bisection method, but closest header (at 7) has expired
-		// so change to backwards => expect no error
-		_, err = c.VerifyHeaderAtHeight(8, bTime.Add(12*time.Minute))
-		assert.NoError(t, err)
-
 	}
 	{
 		testCases := []struct {
 			provider provider.Provider
 		}{
 			{
-				// 7) provides incorrect height
+				// provides incorrect height
 				mockp.New(
 					chainID,
 					map[int64]*types.SignedHeader{
 						1: h1,
 						2: keys.GenSignedHeader(chainID, 1, bTime.Add(1*time.Hour), nil, vals, vals,
-							hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys)),
+							[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys)),
 						3: h3,
 					},
 					valSet,
 				),
 			},
 			{
-				// 8) provides incorrect hash
+				// provides incorrect hash
 				mockp.New(
 					chainID,
 					map[int64]*types.SignedHeader{
 						1: h1,
 						2: keys.GenSignedHeader(chainID, 2, bTime.Add(30*time.Minute), nil, vals, vals,
-							hash("app_hash"), hash("cons_hash"), hash("results_hash"), 0, len(keys)),
+							[]byte("app_hash"), []byte("cons_hash"), []byte("results_hash"), 0, len(keys)),
 						3: h3,
 					},
 					valSet,
@@ -794,9 +765,9 @@ func TestClient_BackwardsVerification(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			c, err := lite.NewClient(
+			c, err := NewClient(
 				chainID,
-				lite.TrustOptions{
+				TrustOptions{
 					Period: 1 * time.Hour,
 					Height: 3,
 					Hash:   h3.Hash(),
@@ -804,7 +775,7 @@ func TestClient_BackwardsVerification(t *testing.T) {
 				tc.provider,
 				[]provider.Provider{tc.provider},
 				dbs.New(dbm.NewMemDB(), chainID),
-				lite.Logger(log.TestingLogger()),
+				Logger(log.TestingLogger()),
 			)
 			require.NoError(t, err)
 
@@ -820,7 +791,7 @@ func TestClient_NewClientFromTrustedStore(t *testing.T) {
 	err := db.SaveSignedHeaderAndValidatorSet(h1, vals)
 	require.NoError(t, err)
 
-	c, err := lite.NewClientFromTrustedStore(
+	c, err := NewClientFromTrustedStore(
 		chainID,
 		trustPeriod,
 		deadNode,
@@ -844,14 +815,14 @@ func TestClient_NewClientFromTrustedStore(t *testing.T) {
 }
 
 func TestNewClientErrorsIfAllWitnessesUnavailable(t *testing.T) {
-	_, err := lite.NewClient(
+	_, err := NewClient(
 		chainID,
 		trustOptions,
 		fullNode,
 		[]provider.Provider{deadNode, deadNode},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
-		lite.MaxRetryAttempts(1),
+		Logger(log.TestingLogger()),
+		MaxRetryAttempts(1),
 	)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "awaiting response from all witnesses exceeded dropout time")
@@ -865,7 +836,7 @@ func TestClientRemovesWitnessIfItSendsUsIncorrectHeader(t *testing.T) {
 		map[int64]*types.SignedHeader{
 			1: h1,
 			2: keys.GenSignedHeaderLastBlockID(chainID, 2, bTime.Add(30*time.Minute), nil, vals, vals,
-				hash("app_hash2"), hash("cons_hash"), hash("results_hash"),
+				[]byte("app_hash2"), []byte("cons_hash"), []byte("results_hash"),
 				len(keys), len(keys), types.BlockID{Hash: h1.Hash()}),
 		},
 		map[int64]*types.ValidatorSet{
@@ -887,14 +858,14 @@ func TestClientRemovesWitnessIfItSendsUsIncorrectHeader(t *testing.T) {
 		},
 	)
 
-	c, err := lite.NewClient(
+	c, err := NewClient(
 		chainID,
 		trustOptions,
 		fullNode,
 		[]provider.Provider{badProvider1, badProvider2},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
-		lite.MaxRetryAttempts(1),
+		Logger(log.TestingLogger()),
+		MaxRetryAttempts(1),
 	)
 	// witness should have behaved properly -> no error
 	require.NoError(t, err)
@@ -914,13 +885,13 @@ func TestClientRemovesWitnessIfItSendsUsIncorrectHeader(t *testing.T) {
 }
 
 func TestClientTrustedValidatorSet(t *testing.T) {
-	c, err := lite.NewClient(
+	c, err := NewClient(
 		chainID,
 		trustOptions,
 		fullNode,
 		[]provider.Provider{fullNode},
 		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
+		Logger(log.TestingLogger()),
 	)
 
 	require.NoError(t, err)

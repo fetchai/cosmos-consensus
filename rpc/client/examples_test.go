@@ -3,10 +3,9 @@ package client_test
 import (
 	"bytes"
 	"fmt"
-	"log"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
+	"github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctest "github.com/tendermint/tendermint/rpc/test"
 )
@@ -19,9 +18,9 @@ func ExampleHTTP_simple() {
 
 	// Create our RPC client
 	rpcAddr := rpctest.GetConfig().RPC.ListenAddress
-	c, err := rpchttp.New(rpcAddr, "/websocket")
+	c, err := client.NewHTTP(rpcAddr, "/websocket")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Create a transaction
@@ -30,28 +29,28 @@ func ExampleHTTP_simple() {
 	tx := append(k, append([]byte("="), v...)...)
 
 	// Broadcast the transaction and wait for it to commit (rather use
-	// c.BroadcastTxSync though in production).
+	// c.BroadcastTxSync though in production)
 	bres, err := c.BroadcastTxCommit(tx)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if bres.CheckTx.IsErr() || bres.DeliverTx.IsErr() {
-		log.Fatal("BroadcastTxCommit transaction failed")
+		panic("BroadcastTxCommit transaction failed")
 	}
 
 	// Now try to fetch the value for the key
 	qres, err := c.ABCIQuery("/key", k)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if qres.Response.IsErr() {
-		log.Fatal("ABCIQuery failed")
+		panic("ABCIQuery failed")
 	}
 	if !bytes.Equal(qres.Response.Key, k) {
-		log.Fatal("returned key does not match queried key")
+		panic("returned key does not match queried key")
 	}
 	if !bytes.Equal(qres.Response.Value, v) {
-		log.Fatal("returned value does not match sent value")
+		panic("returned value does not match sent value")
 	}
 
 	fmt.Println("Sent tx     :", string(tx))
@@ -72,9 +71,9 @@ func ExampleHTTP_batching() {
 
 	// Create our RPC client
 	rpcAddr := rpctest.GetConfig().RPC.ListenAddress
-	c, err := rpchttp.New(rpcAddr, "/websocket")
+	c, err := client.NewHTTP(rpcAddr, "/websocket")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Create our two transactions
@@ -93,30 +92,28 @@ func ExampleHTTP_batching() {
 
 	// Queue up our transactions
 	for _, tx := range txs {
-		// Broadcast the transaction and wait for it to commit (rather use
-		// c.BroadcastTxSync though in production).
 		if _, err := batch.BroadcastTxCommit(tx); err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 
 	// Send the batch of 2 transactions
 	if _, err := batch.Send(); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Now let's query for the original results as a batch
 	keys := [][]byte{k1, k2}
 	for _, key := range keys {
 		if _, err := batch.ABCIQuery("/key", key); err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 
 	// Send the 2 queries and keep the results
 	results, err := batch.Send()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Each result in the returned list is the deserialized result of each
@@ -124,7 +121,7 @@ func ExampleHTTP_batching() {
 	for _, result := range results {
 		qr, ok := result.(*ctypes.ResultABCIQuery)
 		if !ok {
-			log.Fatal("invalid result type from ABCIQuery request")
+			panic("invalid result type from ABCIQuery request")
 		}
 		fmt.Println(string(qr.Response.Key), "=", string(qr.Response.Value))
 	}

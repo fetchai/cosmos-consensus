@@ -17,8 +17,6 @@ import (
 
 	"sort"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/tendermint/tendermint/abci/example/kvstore"
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -32,6 +30,7 @@ import (
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestMain(m *testing.M) {
@@ -311,8 +310,7 @@ var (
 // 0 - all synced up
 // 1 - saved block but app and state are behind
 // 2 - save block and committed but state is behind
-// 3 - save block and committed with truncated block store and state behind
-var modes = []uint{0, 1, 2, 3}
+var modes = []uint{0, 1, 2}
 
 // This is actually not a test, it's for storing validator change tx data for testHandshakeReplay
 func TestSimulateValidatorsChange(t *testing.T) {
@@ -350,11 +348,10 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	//height 2
 	height++
 	incrementHeight(vss...)
-	newValidatorPubKey1, err := css[nVals].privValidator.GetPubKey()
-	require.NoError(t, err)
+	newValidatorPubKey1 := css[nVals].privValidator.GetPubKey()
 	valPubKey1ABCI := types.TM2PB.PubKey(newValidatorPubKey1)
 	newValidatorTx1 := kvstore.MakeValSetChangeTx(valPubKey1ABCI, testMinPower)
-	err = assertMempool(css[0].txNotifier).CheckTx(newValidatorTx1, nil, mempl.TxInfo{})
+	err := assertMempool(css[0].txNotifier).CheckTx(newValidatorTx1, nil, mempl.TxInfo{})
 	assert.Nil(t, err)
 	propBlock, _ := css[0].createProposalBlock() //changeProposer(t, cs1, vs2)
 	propBlockParts := propBlock.MakePartSet(partSize)
@@ -376,8 +373,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	//height 3
 	height++
 	incrementHeight(vss...)
-	updateValidatorPubKey1, err := css[nVals].privValidator.GetPubKey()
-	require.NoError(t, err)
+	updateValidatorPubKey1 := css[nVals].privValidator.GetPubKey()
 	updatePubKey1ABCI := types.TM2PB.PubKey(updateValidatorPubKey1)
 	updateValidatorTx1 := kvstore.MakeValSetChangeTx(updatePubKey1ABCI, 25)
 	err = assertMempool(css[0].txNotifier).CheckTx(updateValidatorTx1, nil, mempl.TxInfo{})
@@ -402,14 +398,12 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	//height 4
 	height++
 	incrementHeight(vss...)
-	newValidatorPubKey2, err := css[nVals+1].privValidator.GetPubKey()
-	require.NoError(t, err)
+	newValidatorPubKey2 := css[nVals+1].privValidator.GetPubKey()
 	newVal2ABCI := types.TM2PB.PubKey(newValidatorPubKey2)
 	newValidatorTx2 := kvstore.MakeValSetChangeTx(newVal2ABCI, testMinPower)
 	err = assertMempool(css[0].txNotifier).CheckTx(newValidatorTx2, nil, mempl.TxInfo{})
 	assert.Nil(t, err)
-	newValidatorPubKey3, err := css[nVals+2].privValidator.GetPubKey()
-	require.NoError(t, err)
+	newValidatorPubKey3 := css[nVals+2].privValidator.GetPubKey()
 	newVal3ABCI := types.TM2PB.PubKey(newValidatorPubKey3)
 	newValidatorTx3 := kvstore.MakeValSetChangeTx(newVal3ABCI, testMinPower)
 	err = assertMempool(css[0].txNotifier).CheckTx(newValidatorTx3, nil, mempl.TxInfo{})
@@ -422,13 +416,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	sort.Sort(ValidatorStubsByAddress(newVss))
 	selfIndex := 0
 	for i, vs := range newVss {
-		vsPubKey, err := vs.GetPubKey()
-		require.NoError(t, err)
-
-		css0PubKey, err := css[0].privValidator.GetPubKey()
-		require.NoError(t, err)
-
-		if vsPubKey.Equals(css0PubKey) {
+		if vs.GetPubKey().Equals(css[0].privValidator.GetPubKey()) {
 			selfIndex = i
 			break
 		}
@@ -485,13 +473,7 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	copy(newVss, vss[:nVals+3])
 	sort.Sort(ValidatorStubsByAddress(newVss))
 	for i, vs := range newVss {
-		vsKeyKey, err := vs.GetPubKey()
-		require.NoError(t, err)
-
-		css0PubKey, err := css[0].privValidator.GetPubKey()
-		require.NoError(t, err)
-
-		if vsKeyKey.Equals(css0PubKey) {
+		if vs.GetPubKey().Equals(css[0].privValidator.GetPubKey()) {
 			selfIndex = i
 			break
 		}
@@ -536,10 +518,10 @@ func TestHandshakeReplayAll(t *testing.T) {
 // Sync many, not from scratch
 func TestHandshakeReplaySome(t *testing.T) {
 	for _, m := range modes {
-		testHandshakeReplay(t, config, 2, m, false)
+		testHandshakeReplay(t, config, 1, m, false)
 	}
 	for _, m := range modes {
-		testHandshakeReplay(t, config, 2, m, true)
+		testHandshakeReplay(t, config, 1, m, true)
 	}
 }
 
@@ -642,7 +624,7 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 		stateDB = dbm.NewMemDB()
 		genisisState = sim.GenesisState
 		config = sim.Config
-		chain = append([]*types.Block{}, sim.Chain...) // copy chain
+		chain = sim.Chain
 		commits = sim.Commits
 		store = newMockBlockStore(config, genisisState.ConsensusParams)
 	} else { //test single node
@@ -664,9 +646,7 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 
 		chain, commits, err = makeBlockchainFromWAL(wal)
 		require.NoError(t, err)
-		pubKey, err := privVal.GetPubKey()
-		require.NoError(t, err)
-		stateDB, genisisState, store = stateAndStore(config, pubKey, kvstore.ProtocolVersion)
+		stateDB, genisisState, store = stateAndStore(config, privVal.GetPubKey(), kvstore.ProtocolVersion)
 	}
 	store.chain = chain
 	store.commits = commits
@@ -690,15 +670,6 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 		buildAppStateFromChain(proxyApp, stateDB1, genisisState, chain, nBlocks, mode)
 	}
 
-	// Prune block store if requested
-	expectError := false
-	if mode == 3 {
-		pruned, err := store.PruneBlocks(2)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, pruned)
-		expectError = int64(nBlocks) < 2
-	}
-
 	// now start the app using the handshake - it should sync
 	genDoc, _ := sm.MakeGenesisDocFromFile(config.GenesisFile())
 	handshaker := NewHandshaker(stateDB, state, store, genDoc)
@@ -707,11 +678,7 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 		t.Fatalf("Error starting proxy app connections: %v", err)
 	}
 	defer proxyApp.Stop()
-	err := handshaker.Handshake(proxyApp)
-	if expectError {
-		require.Error(t, err)
-		return
-	} else if err != nil {
+	if err := handshaker.Handshake(proxyApp); err != nil {
 		t.Fatalf("Error on abci handshake: %v", err)
 	}
 
@@ -746,7 +713,7 @@ func applyBlock(stateDB dbm.DB, st sm.State, blk *types.Block, proxyApp proxy.Ap
 	blockExec := sm.NewBlockExecutor(stateDB, log.TestingLogger(), proxyApp.Consensus(), mempool, evpool)
 
 	blkID := types.BlockID{Hash: blk.Hash(), PartsHeader: blk.MakePartSet(testPartSize).Header()}
-	newState, _, err := blockExec.ApplyBlock(st, blkID, blk)
+	newState, err := blockExec.ApplyBlock(st, blkID, blk)
 	if err != nil {
 		panic(err)
 	}
@@ -776,19 +743,17 @@ func buildAppStateFromChain(proxyApp proxy.AppConns, stateDB dbm.DB,
 			block := chain[i]
 			state = applyBlock(stateDB, state, block, proxyApp)
 		}
-	case 1, 2, 3:
+	case 1, 2:
 		for i := 0; i < nBlocks-1; i++ {
 			block := chain[i]
 			state = applyBlock(stateDB, state, block, proxyApp)
 		}
 
-		if mode == 2 || mode == 3 {
+		if mode == 2 {
 			// update the kvstore height and apphash
 			// as if we ran commit but not
 			state = applyBlock(stateDB, state, chain[nBlocks-1], proxyApp)
 		}
-	default:
-		panic(fmt.Sprintf("unknown mode %v", mode))
 	}
 
 }
@@ -826,7 +791,7 @@ func buildTMStateFromChain(
 			state = applyBlock(stateDB, state, block, proxyApp)
 		}
 
-	case 1, 2, 3:
+	case 1, 2:
 		// sync up to the penultimate as if we stored the block.
 		// whether we commit or not depends on the appHash
 		for _, block := range chain[:len(chain)-1] {
@@ -836,8 +801,6 @@ func buildTMStateFromChain(
 		// apply the final block to a state copy so we can
 		// get the right next appHash but keep the state back
 		applyBlock(stateDB, state, chain[len(chain)-1], proxyApp)
-	default:
-		panic(fmt.Sprintf("unknown mode %v", mode))
 	}
 
 	return state
@@ -852,9 +815,7 @@ func TestHandshakePanicsIfAppReturnsWrongAppHash(t *testing.T) {
 	defer os.RemoveAll(config.RootDir)
 	privVal := privval.LoadFilePV(config.PrivValidatorKeyFile(), config.PrivValidatorStateFile())
 	const appVersion = 0x0
-	pubKey, err := privVal.GetPubKey()
-	require.NoError(t, err)
-	stateDB, state, store := stateAndStore(config, pubKey, appVersion)
+	stateDB, state, store := stateAndStore(config, privVal.GetPubKey(), appVersion)
 	genDoc, _ := sm.MakeGenesisDocFromFile(config.GenesisFile())
 	state.LastValidators = state.Validators.Copy()
 	// mode = 0 for committing all the blocks
@@ -1097,17 +1058,14 @@ type mockBlockStore struct {
 	params  types.ConsensusParams
 	chain   []*types.Block
 	commits []*types.Commit
-	base    int64
 }
 
 // TODO: NewBlockStore(db.NewMemDB) ...
 func newMockBlockStore(config *cfg.Config, params types.ConsensusParams) *mockBlockStore {
-	return &mockBlockStore{config, params, nil, nil, 0}
+	return &mockBlockStore{config, params, nil, nil}
 }
 
 func (bs *mockBlockStore) Height() int64                       { return int64(len(bs.chain)) }
-func (bs *mockBlockStore) Base() int64                         { return bs.base }
-func (bs *mockBlockStore) Size() int64                         { return bs.Height() - bs.Base() + 1 }
 func (bs *mockBlockStore) LoadBlock(height int64) *types.Block { return bs.chain[height-1] }
 func (bs *mockBlockStore) LoadBlockByHash(hash []byte) *types.Block {
 	return bs.chain[int64(len(bs.chain))-1]
@@ -1129,17 +1087,6 @@ func (bs *mockBlockStore) LoadSeenCommit(height int64) *types.Commit {
 	return bs.commits[height-1]
 }
 
-func (bs *mockBlockStore) PruneBlocks(height int64) (uint64, error) {
-	pruned := uint64(0)
-	for i := int64(0); i < height-1; i++ {
-		bs.chain[i] = nil
-		bs.commits[i] = nil
-		pruned++
-	}
-	bs.base = height
-	return pruned, nil
-}
-
 //---------------------------------------
 // Test handshake/init chain
 
@@ -1152,9 +1099,7 @@ func TestHandshakeUpdatesValidators(t *testing.T) {
 	config := ResetConfig("handshake_test_")
 	defer os.RemoveAll(config.RootDir)
 	privVal := privval.LoadFilePV(config.PrivValidatorKeyFile(), config.PrivValidatorStateFile())
-	pubKey, err := privVal.GetPubKey()
-	require.NoError(t, err)
-	stateDB, state, store := stateAndStore(config, pubKey, 0x0)
+	stateDB, state, store := stateAndStore(config, privVal.GetPubKey(), 0x0)
 
 	oldValAddr := state.Validators.Validators[0].Address
 
