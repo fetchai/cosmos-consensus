@@ -59,15 +59,11 @@ func initFilesWithConfig(config *cfg.Config) error {
 			ChainID:         fmt.Sprintf("test-chain-%v", tmrand.Str(6)),
 			GenesisTime:     tmtime.Now(),
 			ConsensusParams: types.DefaultConsensusParams(),
-			Entropy:         "Fetch.ai Test Genesis Entropy",
 		}
-		pubKey, err := pv.GetPubKey()
-		if err != nil {
-			return errors.Wrap(err, "can't get pubkey")
-		}
+		key := pv.GetPubKey()
 		genDoc.Validators = []types.GenesisValidator{{
-			Address: pubKey.Address(),
-			PubKey:  pubKey,
+			Address: key.Address(),
+			PubKey:  key,
 			Power:   10,
 		}}
 

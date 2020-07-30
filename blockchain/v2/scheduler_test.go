@@ -1989,6 +1989,7 @@ func TestScHandle(t *testing.T) {
 					args:      args{event: bcAddNewPeer{peerID: "P1"}},
 					wantEvent: noOpEvent{},
 					wantSc: &scTestParams{startTime: now, peers: map[string]*scPeer{
+						"P1": {height: -1, state: peerStateNew}}, height: 1},
 				},
 				{ // set height of P1
 					args:      args{event: bcStatusResponse{peerID: "P1", time: tick[0], height: 3}},

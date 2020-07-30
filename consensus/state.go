@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
@@ -29,6 +28,7 @@ import (
 	"github.com/tendermint/tendermint/p2p"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
+	tmtimer "github.com/tendermint/tendermint/libs/timer"
 )
 
 //-----------------------------------------------------------------------------
@@ -708,7 +708,7 @@ func (cs *State) receiveRoutine(maxSteps int) {
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *State) handleMsg(mi msgInfo) {
 
-	timer := tmbytes.NewFunctionTimer(50, "handleMsg", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "handleMsg", cs.Logger)
 	defer timer.Finish()
 	defer cs.metrics.MessagesProcessed.Add(float64(1))
 
@@ -789,7 +789,7 @@ func (cs *State) handleMsg(mi msgInfo) {
 func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	cs.Logger.Debug("Received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
-	timer := tmbytes.NewFunctionTimer(50, "handleTimeout", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "handleTimeout", cs.Logger)
 	defer timer.Finish()
 
 	// timeouts must be for current height, round, step
@@ -946,7 +946,7 @@ func (cs *State) needProofBlock(height int64) bool {
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(height int64, round int) {
 
-	timer := tmbytes.NewFunctionTimer(50, "enterPropose", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "enterPropose", cs.Logger)
 	defer timer.Finish()
 
 	logger := cs.Logger.With("height", height, "round", round)
@@ -1012,7 +1012,7 @@ func (cs *State) enterPropose(height int64, round int) {
 
 func (cs *State) getProposer(height int64, round int) *types.Validator {
 
-	timer := tmbytes.NewFunctionTimer(10, "getProposer", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(10, "getProposer", cs.Logger)
 	defer timer.Finish()
 
 	// Get entropy for this round if not already set
@@ -1043,7 +1043,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 func (cs *State) getNewEntropy(height int64) {
 
 	debugThing := fmt.Sprintf("getNewEntropy for height %v", height)
-	timer := tmbytes.NewFunctionTimer(50, debugThing, cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, debugThing, cs.Logger)
 	defer timer.Finish()
 
 	// Global lock needed for this check
@@ -1123,7 +1123,7 @@ func (cs *State) getNewEntropy(height int64) {
 // it is set and the height is correct
 func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 
-	timer := tmbytes.NewFunctionTimer(50, "getEntropy", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "getEntropy", cs.Logger)
 	defer timer.Finish()
 
 	// Return default entropy when testing
@@ -1180,7 +1180,7 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 	var block *types.Block
 	var blockParts *types.PartSet
 
-	timer := tmbytes.NewFunctionTimer(50, "defaultDecideProposal", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "defaultDecideProposal", cs.Logger)
 	defer timer.Finish()
 
 	// Decide on block
@@ -1244,7 +1244,7 @@ func (cs *State) isProposalComplete() bool {
 // NOTE: keep it side-effect free for clarity.
 func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.PartSet) {
 
-	timer := tmbytes.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
 	defer timer.Finish()
 
 	var commit *types.Commit
@@ -1309,7 +1309,7 @@ func (cs *State) enterPrevote(height int64, round int) {
 func (cs *State) defaultDoPrevote(height int64, round int) {
 	logger := cs.Logger.With("height", height, "round", round)
 
-	timer := tmbytes.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
 	defer timer.Finish()
 
 	// If a block is locked, prevote that.
@@ -1581,7 +1581,7 @@ func (cs *State) enterCommit(height int64, commitRound int) {
 func (cs *State) tryFinalizeCommit(height int64) {
 	logger := cs.Logger.With("height", height)
 
-	timer := tmbytes.NewFunctionTimer(50, "tryFinalizeCommit", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "tryFinalizeCommit", cs.Logger)
 	defer timer.Finish()
 
 	if cs.Height != height {
@@ -1621,7 +1621,7 @@ func (cs *State) finalizeCommit(height int64) {
 		return
 	}
 
-	timer := tmbytes.NewFunctionTimer(50, "finalizeCommit", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "finalizeCommit", cs.Logger)
 	defer timer.Finish()
 
 	blockID, ok := cs.Votes.Precommits(cs.CommitRound).TwoThirdsMajority()

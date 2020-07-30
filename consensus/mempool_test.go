@@ -77,7 +77,6 @@ func TestMempoolProgressInHigherRound(t *testing.T) {
 		}
 		return cs.defaultSetProposal(proposal)
 	}
-	cs.SetLogger(log.NewTMLogger(os.Stdout))
 	startTestRound(cs, height, round)
 
 	ensureNewRound(newRoundCh, height, round) // first round at first height
@@ -166,7 +165,7 @@ func TestMempoolRmBadTx(t *testing.T) {
 
 		// check for the tx
 		for {
-			txs := assertMempool(cs.txNotifier).ReapMaxBytesMaxGas(int64(len(txBytes)), -1)
+			txs := assertMempool(cs.txNotifier).ReapMaxBytesMaxGas(int64(len(txBytes)), -1, false)
 			if len(txs) == 0 {
 				emptyMempoolCh <- struct{}{}
 				return

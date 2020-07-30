@@ -49,6 +49,8 @@ import (
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
+	tmnoise "github.com/tendermint/tendermint/noise"
+	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 //------------------------------------------------------------------------------

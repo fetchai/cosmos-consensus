@@ -161,11 +161,11 @@ func (blockExec *BlockExecutor) ApplyBlock(state State, blockID types.BlockID, b
 	abciDKGValUpdates := abciResponses.EndBlock.DkgValidatorUpdates
 	err = validateValidatorUpdates(abciDKGValUpdates, state.ConsensusParams.Validator)
 	if err != nil {
-		return state, 0, fmt.Errorf("error in validator updates: %v", err)
+		return state, fmt.Errorf("error in validator updates: %v", err)
 	}
 	dkgValidatorUpdates, err := types.PB2TM.ValidatorUpdates(abciDKGValUpdates)
 	if err != nil {
-		return state, 0, err
+		return state, err
 	}
 	if len(dkgValidatorUpdates) > 0 {
 		blockExec.logger.Info("Updates to dkg validators", "updates", types.ValidatorListString(dkgValidatorUpdates))
