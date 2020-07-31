@@ -54,7 +54,6 @@ type CListMempool struct {
 
 	// Map of peerID to location in the linked list they have broadcast to
 	peerPointers map[uint16]peerPointer
-	priorityTxs int
 
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
@@ -124,7 +123,7 @@ func (mem *CListMempool) EnableTxsAvailable() {
 	mem.txsAvailable = make(chan struct{}, 1)
 }
 
-func (mem *CListMempool) Height() int64 {
+func (mem *CListMempool) GetHeight() int64 {
 	return mem.height
 }
 

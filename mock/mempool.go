@@ -35,7 +35,7 @@ func (Mempool) TxsAvailable() <-chan struct{} { return make(chan struct{}) }
 func (Mempool) EnableTxsAvailable()           {}
 func (Mempool) TxsBytes() int64               { return 0 }
 func (Mempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) { return }
-func (Mempool) Height() int64 { return 0 }
+func (Mempool) GetHeight() int64 { return 0 }
 
 func (Mempool) TxsFront() *clist.CElement    { return nil }
 func (Mempool) TxsWaitChan() <-chan struct{} { return nil }

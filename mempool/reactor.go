@@ -19,6 +19,7 @@ const (
 	MempoolChannel = byte(0x30)
 
 	aminoOverheadForTxMessage = 8
+	txsToRequest              = 100 // Bulk request new Txs from the mempool
 
 	peerCatchupSleepIntervalMS = 100 // If peer is behind, sleep this amount
 	txPollIntervalMS           = 10  // Poll this often to check for new Txs
@@ -226,19 +227,17 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 			continue
 		}
 
-		const txsToRequest int = 100
+		// ensure peer isn't too far behind
+		if peerState.GetHeight() < memR.mempool.Height()-1 { // Allow for a lag of 1 block
+			memR.Logger.Info(fmt.Sprintf("Not gossiping TXs to peer with height: %v. Ours: %v.", peerState.GetHeight(), memR.mempool.Height()))
+			time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
+			continue
+		}
 
 		// We know at least one TX is available. Collect new TXs from the mempool in bulk and send them to our peer
 		// (so long as the peer hasn't already seen the TX)
 		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest);len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, 100) {
 			for _, tx := range(newTxs) {
-
-				// ensure peer isn't too far behind
-				if peerState.GetHeight() < memR.mempool.Height()-1 { // Allow for a lag of 1 block
-					memR.Logger.Info(fmt.Sprintf("Not gossiping TXs to peer with height: %v. Ours: %v.", peerState.GetHeight(), memR.mempool.Height()))
-					time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
-					continue
-				}
 
 				// send tx
 				msg := &TxMessage{Tx: *tx}
