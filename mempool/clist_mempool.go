@@ -101,7 +101,6 @@ func NewCListMempool(
 		proxyAppConn:  proxyAppConn,
 		txs:           clist.New(),
 		peerPointers:  make(map[uint16]peerPointer),
-		priorityTxs:   0
 		height:        height,
 		recheckCursor: nil,
 		recheckEnd:    nil,
@@ -123,6 +122,10 @@ func NewCListMempool(
 // NOTE: not thread safe - should only be called once, on startup
 func (mem *CListMempool) EnableTxsAvailable() {
 	mem.txsAvailable = make(chan struct{}, 1)
+}
+
+func (mem *CListMempool) Height() int64 {
+	return mem.height
 }
 
 // SetLogger sets the Logger.
@@ -356,15 +359,20 @@ func (mem *CListMempool) reqResCb(
 	}
 }
 
+func isPriority(tx types.Tx) bool {
+	return tx_extensions.IsDKGRelated(tx)
+}
+
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
 	if isPriority(memTx.tx) {
 		e := mem.txs.PushFront(memTx)
+		mem.txsMap.Store(txKey(memTx.tx), e)
 	} else {
 		e := mem.txs.PushBack(memTx)
+		mem.txsMap.Store(txKey(memTx.tx), e)
 	}
-	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
 }
@@ -510,7 +518,7 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 // (behind the back of the list). If the element pointed to
 // is removed normally, the pointer can follow still valid
 // forward references in the list.
-func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Txs) {
+func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 
 	// There isn't any new Txs
 	if mem.txs.Len() == 0 {
@@ -523,8 +531,8 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Txs) {
 	// Does this peer already exist in the map? If not, create and
 	// point to the front of the list
 	if _, exists := mem.peerPointers[peerID]; !exists {
-		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement])}
-		ret = append(ret, mem.txs.Front().Value.(*mempoolTx)) // corner case where we want this + next
+		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement, 0)}
+		ret = append(ret, &mem.txs.Front().Value.(*mempoolTx).tx) // corner case where we want this + next
 	}
 
 	peerPointer := mem.peerPointers[peerID]
@@ -534,7 +542,11 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Txs) {
 	peerPointer.Element = advanceUntilNotRemoved(peerPointer.Element)
 
 	// Collect up to max Txs. First, see if there are any priority Txs
-	for _, e := range peerPointer.PriorityTxs {
+	for len(peerPointer.PriorityTxs) > 0 {
+
+		// Get last element
+		priLen := len(peerPointer.PriorityTxs)
+		e := peerPointer.PriorityTxs[priLen-1]
 
 		memTx := e.Value.(*mempoolTx)
 
@@ -542,14 +554,16 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Txs) {
 			ret = append(ret, &memTx.tx)
 		}
 
-		delete(peerPointer.PriorityTxs, e)
+		// remove last element and nil to force garbage collection (important!)
+		peerPointer.PriorityTxs[priLen-1] = nil
+		peerPointer.PriorityTxs = peerPointer.PriorityTxs[:priLen-1]
 
 		if len(ret) >= max {
 			break
 		}
 	}
 
-	next := peerPointer.Next()
+	next := peerPointer.Element.Next()
 
 	for next != nil && len(ret) < max {
 		// Only add/return this if the peer hasn't seen it
@@ -558,7 +572,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Txs) {
 		if _, ok := memTx.senders.Load(peerID); !ok {
 			ret = append(ret, &memTx.tx)
 		}
-		peerPointer = next
+		peerPointer.Element = next
 		next = next.Next()
 	}
 
@@ -607,22 +621,13 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// size per tx, and set the initial capacity based off of that.
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
-
-	//// if we are in fallback mode we only want priority TXs
-	//if fallbackMode == true {
-	//	return txs
-	//}
-
-	// First iterate from the front of the queue, since
-	// that is where priority Txs are, then iterate from
-	// the back as usual
-	iteratingFromFront := true
-
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
 
-		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
-			continue
+		// Since we know all priority txs should be at the front, we can
+		// stop reaping once we find one that is not, when in fallback mode
+		if fallbackMode && !isPriority(memTx.tx) {
+			return txs
 		}
 
 		// Check total size requirement
@@ -694,7 +699,7 @@ func (mem *CListMempool) Update(
 	// Housekeeping: remove peer clist references that point to a removed
 	// element since it is likely it is stale (points to TX most likely removed
 	// during prior call to Update()
-	cleanPeerPointers()
+	mem.cleanPeerPointers()
 
 	for i, tx := range txs {
 		if deliverTxResponses[i].Code == abci.CodeTypeOK {

@@ -234,7 +234,7 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 			for _, tx := range(newTxs) {
 
 				// ensure peer isn't too far behind
-				if peerState.GetHeight() < memTx.Height()-1 { // Allow for a lag of 1 block
+				if peerState.GetHeight() < memR.mempool.Height()-1 { // Allow for a lag of 1 block
 					time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
 					continue
 				}
