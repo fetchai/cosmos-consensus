@@ -70,7 +70,7 @@ type Mempool interface {
 	EnableTxsAvailable()
 
 	// Height the mempool thinks it is at
-	Height() int64
+	GetHeight() int64
 
 	// Size returns the number of transactions in the mempool.
 	Size() int
