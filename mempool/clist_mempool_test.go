@@ -104,13 +104,12 @@ func TestReapMaxBytesMaxGas(t *testing.T) {
 
 	newTxs := mempool.GetNewTxs(dummyId, numTxs)
 	require.Equal(t, len(newTxs), numTxs, "No new Tx found in mempool!")
-	tx0 := newTxs[0]
+	tx0 := *newTxs[0]
 
 	// assert that kv store has gas wanted = 1.
-	require.Equal(t, app.CheckTx(abci.RequestCheckTx{Tx: tx0.tx}).GasWanted, int64(1), "KVStore had a gas value neq to 1")
-	require.Equal(t, tx0.gasWanted, int64(1), "transactions gas was set incorrectly")
+	require.Equal(t, app.CheckTx(abci.RequestCheckTx{Tx: tx0}).GasWanted, int64(1), "KVStore had a gas value neq to 1")
 	// ensure each tx is 20 bytes long
-	require.Equal(t, len(tx0.tx), 20, "Tx is longer than 20 bytes")
+	require.Equal(t, len(tx0), 20, "Tx is longer than 20 bytes")
 	mempool.Flush()
 
 	// each table driven test creates numTxsToCreate txs with checkTx, and at the end clears all remaining txs.
