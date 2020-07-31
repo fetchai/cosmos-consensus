@@ -588,7 +588,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 func advanceUntilNotRemoved(elem *clist.CElement) (ret *clist.CElement) {
 	ret = elem
 
-	for elem != nil && !elem.Removed() {
+	for elem != nil && ret.Removed() {
 		ret = elem
 		elem = elem.Next()
 	}

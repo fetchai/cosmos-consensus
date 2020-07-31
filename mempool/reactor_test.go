@@ -91,6 +91,7 @@ func waitForTxsOnReactors(t *testing.T, txs types.Txs, reactors []*Reactor) {
 func waitForTxsOnReactor(t *testing.T, txs types.Txs, reactor *Reactor, reactorIndex int) {
 	mempool := reactor.mempool
 	for mempool.Size() < len(txs) {
+		//fmt.Printf("siz %v %v\n", len(txs), mempool.Size())
 		time.Sleep(time.Millisecond * 100)
 	}
 
