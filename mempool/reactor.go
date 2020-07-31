@@ -231,7 +231,7 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		// We know at least one TX is available. Collect new TXs from the mempool in bulk and send them to our peer
 		// (so long as the peer hasn't already seen the TX)
 		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest);len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, 100) {
-			for _, memTx := range(newTxs) {
+			for _, tx := range(newTxs) {
 
 				// ensure peer isn't too far behind
 				if peerState.GetHeight() < memTx.Height()-1 { // Allow for a lag of 1 block
@@ -239,15 +239,12 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 					continue
 				}
 
-				// ensure peer hasn't already sent us this tx
-				if _, ok := memTx.senders.Load(peerID); !ok {
-					// send memTx
-					msg := &TxMessage{Tx: memTx.tx}
-					success := peer.Send(MempoolChannel, cdc.MustMarshalBinaryBare(msg))
-					if !success {
-						time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
-						continue
-					}
+				// send tx
+				msg := &TxMessage{Tx: *tx}
+				success := peer.Send(MempoolChannel, cdc.MustMarshalBinaryBare(msg))
+				if !success {
+					time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
+					continue
 				}
 			}
 		}

@@ -351,6 +351,45 @@ func (l *CList) PushBack(v interface{}) *CElement {
 	return e
 }
 
+// Panics if list grows beyond its max length.
+func (l *CList) PushFront(v interface{}) *CElement {
+	l.mtx.Lock()
+
+	// Construct a new element
+	e := &CElement{
+		prev:       nil,
+		prevWg:     waitGroup1(),
+		prevWaitCh: make(chan struct{}),
+		next:       nil,
+		nextWg:     waitGroup1(),
+		nextWaitCh: make(chan struct{}),
+		removed:    false,
+		Value:      v,
+	}
+
+	// Release waiters on FrontWait/BackWait maybe
+	if l.len == 0 {
+		l.wg.Done()
+		close(l.waitCh)
+	}
+	if l.len >= l.maxLen {
+		panic(fmt.Sprintf("clist: maximum length list reached %d", l.maxLen))
+	}
+	l.len++
+
+	// Modify the head
+	if l.head == nil {
+		l.head = e
+		l.tail = e
+	} else {
+		e.SetNext(l.head) // We must init e first.
+		l.head.SetPrev(e) // This will make e accessible.
+		l.head = e        // Update the list.
+	}
+	l.mtx.Unlock()
+	return e
+}
+
 // CONTRACT: Caller must call e.DetachPrev() and/or e.DetachNext() to avoid memory leaks.
 // NOTE: As per the contract of CList, removed elements cannot be added back.
 func (l *CList) Remove(e *CElement) interface{} {

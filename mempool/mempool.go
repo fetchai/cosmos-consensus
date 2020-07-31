@@ -62,7 +62,7 @@ type Mempool interface {
 	TxsAvailable() <-chan struct{}
 
 	// Get max new Txs that this peer hasn't seen (that we know of)
-	GetNewTxs(peerID uint16, max int) []*MempoolTx
+	GetNewTxs(peerID uint16, max int) []*types.Txs
 
 	// EnableTxsAvailable initializes the TxsAvailable channel, ensuring it will
 	// trigger once every height when transactions are available.

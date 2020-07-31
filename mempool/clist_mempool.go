@@ -28,6 +28,9 @@ import (
 // CheckTx abci message before the transaction is added to the pool. The
 // mempool uses a concurrent list structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
+// Transactions are pushed onto the back of the queue, unless they are a priority
+// in which case they go to the front. Tx reaping (for block production) is
+// done from the front, while the readers (tx gossip) go from front to back
 type CListMempool struct {
 	// Atomic integers
 	height   int64 // the last block Update()'d to
@@ -50,7 +53,8 @@ type CListMempool struct {
 	proxyAppConn proxy.AppConnMempool
 
 	// Map of peerID to location in the linked list they have broadcast to
-	peerPointers map[uint16]*clist.CElement
+	peerPointers map[uint16]peerPointer
+	priorityTxs int
 
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
@@ -67,8 +71,17 @@ type CListMempool struct {
 	cache txCache
 
 	logger log.Logger
-
 	metrics *Metrics
+}
+
+// The peerPointer keeps a reference to the location in the mempool (list) that
+// the peer has gossiped so far. Priority transactions which have been inserted
+// into the front of the list (rather than the back), are likely to have been
+// missed (already past that point) and so are stored here to guarantee
+// they are sent, and are sent before any other Txs
+type peerPointer struct {
+	Element *clist.CElement       // The element last gossiped to the peer
+	PriorityTxs []*clist.CElement // Any Txs which are a high priority to gossip
 }
 
 var _ Mempool = &CListMempool{}
@@ -87,7 +100,8 @@ func NewCListMempool(
 		config:        config,
 		proxyAppConn:  proxyAppConn,
 		txs:           clist.New(),
-		peerPointers:  make(map[uint16]*clist.CElement),
+		peerPointers:  make(map[uint16]peerPointer),
+		priorityTxs:   0
 		height:        height,
 		recheckCursor: nil,
 		recheckEnd:    nil,
@@ -250,12 +264,11 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		// (eg. after committing a block, txs are removed from mempool but not cache),
 		// so we only record the sender for txs still in the mempool.
 		if e, ok := mem.txsMap.Load(txKey(tx)); ok {
-			memTx := e.(*clist.CElement).Value.(*MempoolTx)
+			memTx := e.(*clist.CElement).Value.(*mempoolTx)
 			memTx.senders.LoadOrStore(txInfo.SenderID, true)
 			// TODO: consider punishing peer for dups,
 			// its non-trivial since invalid txs can become valid,
 			// but they can spam the same tx with little cost to them atm.
-
 		}
 
 		return ErrTxInCache
@@ -345,8 +358,12 @@ func (mem *CListMempool) reqResCb(
 
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
-func (mem *CListMempool) addTx(memTx *MempoolTx) {
-	e := mem.txs.PushBack(memTx)
+func (mem *CListMempool) addTx(memTx *mempoolTx) {
+	if isPriority(memTx.tx) {
+		e := mem.txs.PushFront(memTx)
+	} else {
+		e := mem.txs.PushBack(memTx)
+	}
 	mem.txsMap.Store(txKey(memTx.tx), e)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
@@ -408,7 +425,7 @@ func (mem *CListMempool) resCbFirstTime(
 				return
 			}
 
-			memTx := &MempoolTx{
+			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
 				tx:        tx,
@@ -443,7 +460,7 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 	switch r := res.Value.(type) {
 	case *abci.Response_CheckTx:
 		tx := req.GetCheckTx().Tx
-		memTx := mem.recheckCursor.Value.(*MempoolTx)
+		memTx := mem.recheckCursor.Value.(*mempoolTx)
 		if !bytes.Equal(tx, memTx.tx) {
 			panic(fmt.Sprintf(
 				"Unexpected tx response from proxy during recheck\nExpected %X, got %X",
@@ -493,7 +510,7 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 // (behind the back of the list). If the element pointed to
 // is removed normally, the pointer can follow still valid
 // forward references in the list.
-func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*MempoolTx) {
+func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Txs) {
 
 	// There isn't any new Txs
 	if mem.txs.Len() == 0 {
@@ -506,21 +523,41 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*MempoolTx) {
 	// Does this peer already exist in the map? If not, create and
 	// point to the front of the list
 	if _, exists := mem.peerPointers[peerID]; !exists {
-		mem.peerPointers[peerID] = mem.txs.Front()
-		ret = append(ret, mem.txs.Front().Value.(*MempoolTx)) // corner case where we want this + next
+		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement])}
+		ret = append(ret, mem.txs.Front().Value.(*mempoolTx)) // corner case where we want this + next
 	}
 
 	peerPointer := mem.peerPointers[peerID]
 	mem.updateMtx.Unlock()
 
 	// Find the first non-removed mempool entry
-	advanceUntilNotRemoved(peerPointer)
+	peerPointer.Element = advanceUntilNotRemoved(peerPointer.Element)
 
-	// Collect up to max Txs
+	// Collect up to max Txs. First, see if there are any priority Txs
+	for _, e := range peerPointer.PriorityTxs {
+
+		memTx := e.Value.(*mempoolTx)
+
+		if _, ok := memTx.senders.Load(peerID); !ok {
+			ret = append(ret, &memTx.tx)
+		}
+
+		delete(peerPointer.PriorityTxs, e)
+
+		if len(ret) >= max {
+			break
+		}
+	}
+
 	next := peerPointer.Next()
 
 	for next != nil && len(ret) < max {
-		ret = append(ret, next.Value.(*MempoolTx))
+		// Only add/return this if the peer hasn't seen it
+		memTx := next.Value.(*mempoolTx)
+
+		if _, ok := memTx.senders.Load(peerID); !ok {
+			ret = append(ret, &memTx.tx)
+		}
 		peerPointer = next
 		next = next.Next()
 	}
@@ -570,8 +607,19 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// size per tx, and set the initial capacity based off of that.
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
+
+	//// if we are in fallback mode we only want priority TXs
+	//if fallbackMode == true {
+	//	return txs
+	//}
+
+	// First iterate from the front of the queue, since
+	// that is where priority Txs are, then iterate from
+	// the back as usual
+	iteratingFromFront := true
+
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*MempoolTx)
+		memTx := e.Value.(*mempoolTx)
 
 		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
 			continue
@@ -597,6 +645,16 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	return txs
 }
 
+// Requires Lock() is held
+// removes any peer pointers that point to a removed element
+func (mem *CListMempool) cleanPeerPointers() {
+	for key, value := range mem.peerPointers {
+		if value.Element.Removed() {
+			delete(mem.peerPointers, key)
+		}
+	}
+}
+
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 	mem.updateMtx.RLock()
@@ -608,7 +666,7 @@ func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 
 	txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max))
 	for e := mem.txs.Front(); e != nil && len(txs) <= max; e = e.Next() {
-		memTx := e.Value.(*MempoolTx)
+		memTx := e.Value.(*mempoolTx)
 		txs = append(txs, memTx.tx)
 	}
 	return txs
@@ -632,6 +690,11 @@ func (mem *CListMempool) Update(
 	if postCheck != nil {
 		mem.postCheck = postCheck
 	}
+
+	// Housekeeping: remove peer clist references that point to a removed
+	// element since it is likely it is stale (points to TX most likely removed
+	// during prior call to Update()
+	cleanPeerPointers()
 
 	for i, tx := range txs {
 		if deliverTxResponses[i].Code == abci.CodeTypeOK {
@@ -689,7 +752,7 @@ func (mem *CListMempool) recheckTxs() {
 	// Push txs to proxyAppConn
 	// NOTE: globalCb may be called concurrently.
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*MempoolTx)
+		memTx := e.Value.(*mempoolTx)
 		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
 			Tx:   memTx.tx,
 			Type: abci.CheckTxType_Recheck,
@@ -701,8 +764,8 @@ func (mem *CListMempool) recheckTxs() {
 
 //--------------------------------------------------------------------------------
 
-// MempoolTx is a transaction that successfully ran
-type MempoolTx struct {
+// mempoolTx is a transaction that successfully ran
+type mempoolTx struct {
 	height    int64    // height that this tx had been validated in
 	gasWanted int64    // amount of gas this tx states it will require
 	tx        types.Tx //
@@ -713,7 +776,7 @@ type MempoolTx struct {
 }
 
 // Height returns the height for this transaction
-func (memTx *MempoolTx) Height() int64 {
+func (memTx *mempoolTx) Height() int64 {
 	return atomic.LoadInt64(&memTx.height)
 }
 
