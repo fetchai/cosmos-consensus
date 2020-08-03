@@ -191,21 +191,21 @@ type Node struct {
 	isListening bool
 
 	// services
-	eventBus         *types.EventBus // pub/sub for services
-	stateDB          dbm.DB
-	blockStore       *store.BlockStore // store the blockchain to disk
-	bcReactor        p2p.Reactor       // for fast-syncing
-	mempoolReactor   *mempl.Reactor    // for gossipping transactions
-	mempool          mempl.Mempool
-	consensusState   *cs.State      // latest consensus state
-	consensusReactor *cs.Reactor    // for participating in the consensus
-	pexReactor       *pex.Reactor   // for exchanging peer addresses
-	evidencePool     *evidence.Pool // tracking evidence
-	proxyApp         proxy.AppConns // connection to the application
-	rpcListeners     []net.Listener // rpc servers
-	txIndexer        txindex.TxIndexer
-	indexerService   *txindex.IndexerService
-	prometheusSrv    *http.Server
+	eventBus           *types.EventBus // pub/sub for services
+	stateDB            dbm.DB
+	blockStore         *store.BlockStore // store the blockchain to disk
+	bcReactor          p2p.Reactor       // for fast-syncing
+	mempoolReactor     *mempl.Reactor    // for gossipping transactions
+	mempool            mempl.Mempool
+	consensusState     *cs.State      // latest consensus state
+	consensusReactor   *cs.Reactor    // for participating in the consensus
+	pexReactor         *pex.Reactor   // for exchanging peer addresses
+	evidencePool       *evidence.Pool // tracking evidence
+	proxyApp           proxy.AppConns // connection to the application
+	rpcListeners       []net.Listener // rpc servers
+	txIndexer          txindex.TxIndexer
+	indexerService     *txindex.IndexerService
+	prometheusSrv      *http.Server
 	beaconReactor      *beacon.Reactor // reactor for signature shares
 	dkgRunner          *beacon.DKGRunner
 	entropyGenerator   *beacon.EntropyGenerator
@@ -616,7 +616,7 @@ func createBeaconReactor(
 
 						// Set dkg runner to most recent aeon which we generated keys for
 						if dkgRunner != nil {
-							dkgRunner.SetCurrentAeon(aeonDetails.Start, aeonDetails.End)
+							dkgRunner.SetCurrentAeon(aeonDetails)
 						}
 					} else {
 						return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))

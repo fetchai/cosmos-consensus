@@ -61,22 +61,26 @@ func TestDKGRunnerFindValidators(t *testing.T) {
 	// Need to create and save two states because validator updates
 	// are delayed by two blocks
 	newState := sm.State{
-		LastBlockHeight:                  1,
-		DKGValidators:                    types.NewValidatorSet(newVals),
-		LastHeightDKGValidatorsChanged:   2,
-		LastHeightConsensusParamsChanged: 2,
+		LastBlockHeight:             1,
+		NextValidators:              types.NewValidatorSet(newVals),
+		LastHeightValidatorsChanged: 3,
 	}
-	newState.ConsensusParams.Entropy.AeonLength = int64(120)
+	newState2 := sm.State{
+		LastBlockHeight:                  2,
+		LastHeightConsensusParamsChanged: 3,
+	}
+	newState2.ConsensusParams.Entropy.AeonLength = int64(120)
 	sm.SaveState(dkgRunner[0].stateDB, newState)
+	sm.SaveState(dkgRunner[0].stateDB, newState2)
 
-	savedVals, err := sm.LoadDKGValidators(dkgRunner[0].stateDB, 2)
+	savedVals, err := sm.LoadValidators(dkgRunner[0].stateDB, 3)
 	assert.True(t, err == nil)
 	assert.Equal(t, 2, len(savedVals.Validators))
-	savedParams, err := sm.LoadConsensusParams(dkgRunner[0].stateDB, 2)
+	savedParams, err := sm.LoadConsensusParams(dkgRunner[0].stateDB, 3)
 	assert.True(t, err == nil)
 	assert.Equal(t, int64(120), savedParams.Entropy.AeonLength)
 
-	vals, aeonLength := dkgRunner[0].findValidatorsAndParams(2)
+	vals, aeonLength := dkgRunner[0].findValidatorsAndParams(3)
 	index, _ := vals.GetByAddress(newVals[0].PubKey.Address())
 	assert.True(t, index >= 0)
 	assert.True(t, aeonLength == 120)

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/tempfile"
 	"github.com/tendermint/tendermint/types"
-	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, qual IntVector) BaseAeon {
@@ -142,6 +142,10 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 		output.Qual[i] = qual.Get(i)
 	}
 	return &output
+}
+
+func (aeon *aeonDetails) IsKeyless() bool {
+	return aeon.aeonExecUnit == nil
 }
 
 // Save a number of aeonDetails to a file

@@ -18,6 +18,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
 	mempl "github.com/tendermint/tendermint/mempool"
 	tmnoise "github.com/tendermint/tendermint/noise"
@@ -30,7 +31,6 @@ import (
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
-	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 func TestNodeStartStop(t *testing.T) {
@@ -125,7 +125,6 @@ func TestNodeDKGFastSync(t *testing.T) {
 	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)
-	dkgRunner.SetCurrentAeon(-1, -1)
 	err := dkgRunner.FastSync(n.blockStore)
 	assert.True(t, err == nil)
 }
