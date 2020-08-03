@@ -1740,7 +1740,7 @@ func TestBlockRejectionWhenStrictFiltering(t *testing.T) {
 	var nonDKGTx []types.Tx = []types.Tx{[]byte("xxx")}
 	cs1.ProposalBlock.Data.Txs = types.Txs(nonDKGTx)
 
-	assert.True(t, cs1.doPrevote(height, round) == true, "Failed to verify that the prevote will fail when it should be strict")
+	assert.True(t, cs1.doPrevote(height, round) == false, "Failed to verify that the prevote will fail when it should be strict")
 }
 
 // subscribe subscribes test client to the given query and returns a channel with cap = 1.
