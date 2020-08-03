@@ -18,6 +18,8 @@ const (
 type Metrics struct {
 	// Size of the mempool.
 	Size metrics.Gauge
+	// Size of mempool in bytes
+	SizeBytes metrics.Gauge
 	// Histogram of transaction sizes, in bytes.
 	TxSizeBytes metrics.Histogram
 	// Number of failed transactions.
