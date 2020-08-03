@@ -500,7 +500,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement, 0)}
 		front := mem.txs.Front()
 		if front == nil {
-			mem.logger.Error("Error closing WAL", "err", err)
+			mem.logger.Error("Front of mempool was empty when it shouldn't be")
 			return
 		}
 		ret = append(ret, &front.Value.(*mempoolTx).tx) // corner case where we want this + next
