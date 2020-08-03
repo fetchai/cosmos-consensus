@@ -1,10 +1,9 @@
 package state
 
 import (
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 //
@@ -29,7 +28,7 @@ func UpdateState(
 	abciResponses *ABCIResponses,
 	validatorUpdates []*types.Validator,
 ) (State, error) {
-	return updateState(state, blockID, header, abciResponses, validatorUpdates)
+	return updateState(state, blockID, header, abciResponses, validatorUpdates, nil)
 }
 
 // ValidateValidatorUpdates is an alias for validateValidatorUpdates exported

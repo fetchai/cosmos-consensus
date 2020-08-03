@@ -1,4 +1,4 @@
-## v0.33.7
+## v0.33.4
 
 \*\*
 
@@ -12,18 +12,10 @@ Friendly reminder, we have a [bug bounty program](https://hackerone.com/tendermi
 
 - Apps
 
-- P2P Protocol
-
 - Go API
-
-- Blockchain Protocol
 
 ### FEATURES:
 
-
-
 ### IMPROVEMENTS:
 
-
 ### BUG FIXES:
- - Removed dkg and entropy generation config variables out of `ConsensusConfig` into new `BeaconConfig`

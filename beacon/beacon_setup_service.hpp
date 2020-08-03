@@ -24,6 +24,8 @@
 namespace fetch {
 namespace beacon {
 
+#define GLOW 1
+
 #ifdef GLOW
 const std::string AeonType = GLOW_AEON;
 #else

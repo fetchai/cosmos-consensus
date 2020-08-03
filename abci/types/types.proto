@@ -203,12 +203,12 @@ message ResponseEndBlock {
   ConsensusParams          consensus_param_updates = 2;
   repeated Event           events                  = 3
       [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
+  repeated ValidatorUpdate dkg_validator_updates = 4 [(gogoproto.nullable) = false];
 }
 
 message ResponseCommit {
   // reserve 1
-  bytes data          = 2;
-  int64 retain_height = 3;
+  bytes data = 2;
 }
 
 //----------------------------------------
@@ -295,7 +295,6 @@ message Version {
   uint64 Block = 1;
   uint64 App   = 2;
 }
-
 message BlockID {
   bytes         hash         = 1;
   PartSetHeader parts_header = 2 [(gogoproto.nullable) = false];

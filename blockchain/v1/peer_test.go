@@ -16,7 +16,7 @@ import (
 
 func TestPeerMonitor(t *testing.T) {
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 10,
+		p2p.ID(tmrand.Str(12)), 10,
 		func(err error, _ p2p.ID) {},
 		nil)
 	peer.SetLogger(log.TestingLogger())
@@ -35,7 +35,7 @@ func TestPeerResetBlockResponseTimer(t *testing.T) {
 	params := &BpPeerParams{timeout: 2 * time.Millisecond}
 
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 10,
+		p2p.ID(tmrand.Str(12)), 10,
 		func(err error, _ p2p.ID) {
 			peerTestMtx.Lock()
 			defer peerTestMtx.Unlock()
@@ -78,7 +78,7 @@ func TestPeerRequestSent(t *testing.T) {
 	params := &BpPeerParams{timeout: 2 * time.Millisecond}
 
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 10,
+		p2p.ID(tmrand.Str(12)), 10,
 		func(err error, _ p2p.ID) {},
 		params)
 
@@ -97,7 +97,7 @@ func TestPeerRequestSent(t *testing.T) {
 
 func TestPeerGetAndRemoveBlock(t *testing.T) {
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 100,
+		p2p.ID(tmrand.Str(12)), 100,
 		func(err error, _ p2p.ID) {},
 		nil)
 
@@ -145,7 +145,7 @@ func TestPeerGetAndRemoveBlock(t *testing.T) {
 
 func TestPeerAddBlock(t *testing.T) {
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 100,
+		p2p.ID(tmrand.Str(12)), 100,
 		func(err error, _ p2p.ID) {},
 		nil)
 
@@ -192,7 +192,7 @@ func TestPeerOnErrFuncCalledDueToExpiration(t *testing.T) {
 	)
 
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 10,
+		p2p.ID(tmrand.Str(12)), 10,
 		func(err error, _ p2p.ID) {
 			peerTestMtx.Lock()
 			defer peerTestMtx.Unlock()
@@ -218,7 +218,7 @@ func TestPeerCheckRate(t *testing.T) {
 		minRecvRate: int64(100), // 100 bytes/sec exponential moving average
 	}
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 10,
+		p2p.ID(tmrand.Str(12)), 10,
 		func(err error, _ p2p.ID) {},
 		params)
 	peer.SetLogger(log.TestingLogger())
@@ -252,7 +252,7 @@ func TestPeerCleanup(t *testing.T) {
 	params := &BpPeerParams{timeout: 2 * time.Millisecond}
 
 	peer := NewBpPeer(
-		p2p.ID(tmrand.Str(12)), 0, 10,
+		p2p.ID(tmrand.Str(12)), 10,
 		func(err error, _ p2p.ID) {},
 		params)
 	peer.SetLogger(log.TestingLogger())

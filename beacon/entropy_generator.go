@@ -380,7 +380,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		panic(fmt.Sprintf("Has keys but previous entropy not set. Height %v", entropyGenerator.lastBlockHeight))
 	}
 
-	pubKey, _ := entropyGenerator.aeon.privValidator.GetPubKey()
+	pubKey := entropyGenerator.aeon.privValidator.GetPubKey()
 	index, _ := entropyGenerator.aeon.validators.GetByAddress(pubKey.Address())
 	blockHeight := entropyGenerator.lastBlockHeight + 1
 	err := entropyGenerator.validInputs(blockHeight, index)

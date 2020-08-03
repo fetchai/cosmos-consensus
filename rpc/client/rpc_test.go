@@ -23,17 +23,15 @@ import (
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/rpc/client"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	rpclocal "github.com/tendermint/tendermint/rpc/client/local"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	rpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	rpcclient "github.com/tendermint/tendermint/rpc/lib/client"
 	rpctest "github.com/tendermint/tendermint/rpc/test"
 	"github.com/tendermint/tendermint/types"
 )
 
-func getHTTPClient() *rpchttp.HTTP {
+func getHTTPClient() *client.HTTP {
 	rpcAddr := rpctest.GetConfig().RPC.ListenAddress
-	c, err := rpchttp.New(rpcAddr, "/websocket")
+	c, err := client.NewHTTP(rpcAddr, "/websocket")
 	if err != nil {
 		panic(err)
 	}
@@ -41,9 +39,9 @@ func getHTTPClient() *rpchttp.HTTP {
 	return c
 }
 
-func getHTTPClientWithTimeout(timeout uint) *rpchttp.HTTP {
+func getHTTPClientWithTimeout(timeout uint) *client.HTTP {
 	rpcAddr := rpctest.GetConfig().RPC.ListenAddress
-	c, err := rpchttp.NewWithTimeout(rpcAddr, "/websocket", timeout)
+	c, err := client.NewHTTPWithTimeout(rpcAddr, "/websocket", timeout)
 	if err != nil {
 		panic(err)
 	}
@@ -51,8 +49,8 @@ func getHTTPClientWithTimeout(timeout uint) *rpchttp.HTTP {
 	return c
 }
 
-func getLocalClient() *rpclocal.Local {
-	return rpclocal.New(node)
+func getLocalClient() *client.Local {
+	return client.NewLocal(node)
 }
 
 // GetClients returns a slice of clients for table-driven tests
@@ -65,16 +63,16 @@ func GetClients() []client.Client {
 
 func TestNilCustomHTTPClient(t *testing.T) {
 	require.Panics(t, func() {
-		_, _ = rpchttp.NewWithClient("http://example.com", "/websocket", nil)
+		_, _ = client.NewHTTPWithClient("http://example.com", "/websocket", nil)
 	})
 	require.Panics(t, func() {
-		_, _ = rpcclient.NewWithHTTPClient("http://example.com", nil)
+		_, _ = rpcclient.NewJSONRPCClientWithHTTPClient("http://example.com", nil)
 	})
 }
 
 func TestCustomHTTPClient(t *testing.T) {
 	remote := rpctest.GetConfig().RPC.ListenAddress
-	c, err := rpchttp.NewWithClient(remote, "/websocket", http.DefaultClient)
+	c, err := client.NewHTTPWithClient(remote, "/websocket", http.DefaultClient)
 	require.Nil(t, err)
 	status, err := c.Status()
 	require.NoError(t, err)
@@ -176,8 +174,6 @@ func TestGenesisAndValidators(t *testing.T) {
 		vals, err := c.Validators(nil, 0, 0)
 		require.Nil(t, err, "%d: %+v", i, err)
 		require.Equal(t, 1, len(vals.Validators))
-		require.Equal(t, 1, vals.Count)
-		require.Equal(t, 1, vals.Total)
 		val := vals.Validators[0]
 
 		// make sure the current set is also the genesis set
@@ -705,7 +701,7 @@ func TestBatchedJSONRPCCalls(t *testing.T) {
 	testBatchedJSONRPCCalls(t, c)
 }
 
-func testBatchedJSONRPCCalls(t *testing.T, c *rpchttp.HTTP) {
+func testBatchedJSONRPCCalls(t *testing.T, c *client.HTTP) {
 	k1, v1, tx1 := MakeTxKV()
 	k2, v2, tx2 := MakeTxKV()
 
@@ -771,14 +767,14 @@ func TestBatchedJSONRPCCallsCancellation(t *testing.T) {
 	require.Equal(t, 0, batch.Count())
 }
 
-func TestSendingEmptyRequestBatch(t *testing.T) {
+func TestSendingEmptyJSONRPCRequestBatch(t *testing.T) {
 	c := getHTTPClient()
 	batch := c.NewBatch()
 	_, err := batch.Send()
 	require.Error(t, err, "sending an empty batch of JSON RPC requests should result in an error")
 }
 
-func TestClearingEmptyRequestBatch(t *testing.T) {
+func TestClearingEmptyJSONRPCRequestBatch(t *testing.T) {
 	c := getHTTPClient()
 	batch := c.NewBatch()
 	require.Zero(t, batch.Clear(), "clearing an empty batch of JSON RPC requests should result in a 0 result")

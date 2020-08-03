@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
+	"os"
 	"strings"
 	"time"
 
@@ -19,23 +20,18 @@ import (
 	"github.com/rs/cors"
 
 	amino "github.com/tendermint/go-amino"
-	dbm "github.com/tendermint/tm-db"
-
 	abci "github.com/tendermint/tendermint/abci/types"
 	bcv0 "github.com/tendermint/tendermint/blockchain/v0"
 	bcv1 "github.com/tendermint/tendermint/blockchain/v1"
-	bcv2 "github.com/tendermint/tendermint/blockchain/v2"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	cs "github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
-	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
@@ -43,7 +39,7 @@ import (
 	rpccore "github.com/tendermint/tendermint/rpc/core"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	grpccore "github.com/tendermint/tendermint/rpc/grpc"
-	rpcserver "github.com/tendermint/tendermint/rpc/jsonrpc/server"
+	rpcserver "github.com/tendermint/tendermint/rpc/lib/server"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/state/txindex"
 	"github.com/tendermint/tendermint/state/txindex/kv"
@@ -52,6 +48,9 @@ import (
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
+	dbm "github.com/tendermint/tm-db"
+	tmnoise "github.com/tendermint/tendermint/noise"
+	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 //------------------------------------------------------------------------------
@@ -92,13 +91,31 @@ type Provider func(*cfg.Config, log.Logger) (*Node, error)
 // PrivValidator, ClientCreator, GenesisDoc, and DBProvider.
 // It implements NodeProvider.
 func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
+	// Generate node PrivKey
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	if err != nil {
-		return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
+		return nil, err
+	}
+
+	// Convert old PrivValidator if it exists.
+	oldPrivVal := config.OldPrivValidatorFile()
+	newPrivValKey := config.PrivValidatorKeyFile()
+	newPrivValState := config.PrivValidatorStateFile()
+	if _, err := os.Stat(oldPrivVal); !os.IsNotExist(err) {
+		oldPV, err := privval.LoadOldFilePV(oldPrivVal)
+		if err != nil {
+			return nil, fmt.Errorf("error reading OldPrivValidator from %v: %v", oldPrivVal, err)
+		}
+		logger.Info("Upgrading PrivValidator file",
+			"old", oldPrivVal,
+			"newKey", newPrivValKey,
+			"newState", newPrivValState,
+		)
+		oldPV.Upgrade(newPrivValKey, newPrivValState)
 	}
 
 	return NewNode(config,
-		privval.LoadOrGenFilePV(config.PrivValidatorKeyFile(), config.PrivValidatorStateFile()),
+		privval.LoadOrGenFilePV(newPrivValKey, newPrivValState),
 		nodeKey,
 		proxy.DefaultClientCreator(config.ProxyApp, config.ABCI, config.DBDir()),
 		DefaultGenesisDocProviderFunc(config),
@@ -304,12 +321,12 @@ func logNodeStartupInfo(state sm.State, pubKey crypto.PubKey, logger, consensusL
 	}
 }
 
-func onlyValidatorIsUs(state sm.State, pubKey crypto.PubKey) bool {
+func onlyValidatorIsUs(state sm.State, privVal types.PrivValidator) bool {
 	if state.Validators.Size() > 1 {
 		return false
 	}
 	addr, _ := state.Validators.GetByIndex(0)
-	return bytes.Equal(pubKey.Address(), addr)
+	return bytes.Equal(privVal.GetPubKey().Address(), addr)
 }
 
 func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
@@ -363,8 +380,6 @@ func createBlockchainReactor(config *cfg.Config,
 		bcReactor = bcv0.NewBlockchainReactor(state.Copy(), blockExec, blockStore, fastSync)
 	case "v1":
 		bcReactor = bcv1.NewBlockchainReactor(state.Copy(), blockExec, blockStore, fastSync)
-	case "v2":
-		bcReactor = bcv2.NewBlockchainReactor(state.Copy(), blockExec, blockStore, fastSync)
 	default:
 		return nil, fmt.Errorf("unknown fastsync version %s", config.FastSync.Version)
 	}
@@ -707,16 +722,17 @@ func NewNode(config *cfg.Config,
 		}
 	}
 
-	pubKey, err := privValidator.GetPubKey()
-	if err != nil {
-		return nil, errors.Wrap(err, "can't get pubkey")
+	pubKey := privValidator.GetPubKey()
+	if pubKey == nil {
+		// TODO: GetPubKey should return errors - https://github.com/tendermint/tendermint/issues/3602
+		return nil, errors.New("could not retrieve public key from private validator")
 	}
 
 	logNodeStartupInfo(state, pubKey, logger, consensusLogger)
 
 	// Decide whether to fast-sync or not
 	// We don't fast-sync when the only validator is us.
-	fastSync := config.FastSyncMode && !onlyValidatorIsUs(state, pubKey)
+	fastSync := config.FastSyncMode && !onlyValidatorIsUs(state, privValidator)
 
 	csMetrics, p2pMetrics, memplMetrics, smMetrics, drbMetrics := metricsProvider(genDoc.ChainID)
 
@@ -920,10 +936,7 @@ func (n *Node) OnStart() error {
 	n.isListening = true
 
 	if n.config.Mempool.WalEnabled() {
-		err = n.mempool.InitWAL()
-		if err != nil {
-			return fmt.Errorf("init mempool WAL: %w", err)
-		}
+		n.mempool.InitWAL() // no need to have the mempool wal during tests
 	}
 
 	// Start the switch (the P2P server).
@@ -999,42 +1012,29 @@ func (n *Node) OnStop() {
 	n.nativeLogCollector.Stop()
 }
 
-// ConfigureRPC makes sure RPC has all the objects it needs to operate.
-func (n *Node) ConfigureRPC() error {
-	pubKey, err := n.privValidator.GetPubKey()
-	if err != nil {
-		return fmt.Errorf("can't get pubkey: %w", err)
-	}
-	rpccore.SetEnvironment(&rpccore.Environment{
-		ProxyAppQuery: n.proxyApp.Query(),
-
-		StateDB:        n.stateDB,
-		BlockStore:     n.blockStore,
-		EvidencePool:   n.evidencePool,
-		ConsensusState: n.consensusState,
-		P2PPeers:       n.sw,
-		P2PTransport:   n,
-
-		PubKey:           pubKey,
-		GenDoc:           n.genesisDoc,
-		TxIndexer:        n.txIndexer,
-		ConsensusReactor: n.consensusReactor,
-		EventBus:         n.eventBus,
-		Mempool:          n.mempool,
-
-		Logger: n.Logger.With("module", "rpc"),
-
-		Config: *n.config.RPC,
-	})
-	return nil
+// ConfigureRPC sets all variables in rpccore so they will serve
+// rpc calls from this node
+func (n *Node) ConfigureRPC() {
+	rpccore.SetStateDB(n.stateDB)
+	rpccore.SetBlockStore(n.blockStore)
+	rpccore.SetConsensusState(n.consensusState)
+	rpccore.SetMempool(n.mempool)
+	rpccore.SetEvidencePool(n.evidencePool)
+	rpccore.SetP2PPeers(n.sw)
+	rpccore.SetP2PTransport(n)
+	pubKey := n.privValidator.GetPubKey()
+	rpccore.SetPubKey(pubKey)
+	rpccore.SetGenesisDoc(n.genesisDoc)
+	rpccore.SetProxyAppQuery(n.proxyApp.Query())
+	rpccore.SetTxIndexer(n.txIndexer)
+	rpccore.SetConsensusReactor(n.consensusReactor)
+	rpccore.SetEventBus(n.eventBus)
+	rpccore.SetLogger(n.Logger.With("module", "rpc"))
+	rpccore.SetConfig(*n.config.RPC)
 }
 
 func (n *Node) startRPC() ([]net.Listener, error) {
-	err := n.ConfigureRPC()
-	if err != nil {
-		return nil, err
-	}
-
+	n.ConfigureRPC()
 	listenAddrs := splitAndTrimEmpty(n.config.RPC.ListenAddress, ",", " ")
 	coreCodec := amino.NewCodec()
 	ctypes.RegisterAmino(coreCodec)
@@ -1090,7 +1090,7 @@ func (n *Node) startRPC() ([]net.Listener, error) {
 			rootHandler = corsMiddleware.Handler(mux)
 		}
 		if n.config.RPC.IsTLSEnabled() {
-			go rpcserver.ServeTLS(
+			go rpcserver.StartHTTPAndTLSServer(
 				listener,
 				rootHandler,
 				n.config.RPC.CertFile(),
@@ -1099,7 +1099,7 @@ func (n *Node) startRPC() ([]net.Listener, error) {
 				config,
 			)
 		} else {
-			go rpcserver.Serve(
+			go rpcserver.StartHTTPServer(
 				listener,
 				rootHandler,
 				rpcLogger,
@@ -1262,8 +1262,6 @@ func makeNodeInfo(
 		bcChannel = bcv0.BlockchainChannel
 	case "v1":
 		bcChannel = bcv1.BlockchainChannel
-	case "v2":
-		bcChannel = bcv2.BlockchainChannel
 	default:
 		return nil, fmt.Errorf("unknown fastsync version %s", config.FastSync.Version)
 	}
@@ -1374,27 +1372,15 @@ func createAndStartPrivValidatorSocketClient(
 ) (types.PrivValidator, error) {
 	pve, err := privval.NewSignerListener(listenAddr, logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start private validator: %w", err)
+		return nil, errors.Wrap(err, "failed to start private validator")
 	}
 
 	pvsc, err := privval.NewSignerClient(pve)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start private validator: %w", err)
+		return nil, errors.Wrap(err, "failed to start private validator")
 	}
 
-	// try to get a pubkey from private validate first time
-	_, err = pvsc.GetPubKey()
-	if err != nil {
-		return nil, fmt.Errorf("can't get pubkey: %w", err)
-	}
-
-	const (
-		retries = 50 // 50 * 100ms = 5s total
-		timeout = 100 * time.Millisecond
-	)
-	pvscWithRetries := privval.NewRetrySignerClient(pvsc, retries, timeout)
-
-	return pvscWithRetries, nil
+	return pvsc, nil
 }
 
 // splitAndTrimEmpty slices s into all subslices separated by sep and returns a

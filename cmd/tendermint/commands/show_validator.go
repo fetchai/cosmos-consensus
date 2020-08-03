@@ -24,13 +24,7 @@ func showValidator(cmd *cobra.Command, args []string) error {
 	}
 
 	pv := privval.LoadFilePV(keyFilePath, config.PrivValidatorStateFile())
-
-	pubKey, err := pv.GetPubKey()
-	if err != nil {
-		return errors.Wrap(err, "can't get pubkey")
-	}
-
-	bz, err := cdc.MarshalJSON(pubKey)
+	bz, err := cdc.MarshalJSON(pv.GetPubKey())
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal private validator pubkey")
 	}

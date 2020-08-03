@@ -12,7 +12,8 @@ import (
 // PrivValidator defines the functionality of a local Tendermint validator
 // that signs votes and proposals, and never double signs.
 type PrivValidator interface {
-	GetPubKey() (crypto.PubKey, error)
+	// TODO: Extend the interface to return errors too. Issue: https://github.com/tendermint/tendermint/issues/3602
+	GetPubKey() crypto.PubKey
 
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
@@ -30,16 +31,7 @@ func (pvs PrivValidatorsByAddress) Len() int {
 }
 
 func (pvs PrivValidatorsByAddress) Less(i, j int) bool {
-	pvi, err := pvs[i].GetPubKey()
-	if err != nil {
-		panic(err)
-	}
-	pvj, err := pvs[j].GetPubKey()
-	if err != nil {
-		panic(err)
-	}
-
-	return bytes.Compare(pvi.Address(), pvj.Address()) == -1
+	return bytes.Compare(pvs[i].GetPubKey().Address(), pvs[j].GetPubKey().Address()) == -1
 }
 
 func (pvs PrivValidatorsByAddress) Swap(i, j int) {
@@ -71,8 +63,8 @@ func NewMockPVWithParams(privKey crypto.PrivKey, breakProposalSigning, breakVote
 }
 
 // Implements PrivValidator.
-func (pv MockPV) GetPubKey() (crypto.PubKey, error) {
-	return pv.PrivKey.PubKey(), nil
+func (pv MockPV) GetPubKey() crypto.PubKey {
+	return pv.PrivKey.PubKey()
 }
 
 // Implements PrivValidator.
@@ -128,9 +120,9 @@ func (pv MockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
 }
 
 // String returns a string representation of the MockPV.
-func (pv *MockPV) String() string {
-	mpv, _ := pv.GetPubKey() // mockPV will never return an error, ignored here
-	return fmt.Sprintf("MockPV{%v}", mpv.Address())
+func (pv MockPV) String() string {
+	addr := pv.GetPubKey().Address()
+	return fmt.Sprintf("MockPV{%v}", addr)
 }
 
 // XXX: Implement.
@@ -140,7 +132,7 @@ func (pv MockPV) DisableChecks() {
 }
 
 type ErroringMockPV struct {
-	*MockPV
+	MockPV
 }
 
 var ErroringMockPVErr = errors.New("erroringMockPV always returns an error")
@@ -168,5 +160,5 @@ func (pv *ErroringMockPV) SignDKGMessage(chainID string, msg *DKGMessage) error 
 // NewErroringMockPV returns a MockPV that fails on each signing request. Again, for testing only.
 
 func NewErroringMockPV() *ErroringMockPV {
-	return &ErroringMockPV{&MockPV{ed25519.GenPrivKey(), false, false}}
+	return &ErroringMockPV{MockPV{ed25519.GenPrivKey(), false, false}}
 }

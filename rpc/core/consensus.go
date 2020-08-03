@@ -4,26 +4,26 @@ import (
 	cm "github.com/tendermint/tendermint/consensus"
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	rpctypes "github.com/tendermint/tendermint/rpc/lib/types"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 )
 
 // Validators gets the validator set at the given block height.
-//
-// If no height is provided, it will fetch the latest validator set. Note the
-// validators are sorted by their voting power - this is the canonical order
-// for the validators in the set as used in computing their Merkle root.
-//
+// If no height is provided, it will fetch the current validator set.
+// Note the validators are sorted by their address - this is the canonical
+// order for the validators in the set as used in computing their Merkle root.
 // More: https://docs.tendermint.com/master/rpc/#/Info/validators
 func Validators(ctx *rpctypes.Context, heightPtr *int64, page, perPage int) (*ctypes.ResultValidators, error) {
-	// The latest validator that we know is the NextValidator of the last block.
-	height, err := getHeight(latestUncommittedHeight(), heightPtr)
+	// The latest validator that we know is the
+	// NextValidator of the last block.
+	height := consensusState.GetState().LastBlockHeight + 1
+	height, err := getHeight(height, heightPtr)
 	if err != nil {
 		return nil, err
 	}
 
-	validators, err := sm.LoadValidators(env.StateDB, height)
+	validators, err := sm.LoadValidators(stateDB, height)
 	if err != nil {
 		return nil, err
 	}
@@ -41,9 +41,7 @@ func Validators(ctx *rpctypes.Context, heightPtr *int64, page, perPage int) (*ct
 
 	return &ctypes.ResultValidators{
 		BlockHeight: height,
-		Validators:  v,
-		Count:       len(v),
-		Total:       totalCount}, nil
+		Validators:  v}, nil
 }
 
 // DumpConsensusState dumps consensus state.
@@ -51,7 +49,7 @@ func Validators(ctx *rpctypes.Context, heightPtr *int64, page, perPage int) (*ct
 // More: https://docs.tendermint.com/master/rpc/#/Info/dump_consensus_state
 func DumpConsensusState(ctx *rpctypes.Context) (*ctypes.ResultDumpConsensusState, error) {
 	// Get Peer consensus states.
-	peers := env.P2PPeers.Peers().List()
+	peers := p2pPeers.Peers().List()
 	peerStates := make([]ctypes.PeerStateInfo, len(peers))
 	for i, peer := range peers {
 		peerState, ok := peer.Get(types.PeerStateKey).(*cm.PeerState)
@@ -70,7 +68,7 @@ func DumpConsensusState(ctx *rpctypes.Context) (*ctypes.ResultDumpConsensusState
 		}
 	}
 	// Get self round state.
-	roundState, err := env.ConsensusState.GetRoundStateJSON()
+	roundState, err := consensusState.GetRoundStateJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -84,26 +82,25 @@ func DumpConsensusState(ctx *rpctypes.Context) (*ctypes.ResultDumpConsensusState
 // More: https://docs.tendermint.com/master/rpc/#/Info/consensus_state
 func ConsensusState(ctx *rpctypes.Context) (*ctypes.ResultConsensusState, error) {
 	// Get self round state.
-	bz, err := env.ConsensusState.GetRoundStateSimpleJSON()
+	bz, err := consensusState.GetRoundStateSimpleJSON()
 	return &ctypes.ResultConsensusState{RoundState: bz}, err
 }
 
-// ConsensusParams gets the consensus parameters at the given block height.
-// If no height is provided, it will fetch the latest consensus params.
+// ConsensusParams gets the consensus parameters  at the given block height.
+// If no height is provided, it will fetch the current consensus params.
 // More: https://docs.tendermint.com/master/rpc/#/Info/consensus_params
 func ConsensusParams(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultConsensusParams, error) {
-	// The latest consensus params that we know is the consensus params after the
-	// last block.
-	height, err := getHeight(latestUncommittedHeight(), heightPtr)
+	height := consensusState.GetState().LastBlockHeight + 1
+	height, err := getHeight(height, heightPtr)
 	if err != nil {
 		return nil, err
 	}
 
-	consensusParams, err := sm.LoadConsensusParams(env.StateDB, height)
+	consensusparams, err := sm.LoadConsensusParams(stateDB, height)
 	if err != nil {
 		return nil, err
 	}
 	return &ctypes.ResultConsensusParams{
 		BlockHeight:     height,
-		ConsensusParams: consensusParams}, nil
+		ConsensusParams: consensusparams}, nil
 }

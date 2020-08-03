@@ -1,41 +1,10 @@
 PACKAGES=$(shell go list ./...)
-
-GOTOOLS = \
-	github.com/mitchellh/gox \
-	github.com/golangci/golangci-lint/cmd/golangci-lint \
-	github.com/gogo/protobuf/protoc-gen-gogo \
-	github.com/square/certstrap
-GOBIN?=${GOPATH}/bin
-
 OUTPUT?=build/tendermint
 
-BUILD_TAGS?=tendermint
-LD_FLAGS = -X github.com/tendermint/tendermint/version.GitCommit=`git rev-parse --short=8 HEAD`
+BUILD_TAGS?='tendermint'
+LD_FLAGS = -X github.com/tendermint/tendermint/version.GitCommit=`git rev-parse --short=8 HEAD` -s -w
 BUILD_FLAGS = -mod=readonly -ldflags "$(LD_FLAGS)"
 HTTPS_GIT := https://github.com/tendermint/tendermint.git
-DOCKER_BUF := docker run -v $(shell pwd):/workspace --workdir /workspace bufbuild/buf
-CGO_ENABLED ?= 1
-
-# handle nostrip
-ifeq (,$(findstring nostrip,$(TENDERMINT_BUILD_OPTIONS)))
-  BUILD_FLAGS += -trimpath
-  LD_FLAGS += -s -w
-endif
-
-# handle race
-ifeq (race,$(findstring race,$(TENDERMINT_BUILD_OPTIONS)))
-  CGO_ENABLED=1
-  BUILD_FLAGS += -race
-endif
-
-# handle cleveldb
-ifeq (cleveldb,$(findstring cleveldb,$(TENDERMINT_BUILD_OPTIONS)))
-  CGO_ENABLED=1
-  BUILD_TAGS += cleveldb
-endif
-
-# allow users to pass additional flags via the conventional LDFLAGS variable
-LD_FLAGS += $(LDFLAGS)
 
 all: check build test install
 .PHONY: all
@@ -49,12 +18,24 @@ include tests.mk
 ###############################################################################
 
 build:
-	CGO_ENABLED=$(CGO_ENABLED) go build $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' -o $(OUTPUT) ./cmd/tendermint/
+	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint/
 .PHONY: build
 
+build_c:
+	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" -o $(OUTPUT) ./cmd/tendermint/
+.PHONY: build_c
+
+build_race:
+	CGO_ENABLED=1 go build -race $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(OUTPUT) ./cmd/tendermint
+.PHONY: build_race
+
 install:
-	CGO_ENABLED=$(CGO_ENABLED) go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
+	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
 .PHONY: install
+
+install_c:
+	CGO_ENABLED=1 go install $(BUILD_FLAGS) -tags "$(BUILD_TAGS) cleveldb" ./cmd/tendermint
+.PHONY: install_c
 
 ###############################################################################
 ###                                Protobuf                                 ###
@@ -72,21 +53,16 @@ proto-gen:
 	@sh scripts/protocgen.sh
 .PHONY: proto-gen
 
-proto-gen-docker:
-	@echo "Generating Protobuf files"
-	@docker run -v $(shell pwd):/workspace --workdir /workspace tendermintdev/docker-build-proto sh ./scripts/protocgen.sh
-.PHONY: proto-gen-docker
-
 proto-lint:
-	@$(DOCKER_BUF) check lint --error-format=json
+	@buf check lint --error-format=json
 .PHONY: proto-lint
 
 proto-check-breaking:
-	@$(DOCKER_BUF) check breaking --against-input .git#branch=master
+	@buf check breaking --against-input ".git#branch=master"
 .PHONY: proto-check-breaking
 
 proto-check-breaking-ci:
-	@$(DOCKER_BUF) check breaking --against-input $(HTTPS_GIT)#branch=master
+	@buf check breaking --against-input "$(HTTPS_GIT)#branch=master"
 .PHONY: proto-check-breaking-ci
 
 ###############################################################################
@@ -143,25 +119,24 @@ gen_certs: clean_certs
 	certstrap init --common-name "tendermint.com" --passphrase ""
 	certstrap request-cert --common-name "server" -ip "127.0.0.1" --passphrase ""
 	certstrap sign "server" --CA "tendermint.com" --passphrase ""
-	mv out/server.crt rpc/jsonrpc/server/test.crt
-	mv out/server.key rpc/jsonrpc/server/test.key
+	mv out/server.crt rpc/lib/server/test.crt
+	mv out/server.key rpc/lib/server/test.key
 	rm -rf out
 .PHONY: gen_certs
 
 # deletes generated certificates
 clean_certs:
-	rm -f rpc/jsonrpc/server/test.crt
-	rm -f rpc/jsonrpc/server/test.key
+	rm -f rpc/lib/server/test.crt
+	rm -f rpc/lib/server/test.key
 .PHONY: clean_certs
 
 ###############################################################################
 ###                  Formatting, linting, and vetting                       ###
 ###############################################################################
 
-format:
-	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
-	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -w -local github.com/tendermint/tendermint
-.PHONY: format
+fmt:
+	@go fmt ./...
+.PHONY: fmt
 
 lint:
 	@echo "--> Running linter"
@@ -215,9 +190,9 @@ build-docker-localnode:
 	@cd networks/local && make
 .PHONY: build-docker-localnode
 
-# Runs `make build TENDERMINT_BUILD_OPTIONS=cleveldb` from within an Amazon
-# Linux (v2)-based Docker build container in order to build an Amazon
-# Linux-compatible binary. Produces a compatible binary at ./build/tendermint
+# Runs `make build_c` from within an Amazon Linux (v2)-based Docker build
+# container in order to build an Amazon Linux-compatible binary. Produces a
+# compatible binary at ./build/tendermint
 build_c-amazonlinux:
 	$(MAKE) -C ./DOCKER build_amazonlinux_buildimage
 	docker run --rm -it -v `pwd`:/tendermint tendermint/tendermint:build_c-amazonlinux
