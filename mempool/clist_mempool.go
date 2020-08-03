@@ -492,7 +492,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 	}
 
 	// Lock here protects peer pointers map
-	mem.updateMtx.Lock()
+	mem.proxyMtx.Lock()
 
 	// Does this peer already exist in the map? If not, create and
 	// point to the front of the list
@@ -502,7 +502,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 	}
 
 	peerPointer := mem.peerPointers[peerID]
-	mem.updateMtx.Unlock()
+	mem.proxyMtx.Unlock()
 
 	// Find the first non-removed mempool entry
 	peerPointer.Element = advanceUntilNotRemoved(peerPointer.Element)
@@ -543,9 +543,9 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 	}
 
 	// Update position in the map
-	mem.updateMtx.Lock()
+	mem.proxyMtx.Lock()
 	mem.peerPointers[peerID] = peerPointer
-	mem.updateMtx.Unlock()
+	mem.proxyMtx.Unlock()
 	return
 }
 
