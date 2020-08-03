@@ -486,19 +486,23 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 // forward references in the list.
 func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 
+	// Lock here protects peer pointers map and front of clist
+	mem.proxyMtx.Lock()
+
 	// There isn't any new Txs
 	if mem.txs.Len() == 0 {
 		return
 	}
 
-	// Lock here protects peer pointers map
-	mem.proxyMtx.Lock()
-
 	// Does this peer already exist in the map? If not, create and
 	// point to the front of the list
 	if _, exists := mem.peerPointers[peerID]; !exists {
 		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement, 0)}
-		ret = append(ret, &mem.txs.Front().Value.(*mempoolTx).tx) // corner case where we want this + next
+		front := mem.txs.Front()
+		if front == nil {
+			panic("Front of clist in mempool is nil!")
+		}
+		ret = append(ret, &front.Value.(*mempoolTx).tx) // corner case where we want this + next
 	}
 
 	peerPointer := mem.peerPointers[peerID]
