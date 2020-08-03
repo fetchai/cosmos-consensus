@@ -236,7 +236,7 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 
 		// We know at least one TX is available. Collect new TXs from the mempool in bulk and send them to our peer
 		// (so long as the peer hasn't already seen the TX)
-		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest);len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, 100) {
+		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest);len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, txsToRequest) {
 			for _, tx := range(newTxs) {
 				msg := &TxMessage{Tx: *tx}
 				success := peer.Send(MempoolChannel, cdc.MustMarshalBinaryBare(msg))
