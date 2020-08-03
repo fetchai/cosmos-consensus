@@ -134,7 +134,7 @@ type State struct {
 
 	// some functions can be overwritten for testing
 	decideProposal func(height int64, round int)
-	doPrevote      func(height int64, round int)
+	doPrevote      func(height int64, round int) bool
 	setProposal    func(proposal *types.Proposal) error
 
 	// closed when we finish shutting down
@@ -1315,7 +1315,9 @@ func (cs *State) enterPrevote(height int64, round int) {
 	// (so we have more time to try and collect +2/3 prevotes for a single block)
 }
 
-func (cs *State) defaultDoPrevote(height int64, round int) {
+// Verify the proposed block meets the protocol requirements, and if so prevote it.
+// if not, prevote nil. Return true if the proposed block is good
+func (cs *State) defaultDoPrevote(height int64, round int) bool {
 	logger := cs.Logger.With("height", height, "round", round)
 
 	timer := tmtimer.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
@@ -1325,21 +1327,29 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 	if cs.LockedBlock != nil {
 		logger.Info("enterPrevote: Block was locked")
 		cs.signAddVote(types.PrevoteType, cs.LockedBlock.Hash(), cs.LockedBlockParts.Header())
-		return
+		return true
 	}
 
 	// If ProposalBlock is nil, prevote nil.
 	if cs.ProposalBlock == nil {
 		logger.Info("enterPrevote: ProposalBlock is nil")
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
-		return
+		return false
 	}
 
 	// Check block entropy (note this can be empty in fallback mode which is fine)
 	if !cs.ProposalBlock.Header.Entropy.Equal(&cs.getEntropy(height).Entropy) {
 		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock has invalid entropy. Note: enabled: %v entropy: %v", cs.getEntropy(height).Enabled, cs.ProposalBlock.Header.Entropy))
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
-		return
+		return false
+	}
+
+	// Verify if we are in fallback and strict tx filtering that the block has only
+	// dkg TXs
+	if cs.strictFiltering && !cs.getEntropy(height).Enabled && !allDKGTxs(&cs.ProposalBlock.Data.Txs) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails the strict tx check "))
+		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+		return false
 	}
 
 	// Validate proposal block
@@ -1348,7 +1358,7 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 		// ProposalBlock is invalid, prevote nil.
 		logger.Error("enterPrevote: ProposalBlock is invalid", "err", err)
 		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
-		return
+		return false
 	}
 
 	// Prevote cs.ProposalBlock
@@ -1356,6 +1366,7 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 	// and the proposal block parts are validated as they are received (against the merkle hash in the proposal)
 	logger.Info("enterPrevote: ProposalBlock is valid")
 	cs.signAddVote(types.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
+	return true
 }
 
 // Enter: any +2/3 prevotes at next round.
@@ -2205,6 +2216,17 @@ func (cs *State) signAddVote(msgType types.SignedMsgType, hash []byte, header ty
 	cs.Logger.Error("Error signing vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)
 	//}
 	return nil
+}
+
+func allDKGTxs(txs *types.Txs) bool {
+
+	for _, tx := range *txs {
+		if !tx_extensions.IsDKGRelated(tx) {
+			return false
+		}
+	}
+
+	return true
 }
 
 //---------------------------------------------------------

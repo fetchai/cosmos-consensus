@@ -1688,6 +1688,61 @@ func TestStateOutputVoteStats(t *testing.T) {
 
 }
 
+func TestBlockAcceptance(t *testing.T) {
+	cs1, _ := randState(4)
+	height, round := cs1.Height, cs1.Round
+
+	newRoundCh := subscribe(cs1.eventBus, types.EventQueryNewRound)
+	proposalCh := subscribe(cs1.eventBus, types.EventQueryCompleteProposal)
+
+	startTestRound(cs1, height, round)
+
+	// Wait for new round so proposer is set.
+	ensureNewRound(newRoundCh, height, round)
+
+	// Commit a block and ensure proposer for the next height is correct.
+	prop := cs1.GetRoundState().Validators.GetProposer()
+	address := cs1.privValidator.GetPubKey().Address()
+	if !bytes.Equal(prop.Address, address) {
+		t.Fatalf("expected proposer to be validator %d. Got %X", 0, prop.Address)
+	}
+
+	// Wait for complete proposal.
+	ensureNewProposal(proposalCh, height, round)
+
+	assert.True(t, cs1.doPrevote(height, round) == true, "Failed to verify that the prevote will succeed normally")
+}
+
+func TestBlockRejectionWhenStrictFiltering(t *testing.T) {
+	cs1, _ := randState(4)
+	height, round := cs1.Height, cs1.Round
+
+	newRoundCh := subscribe(cs1.eventBus, types.EventQueryNewRound)
+	proposalCh := subscribe(cs1.eventBus, types.EventQueryCompleteProposal)
+
+	startTestRound(cs1, height, round)
+
+	// Wait for new round so proposer is set.
+	ensureNewRound(newRoundCh, height, round)
+
+	// Commit a block and ensure proposer for the next height is correct.
+	prop := cs1.GetRoundState().Validators.GetProposer()
+	address := cs1.privValidator.GetPubKey().Address()
+	if !bytes.Equal(prop.Address, address) {
+		t.Fatalf("expected proposer to be validator %d. Got %X", 0, prop.Address)
+	}
+
+	// Wait for complete proposal.
+	ensureNewProposal(proposalCh, height, round)
+
+	// Modify the consensus state to have strict filtering, and put a non-dkg TX into the block
+	cs1.strictFiltering = true
+	var nonDKGTx []types.Tx = []types.Tx{[]byte("xxx")}
+	cs1.ProposalBlock.Data.Txs = types.Txs(nonDKGTx)
+
+	assert.True(t, cs1.doPrevote(height, round) == false, "Failed to verify that the prevote will fail when it should be strict")
+}
+
 // subscribe subscribes test client to the given query and returns a channel with cap = 1.
 func subscribe(eventBus *types.EventBus, q tmpubsub.Query) <-chan tmpubsub.Message {
 	sub, err := eventBus.Subscribe(context.Background(), testSubscriber, q)
