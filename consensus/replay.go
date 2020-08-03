@@ -288,7 +288,6 @@ func (h *Handshaker) ReplayBlocks(
 	appBlockHeight int64,
 	proxyApp proxy.AppConns,
 ) ([]byte, error) {
-	storeBlockBase := h.store.Base()
 	storeBlockHeight := h.store.Height()
 	stateBlockHeight := state.LastBlockHeight
 	h.logger.Info(
@@ -342,15 +341,11 @@ func (h *Handshaker) ReplayBlocks(
 		}
 	}
 
-	// First handle edge cases and constraints on the storeBlockHeight and storeBlockBase.
+	// First handle edge cases and constraints on the storeBlockHeight.
 	switch {
 	case storeBlockHeight == 0:
 		assertAppHashEqualsOneFromState(appHash, state)
 		return appHash, nil
-
-	case appBlockHeight < storeBlockBase-1:
-		// the app is too far behind truncated store (can be 1 behind since we replay the next)
-		return appHash, sm.ErrAppBlockHeightTooLow{AppHeight: appBlockHeight, StoreBase: storeBlockBase}
 
 	case storeBlockHeight < appBlockHeight:
 		// the app should never be ahead of the store (but this is under app's control)
@@ -477,7 +472,7 @@ func (h *Handshaker) replayBlock(state sm.State, height int64, proxyApp proxy.Ap
 	blockExec.SetEventBus(h.eventBus)
 
 	var err error
-	state, _, err = blockExec.ApplyBlock(state, meta.BlockID, block)
+	state, err = blockExec.ApplyBlock(state, meta.BlockID, block)
 	if err != nil {
 		return sm.State{}, err
 	}

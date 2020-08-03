@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 
 	"github.com/Workiva/go-datastructures/queue"
-
 	"github.com/tendermint/tendermint/libs/log"
 )
 
@@ -69,11 +68,9 @@ func (rt *Routine) start() {
 
 	for {
 		events, err := rt.queue.Get(1)
-		if err == queue.ErrDisposed {
-			rt.terminate(nil)
-			return
-		} else if err != nil {
-			rt.terminate(err)
+		if err != nil {
+			rt.logger.Info(fmt.Sprintf("%s: stopping\n", rt.name))
+			rt.terminate(fmt.Errorf("stopped"))
 			return
 		}
 		oEvent, err := rt.handle(events[0].(Event))
@@ -133,7 +130,6 @@ func (rt *Routine) final() chan error {
 
 // XXX: Maybe get rid of this
 func (rt *Routine) terminate(reason error) {
-	// We don't close the rt.out channel here, to avoid spinning on the closed channel
-	// in the event loop.
+	close(rt.out)
 	rt.fin <- reason
 }

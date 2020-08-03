@@ -19,11 +19,5 @@ SignerDialerEndpoint
 
 SignerDialerEndpoint is a simple wrapper around a net.Conn. It's used by both IPCVal and TCPVal.
 
-SignerClient
-
-SignerClient handles remote validator connections that provide signing services.
-In production, it's recommended to wrap it with RetrySignerClient to avoid
-termination in case of temporary errors.
-
 */
 package privval

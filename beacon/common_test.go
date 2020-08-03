@@ -125,7 +125,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		thisConfig := cfg.ResetTestRoot(fmt.Sprintf("%s_%d", testName, i))
 		configRootDirs = append(configRootDirs, thisConfig.RootDir)
 
-		pubKey, _ := privVals[i].GetPubKey()
+		pubKey := privVals[i].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 

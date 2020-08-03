@@ -208,8 +208,7 @@ message ResponseEndBlock {
 
 message ResponseCommit {
   // reserve 1
-  bytes data          = 2;
-  int64 retain_height = 3;
+  bytes data = 2;
 }
 
 //----------------------------------------
@@ -296,7 +295,6 @@ message Version {
   uint64 Block = 1;
   uint64 App   = 2;
 }
-
 message BlockID {
   bytes         hash         = 1;
   PartSetHeader parts_header = 2 [(gogoproto.nullable) = false];

@@ -4,7 +4,6 @@ import (
 	"bytes"
 
 	amino "github.com/tendermint/go-amino"
-
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/kv"
 )

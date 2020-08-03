@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	amino "github.com/tendermint/go-amino"
-
 	flow "github.com/tendermint/tendermint/libs/flowrate"
 	"github.com/tendermint/tendermint/libs/log"
 	tmmath "github.com/tendermint/tendermint/libs/math"
@@ -316,9 +315,6 @@ func (c *MConnection) OnStop() {
 }
 
 func (c *MConnection) String() string {
-	if c.conn == nil {
-		return "NIL"
-	}
 	return fmt.Sprintf("MConn{%v}", c.conn.RemoteAddr())
 }
 

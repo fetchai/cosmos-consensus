@@ -116,18 +116,18 @@ func TestDKGCheckMessage(t *testing.T) {
 		}, false},
 		{"Not from validator", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
-			pubKey, _ := privVal.GetPubKey()
+			pubKey := privVal.GetPubKey()
 			msg.FromAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
 		{"Correct ToAddress", func(msg *types.DKGMessage) {
-			pubKey, _ := dkgToProcessMsg.privValidator.GetPubKey()
+			pubKey := dkgToProcessMsg.privValidator.GetPubKey()
 			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, true},
 		{"Incorrect ToAddress", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
-			pubKey, _ := privVal.GetPubKey()
+			pubKey := privVal.GetPubKey()
 			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false},
@@ -135,7 +135,7 @@ func TestDKGCheckMessage(t *testing.T) {
 			msg.Data = "changed data"
 		}, false},
 		{"Message from self", func(msg *types.DKGMessage) {
-			pubKey, _ := dkgToProcessMsg.privValidator.GetPubKey()
+			pubKey := dkgToProcessMsg.privValidator.GetPubKey()
 			msg.FromAddress = pubKey.Address()
 		}, false},
 	}
@@ -308,7 +308,7 @@ func TestDKGMessageMaxDataSize(t *testing.T) {
 		SignatureShare: signature,
 	}
 
-	pubKey, _ := privVal.GetPubKey()
+	pubKey := privVal.GetPubKey()
 
 	dkgMessage := types.DKGMessage{
 		Type:         types.DKGDryRun,
@@ -350,7 +350,7 @@ func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivVal
 		sentBadShare: false,
 	}
 
-	pubKey, _ := privVal.GetPubKey()
+	pubKey := privVal.GetPubKey()
 
 	index, _ := vals.GetByAddress(pubKey.Address())
 	node.dkg.SetLogger(log.TestingLogger().With("dkgIndex", index))

@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	amino "github.com/tendermint/go-amino"
-
 	cs "github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/types"
 )

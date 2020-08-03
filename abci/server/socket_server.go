@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"runtime"
 	"sync"
 
 	"github.com/tendermint/tendermint/abci/types"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 	tmnet "github.com/tendermint/tendermint/libs/net"
 	"github.com/tendermint/tendermint/libs/service"
 )
@@ -19,7 +16,6 @@ import (
 
 type SocketServer struct {
 	service.BaseService
-	isLoggerSet bool
 
 	proto    string
 	addr     string
@@ -46,24 +42,21 @@ func NewSocketServer(protoAddr string, app types.Application) service.Service {
 	return s
 }
 
-func (s *SocketServer) SetLogger(l tmlog.Logger) {
-	s.BaseService.SetLogger(l)
-	s.isLoggerSet = true
-}
-
 func (s *SocketServer) OnStart() error {
+	if err := s.BaseService.OnStart(); err != nil {
+		return err
+	}
 	ln, err := net.Listen(s.proto, s.addr)
 	if err != nil {
 		return err
 	}
-
 	s.listener = ln
 	go s.acceptConnectionsRoutine()
-
 	return nil
 }
 
 func (s *SocketServer) OnStop() {
+	s.BaseService.OnStop()
 	if err := s.listener.Close(); err != nil {
 		s.Logger.Error("Error closing listener", "err", err)
 	}
@@ -112,7 +105,7 @@ func (s *SocketServer) acceptConnectionsRoutine() {
 			if !s.IsRunning() {
 				return // Ignore error from listener closing.
 			}
-			s.Logger.Error("Failed to accept connection", "err", err)
+			s.Logger.Error("Failed to accept connection: " + err.Error())
 			continue
 		}
 
@@ -139,15 +132,15 @@ func (s *SocketServer) waitForClose(closeConn chan error, connID int) {
 	case err == io.EOF:
 		s.Logger.Error("Connection was closed by client")
 	case err != nil:
-		s.Logger.Error("Connection error", "err", err)
+		s.Logger.Error("Connection error", "error", err)
 	default:
 		// never happens
-		s.Logger.Error("Connection was closed")
+		s.Logger.Error("Connection was closed.")
 	}
 
 	// Close the connection
 	if err := s.rmConn(connID); err != nil {
-		s.Logger.Error("Error closing connection", "err", err)
+		s.Logger.Error("Error in closing connection", "error", err)
 	}
 }
 
@@ -160,14 +153,7 @@ func (s *SocketServer) handleRequests(closeConn chan error, conn io.Reader, resp
 		// make sure to recover from any app-related panics to allow proper socket cleanup
 		r := recover()
 		if r != nil {
-			const size = 64 << 10
-			buf := make([]byte, size)
-			buf = buf[:runtime.Stack(buf, false)]
-			err := fmt.Errorf("recovered from panic: %v\n%s", r, buf)
-			if !s.isLoggerSet {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			closeConn <- err
+			closeConn <- fmt.Errorf("recovered from panic: %v", r)
 			s.appMtx.Unlock()
 		}
 	}()
@@ -180,7 +166,7 @@ func (s *SocketServer) handleRequests(closeConn chan error, conn io.Reader, resp
 			if err == io.EOF {
 				closeConn <- err
 			} else {
-				closeConn <- fmt.Errorf("error reading message: %w", err)
+				closeConn <- fmt.Errorf("error reading message: %v", err)
 			}
 			return
 		}
@@ -237,13 +223,13 @@ func (s *SocketServer) handleResponses(closeConn chan error, conn io.Writer, res
 		var res = <-responses
 		err := types.WriteMessage(res, bufWriter)
 		if err != nil {
-			closeConn <- fmt.Errorf("error writing message: %w", err)
+			closeConn <- fmt.Errorf("error writing message: %v", err.Error())
 			return
 		}
 		if _, ok := res.Value.(*types.Response_Flush); ok {
 			err = bufWriter.Flush()
 			if err != nil {
-				closeConn <- fmt.Errorf("error flushing write buffer: %w", err)
+				closeConn <- fmt.Errorf("error flushing write buffer: %v", err.Error())
 				return
 			}
 		}

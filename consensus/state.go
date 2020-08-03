@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
@@ -29,6 +28,7 @@ import (
 	"github.com/tendermint/tendermint/p2p"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
+	tmtimer "github.com/tendermint/tendermint/libs/timer"
 )
 
 //-----------------------------------------------------------------------------
@@ -523,10 +523,6 @@ func (cs *State) reconstructLastCommit(state sm.State) {
 		return
 	}
 	seenCommit := cs.blockStore.LoadSeenCommit(state.LastBlockHeight)
-	if seenCommit == nil {
-		panic(fmt.Sprintf("Failed to reconstruct LastCommit: seen commit for height %v not found",
-			state.LastBlockHeight))
-	}
 	lastPrecommits := types.CommitToVoteSet(state.ChainID, seenCommit, state.LastValidators)
 	if !lastPrecommits.HasTwoThirdsMajority() {
 		panic("Failed to reconstruct LastCommit: Does not have +2/3 maj")
@@ -712,7 +708,7 @@ func (cs *State) receiveRoutine(maxSteps int) {
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *State) handleMsg(mi msgInfo) {
 
-	timer := tmbytes.NewFunctionTimer(50, "handleMsg", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "handleMsg", cs.Logger)
 	defer timer.Finish()
 	defer cs.metrics.MessagesProcessed.Add(float64(1))
 
@@ -793,7 +789,7 @@ func (cs *State) handleMsg(mi msgInfo) {
 func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	cs.Logger.Debug("Received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
-	timer := tmbytes.NewFunctionTimer(50, "handleTimeout", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "handleTimeout", cs.Logger)
 	defer timer.Finish()
 
 	// timeouts must be for current height, round, step
@@ -941,9 +937,6 @@ func (cs *State) needProofBlock(height int64) bool {
 	}
 
 	lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
-	if lastBlockMeta == nil {
-		panic(fmt.Sprintf("needProofBlock: last block meta for height %d not found", height-1))
-	}
 	return !bytes.Equal(cs.state.AppHash, lastBlockMeta.Header.AppHash)
 }
 
@@ -953,7 +946,7 @@ func (cs *State) needProofBlock(height int64) bool {
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(height int64, round int) {
 
-	timer := tmbytes.NewFunctionTimer(50, "enterPropose", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "enterPropose", cs.Logger)
 	defer timer.Finish()
 
 	logger := cs.Logger.With("height", height, "round", round)
@@ -991,18 +984,9 @@ func (cs *State) enterPropose(height int64, round int) {
 		logger.Debug("This node is not a validator")
 		return
 	}
-	logger.Debug("This node is a validator")
-
-	pubKey, err := cs.privValidator.GetPubKey()
-	if err != nil {
-		// If this node is a validator & proposer in the current round, it will
-		// miss the opportunity to create a block.
-		logger.Error("Error on retrival of pubkey", "err", err)
-		return
-	}
-	address := pubKey.Address()
 
 	// if not a validator, we're done
+	address := cs.privValidator.GetPubKey().Address()
 	if !cs.Validators.HasAddress(address) {
 		logger.Debug("This node is not a validator", "addr", address, "vals", cs.Validators)
 		return
@@ -1028,7 +1012,7 @@ func (cs *State) enterPropose(height int64, round int) {
 
 func (cs *State) getProposer(height int64, round int) *types.Validator {
 
-	timer := tmbytes.NewFunctionTimer(10, "getProposer", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(10, "getProposer", cs.Logger)
 	defer timer.Finish()
 
 	// Get entropy for this round if not already set
@@ -1059,7 +1043,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 func (cs *State) getNewEntropy(height int64) {
 
 	debugThing := fmt.Sprintf("getNewEntropy for height %v", height)
-	timer := tmbytes.NewFunctionTimer(50, debugThing, cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, debugThing, cs.Logger)
 	defer timer.Finish()
 
 	// Global lock needed for this check
@@ -1139,7 +1123,7 @@ func (cs *State) getNewEntropy(height int64) {
 // it is set and the height is correct
 func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 
-	timer := tmbytes.NewFunctionTimer(50, "getEntropy", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "getEntropy", cs.Logger)
 	defer timer.Finish()
 
 	// Return default entropy when testing
@@ -1196,7 +1180,7 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 	var block *types.Block
 	var blockParts *types.PartSet
 
-	timer := tmbytes.NewFunctionTimer(50, "defaultDecideProposal", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "defaultDecideProposal", cs.Logger)
 	defer timer.Finish()
 
 	// Decide on block
@@ -1253,16 +1237,14 @@ func (cs *State) isProposalComplete() bool {
 
 }
 
-// Create the next block to propose and return it. Returns nil block upon error.
-//
-// We really only need to return the parts, but the block is returned for
-// convenience so we can log the proposal block.
-//
+// Create the next block to propose and return it.
+// We really only need to return the parts, but the block
+// is returned for convenience so we can log the proposal block.
+// Returns nil block upon error.
 // NOTE: keep it side-effect free for clarity.
-// CONTRACT: cs.privValidator is not nil.
 func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.PartSet) {
 
-	timer := tmbytes.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
 	defer timer.Finish()
 
 	var commit *types.Commit
@@ -1274,21 +1256,13 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 	case cs.LastCommit.HasTwoThirdsMajority():
 		// Make the commit from LastCommit
 		commit = cs.LastCommit.MakeCommit()
-	default: // This shouldn't happen.
-		cs.Logger.Error("enterPropose: Cannot propose anything: No commit for the previous block")
+	default:
+		// This shouldn't happen.
+		cs.Logger.Error("enterPropose: Cannot propose anything: No commit for the previous block.")
 		return
 	}
 
-	if cs.privValidator == nil {
-		panic("entered createProposalBlock with privValidator being nil")
-	}
-	pubKey, err := cs.privValidator.GetPubKey()
-	if err != nil {
-		// If this node is a validator & proposer in the current round, it will
-		// miss the opportunity to create a block.
-		cs.Logger.Error("Error on retrival of pubkey", "err", err)
-		return
-	}
+	proposerAddr := cs.privValidator.GetPubKey().Address()
 
 	onlyDKGTxs := false
 
@@ -1298,7 +1272,6 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 		onlyDKGTxs = true
 	}
 
-	proposerAddr := pubKey.Address()
 	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, onlyDKGTxs)
 }
 
@@ -1336,7 +1309,7 @@ func (cs *State) enterPrevote(height int64, round int) {
 func (cs *State) defaultDoPrevote(height int64, round int) {
 	logger := cs.Logger.With("height", height, "round", round)
 
-	timer := tmbytes.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "defaultDoPrevote", cs.Logger)
 	defer timer.Finish()
 
 	// If a block is locked, prevote that.
@@ -1608,7 +1581,7 @@ func (cs *State) enterCommit(height int64, commitRound int) {
 func (cs *State) tryFinalizeCommit(height int64) {
 	logger := cs.Logger.With("height", height)
 
-	timer := tmbytes.NewFunctionTimer(50, "tryFinalizeCommit", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "tryFinalizeCommit", cs.Logger)
 	defer timer.Finish()
 
 	if cs.Height != height {
@@ -1632,6 +1605,7 @@ func (cs *State) tryFinalizeCommit(height int64) {
 		return
 	}
 
+	//	go
 	cs.finalizeCommit(height)
 }
 
@@ -1647,7 +1621,7 @@ func (cs *State) finalizeCommit(height int64) {
 		return
 	}
 
-	timer := tmbytes.NewFunctionTimer(50, "finalizeCommit", cs.Logger)
+	timer := tmtimer.NewFunctionTimer(50, "finalizeCommit", cs.Logger)
 	defer timer.Finish()
 
 	blockID, ok := cs.Votes.Precommits(cs.CommitRound).TwoThirdsMajority()
@@ -1716,8 +1690,7 @@ func (cs *State) finalizeCommit(height int64) {
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash wont reflect these txs until the next block.
 	var err error
-	var retainHeight int64
-	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(
+	stateCopy, err = cs.blockExec.ApplyBlock(
 		stateCopy,
 		types.BlockID{Hash: block.Hash(), PartsHeader: blockParts.Header()},
 		block)
@@ -1731,16 +1704,6 @@ func (cs *State) finalizeCommit(height int64) {
 	}
 
 	fail.Fail() // XXX
-
-	// Prune old heights, if requested by ABCI app.
-	if retainHeight > 0 {
-		pruned, err := cs.pruneBlocks(retainHeight)
-		if err != nil {
-			cs.Logger.Error("Failed to prune blocks", "retainHeight", retainHeight, "err", err)
-		} else {
-			cs.Logger.Info("Pruned blocks", "pruned", pruned, "retainHeight", retainHeight)
-		}
-	}
 
 	// must be called before we update state
 	cs.recordMetrics(height, block)
@@ -1766,22 +1729,6 @@ func (cs *State) finalizeCommit(height int64) {
 	// * cs.Height has been increment to height+1
 	// * cs.Step is now cstypes.RoundStepNewHeight
 	// * cs.StartTime is set to when we will start round0.
-}
-
-func (cs *State) pruneBlocks(retainHeight int64) (uint64, error) {
-	base := cs.blockStore.Base()
-	if retainHeight <= base {
-		return 0, nil
-	}
-	pruned, err := cs.blockStore.PruneBlocks(retainHeight)
-	if err != nil {
-		return 0, fmt.Errorf("failed to prune block store: %w", err)
-	}
-	err = sm.PruneStates(cs.blockExec.DB(), base, retainHeight)
-	if err != nil {
-		return 0, fmt.Errorf("failed to prune state database: %w", err)
-	}
-	return pruned, nil
 }
 
 func (cs *State) recordMetrics(height int64, block *types.Block) {
@@ -1814,24 +1761,15 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 				missingValidatorsPower += val.VotingPower
 			}
 
-			if cs.privValidator != nil {
-				pubKey, err := cs.privValidator.GetPubKey()
-				if err != nil {
-					// Metrics won't be updated, but it's not critical.
-					cs.Logger.Error("Error on retrival of pubkey", "err", err)
-					continue
+			if cs.privValidator != nil && bytes.Equal(val.Address, cs.privValidator.GetPubKey().Address()) {
+				label := []string{
+					"validator_address", val.Address.String(),
 				}
-
-				if bytes.Equal(val.Address, pubKey.Address()) {
-					label := []string{
-						"validator_address", val.Address.String(),
-					}
-					cs.metrics.ValidatorPower.With(label...).Set(float64(val.VotingPower))
-					if commitSig.ForBlock() {
-						cs.metrics.ValidatorLastSignedHeight.With(label...).Set(float64(height))
-					} else {
-						cs.metrics.ValidatorMissedBlocks.With(label...).Add(float64(1))
-					}
+				cs.metrics.ValidatorPower.With(label...).Set(float64(val.VotingPower))
+				if commitSig.ForBlock() {
+					cs.metrics.ValidatorLastSignedHeight.With(label...).Set(float64(height))
+				} else {
+					cs.metrics.ValidatorMissedBlocks.With(label...).Add(float64(1))
 				}
 			}
 		}
@@ -1880,14 +1818,11 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 		cs.metrics.BlockWithEntropy.Set(float64(1))
 	}
 
-	if cs.privValidator != nil {
-		ourPubkey, _ := cs.privValidator.GetPubKey()
-		// If we noticed we failed to produce a block when we should have
-		if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, ourPubkey.Address()) {
-			cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
-		} else {
-			cs.metrics.NumBlockProducer.Add(float64(cs.isProposerForHeight))
-		}
+	// If we noticed we failed to produce a block when we should have
+	if cs.isProposerForHeight != 0 && !bytes.Equal(block.ProposerAddress, cs.privValidator.GetPubKey().Address()) {
+		cs.metrics.NumFailuresAsBlockProducer.Add(float64(cs.isProposerForHeight))
+	} else {
+		cs.metrics.NumBlockProducer.Add(float64(cs.isProposerForHeight))
 	}
 	cs.isProposerForHeight = 0
 }
@@ -2011,12 +1946,8 @@ func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
 		if err == ErrVoteHeightMismatch {
 			return added, err
 		} else if voteErr, ok := err.(*types.ErrVoteConflictingVotes); ok {
-			pubKey, err := cs.privValidator.GetPubKey()
-			if err != nil {
-				return false, errors.Wrap(err, "can't get pubkey")
-			}
-
-			if bytes.Equal(vote.ValidatorAddress, pubKey.Address()) {
+			addr := cs.privValidator.GetPubKey().Address()
+			if bytes.Equal(vote.ValidatorAddress, addr) {
 				cs.Logger.Error(
 					"Found conflicting vote from ourselves. Did you unsafe_reset a validator?",
 					"height",
@@ -2205,7 +2136,6 @@ func (cs *State) addVote(
 	return added, err
 }
 
-// CONTRACT: cs.privValidator is not nil.
 func (cs *State) signVote(
 	msgType types.SignedMsgType,
 	hash []byte,
@@ -2215,24 +2145,19 @@ func (cs *State) signVote(
 	// and the privValidator will refuse to sign anything.
 	cs.wal.FlushAndSync()
 
-	pubKey, err := cs.privValidator.GetPubKey()
-	if err != nil {
-		return nil, errors.Wrap(err, "can't get pubkey")
-	}
-	addr := pubKey.Address()
-	valIdx, _ := cs.Validators.GetByAddress(addr)
+	addr := cs.privValidator.GetPubKey().Address()
+	valIndex, _ := cs.Validators.GetByAddress(addr)
 
 	vote := &types.Vote{
 		ValidatorAddress: addr,
-		ValidatorIndex:   valIdx,
+		ValidatorIndex:   valIndex,
 		Height:           cs.Height,
 		Round:            cs.Round,
 		Timestamp:        cs.voteTime(),
 		Type:             msgType,
 		BlockID:          types.BlockID{Hash: hash, PartsHeader: header},
 	}
-
-	err = cs.privValidator.SignVote(cs.state.ChainID, vote)
+	err := cs.privValidator.SignVote(cs.state.ChainID, vote)
 	return vote, err
 }
 
@@ -2257,23 +2182,10 @@ func (cs *State) voteTime() time.Time {
 
 // sign the vote and publish on internalMsgQueue
 func (cs *State) signAddVote(msgType types.SignedMsgType, hash []byte, header types.PartSetHeader) *types.Vote {
-	if cs.privValidator == nil { // the node does not have a key
+	// if we don't have a key or we're not in the validator set, do nothing
+	if cs.privValidator == nil || !cs.Validators.HasAddress(cs.privValidator.GetPubKey().Address()) {
 		return nil
 	}
-
-	pubKey, err := cs.privValidator.GetPubKey()
-	if err != nil {
-		// Vote won't be signed, but it's not critical.
-		cs.Logger.Error("Error on retrival of pubkey", "err", err)
-		return nil
-	}
-
-	// If the node not in the validator set, do nothing.
-	if !cs.Validators.HasAddress(pubKey.Address()) {
-		return nil
-	}
-
-	// TODO: pass pubKey to signVote
 	vote, err := cs.signVote(msgType, hash, header)
 	if err == nil {
 		cs.sendInternalMessage(msgInfo{&VoteMessage{vote}, ""})
