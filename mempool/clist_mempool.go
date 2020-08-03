@@ -25,13 +25,14 @@ import (
 
 //--------------------------------------------------------------------------------
 
-type OnDKGFunc func(types.Tx) error
-
 // CListMempool is an ordered in-memory pool for transactions before they are
 // proposed in a consensus round. Transaction validity is checked using the
 // CheckTx abci message before the transaction is added to the pool. The
 // mempool uses a concurrent list structure for storing transactions that can
 // be efficiently accessed by multiple concurrent readers.
+// Transactions are pushed onto the back of the queue, unless they are a priority
+// in which case they go to the front. Tx reaping (for block production) is
+// done from the front, while the readers (tx gossip) go from front to back
 type CListMempool struct {
 	// Atomic integers
 	height     int64 // the last block Update()'d to
@@ -49,6 +50,9 @@ type CListMempool struct {
 	txs          *clist.CList // concurrent linked-list of good txs
 	preCheck     PreCheckFunc
 	postCheck    PostCheckFunc
+
+	// Map of peerID to location in the linked list they have broadcast to
+	peerPointers map[uint16]peerPointer
 
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated
@@ -68,8 +72,17 @@ type CListMempool struct {
 	wal *auto.AutoFile
 
 	logger log.Logger
-
 	metrics *Metrics
+}
+
+// The peerPointer keeps a reference to the location in the mempool (list) that
+// the peer has gossiped so far. Priority transactions which have been inserted
+// into the front of the list (rather than the back), are likely to have been
+// missed (already past that point) and so are stored here to guarantee
+// they are sent, and are sent before any other Txs
+type peerPointer struct {
+	Element *clist.CElement       // The element last gossiped to the peer
+	PriorityTxs []*clist.CElement // Any Txs which are a high priority to gossip
 }
 
 var _ Mempool = &CListMempool{}
@@ -88,6 +101,7 @@ func NewCListMempool(
 		config:        config,
 		proxyAppConn:  proxyAppConn,
 		txs:           clist.New(),
+		peerPointers:  make(map[uint16]peerPointer),
 		height:        height,
 		rechecking:    0,
 		recheckCursor: nil,
@@ -110,6 +124,10 @@ func NewCListMempool(
 // NOTE: not thread safe - should only be called once, on startup
 func (mem *CListMempool) EnableTxsAvailable() {
 	mem.txsAvailable = make(chan struct{}, 1)
+}
+
+func (mem *CListMempool) GetHeight() int64 {
+	return mem.height
 }
 
 // SetLogger sets the Logger.
@@ -194,13 +212,6 @@ func (mem *CListMempool) Flush() {
 	_ = atomic.SwapInt64(&mem.txsBytes, 0)
 }
 
-// TxsFront returns the first transaction in the ordered list for peer
-// goroutines to call .NextWait() on.
-// FIXME: leaking implementation details!
-func (mem *CListMempool) TxsFront() *clist.CElement {
-	return mem.txs.Front()
-}
-
 // TxsWaitChan returns a channel to wait on transactions. It will be closed
 // once the mempool is not empty (ie. the internal `mem.txs` has at least one
 // element)
@@ -254,7 +265,6 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 			// TODO: consider punishing peer for dups,
 			// its non-trivial since invalid txs can become valid,
 			// but they can spam the same tx with little cost to them atm.
-
 		}
 
 		return ErrTxInCache
@@ -340,11 +350,20 @@ func (mem *CListMempool) reqResCb(
 	}
 }
 
+func isPriority(tx types.Tx) bool {
+	return tx_extensions.IsDKGRelated(tx)
+}
+
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
-	e := mem.txs.PushBack(memTx)
-	mem.txsMap.Store(txKey(memTx.tx), e)
+	if isPriority(memTx.tx) {
+		e := mem.txs.PushFront(memTx)
+		mem.txsMap.Store(txKey(memTx.tx), e)
+	} else {
+		e := mem.txs.PushBack(memTx)
+		mem.txsMap.Store(txKey(memTx.tx), e)
+	}
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
 }
@@ -458,6 +477,90 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 	return mem.txsAvailable
 }
 
+// Function to return Txs that as far as we know,
+// this peer hasn't seen. We maintain a map from
+// peer id to pointer in the list. We can know that the
+// peer id is stale because it points to an invalid element
+// (behind the back of the list). If the element pointed to
+// is removed normally, the pointer can follow still valid
+// forward references in the list.
+func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
+
+	// There isn't any new Txs
+	if mem.txs.Len() == 0 {
+		return
+	}
+
+	// Lock here protects peer pointers map
+	mem.proxyMtx.Lock()
+
+	// Does this peer already exist in the map? If not, create and
+	// point to the front of the list
+	if _, exists := mem.peerPointers[peerID]; !exists {
+		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement, 0)}
+		ret = append(ret, &mem.txs.Front().Value.(*mempoolTx).tx) // corner case where we want this + next
+	}
+
+	peerPointer := mem.peerPointers[peerID]
+	mem.proxyMtx.Unlock()
+
+	// Find the first non-removed mempool entry
+	peerPointer.Element = advanceUntilNotRemoved(peerPointer.Element)
+
+	// Collect up to max Txs. First, see if there are any priority Txs
+	for len(peerPointer.PriorityTxs) > 0 {
+
+		// Get last element
+		priLen := len(peerPointer.PriorityTxs)
+		e := peerPointer.PriorityTxs[priLen-1]
+
+		memTx := e.Value.(*mempoolTx)
+
+		if _, ok := memTx.senders.Load(peerID); !ok {
+			ret = append(ret, &memTx.tx)
+		}
+
+		// remove last element and nil to force garbage collection (important!)
+		peerPointer.PriorityTxs[priLen-1] = nil
+		peerPointer.PriorityTxs = peerPointer.PriorityTxs[:priLen-1]
+
+		if len(ret) >= max {
+			break
+		}
+	}
+
+	next := peerPointer.Element.Next()
+
+	for next != nil && len(ret) < max {
+		// Only add/return this if the peer hasn't seen it
+		memTx := next.Value.(*mempoolTx)
+
+		if _, ok := memTx.senders.Load(peerID); !ok {
+			ret = append(ret, &memTx.tx)
+		}
+		peerPointer.Element = next
+		next = next.Next()
+	}
+
+	// Update position in the map
+	mem.proxyMtx.Lock()
+	mem.peerPointers[peerID] = peerPointer
+	mem.proxyMtx.Unlock()
+	return
+}
+
+// Given a non-nil element, follow its references forward until a non-removed
+// one is found. Never return nil. Do not modify the element
+func advanceUntilNotRemoved(elem *clist.CElement) (ret *clist.CElement) {
+	ret = elem
+
+	for elem != nil && ret.Removed() {
+		ret = elem
+		elem = elem.Next()
+	}
+	return
+}
+
 func (mem *CListMempool) notifyTxsAvailable() {
 	if mem.Size() == 0 {
 		panic("notified txs available but mempool is empty!")
@@ -490,8 +593,10 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
 
-		if fallbackMode && !tx_extensions.IsDKGRelated(memTx.tx) {
-			continue
+		// Since we know all priority txs should be at the front, we can
+		// stop reaping once we find one that is not, when in fallback mode
+		if fallbackMode && !isPriority(memTx.tx) {
+			return txs
 		}
 
 		// Check total size requirement
@@ -514,6 +619,17 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	return txs
 }
 
+// Requires Lock() is held
+// removes any peer pointers that point to a removed element
+func (mem *CListMempool) cleanPeerPointers() {
+	for key, value := range mem.peerPointers {
+		if value.Element.Removed() {
+			delete(mem.peerPointers, key)
+		}
+	}
+}
+
+// Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
@@ -535,6 +651,7 @@ func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 	return txs
 }
 
+// Lock() must be held by the caller during execution.
 func (mem *CListMempool) Update(
 	height int64,
 	txs types.Txs,
@@ -552,6 +669,11 @@ func (mem *CListMempool) Update(
 	if postCheck != nil {
 		mem.postCheck = postCheck
 	}
+
+	// Housekeeping: remove peer clist references that point to a removed
+	// element since it is likely it is stale (points to TX most likely removed
+	// during prior call to Update()
+	mem.cleanPeerPointers()
 
 	for i, tx := range txs {
 		if deliverTxResponses[i].Code == abci.CodeTypeOK {

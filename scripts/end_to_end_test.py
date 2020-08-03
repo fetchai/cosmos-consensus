@@ -15,7 +15,7 @@ import requests
 # Assumes that tendermint is installed and new. Node 0 will display its logs.
 
 NODE_0_PRINTS=True
-VALIDATORS=4
+VALIDATORS=4 # Must be at least 2 as a TX is send to nodes[1]
 TEST_TIMEOUT_S=60*2
 THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_FILE_DIR)
@@ -97,10 +97,10 @@ while True:
     time.sleep(2)
 
 if timed_out == False:
-    # Submit a TX to node 0
+    # Submit a TX to node 1
     tx_string="random_tx"
     print(f"Submitting {tx_string}...")
-    print(subprocess.check_output(f"curl localhost:7000/broadcast_tx_sync?tx=\"{tx_string}\"".split()).decode().strip())
+    print(subprocess.check_output(f"curl localhost:7001/broadcast_tx_sync?tx=\"{tx_string}\"".split()).decode().strip())
 
     while True:
         if time.time() - time_now >= TEST_TIMEOUT_S:
@@ -116,7 +116,7 @@ if timed_out == False:
             pass
 
         if total_txs == 1.0:
-            print("Found TX. Quitting test.")
+            print("Found TX. Quitting test due to success.")
             break
 
 for node in nodes:

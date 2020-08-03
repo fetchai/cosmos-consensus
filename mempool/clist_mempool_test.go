@@ -27,6 +27,7 @@ import (
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/tx_extensions"
 )
 
 // A cleanupFunc cleans up any config / test files created for a particular
@@ -90,6 +91,32 @@ func checkTxs(t *testing.T, mempool Mempool, count int, peerID uint16) types.Txs
 	return txs
 }
 
+// Create normal Txs, then convert them to the priority ones
+func checkPriorityTxs(t *testing.T, mempool Mempool, count int, peerID uint16) types.Txs {
+	txs := make(types.Txs, count)
+	txInfo := TxInfo{SenderID: peerID}
+	for i := 0; i < count; i++ {
+		txBytes := make([]byte, 20)
+		txBytes = tx_extensions.PrependBytes(txBytes) // Convert to priority tx (dkg)
+		txs[i] = txBytes
+		_, err := rand.Read(txBytes)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err := mempool.CheckTx(txBytes, nil, txInfo); err != nil {
+			// Skip invalid txs.
+			// TestMempoolFilters will fail otherwise. It asserts a number of txs
+			// returned.
+			if IsPreCheckError(err) {
+				continue
+			}
+			t.Fatalf("CheckTx failed: %v while checking #%d tx", err, i)
+		}
+	}
+	return txs
+}
+
 func TestReapMaxBytesMaxGas(t *testing.T) {
 	app := kvstore.NewApplication()
 	cc := proxy.NewLocalClientCreator(app)
@@ -98,12 +125,18 @@ func TestReapMaxBytesMaxGas(t *testing.T) {
 
 	// Ensure gas calculation behaves as expected
 	checkTxs(t, mempool, 1, UnknownPeerID)
-	tx0 := mempool.TxsFront().Value.(*mempoolTx)
+
+	const dummyId uint16 = 0
+	const numTxs int = 1
+
+	newTxs := mempool.GetNewTxs(dummyId, numTxs)
+	require.Equal(t, len(newTxs), numTxs, "No new Tx found in mempool!")
+	tx0 := *newTxs[0]
+
 	// assert that kv store has gas wanted = 1.
-	require.Equal(t, app.CheckTx(abci.RequestCheckTx{Tx: tx0.tx}).GasWanted, int64(1), "KVStore had a gas value neq to 1")
-	require.Equal(t, tx0.gasWanted, int64(1), "transactions gas was set incorrectly")
+	require.Equal(t, app.CheckTx(abci.RequestCheckTx{Tx: tx0}).GasWanted, int64(1), "KVStore had a gas value neq to 1")
 	// ensure each tx is 20 bytes long
-	require.Equal(t, len(tx0.tx), 20, "Tx is longer than 20 bytes")
+	require.Equal(t, len(tx0), 20, "Tx is longer than 20 bytes")
 	mempool.Flush()
 
 	// each table driven test creates numTxsToCreate txs with checkTx, and at the end clears all remaining txs.
@@ -611,4 +644,53 @@ func abciResponses(n int, code uint32) []*abci.ResponseDeliverTx {
 		responses = append(responses, &abci.ResponseDeliverTx{Code: code})
 	}
 	return responses
+}
+
+// The mempool has been modified so that some transactions are considered 'priority'. These must always be included
+// over other Txs, and must be the only Txs included in fallback mode
+func TestSpecialTxPriority(t *testing.T) {
+	app := kvstore.NewApplication()
+	cc := proxy.NewLocalClientCreator(app)
+	mempool, cleanup := newMempoolWithApp(cc)
+	defer cleanup()
+
+	const TxsToAdd int = 10
+
+	// Add 10 'normal' Txs
+	checkTxs(t, mempool, TxsToAdd, UnknownPeerID)
+
+	// Get half of these Txs
+	const dummyId uint16 = UnknownPeerID + 1
+	const numTxsSubset int = 5
+
+	newTxs := mempool.GetNewTxs(dummyId, numTxsSubset)
+	require.Equal(t, len(newTxs), numTxsSubset, fmt.Sprintf("No new Tx found in mempool! Should be at least %v. Got: %v", TxsToAdd, len(newTxs)))
+
+	// Now, put in some priority txs
+	origTxs := checkPriorityTxs(t, mempool, TxsToAdd, UnknownPeerID)
+
+	// Pull that amount of the mempool
+	priorityTxs := mempool.GetNewTxs(dummyId, TxsToAdd)
+
+	require.Equal(t, len(priorityTxs), TxsToAdd, "wasn't able to get desired Txs from mempool")
+
+	// Check parity (note the order is reversed from what went in)
+	for tx, _ := range priorityTxs {
+		foundTx := false
+		for origTx, _ := range origTxs {
+			if tx == origTx {
+				foundTx = true
+				break
+			}
+		}
+		require.Equal(t, foundTx, true, "wasn't able to find priority tx in mempool scrape")
+	}
+
+	// Verify that the remaining original Txs still come out (request more than should be remaining here)
+	priorityTxs = mempool.GetNewTxs(dummyId, TxsToAdd)
+	require.Equal(t, len(priorityTxs), TxsToAdd - numTxsSubset, "wasn't able to get desired Txs from mempool")
+
+	// Check there is nothing remaining
+	require.Equal(t, len(mempool.GetNewTxs(dummyId, TxsToAdd)), 0, "There should be no new txs left at the end of these operations")
+
 }
