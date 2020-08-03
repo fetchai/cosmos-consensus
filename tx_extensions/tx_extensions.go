@@ -35,6 +35,13 @@ func AsBytes(msg *types.DKGMessage) (ret []byte) {
 	return
 }
 
+// Prepend bytes with the DKG prefix
+func PrependBytes(msg []byte) (ret []byte) {
+
+	ret = append([]byte(Prefix), msg...)
+	return
+}
+
 func FromBytes(msg []byte) (ret *types.DKGMessage, err error) {
 
 	ret = &types.DKGMessage{}
