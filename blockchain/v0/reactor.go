@@ -334,9 +334,9 @@ FOR_LOOP:
 
 				// Protect against calling SaveBlock on block of incorrect height due to
 				// data race
-				//if first.Height != bcR.store.Height()+1 {
-				//	continue FOR_LOOP
-				//}
+				if first.Height != bcR.store.Height()+1 {
+					continue FOR_LOOP
+				}
 
 				// TODO: batch saves so we dont persist to disk every block
 				bcR.store.SaveBlock(first, firstParts, second.LastCommit)
