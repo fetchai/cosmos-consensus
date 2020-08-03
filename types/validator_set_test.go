@@ -8,15 +8,14 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
+	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 func TestValidatorSetBasic(t *testing.T) {
@@ -309,7 +308,7 @@ func randPubKey() crypto.PubKey {
 func randValidator(totalVotingPower int64) *Validator {
 	// this modulo limits the ProposerPriority/VotingPower to stay in the
 	// bounds of MaxTotalVotingPower minus the already existing voting power:
-	val := NewValidator(randPubKey(), int64(tmrand.Uint64()%uint64(MaxTotalVotingPower-totalVotingPower)))
+	val := NewValidator(randPubKey(), int64(tmrand.Uint64()%uint64((MaxTotalVotingPower-totalVotingPower))))
 	val.ProposerPriority = tmrand.Int64() % (MaxTotalVotingPower - totalVotingPower)
 	return val
 }
@@ -583,147 +582,62 @@ func TestSafeSubClip(t *testing.T) {
 
 //-------------------------------------------------------------------
 
-// Check VerifyCommit, VerifyCommitLight and VerifyCommitLightTrusting basic
-// verification.
-func TestValidatorSet_VerifyCommit_All(t *testing.T) {
+func TestValidatorSetVerifyCommit(t *testing.T) {
+	privKey := ed25519.GenPrivKey()
+	pubKey := privKey.PubKey()
+	v1 := NewValidator(pubKey, 1000)
+	vset := NewValidatorSet([]*Validator{v1})
+
+	// good
 	var (
-		privKey = ed25519.GenPrivKey()
-		pubKey  = privKey.PubKey()
-		v1      = NewValidator(pubKey, 1000)
-		vset    = NewValidatorSet([]*Validator{v1})
-
-		chainID = "Lalande21185"
+		chainID = "mychainID"
+		blockID = makeBlockIDRandom()
+		height  = int64(5)
 	)
-
-	vote := examplePrecommit()
-	vote.ValidatorAddress = pubKey.Address()
+	vote := &Vote{
+		ValidatorAddress: v1.Address,
+		ValidatorIndex:   0,
+		Height:           height,
+		Round:            0,
+		Timestamp:        tmtime.Now(),
+		Type:             PrecommitType,
+		BlockID:          blockID,
+	}
 	sig, err := privKey.Sign(vote.SignBytes(chainID))
 	assert.NoError(t, err)
 	vote.Signature = sig
+	commit := NewCommit(vote.Height, vote.Round, blockID, []CommitSig{vote.CommitSig()})
 
-	commit := NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{vote.CommitSig()})
+	// bad
+	var (
+		badChainID = "notmychainID"
+		badBlockID = BlockID{Hash: []byte("goodbye")}
+		badHeight  = height + 1
+		badCommit  = NewCommit(badHeight, 0, blockID, []CommitSig{{BlockIDFlag: BlockIDFlagAbsent}})
+	)
 
-	vote2 := *vote
-	sig2, err := privKey.Sign(vote2.SignBytes("EpsilonEridani"))
-	require.NoError(t, err)
-	vote2.Signature = sig2
-
-	testCases := []struct {
-		description string
-		chainID     string
-		blockID     BlockID
-		height      int64
-		commit      *Commit
-		expErr      bool
+	// test some error cases
+	// TODO: test more cases!
+	cases := []struct {
+		chainID string
+		blockID BlockID
+		height  int64
+		commit  *Commit
 	}{
-		{"good", chainID, vote.BlockID, vote.Height, commit, false},
-
-		{"wrong signature (#0)", "EpsilonEridani", vote.BlockID, vote.Height, commit, true},
-		{"wrong block ID", chainID, makeBlockIDRandom(), vote.Height, commit, true},
-		{"wrong height", chainID, vote.BlockID, vote.Height - 1, commit, true},
-
-		{"wrong set size: 1 vs 0", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{}), true},
-
-		{"wrong set size: 1 vs 2", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID,
-				[]CommitSig{vote.CommitSig(), {BlockIDFlag: BlockIDFlagAbsent}}), true},
-
-		{"insufficient voting power: got 0, needed more than 666", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{{BlockIDFlag: BlockIDFlagAbsent}}), true},
-
-		{"wrong signature (#0)", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{vote2.CommitSig()}), true},
+		{badChainID, blockID, height, commit},
+		{chainID, badBlockID, height, commit},
+		{chainID, blockID, badHeight, commit},
+		{chainID, blockID, height, badCommit},
 	}
 
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.description, func(t *testing.T) {
-			err := vset.VerifyCommit(tc.chainID, tc.blockID, tc.height, tc.commit)
-			if tc.expErr {
-				if assert.Error(t, err, "VerifyCommit") {
-					assert.Contains(t, err.Error(), tc.description, "VerifyCommit")
-				}
-			} else {
-				assert.NoError(t, err, "VerifyCommit")
-			}
-
-			err = vset.VerifyCommitLight(tc.chainID, tc.blockID, tc.height, tc.commit)
-			if tc.expErr {
-				if assert.Error(t, err, "VerifyCommitLight") {
-					assert.Contains(t, err.Error(), tc.description, "VerifyCommitLight")
-				}
-			} else {
-				assert.NoError(t, err, "VerifyCommitLight")
-			}
-
-		})
+	for i, c := range cases {
+		err := vset.VerifyCommit(c.chainID, c.blockID, c.height, c.commit)
+		assert.NotNil(t, err, i)
 	}
-}
 
-func TestValidatorSet_VerifyCommit_CheckAllSignatures(t *testing.T) {
-	var (
-		chainID = "test_chain_id"
-		h       = int64(3)
-		blockID = makeBlockIDRandom()
-	)
-
-	voteSet, valSet, vals := randVoteSet(h, 0, PrecommitType, 4, 10)
-	commit, err := MakeCommit(blockID, h, 0, voteSet, vals, time.Now())
-	require.NoError(t, err)
-
-	// malleate 4th signature
-	vote := voteSet.GetByIndex(3)
-	err = vals[3].SignVote("CentaurusA", vote)
-	require.NoError(t, err)
-	commit.Signatures[3] = vote.CommitSig()
-
-	err = valSet.VerifyCommit(chainID, blockID, h, commit)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "wrong signature (#3)")
-	}
-}
-
-func TestValidatorSet_VerifyCommitLight_ReturnsAsSoonAsMajorityOfVotingPowerSigned(t *testing.T) {
-	var (
-		chainID = "test_chain_id"
-		h       = int64(3)
-		blockID = makeBlockIDRandom()
-	)
-
-	voteSet, valSet, vals := randVoteSet(h, 0, PrecommitType, 4, 10)
-	commit, err := MakeCommit(blockID, h, 0, voteSet, vals, time.Now())
-	require.NoError(t, err)
-
-	// malleate 4th signature (3 signatures are enough for 2/3+)
-	vote := voteSet.GetByIndex(3)
-	err = vals[3].SignVote("CentaurusA", vote)
-	require.NoError(t, err)
-	commit.Signatures[3] = vote.CommitSig()
-
-	err = valSet.VerifyCommitLight(chainID, blockID, h, commit)
-	assert.NoError(t, err)
-}
-
-func TestValidatorSet_VerifyCommitLightTrusting_ReturnsAsSoonAsTrustLevelOfVotingPowerSigned(t *testing.T) {
-	var (
-		chainID = "test_chain_id"
-		h       = int64(3)
-		blockID = makeBlockIDRandom()
-	)
-
-	voteSet, valSet, vals := randVoteSet(h, 0, PrecommitType, 4, 10)
-	commit, err := MakeCommit(blockID, h, 0, voteSet, vals, time.Now())
-	require.NoError(t, err)
-
-	// malleate 3rd signature (2 signatures are enough for 1/3+ trust level)
-	vote := voteSet.GetByIndex(2)
-	err = vals[2].SignVote("CentaurusA", vote)
-	require.NoError(t, err)
-	commit.Signatures[2] = vote.CommitSig()
-
-	err = valSet.VerifyCommitLightTrusting(chainID, blockID, h, commit, tmmath.Fraction{Numerator: 1, Denominator: 3})
-	assert.NoError(t, err)
+	// test a good one
+	err = vset.VerifyCommit(chainID, blockID, height, commit)
+	assert.Nil(t, err)
 }
 
 func TestEmptySet(t *testing.T) {
@@ -1407,130 +1321,6 @@ func TestValSetUpdateOverflowRelated(t *testing.T) {
 			assert.Equal(t, tt.expectedVals, toTestValList(valSet.Validators))
 			verifyValidatorSet(t, valSet)
 		})
-	}
-}
-
-func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
-	var (
-		blockID                       = makeBlockIDRandom()
-		voteSet, originalValset, vals = randVoteSet(1, 1, PrecommitType, 6, 1)
-		commit, err                   = MakeCommit(blockID, 1, 1, voteSet, vals, time.Now())
-		newValSet, _                  = RandValidatorSet(2, 1)
-	)
-	require.NoError(t, err)
-
-	testCases := []struct {
-		valSet *ValidatorSet
-		err    bool
-	}{
-		// good
-		0: {
-			valSet: originalValset,
-			err:    false,
-		},
-		// bad - no overlap between validator sets
-		1: {
-			valSet: newValSet,
-			err:    true,
-		},
-		// good - first two are different but the rest of the same -> >1/3
-		2: {
-			valSet: NewValidatorSet(append(newValSet.Validators, originalValset.Validators...)),
-			err:    false,
-		},
-	}
-
-	for _, tc := range testCases {
-		err = tc.valSet.VerifyCommitLightTrusting("test_chain_id", blockID, commit.Height, commit,
-			tmmath.Fraction{Numerator: 1, Denominator: 3})
-		if tc.err {
-			assert.Error(t, err)
-		} else {
-			assert.NoError(t, err)
-		}
-	}
-}
-
-func TestValidatorSet_VerifyCommitLightTrustingErrorsOnOverflow(t *testing.T) {
-	var (
-		blockID               = makeBlockIDRandom()
-		voteSet, valSet, vals = randVoteSet(1, 1, PrecommitType, 1, MaxTotalVotingPower)
-		commit, err           = MakeCommit(blockID, 1, 1, voteSet, vals, time.Now())
-	)
-	require.NoError(t, err)
-
-	err = valSet.VerifyCommitLightTrusting("test_chain_id", blockID, commit.Height, commit,
-		tmmath.Fraction{Numerator: 25, Denominator: 55})
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "int64 overflow")
-	}
-}
-
-func TestSafeMul(t *testing.T) {
-	testCases := []struct {
-		a        int64
-		b        int64
-		c        int64
-		overflow bool
-	}{
-		0: {0, 0, 0, false},
-		1: {1, 0, 0, false},
-		2: {2, 3, 6, false},
-		3: {2, -3, -6, false},
-		4: {-2, -3, 6, false},
-		5: {-2, 3, -6, false},
-		6: {math.MaxInt64, 1, math.MaxInt64, false},
-		7: {math.MaxInt64 / 2, 2, math.MaxInt64 - 1, false},
-		8: {math.MaxInt64 / 2, 3, -1, true},
-		9: {math.MaxInt64, 2, -1, true},
-	}
-
-	for i, tc := range testCases {
-		c, overflow := safeMul(tc.a, tc.b)
-		assert.Equal(t, tc.c, c, "#%d", i)
-		assert.Equal(t, tc.overflow, overflow, "#%d", i)
-	}
-}
-
-func TestValidatorSetProtoBuf(t *testing.T) {
-	valset, _ := RandValidatorSet(10, 100)
-	valset2, _ := RandValidatorSet(10, 100)
-	valset2.Validators[0] = &Validator{}
-
-	valset3, _ := RandValidatorSet(10, 100)
-	valset3.Proposer = nil
-
-	valset4, _ := RandValidatorSet(10, 100)
-	valset4.Proposer = &Validator{}
-
-	testCases := []struct {
-		msg      string
-		v1       *ValidatorSet
-		expPass1 bool
-		expPass2 bool
-	}{
-		{"success", valset, true, true},
-		{"fail valSet2, pubkey empty", valset2, false, false},
-		{"fail nil Proposer", valset3, false, false},
-		{"fail empty Proposer", valset4, false, false},
-		{"fail empty valSet", &ValidatorSet{}, false, false},
-		{"false nil", nil, false, false},
-	}
-	for _, tc := range testCases {
-		protoValSet, err := tc.v1.ToProto()
-		if tc.expPass1 {
-			require.NoError(t, err, tc.msg)
-		} else {
-			require.Error(t, err, tc.msg)
-		}
-
-		valSet, err := ValidatorSetFromProto(protoValSet)
-		if tc.expPass2 {
-			require.NoError(t, err, tc.msg)
-			require.EqualValues(t, tc.v1, valSet, tc.msg)
-		} else {
-			require.Error(t, err, tc.msg)
-		}
 	}
 }
 

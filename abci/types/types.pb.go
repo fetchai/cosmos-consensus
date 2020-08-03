@@ -1919,13 +1919,6 @@ func (m *ResponseCommit) GetData() []byte {
 	return nil
 }
 
-func (m *ResponseCommit) GetRetainHeight() int64 {
-	if m != nil {
-		return m.RetainHeight
-	}
-	return 0
-}
-
 // ConsensusParams contains all consensus-relevant parameters
 // that can be adjusted by the abci app
 type ConsensusParams struct {
@@ -4685,9 +4678,6 @@ func (this *ResponseCommit) Equal(that interface{}) bool {
 	if !bytes.Equal(this.Data, that1.Data) {
 		return false
 	}
-	if this.RetainHeight != that1.RetainHeight {
-		return false
-	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
@@ -7402,11 +7392,6 @@ func (m *ResponseCommit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.RetainHeight != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.RetainHeight))
-		i--
-		dAtA[i] = 0x18
-	}
 	if len(m.Data) > 0 {
 		i -= len(m.Data)
 		copy(dAtA[i:], m.Data)
@@ -8853,10 +8838,6 @@ func NewPopulatedResponseCommit(r randyTypes, easy bool) *ResponseCommit {
 	this.Data = make([]byte, v32)
 	for i := 0; i < v32; i++ {
 		this.Data[i] = byte(r.Intn(256))
-	}
-	this.RetainHeight = int64(r.Int63())
-	if r.Intn(2) == 0 {
-		this.RetainHeight *= -1
 	}
 	if !easy && r.Intn(10) != 0 {
 		this.XXX_unrecognized = randUnrecognizedTypes(r, 4)

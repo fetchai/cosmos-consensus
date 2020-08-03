@@ -350,8 +350,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 }
 
 func (dkg *DistributedKeyGeneration) index() int {
-	pubKey, _ := dkg.privValidator.GetPubKey()
-	index, _ := dkg.validators.GetByAddress(pubKey.Address())
+	index, _ := dkg.validators.GetByAddress(dkg.privValidator.GetPubKey().Address())
 	return index
 }
 
@@ -376,8 +375,7 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 	if msg.DKGIteration != dkg.dkgIteration {
 		return fmt.Errorf("checkMsg: incorrect dkgIteration %v", msg.DKGIteration)
 	}
-	pubKey, _ := dkg.privValidator.GetPubKey()
-	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, pubKey.Address()) {
+	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
 		return fmt.Errorf("checkMsg: not ToAddress")
 	}
 	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
@@ -427,12 +425,11 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 	if toAddress == nil {
 		toAddress = []byte{}
 	}
-	pubKey, _ := dkg.privValidator.GetPubKey()
 	newMsg := &types.DKGMessage{
 		Type:         msgType,
 		DKGID:        dkg.dkgID,
 		DKGIteration: dkg.dkgIteration,
-		FromAddress:  pubKey.Address(),
+		FromAddress:  dkg.privValidator.GetPubKey().Address(),
 		ToAddress:    toAddress,
 		Data:         data,
 	}
@@ -537,8 +534,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		dkg.dryRunKeys[msgToSign] = *dkg.aeonKeys.dkgOutput()
 		dkg.dryRunSignatures[msgToSign] = make(map[string]string)
 	}
-	pubKey, _ := dkg.privValidator.GetPubKey()
-	dkg.dryRunSignatures[msgToSign][string(pubKey.Address())] = signature
+	dkg.dryRunSignatures[msgToSign][string(dkg.privValidator.GetPubKey().Address())] = signature
 	dkg.dryRunCount.SetIndex(int(dkg.index()), true)
 
 	msg := cdc.MustMarshalBinaryBare(&dryRun)

@@ -9,7 +9,7 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	rpctypes "github.com/tendermint/tendermint/rpc/lib/types"
 )
 
 func TestUnsafeDialSeeds(t *testing.T) {
@@ -19,8 +19,8 @@ func TestUnsafeDialSeeds(t *testing.T) {
 	require.NoError(t, err)
 	defer sw.Stop()
 
-	env.Logger = log.TestingLogger()
-	env.P2PPeers = sw
+	logger = log.TestingLogger()
+	p2pPeers = sw
 
 	testCases := []struct {
 		seeds []string
@@ -49,8 +49,8 @@ func TestUnsafeDialPeers(t *testing.T) {
 	require.NoError(t, err)
 	defer sw.Stop()
 
-	env.Logger = log.TestingLogger()
-	env.P2PPeers = sw
+	logger = log.TestingLogger()
+	p2pPeers = sw
 
 	testCases := []struct {
 		peers []string

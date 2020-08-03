@@ -5,10 +5,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 //-------------------------------------------
@@ -22,13 +20,11 @@ func TestStoreAddDuplicate(t *testing.T) {
 	priority := int64(10)
 	ev := types.NewMockEvidence(2, time.Now().UTC(), 1, []byte("val1"))
 
-	added, err := store.AddNewEvidence(ev, priority)
-	require.NoError(t, err)
+	added := store.AddNewEvidence(ev, priority)
 	assert.True(added)
 
 	// cant add twice
-	added, err = store.AddNewEvidence(ev, priority)
-	require.NoError(t, err)
+	added = store.AddNewEvidence(ev, priority)
 	assert.False(added)
 }
 
@@ -43,8 +39,7 @@ func TestStoreCommitDuplicate(t *testing.T) {
 
 	store.MarkEvidenceAsCommitted(ev)
 
-	added, err := store.AddNewEvidence(ev, priority)
-	require.NoError(t, err)
+	added := store.AddNewEvidence(ev, priority)
 	assert.False(added)
 }
 
@@ -63,8 +58,7 @@ func TestStoreMark(t *testing.T) {
 	priority := int64(10)
 	ev := types.NewMockEvidence(2, time.Now().UTC(), 1, []byte("val1"))
 
-	added, err := store.AddNewEvidence(ev, priority)
-	require.NoError(t, err)
+	added := store.AddNewEvidence(ev, priority)
 	assert.True(added)
 
 	// get the evidence. verify. should be uncommitted
@@ -121,8 +115,7 @@ func TestStorePriority(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		added, err := store.AddNewEvidence(c.ev, c.priority)
-		require.NoError(t, err)
+		added := store.AddNewEvidence(c.ev, c.priority)
 		assert.True(added)
 	}
 

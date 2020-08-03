@@ -190,17 +190,9 @@ func (th *TestHarness) Run() {
 // local Tendermint version.
 func (th *TestHarness) TestPublicKey() error {
 	th.logger.Info("TEST: Public key of remote signer")
-	fpvk, err := th.fpv.GetPubKey()
-	if err != nil {
-		return err
-	}
-	th.logger.Info("Local", "pubKey", fpvk)
-	sck, err := th.signerClient.GetPubKey()
-	if err != nil {
-		return err
-	}
-	th.logger.Info("Remote", "pubKey", sck)
-	if fpvk != sck {
+	th.logger.Info("Local", "pubKey", th.fpv.GetPubKey())
+	th.logger.Info("Remote", "pubKey", th.signerClient.GetPubKey())
+	if th.fpv.GetPubKey() != th.signerClient.GetPubKey() {
 		th.logger.Error("FAILED: Local and remote public keys do not match")
 		return newTestHarnessError(ErrTestPublicKeyFailed, nil, "")
 	}
@@ -238,12 +230,8 @@ func (th *TestHarness) TestSignProposal() error {
 		th.logger.Error("FAILED: Signed proposal is invalid", "err", err)
 		return newTestHarnessError(ErrTestSignProposalFailed, err, "")
 	}
-	sck, err := th.signerClient.GetPubKey()
-	if err != nil {
-		return err
-	}
 	// now validate the signature on the proposal
-	if sck.VerifyBytes(propBytes, prop.Signature) {
+	if th.signerClient.GetPubKey().VerifyBytes(propBytes, prop.Signature) {
 		th.logger.Info("Successfully validated proposal signature")
 	} else {
 		th.logger.Error("FAILED: Proposal signature validation failed")
@@ -286,13 +274,8 @@ func (th *TestHarness) TestSignVote() error {
 			th.logger.Error("FAILED: Signed vote is invalid", "err", err)
 			return newTestHarnessError(ErrTestSignVoteFailed, err, fmt.Sprintf("voteType=%d", voteType))
 		}
-		sck, err := th.signerClient.GetPubKey()
-		if err != nil {
-			return err
-		}
-
 		// now validate the signature on the proposal
-		if sck.VerifyBytes(voteBytes, vote.Signature) {
+		if th.signerClient.GetPubKey().VerifyBytes(voteBytes, vote.Signature) {
 			th.logger.Info("Successfully validated vote signature", "type", voteType)
 		} else {
 			th.logger.Error("FAILED: Vote signature validation failed", "type", voteType)
