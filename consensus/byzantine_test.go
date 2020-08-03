@@ -60,7 +60,7 @@ func TestByzantine(t *testing.T) {
 					byzantineDecideProposalFunc(t, height, round, css[j], switches[j])
 				}
 			}(i)
-			css[i].doPrevote = func(height int64, round int) {}
+			css[i].doPrevote = func(height int64, round int)(bool) {return true}
 		}
 
 		eventBus := css[i].eventBus
