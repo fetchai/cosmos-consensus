@@ -1342,6 +1342,14 @@ func (cs *State) defaultDoPrevote(height int64, round int) {
 		return
 	}
 
+	// Verify if we are in fallback and strict tx filtering that the block has only
+	// dkg TXs
+	if cs.strictFiltering && !cs.getEntropy(height).Enabled && !allDKGTxs(&cs.ProposalBlock.Data.Txs) {
+		logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails the strict tx check "))
+		cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
 	// Validate proposal block
 	err := cs.blockExec.ValidateBlock(cs.state, cs.ProposalBlock)
 	if err != nil {
@@ -2205,6 +2213,17 @@ func (cs *State) signAddVote(msgType types.SignedMsgType, hash []byte, header ty
 	cs.Logger.Error("Error signing vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)
 	//}
 	return nil
+}
+
+func allDKGTxs(txs *types.Txs) bool {
+
+	for _, tx := range *txs {
+		if !tx_extensions.IsDKGRelated(tx) {
+			return false
+		}
+	}
+
+	return true
 }
 
 //---------------------------------------------------------
