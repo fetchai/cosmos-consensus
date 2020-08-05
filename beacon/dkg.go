@@ -404,10 +404,14 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 // Validate that the message is a valid one to be taking part in the DKG in general (not necessarily to us)
 func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, index int, val *types.Validator) error {
 
-	if msg.Type >= DKGTypeCount {
+	// If it is a signed message from us, then assume it is correct since we are not malicious
+		if dkg.msgFromSelf(msg, index) && val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
+			return nil
+		}
+
+	if msg.Type >= types.DKGTypeCount {
 		return fmt.Errorf(fmt.Sprintf("checkMsg: msg failed as type out of bounds! %v", msg.Type))
 	}
-
 	if err := msg.ValidateBasic(); err != nil {
 		return fmt.Errorf("checkMsg: msg failed ValidateBasic err %v", err)
 	}
