@@ -639,7 +639,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 // removes any peer pointers that point to a removed element
 func (mem *CListMempool) cleanPeerPointers() {
 	for key, value := range mem.peerPointers {
-		if value.Element.Removed() {
+		if value.Element != nil && value.Element.Removed() {
 			delete(mem.peerPointers, key)
 		}
 	}
