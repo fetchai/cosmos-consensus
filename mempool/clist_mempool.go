@@ -508,6 +508,16 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 	}
 
 	peerPointer := mem.peerPointers[peerID]
+	if peerPointer.Element == nil {
+		mem.logger.Error(fmt.Sprintf("Peer pointer element for peerID %v is nil", peerID)) 
+		if mem.txs.Front() != nil {
+			peerPointer.Element = mem.txs.Front()
+		} else {
+			mem.logger.Error(fmt.Sprintf("Front of mempool was empty when it shouldn't be. Note: len: %v", mem.txs.Len())) 
+			mem.proxyMtx.Unlock()
+			return
+		}
+	}
 	mem.proxyMtx.Unlock()
 
 	// Find the first non-removed mempool entry
