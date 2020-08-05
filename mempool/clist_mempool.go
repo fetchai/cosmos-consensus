@@ -345,7 +345,7 @@ func (mem *CListMempool) reqResCb(
 			panic("recheck cursor is not nil in reqResCb")
 		}
 
-		mem.resCbFirstTime(tx, peerID, peerP2PID, res)
+		mem.ResCbFirstTime(tx, peerID, peerP2PID, res)
 
 		// update metrics
 		mem.metrics.Size.Set(float64(mem.Size()))
@@ -363,7 +363,7 @@ func isPriority(tx types.Tx) bool {
 }
 
 // Called from:
-//  - resCbFirstTime (lock not held) if tx is valid
+//  - ResCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
 	if isPriority(memTx.tx) {
 		e := mem.txs.PushFront(memTx)
@@ -394,7 +394,7 @@ func (mem *CListMempool) removeTx(tx types.Tx, elem *clist.CElement, removeFromC
 //
 // The case where the app checks the tx for the second and subsequent times is
 // handled by the resCbRecheck callback.
-func (mem *CListMempool) resCbFirstTime(
+func (mem *CListMempool) ResCbFirstTime(
 	tx []byte,
 	peerID uint16,
 	peerP2PID p2p.ID,
@@ -402,7 +402,7 @@ func (mem *CListMempool) resCbFirstTime(
 ) {
 
 	// Check if this Tx passes the slot protocol enforcer. If it is ambiguous, the
-	// enforcer will later call resCbFirstTime with the same arguments when it knows
+	// enforcer will later call ResCbFirstTime with the same arguments when it knows
 	if mem.slotProtocolEnforcer != nil && !mem.slotProtocolEnforcer(tx, peerID, peerP2PID, res) {
 		return
 	}
@@ -444,7 +444,7 @@ func (mem *CListMempool) resCbFirstTime(
 // callback, which is called after the app rechecked the tx.
 //
 // The case where the app checks the tx for the first time is handled by the
-// resCbFirstTime callback.
+// ResCbFirstTime callback.
 func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 	switch r := res.Value.(type) {
 	case *abci.Response_CheckTx:

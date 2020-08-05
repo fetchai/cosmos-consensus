@@ -28,13 +28,8 @@ const (
 // Should be attached to: dkg, the mempool, and the consensus state. If it is nill it always
 // allows Txs to pass through
 type SlotProtocolEnforcer struct {
-	//running                  bool
-	//currentValidators        types.ValidatorSet
-	//currentDKGID             int64
-	//currentDKGIteration      int64
 	activeDKG                *DistributedKeyGeneration
 	alreadySeenMsgs          map[string]struct{} // Txs seen going into the mempool
-	/*alreadyCommittedMsgs     map[string]interface{} // Txs seen in a block*/
 	pendingTxs               []*pendingTx
 	cbWhenUpdated            func([]byte, uint16, p2p.ID, *abci.Response)
 	logger                   log.Logger
@@ -144,11 +139,6 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
 		sp.logger.Error("Error when recieveing dkg message to mempool", err)
 	}
 
-	if err = dkgMessage.ValidateBasic(); err != nil {
-		sp.logger.Error("Invalid DKG message recieved. ", err)
-		return messageInvalid
-	}
-
 	// All the possible valid options for its position in the dkg slots
 	messageWithinDKG       := dkgMessage.DKGID == sp.activeDKG.dkgID && dkgMessage.DKGIteration == sp.activeDKG.dkgIteration
 	messageNextIteration   := dkgMessage.DKGID == sp.activeDKG.dkgID && dkgMessage.DKGIteration == sp.activeDKG.dkgIteration + 1
@@ -172,13 +162,14 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
 	messageUniqueString := fmt.Sprintf("%v%v%v%v%v%v", index, index2, dkgMessage.DKGID, dkgMessage.DKGIteration, dkgMessage.DKGID, dkgMessage.Type)
 
 	if _, exists := sp.alreadySeenMsgs[messageUniqueString]; exists {
+		sp.logger.Error("already exists")
 		return messageInvalid
 	}
 
 	// Otherwise, we are able to determine whether it is valid
 	// using the DKG
-	if err := sp.activeDKG.checkMsg(dkgMessage, index, val); err != nil {
-		sp.logger.Debug("SlotProtocolEnforcer: message staus", "from", dkgMessage.FromAddress, "err", err)
+	if err := sp.activeDKG.validateMessage(dkgMessage, index, val); err != nil {
+		sp.logger.Error("SlotProtocolEnforcer: message staus", "from", dkgMessage.FromAddress, "err", err)
 		return messageInvalid
 	}
 
