@@ -152,6 +152,9 @@ type State struct {
 	newEntropy            map[int64]*types.ChannelEntropy
 	haveSetEntropyChannel bool
 	entropyChannel        <-chan types.ChannelEntropy
+
+	//// We need a check that blocks adhere to the slot protocol
+	//slotProtocolEnforcer *beacon.SlotProtocolEnforcer
 }
 
 // StateOption sets an optional parameter on the State.
@@ -165,24 +168,26 @@ func NewState(
 	blockStore sm.BlockStore,
 	txNotifier txNotifier,
 	evpool evidencePool,
+	//slotProtocolEnforcer *beacon.SlotProtocolEnforcer,
 	options ...StateOption,
 ) *State {
 	cs := &State{
-		config:           config,
-		blockExec:        blockExec,
-		blockStore:       blockStore,
-		txNotifier:       txNotifier,
-		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
-		internalMsgQueue: make(chan msgInfo, msgQueueSize),
-		timeoutTicker:    NewTimeoutTicker(),
-		statsMsgQueue:    make(chan msgInfo, msgQueueSize),
-		done:             make(chan struct{}),
-		doWALCatchup:     true,
-		wal:              nilWAL{},
-		evpool:           evpool,
-		evsw:             tmevents.NewEventSwitch(),
-		metrics:          NopMetrics(),
-		newEntropy:       make(map[int64]*types.ChannelEntropy),
+		config:               config,
+		blockExec:            blockExec,
+		blockStore:           blockStore,
+		txNotifier:           txNotifier,
+		peerMsgQueue:         make(chan msgInfo, msgQueueSize),
+		internalMsgQueue:     make(chan msgInfo, msgQueueSize),
+		timeoutTicker:        NewTimeoutTicker(),
+		statsMsgQueue:        make(chan msgInfo, msgQueueSize),
+		done:                 make(chan struct{}),
+		doWALCatchup:         true,
+		wal:                  nilWAL{},
+		evpool:               evpool,
+		evsw:                 tmevents.NewEventSwitch(),
+		metrics:              NopMetrics(),
+		newEntropy:           make(map[int64]*types.ChannelEntropy),
+		//slotProtocolEnforcer: slotProtocolEnforcer
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -1344,6 +1349,13 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 		return false
 	}
 
+	//// Check against the tx slot protocol
+	//if !passesSlotProtocol(cs.slotProtocolEnforcer, &cs.ProposalBlock.Data.Txs) {
+	//	logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails the to satisfy slot protocol!"))
+	//	cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+	//	return false
+	//}
+
 	// Verify if we are in fallback and strict tx filtering that the block has only
 	// dkg TXs
 	if cs.strictFiltering && !cs.getEntropy(height).Enabled && !allDKGTxs(&cs.ProposalBlock.Data.Txs) {
@@ -2228,6 +2240,10 @@ func allDKGTxs(txs *types.Txs) bool {
 
 	return true
 }
+
+//func passesSlotProtocol(slotProtocolEnforcer *beacon.SlotProtocolEnforcer, txs *types.Txs) bool {
+//	return slotProtocolEnforcer.passesSlotProtocol(txs)
+//}
 
 //---------------------------------------------------------
 

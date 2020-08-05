@@ -110,12 +110,13 @@ type DistributedKeyGeneration struct {
 	encryptionPublicKeys map[uint][]byte
 
 	metrics *Metrics
+	slotProtocolEnforcer *SlotProtocolEnforcer
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, vals types.ValidatorSet,
-	aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
+	aeonEnd int64, aeonLength int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
 		config:               beaconConfig,
@@ -138,10 +139,12 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		encryptionKey:        dhKey,
 		encryptionPublicKeys: make(map[uint][]byte),
 		metrics:              NopMetrics(),
+		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
 	if dkg.index() < 0 {
+		// TODO(HUT): how can this log before it is set?
 		dkg.Logger.Debug("startNewDKG: not in validators", "height", dkg.validatorHeight)
 	} else {
 		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
@@ -156,6 +159,9 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 
 	// If exit function failed before dry run then skip intermediate states and wait to see if DKG passes for everyone else
 	dkg.onFailState = func(blockHeight int64) { dkg.proceedToNextState(waitForDryRun, false, blockHeight) }
+
+	// notify the slot protocol enforcer of the new DKG details
+	dkg.slotProtocolEnforcer.UpdateDKG(dkg)
 
 	return dkg
 }
@@ -269,6 +275,10 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.dryRunSignatures = make(map[string]map[string]string)
 	dkg.dryRunCount = bits.NewBitArray(dkg.validators.Size())
 	dkg.aeonKeys = nil
+
+	// notify the slot protocol enforcer of the new DKG details
+	dkg.slotProtocolEnforcer.UpdateDKG(dkg)
+
 	return nil
 }
 

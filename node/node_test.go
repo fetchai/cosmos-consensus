@@ -122,7 +122,7 @@ func TestNodeDKGFastSync(t *testing.T) {
 
 	// Create dkgRunner to run FastSync using chain from node
 	encryptionKey := tmnoise.NewEncryptionKey()
-	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight)
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight, nil)
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)
 	err := dkgRunner.FastSync(n.blockStore)
@@ -296,6 +296,7 @@ func TestCreateProposalBlock(t *testing.T) {
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
+		nil,
 		mempl.WithMetrics(memplMetrics),
 		mempl.WithPreCheck(sm.TxPreCheck(state)),
 		mempl.WithPostCheck(sm.TxPostCheck(state)),

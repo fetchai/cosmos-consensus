@@ -191,26 +191,27 @@ type Node struct {
 	isListening bool
 
 	// services
-	eventBus           *types.EventBus // pub/sub for services
-	stateDB            dbm.DB
-	blockStore         *store.BlockStore // store the blockchain to disk
-	bcReactor          p2p.Reactor       // for fast-syncing
-	mempoolReactor     *mempl.Reactor    // for gossipping transactions
-	mempool            mempl.Mempool
-	consensusState     *cs.State      // latest consensus state
-	consensusReactor   *cs.Reactor    // for participating in the consensus
-	pexReactor         *pex.Reactor   // for exchanging peer addresses
-	evidencePool       *evidence.Pool // tracking evidence
-	proxyApp           proxy.AppConns // connection to the application
-	rpcListeners       []net.Listener // rpc servers
-	txIndexer          txindex.TxIndexer
-	indexerService     *txindex.IndexerService
-	prometheusSrv      *http.Server
-	beaconReactor      *beacon.Reactor // reactor for signature shares
-	dkgRunner          *beacon.DKGRunner
-	entropyGenerator   *beacon.EntropyGenerator
-	specialTxHandler   *tx_extensions.SpecialTxHandler
-	nativeLogCollector *beacon.NativeLoggingCollector
+	eventBus               *types.EventBus // pub/sub for services
+	stateDB                dbm.DB
+	blockStore             *store.BlockStore // store the blockchain to disk
+	bcReactor              p2p.Reactor       // for fast-syncing
+	mempoolReactor         *mempl.Reactor    // for gossipping transactions
+	mempool                mempl.Mempool
+	consensusState         *cs.State      // latest consensus state
+	consensusReactor       *cs.Reactor    // for participating in the consensus
+	pexReactor             *pex.Reactor   // for exchanging peer addresses
+	evidencePool           *evidence.Pool // tracking evidence
+	proxyApp               proxy.AppConns // connection to the application
+	rpcListeners           []net.Listener // rpc servers
+	txIndexer              txindex.TxIndexer
+	indexerService         *txindex.IndexerService
+	prometheusSrv          *http.Server
+	beaconReactor          *beacon.Reactor // reactor for signature shares
+	dkgRunner              *beacon.DKGRunner
+	entropyGenerator       *beacon.EntropyGenerator
+	slotProtocolEnforcer   *beacon.SlotProtocolEnforcer
+	specialTxHandler       *tx_extensions.SpecialTxHandler
+	nativeLogCollector     *beacon.NativeLoggingCollector
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -330,12 +331,19 @@ func onlyValidatorIsUs(state sm.State, privVal types.PrivValidator) bool {
 }
 
 func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
-	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger) (*mempl.Reactor, mempl.Mempool) {
+	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger, slotProtocolEnforcer *beacon.SlotProtocolEnforcer) (*mempl.Reactor, mempl.Mempool) {
+
+	// to avoid circular dependency we attach the enforcer here
+	// the mempool will call it via this function
+	slotProtofn := func(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) (bool) {
+		return slotProtocolEnforcer.ShouldAdd(tx, peerID, peerP2PID, res)
+	}
 
 	mempool := mempl.NewCListMempool(
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
+		slotProtofn,
 		mempl.WithMetrics(memplMetrics),
 		mempl.WithPreCheck(sm.TxPreCheck(state)),
 		mempl.WithPostCheck(sm.TxPostCheck(state)),
@@ -644,13 +652,14 @@ func createDKGRunner(
 	privValidator types.PrivValidator,
 	logger log.Logger,
 	db dbm.DB,
-	handler tx_extensions.MessageHandler) (*beacon.DKGRunner, error) {
+	handler tx_extensions.MessageHandler,
+	slotProtocolEnforcer *beacon.SlotProtocolEnforcer) (*beacon.DKGRunner, error) {
 
 	noiseKeys, err := tmnoise.LoadOrGenNoiseKeys(config)
 	if err != nil {
 		return nil, err
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight)
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight, slotProtocolEnforcer)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner, nil
@@ -737,7 +746,11 @@ func NewNode(config *cfg.Config,
 	csMetrics, p2pMetrics, memplMetrics, smMetrics, drbMetrics := metricsProvider(genDoc.ChainID)
 
 	// Make MempoolReactor
-	mempoolReactor, mempool := createMempoolAndMempoolReactor(config, proxyApp, state, memplMetrics, logger)
+	var slotProtocolEnforcer *beacon.SlotProtocolEnforcer = beacon.NewSlotProtocolEnforcer()
+	slotProtocolLogger := logger.With("module", "slotProtocol")
+	slotProtocolEnforcer.SetLogger(slotProtocolLogger)
+
+	mempoolReactor, mempool := createMempoolAndMempoolReactor(config, proxyApp, state, memplMetrics, logger, slotProtocolEnforcer)
 
 	// Make Evidence Reactor
 	evidenceReactor, evidencePool, err := createEvidenceReactor(config, dbProvider, stateDB, logger)
@@ -788,9 +801,10 @@ func NewNode(config *cfg.Config,
 	var entropyGenerator *beacon.EntropyGenerator
 	var beaconReactor *beacon.Reactor
 	var dkgRunner *beacon.DKGRunner
+
 	if config.Beacon.RunDKG {
 		// Create DKGRunner
-		dkgRunner, err = createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler)
+		dkgRunner, err = createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler, slotProtocolEnforcer)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create dkgRunner")
 		}
@@ -869,24 +883,25 @@ func NewNode(config *cfg.Config,
 		nodeInfo:  nodeInfo,
 		nodeKey:   nodeKey,
 
-		stateDB:            stateDB,
-		blockStore:         blockStore,
-		bcReactor:          bcReactor,
-		mempoolReactor:     mempoolReactor,
-		mempool:            mempool,
-		consensusState:     consensusState,
-		consensusReactor:   consensusReactor,
-		pexReactor:         pexReactor,
-		evidencePool:       evidencePool,
-		proxyApp:           proxyApp,
-		txIndexer:          txIndexer,
-		indexerService:     indexerService,
-		eventBus:           eventBus,
-		specialTxHandler:   specialTxHandler,
-		entropyGenerator:   entropyGenerator,
-		beaconReactor:      beaconReactor,
-		nativeLogCollector: nativeLogger,
-		dkgRunner:          dkgRunner,
+		stateDB:              stateDB,
+		blockStore:           blockStore,
+		bcReactor:            bcReactor,
+		mempoolReactor:       mempoolReactor,
+		mempool:              mempool,
+		consensusState:       consensusState,
+		consensusReactor:     consensusReactor,
+		pexReactor:           pexReactor,
+		evidencePool:         evidencePool,
+		proxyApp:             proxyApp,
+		txIndexer:            txIndexer,
+		indexerService:       indexerService,
+		eventBus:             eventBus,
+		specialTxHandler:     specialTxHandler,
+		entropyGenerator:     entropyGenerator,
+		beaconReactor:        beaconReactor,
+		nativeLogCollector:   nativeLogger,
+		dkgRunner:            dkgRunner,
+		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 

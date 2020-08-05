@@ -71,6 +71,11 @@ type CListMempool struct {
 	// A log of mempool txs
 	wal *auto.AutoFile
 
+	// enforce DKG Txs being unique - this is a func to
+	// avoid a circular dependency on beacon. Returns true
+	// if it is ok
+	slotProtocolEnforcer func([]byte, uint16, p2p.ID, *abci.Response) bool
+
 	logger log.Logger
 	metrics *Metrics
 }
@@ -95,19 +100,21 @@ func NewCListMempool(
 	config *cfg.MempoolConfig,
 	proxyAppConn proxy.AppConnMempool,
 	height int64,
+	slotProtocolEnforcer func([]byte, uint16, p2p.ID, *abci.Response) bool,
 	options ...CListMempoolOption,
 ) *CListMempool {
 	mempool := &CListMempool{
-		config:        config,
-		proxyAppConn:  proxyAppConn,
-		txs:           clist.New(),
-		peerPointers:  make(map[uint16]peerPointer),
-		height:        height,
-		rechecking:    0,
-		recheckCursor: nil,
-		recheckEnd:    nil,
-		logger:        log.NewNopLogger(),
-		metrics:       NopMetrics(),
+		config:               config,
+		proxyAppConn:         proxyAppConn,
+		txs:                  clist.New(),
+		peerPointers:         make(map[uint16]peerPointer),
+		height:               height,
+		rechecking:           0,
+		recheckCursor:        nil,
+		recheckEnd:           nil,
+		logger:               log.NewNopLogger(),
+		metrics:              NopMetrics(),
+		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	if config.CacheSize > 0 {
 		mempool.cache = newMapTxCache(config.CacheSize)
@@ -118,6 +125,7 @@ func NewCListMempool(
 	for _, option := range options {
 		option(mempool)
 	}
+
 	return mempool
 }
 
@@ -392,6 +400,13 @@ func (mem *CListMempool) resCbFirstTime(
 	peerP2PID p2p.ID,
 	res *abci.Response,
 ) {
+
+	// Check if this Tx passes the slot protocol enforcer. If it is ambiguous, the
+	// enforcer will later call resCbFirstTime with the same arguments when it knows
+	if mem.slotProtocolEnforcer != nil && !mem.slotProtocolEnforcer(tx, peerID, peerP2PID, res) {
+		return
+	}
+
 	switch r := res.Value.(type) {
 	case *abci.Response_CheckTx:
 		var postCheckErr error

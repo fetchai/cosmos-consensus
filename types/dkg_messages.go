@@ -21,16 +21,19 @@ const (
 	DKGDryRun
 
 	MaxDKGDataSize = 100000 // Max value calculated for committee size of 200
+	DKGTypeCount = 9        // number of different types of DKG message, important for the slot protocol
 )
 
 // DKGMessage contains DKGData for a particular phase of the DKG
 type DKGMessage struct {
 	Type         DKGMessageType
 	FromAddress  crypto.Address
+	FromIndex    int64
 	DKGID        int64
 	DKGIteration int64
 	Data         string
 	ToAddress    crypto.Address
+	ToIndex      int64
 	Signature    []byte
 }
 

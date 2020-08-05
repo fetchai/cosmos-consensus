@@ -38,6 +38,7 @@ type DKGRunner struct {
 	fastSync              bool
 
 	encryptionKey noise.DHKey
+	slotProtocolEnforcer *SlotProtocolEnforcer
 
 	mtx     sync.Mutex
 	metrics *Metrics
@@ -45,7 +46,7 @@ type DKGRunner struct {
 
 // NewDKGRunner creates struct for starting new DKGs
 func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
-	encryptionKey noise.DHKey, blockHeight int64) *DKGRunner {
+	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		beaconConfig:  config,
 		chainID:       chain,
@@ -59,6 +60,7 @@ func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.P
 		metrics:       NopMetrics(),
 		fastSync:      false,
 		encryptionKey: encryptionKey,
+		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -219,13 +221,16 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 // Starts new DKG if old one has completed for those in the current validator set
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, aeonLength int64) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
+
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
-		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength)
+		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength, dkgRunner.slotProtocolEnforcer)
+
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
 	dkgLogger.With("index", dkgRunner.activeDKG.index())
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
+
 	// Set message handler for sending DKG transactions
 	dkgRunner.activeDKG.SetSendMsgCallback(func(msg *types.DKGMessage) {
 		dkgRunner.messageHandler.SubmitSpecialTx(msg)
@@ -253,5 +258,6 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
 			dkgRunner.activeDKG.duration()+1))
 	}
+
 	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)
 }
