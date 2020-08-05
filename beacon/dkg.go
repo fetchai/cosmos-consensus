@@ -143,10 +143,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	}
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
-	if dkg.index() < 0 {
-		// TODO(HUT): how can this log before it is set?
-		dkg.Logger.Debug("startNewDKG: not in validators", "height", dkg.validatorHeight)
-	} else {
+	if !dkg.index() < 0 {
 		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
 	}
 	// Set validator address to index
