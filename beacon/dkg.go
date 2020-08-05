@@ -403,6 +403,11 @@ func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, 
 
 // Validate that the message is a valid one to be taking part in the DKG in general (not necessarily to us)
 func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, index int, val *types.Validator) error {
+
+	if msg.Type >= DKGTypeCount {
+		return fmt.Errorf(fmt.Sprintf("checkMsg: msg failed as type out of bounds! %v", msg.Type))
+	}
+
 	if err := msg.ValidateBasic(); err != nil {
 		return fmt.Errorf("checkMsg: msg failed ValidateBasic err %v", err)
 	}
