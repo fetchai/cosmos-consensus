@@ -119,7 +119,7 @@ func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStore) error {
 		if dkgRunner.activeDKG == nil {
 			return fmt.Errorf("FastSync: failed to start new dkg")
 		}
-		for dkgRunner.height > dkgHeight {
+		for dkgRunner.height >= dkgHeight {
 			// Load transactions from block
 			block := blockStore.LoadBlock(dkgHeight)
 			// Play transactions to DKG
