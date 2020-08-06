@@ -79,7 +79,7 @@ func TestNodeStartStop(t *testing.T) {
 
 			// Check block entropy is as expected
 			block := n.blockStore.LoadBlock(1)
-			assert.Equal(t, tc.blockHasEntropy, !block.Entropy.Equal(types.EmptyBlockEntropy()))
+			assert.Equal(t, tc.blockHasEntropy, !block.Entropy.Equal(types.EmptyBlockEntropy(-1)))
 
 			// stop the node
 			go func() {

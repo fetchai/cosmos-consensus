@@ -25,15 +25,17 @@ type BlockEntropy struct {
 	Round          int64              `json:"round"`
 	AeonLength     int64              `json:"aeon_length"`
 	DKGID          int64              `json:"dkg_id"`
+	NextAeonStart int64 			  `json:"next_aeon_start`
 }
 
 // EmptyBlockEntropy for constructing BlockEntropy for empty group signature
-func EmptyBlockEntropy() *BlockEntropy {
+func EmptyBlockEntropy(nextAeonStart int64) *BlockEntropy {
 	return &BlockEntropy{
 		GroupSignature: []byte{},
 		Round:          -1,
 		AeonLength:     -1,
 		DKGID:          -1,
+		NextAeonStart:  nextAeonStart,
 	}
 }
 
@@ -43,12 +45,13 @@ func IsEmptyBlockEntropy(entropy *BlockEntropy) bool {
 }
 
 // NewBlockEntropy for constructing BlockEntropy
-func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64) *BlockEntropy {
+func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64, nextAeonStart int64) *BlockEntropy {
 	return &BlockEntropy{
 		GroupSignature: sig,
 		Round:          round,
 		AeonLength:     aeonLength,
 		DKGID:          dkgID,
+		NextAeonStart:  nextAeonStart,
 	}
 }
 
@@ -57,7 +60,8 @@ func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
 	return bytes.Equal(blockEntropy.GroupSignature, anotherEntropy.GroupSignature) &&
 		blockEntropy.Round == anotherEntropy.Round &&
 		blockEntropy.AeonLength == anotherEntropy.AeonLength &&
-		blockEntropy.DKGID == anotherEntropy.DKGID
+		blockEntropy.DKGID == anotherEntropy.DKGID && 
+		blockEntropy.NextAeonStart == anotherEntropy.NextAeonStart
 }
 
 // ValidateBasic performs basic validation on block entropy
@@ -99,10 +103,12 @@ func (blockEntropy *BlockEntropy) StringIndented(indent string) string {
 	return fmt.Sprintf(`BlockEntropy{
 %s  Round/AeonLength: %v/%v
 %s  DKGID:			  %v 
+%s  NextAeonStart:    %v
 %s  GroupSignature:	  %v
 %s}`,
 		indent, blockEntropy.Round, blockEntropy.AeonLength,
 		indent, blockEntropy.DKGID,
+		indent, blockEntropy.NextAeonStart,
 		indent, blockEntropy.GroupSignature,
 		indent)
 }

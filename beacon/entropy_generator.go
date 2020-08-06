@@ -37,6 +37,7 @@ type EntropyGenerator struct {
 	computedEntropyChannel chan<- types.ChannelEntropy
 	nextAeons              []*aeonDetails
 	aeon                   *aeonDetails
+	nextAeonStart int64 
 
 	baseConfig   *cfg.BaseConfig
 	beaconConfig *cfg.BeaconConfig
@@ -78,6 +79,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		metrics:                   NopMetrics(),
+		nextAeonStart: 			   -1, 
 	}
 
 	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
@@ -155,6 +157,9 @@ func (entropyGenerator *EntropyGenerator) InjectNextAeonDetails(aeon *aeonDetail
 	}
 
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
+	if !aeon.IsKeyless() {
+		entropyGenerator.nextAeonStart = aeon.Start
+	}
 }
 
 // SetNextAeonDetails adds new AeonDetails from DKG into the queue
@@ -167,6 +172,9 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	}
 
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
+	if !aeon.IsKeyless() {
+		entropyGenerator.nextAeonStart = aeon.Start
+	}
 
 	saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
 
@@ -507,7 +515,7 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 
 		entropyGenerator.Logger.Debug("checkForNewEntropy: trivial entropy", "height", entropyGenerator.lastBlockHeight)
 
-		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(), false, nil)
+		return true, types.NewChannelEntropy(height, *types.EmptyBlockEntropy(entropyGenerator.nextAeonStart), false, nil)
 	}
 
 	if entropyGenerator.entropyComputed[height] != nil {
@@ -556,7 +564,8 @@ func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.Block
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
 		entropyGenerator.aeon.End-entropyGenerator.aeon.Start,
-		dkgID(entropyGenerator.aeon.validatorHeight))
+		dkgID(entropyGenerator.aeon.validatorHeight), 
+	    entropyGenerator.nextAeonStart)
 }
 
 func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
