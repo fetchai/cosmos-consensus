@@ -159,7 +159,7 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
 
 	// Check whether we have seen this message combo before, regardless of whether it is valid.
 	// Note, data is ignored, the signer has one attempt to put what they desire there.
-	messageUniqueString := fmt.Sprintf("%v%v%v%v%v%v", index, index2, dkgMessage.DKGID, dkgMessage.DKGIteration, dkgMessage.DKGID, dkgMessage.Type)
+	messageUniqueString := fmt.Sprintf("%v%v%v%v%v", index, index2, dkgMessage.DKGID, dkgMessage.DKGIteration, dkgMessage.Type)
 
 	if _, exists := sp.alreadySeenMsgs[messageUniqueString]; exists {
 		sp.logger.Error("already exists")
