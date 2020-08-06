@@ -555,7 +555,7 @@ func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.Block
 	return *types.NewBlockEntropy(
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
-		entropyGenerator.aeon.End-entropyGenerator.aeon.Start,
+		entropyGenerator.aeon.End-entropyGenerator.aeon.Start + 1,
 		dkgID(entropyGenerator.aeon.validatorHeight))
 }
 
