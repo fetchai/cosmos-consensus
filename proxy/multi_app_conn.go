@@ -32,9 +32,9 @@ func NewAppConns(clientCreator ClientCreator) AppConns {
 type multiAppConn struct {
 	service.BaseService
 
-	mempoolConn   AppConnMempool
-	consensusConn AppConnConsensus
-	queryConn     AppConnQuery
+	mempoolConn      AppConnMempool
+	consensusConn    AppConnConsensus
+	queryConn        AppConnQuery
 	specialTxHandler *tx_extensions.SpecialTxHandler
 
 	clientCreator ClientCreator

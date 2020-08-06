@@ -240,7 +240,7 @@ func NopMetrics() *Metrics {
 
 		ValidatorLastSignedHeight: discard.NewGauge(),
 
-		Rounds: discard.NewGauge(),
+		Rounds:            discard.NewGauge(),
 		MessagesProcessed: discard.NewGauge(),
 
 		Validators:               discard.NewGauge(),

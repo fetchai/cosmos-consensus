@@ -246,6 +246,7 @@ func (blockExec *BlockExecutor) Commit(
 		"txs", len(block.Txs),
 		"appHash", fmt.Sprintf("%X", res.Data),
 		"entropy", entropyStatus,
+		"nextAeonStart", block.Entropy.NextAeonStart,
 	)
 
 	// Update mempool.

@@ -7,8 +7,8 @@ import (
 	"github.com/flynn/noise"
 	"github.com/pkg/errors"
 	cfg "github.com/tendermint/tendermint/config"
-	tempfile "github.com/tendermint/tendermint/libs/tempfile"
 	tmos "github.com/tendermint/tendermint/libs/os"
+	tempfile "github.com/tendermint/tendermint/libs/tempfile"
 )
 
 func newHandshake(staticKeyPair noise.DHKey, peerStaticPublic []byte, initiator bool) *noise.HandshakeState {

@@ -29,9 +29,11 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
@@ -49,8 +51,6 @@ import (
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
-	tmnoise "github.com/tendermint/tendermint/noise"
-	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 //------------------------------------------------------------------------------

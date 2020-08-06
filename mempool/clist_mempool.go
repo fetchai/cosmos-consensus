@@ -71,7 +71,7 @@ type CListMempool struct {
 	// A log of mempool txs
 	wal *auto.AutoFile
 
-	logger log.Logger
+	logger  log.Logger
 	metrics *Metrics
 }
 
@@ -81,7 +81,7 @@ type CListMempool struct {
 // missed (already past that point) and so are stored here to guarantee
 // they are sent, and are sent before any other Txs
 type peerPointer struct {
-	Element *clist.CElement       // The element last gossiped to the peer
+	Element     *clist.CElement   // The element last gossiped to the peer
 	PriorityTxs []*clist.CElement // Any Txs which are a high priority to gossip
 }
 
@@ -499,7 +499,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 	if _, exists := mem.peerPointers[peerID]; !exists {
 		front := mem.txs.Front()
 		if front == nil {
-			mem.logger.Error(fmt.Sprintf("Front of mempool was empty when it shouldn't be. Note: len: %v", mem.txs.Len())) 
+			mem.logger.Error(fmt.Sprintf("Front of mempool was empty when it shouldn't be. Note: len: %v", mem.txs.Len()))
 			mem.proxyMtx.Unlock()
 			return
 		}

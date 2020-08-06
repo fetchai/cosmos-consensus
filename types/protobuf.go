@@ -90,6 +90,7 @@ func (tm2pb) BlockEntropy(entropy BlockEntropy) abci.BlockEntropy {
 		Round:          entropy.Round,
 		AeonLength:     entropy.AeonLength,
 		DkgId:          entropy.DKGID,
+		NextAeonStart:  entropy.NextAeonStart,
 	}
 }
 

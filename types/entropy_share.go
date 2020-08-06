@@ -25,7 +25,7 @@ type BlockEntropy struct {
 	Round          int64              `json:"round"`
 	AeonLength     int64              `json:"aeon_length"`
 	DKGID          int64              `json:"dkg_id"`
-	NextAeonStart int64 			  `json:"next_aeon_start`
+	NextAeonStart  int64              `json:"next_aeon_start`
 }
 
 // EmptyBlockEntropy for constructing BlockEntropy for empty group signature
@@ -60,7 +60,7 @@ func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
 	return bytes.Equal(blockEntropy.GroupSignature, anotherEntropy.GroupSignature) &&
 		blockEntropy.Round == anotherEntropy.Round &&
 		blockEntropy.AeonLength == anotherEntropy.AeonLength &&
-		blockEntropy.DKGID == anotherEntropy.DKGID && 
+		blockEntropy.DKGID == anotherEntropy.DKGID &&
 		blockEntropy.NextAeonStart == anotherEntropy.NextAeonStart
 }
 

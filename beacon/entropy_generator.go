@@ -37,7 +37,7 @@ type EntropyGenerator struct {
 	computedEntropyChannel chan<- types.ChannelEntropy
 	nextAeons              []*aeonDetails
 	aeon                   *aeonDetails
-	nextAeonStart int64 
+	nextAeonStart          int64
 
 	baseConfig   *cfg.BaseConfig
 	beaconConfig *cfg.BeaconConfig
@@ -79,7 +79,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		metrics:                   NopMetrics(),
-		nextAeonStart: 			   -1, 
+		nextAeonStart:             -1,
 	}
 
 	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
@@ -564,8 +564,8 @@ func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.Block
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
 		entropyGenerator.aeon.End-entropyGenerator.aeon.Start,
-		dkgID(entropyGenerator.aeon.validatorHeight), 
-	    entropyGenerator.nextAeonStart)
+		dkgID(entropyGenerator.aeon.validatorHeight),
+		entropyGenerator.nextAeonStart)
 }
 
 func (entropyGenerator *EntropyGenerator) flushOldEntropy() {

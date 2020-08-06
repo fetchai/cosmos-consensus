@@ -1,8 +1,6 @@
 package beacon
 
 import (
-	"testing"
-	"time"
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
@@ -10,6 +8,8 @@ import (
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
+	"testing"
+	"time"
 )
 
 type dkgFailure uint8

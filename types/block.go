@@ -349,7 +349,7 @@ type Header struct {
 	// consensus info
 	EvidenceHash    tmbytes.HexBytes `json:"evidence_hash"`    // evidence included in the block
 	ProposerAddress Address          `json:"proposer_address"` // original proposer of the block
-	Entropy BlockEntropy `json:"entropy"` // group signature for this block height
+	Entropy         BlockEntropy     `json:"entropy"`          // group signature for this block height
 }
 
 // Populate the Header with state-derived data.

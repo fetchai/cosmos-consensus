@@ -25,10 +25,10 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	tmevents "github.com/tendermint/tendermint/libs/events"
+	tmtimer "github.com/tendermint/tendermint/libs/timer"
 	"github.com/tendermint/tendermint/p2p"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
-	tmtimer "github.com/tendermint/tendermint/libs/timer"
 )
 
 //-----------------------------------------------------------------------------
