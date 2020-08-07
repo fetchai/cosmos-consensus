@@ -374,9 +374,14 @@ func (dkg *DistributedKeyGeneration) msgFromSelf(msg *types.DKGMessage, index in
 func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, index int, val *types.Validator) (types.DKGMessageStatus, error) {
 
 	// If it is a signed message from us, then assume it is correct since we are not malicious
-		if dkg.msgFromSelf(msg, index) && val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
+	// otherwise, invalid!
+	if dkg.msgFromSelf(msg, index) {
+		if val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
 			return types.OK, nil
+		} else {
+			return types.Invalid, fmt.Errorf("validateMessage: apparent message from self not signed correctly!")
 		}
+	}
 
 	// Basic checks for all DKG messages
 	if msg.Type >= types.DKGTypeCount {
