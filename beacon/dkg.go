@@ -300,7 +300,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 			continue
 		}
 
-		if err := dkg.checkMsg(msg, index, val); err != nil {
+		if _, err := dkg.validateMessage(msg, index, val); err != nil {
 			dkg.Logger.Debug("OnBlock: check msg", "height", blockHeight, "from", msg.FromAddress, "err", err)
 			continue
 		}
@@ -370,67 +370,53 @@ func (dkg *DistributedKeyGeneration) msgFromSelf(msg *types.DKGMessage, index in
 	return index == dkg.index()
 }
 
-// Check that the message is correct and for us
-func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, val *types.Validator) error {
-	if err := msg.ValidateBasic(); err != nil {
-		return fmt.Errorf("checkMsg: msg failed ValidateBasic err %v", err)
-	}
-	if index < 0 {
-		return fmt.Errorf("checkMsg: FromAddress not int validator set")
-	}
-	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
-		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
-			return fmt.Errorf("checkMsg: FromAddress with missing encryption key")
-		}
-	}
-	if msg.DKGID != dkg.dkgID {
-		return fmt.Errorf("checkMsg: invalid dkgID %v", msg.DKGID)
-	}
-	if msg.DKGIteration != dkg.dkgIteration {
-		return fmt.Errorf("checkMsg: incorrect dkgIteration %v", msg.DKGIteration)
-	}
-	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
-		return fmt.Errorf("checkMsg: ToAddress not to us ")
-	}
-	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
-		return fmt.Errorf("checkMsg: failed signature verification")
-	}
-	return nil
-}
-
-// Validate that the message is a valid one to be taking part in the DKG in general (not necessarily to us)
-func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, index int, val *types.Validator) error {
+// Validate that the message is a valid one to be taking part in the DKG
+func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, index int, val *types.Validator) (types.DKGMessageStatus, error) {
 
 	// If it is a signed message from us, then assume it is correct since we are not malicious
 		if dkg.msgFromSelf(msg, index) && val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
-			return nil
+			return types.OK, nil
 		}
 
+	// Basic checks for all DKG messages
 	if msg.Type >= types.DKGTypeCount {
-		return fmt.Errorf(fmt.Sprintf("checkMsg: msg failed as type out of bounds! %v", msg.Type))
+		return types.Invalid, fmt.Errorf(fmt.Sprintf("validateMessage: msg failed as type out of bounds! %v", msg.Type))
 	}
 	if err := msg.ValidateBasic(); err != nil {
-		return fmt.Errorf("checkMsg: msg failed ValidateBasic err %v", err)
+		return types.Invalid, fmt.Errorf("validateMessage: msg failed ValidateBasic err %v", err)
 	}
 	if index < 0 {
-		return fmt.Errorf("checkMsg: FromAddress not int validator set")
+		return types.Invalid, fmt.Errorf("validateMessage: FromAddress not int validator set")
 	}
 	if msg.DKGID != dkg.dkgID {
-		return fmt.Errorf("checkMsg: invalid dkgID %v", msg.DKGID)
+		return types.Invalid, fmt.Errorf("validateMessage: invalid dkgID %v", msg.DKGID)
 	}
 	if msg.DKGIteration != dkg.dkgIteration {
-		return fmt.Errorf("checkMsg: incorrect dkgIteration %v", msg.DKGIteration)
+		return types.Invalid, fmt.Errorf("validateMessage: incorrect dkgIteration %v", msg.DKGIteration)
 	}
 	if len(msg.ToAddress) != 0 {
 		index, _ :=  dkg.validators.GetByAddress(msg.ToAddress)
 		if index < 0 {
-			return fmt.Errorf("checkMsg: ToAddress not a valid validator")
+			return types.Invalid, fmt.Errorf("validateMessage: ToAddress not a valid validator")
 		}
 	}
 	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
-		return fmt.Errorf("checkMsg: failed signature verification")
+		return types.Invalid, fmt.Errorf("validateMessage: failed signature verification")
 	}
-	return nil
+
+	// Check we have the info to decode the message
+	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
+		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
+			return types.Invalid, fmt.Errorf("validateMessage: FromAddress with missing encryption key")
+		}
+	}
+
+	// Check whether it is for us
+	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
+		return types.NotForUs, fmt.Errorf("validateMessage: ToAddress not to us")
+	}
+
+	return types.OK, nil
 }
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {

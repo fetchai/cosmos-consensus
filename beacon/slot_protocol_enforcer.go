@@ -5,6 +5,7 @@ import (
 	"sync"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/tx_extensions"
 )
@@ -168,7 +169,7 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
 
 	// Otherwise, we are able to determine whether it is valid
 	// using the DKG
-	if err := sp.activeDKG.validateMessage(dkgMessage, index, val); err != nil {
+	if status, err := sp.activeDKG.validateMessage(dkgMessage, index, val); status == types.Invalid {
 		sp.logger.Error("SlotProtocolEnforcer: message staus", "from", dkgMessage.FromAddress, "err", err)
 		return messageInvalid
 	}

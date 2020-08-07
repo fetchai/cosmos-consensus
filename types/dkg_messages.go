@@ -24,6 +24,15 @@ const (
 	DKGTypeCount = 9        // number of different types of DKG message, important for the slot protocol
 )
 
+// After checking DKG messages, these are the possible options
+type DKGMessageStatus uint16
+
+const (
+	OK DKGMessageStatus = iota
+	Invalid
+	NotForUs // the message is not for us but appears valid
+)
+
 // DKGMessage contains DKGData for a particular phase of the DKG
 type DKGMessage struct {
 	Type         DKGMessageType

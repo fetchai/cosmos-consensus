@@ -144,8 +144,9 @@ func TestDKGCheckMessage(t *testing.T) {
 			msg := dkgToGenerateMsg.newDKGMessage(types.DKGDryRun, "data", nil)
 			tc.changeMsg(msg)
 			index, val := dkgToProcessMsg.validators.GetByAddress(msg.FromAddress)
-			err := dkgToProcessMsg.checkMsg(msg, index, val)
+			status, err := dkgToProcessMsg.validateMessage(msg, index, val)
 			assert.Equal(t, tc.passCheck, err == nil, "Unexpected error %v", err)
+			assert.Equal(t, status, types.OK)
 		})
 	}
 }
