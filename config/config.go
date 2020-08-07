@@ -613,7 +613,7 @@ func DefaultP2PConfig() *P2PConfig {
 		ExternalAddress:              "",
 		UPNP:                         false,
 		AddrBook:                     defaultAddrBookPath,
-		AddrBookStrict:               true,
+		AddrBookStrict:               false,
 		MaxNumInboundPeers:           40,
 		MaxNumOutboundPeers:          10,
 		PersistentPeersMaxDialPeriod: 0 * time.Second,
@@ -623,7 +623,7 @@ func DefaultP2PConfig() *P2PConfig {
 		RecvRate:                     5120000, // 5 mB/s
 		PexReactor:                   true,
 		SeedMode:                     false,
-		AllowDuplicateIP:             false,
+		AllowDuplicateIP:             true,
 		HandshakeTimeout:             20 * time.Second,
 		DialTimeout:                  3 * time.Second,
 		TestDialFail:                 false,
