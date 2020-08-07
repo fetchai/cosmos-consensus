@@ -225,10 +225,11 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		return State{}, fmt.Errorf("error in genesis file: %v", err)
 	}
 
-	var validatorSet, nextValidatorSet *types.ValidatorSet
+	var validatorSet, nextValidatorSet, dkgValidatorSet *types.ValidatorSet
 	if genDoc.Validators == nil {
 		validatorSet = types.NewValidatorSet(nil)
 		nextValidatorSet = types.NewValidatorSet(nil)
+		dkgValidatorSet = types.NewValidatorSet(nil)
 	} else {
 		validators := make([]*types.Validator, len(genDoc.Validators))
 		for i, val := range genDoc.Validators {
@@ -236,6 +237,7 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		}
 		validatorSet = types.NewValidatorSet(validators)
 		nextValidatorSet = types.NewValidatorSet(validators).CopyIncrementProposerPriority(1)
+		dkgValidatorSet = types.NewValidatorSet(validators)
 	}
 
 	return State{
@@ -256,7 +258,7 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 
 		AppHash:                        genDoc.AppHash,
 		LastComputedEntropy:            []byte(genDoc.Entropy),
-		DKGValidators:                  validatorSet,
+		DKGValidators:                  dkgValidatorSet,
 		LastHeightDKGValidatorsChanged: 1,
 	}, nil
 }

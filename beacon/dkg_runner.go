@@ -183,6 +183,9 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 		if err != nil || err1 != nil {
 			time.Sleep(100 * time.Millisecond)
 		} else {
+			if newVals.Size() == 0 {
+				panic(fmt.Sprintf("findValidators returned empty validator set. Height %v", height))
+			}
 			dkgRunner.Logger.Debug("findValidators: vals updated", "height", height)
 			return newVals, newParams.Entropy.AeonLength
 		}
