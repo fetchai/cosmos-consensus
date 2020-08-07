@@ -110,12 +110,13 @@ type DistributedKeyGeneration struct {
 	encryptionPublicKeys map[uint][]byte
 
 	metrics *Metrics
+	slotProtocolEnforcer *SlotProtocolEnforcer
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, vals types.ValidatorSet,
-	aeonEnd int64, aeonLength int64) *DistributedKeyGeneration {
+	aeonEnd int64, aeonLength int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
 		config:               beaconConfig,
@@ -138,12 +139,11 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		encryptionKey:        dhKey,
 		encryptionPublicKeys: make(map[uint][]byte),
 		metrics:              NopMetrics(),
+		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
-	if dkg.index() < 0 {
-		dkg.Logger.Debug("startNewDKG: not in validators", "height", dkg.validatorHeight)
-	} else {
+	if dkg.index() >= 0 {
 		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
 	}
 	// Set validator address to index
@@ -156,6 +156,9 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 
 	// If exit function failed before dry run then skip intermediate states and wait to see if DKG passes for everyone else
 	dkg.onFailState = func(blockHeight int64) { dkg.proceedToNextState(waitForDryRun, false, blockHeight) }
+
+	// notify the slot protocol enforcer of the new DKG details
+	dkg.slotProtocolEnforcer.UpdateDKG(dkg)
 
 	return dkg
 }
@@ -269,6 +272,10 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.dryRunSignatures = make(map[string]map[string]string)
 	dkg.dryRunCount = bits.NewBitArray(dkg.validators.Size())
 	dkg.aeonKeys = nil
+
+	// notify the slot protocol enforcer of the new DKG details
+	dkg.slotProtocolEnforcer.UpdateDKG(dkg)
+
 	return nil
 }
 
@@ -288,7 +295,12 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
-		if err := dkg.checkMsg(msg, index, val); err != nil {
+
+		if dkg.msgFromSelf(msg, index) {
+			continue
+		}
+
+		if _, err := dkg.validateMessage(msg, index, val); err != nil {
 			dkg.Logger.Debug("OnBlock: check msg", "height", blockHeight, "from", msg.FromAddress, "err", err)
 			continue
 		}
@@ -354,34 +366,62 @@ func (dkg *DistributedKeyGeneration) index() int {
 	return index
 }
 
-func (dkg *DistributedKeyGeneration) checkMsg(msg *types.DKGMessage, index int, val *types.Validator) error {
-	if err := msg.ValidateBasic(); err != nil {
-		return fmt.Errorf("checkMsg: msg failed ValidateBasic err %v", err)
-	}
-	if index < 0 {
-		return fmt.Errorf("checkMsg: FromAddress not int validator set")
-	}
-	if index == dkg.index() {
-		return fmt.Errorf("checkMsg: ignore own message")
-	}
-	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
-		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
-			return fmt.Errorf("checkMsg: FromAddress with missing encryption key")
+func (dkg *DistributedKeyGeneration) msgFromSelf(msg *types.DKGMessage, index int) bool {
+	return index == dkg.index()
+}
+
+// Validate that the message is a valid one to be taking part in the DKG
+func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, index int, val *types.Validator) (types.DKGMessageStatus, error) {
+
+	// If it is a signed message from us, then assume it is correct since we are not malicious
+	// otherwise, invalid!
+	if dkg.msgFromSelf(msg, index) {
+		if val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
+			return types.OK, nil
+		} else {
+			return types.Invalid, fmt.Errorf("validateMessage: apparent message from self not signed correctly!")
 		}
 	}
+
+	// Basic checks for all DKG messages
+	if msg.Type >= types.DKGTypeCount {
+		return types.Invalid, fmt.Errorf(fmt.Sprintf("validateMessage: msg failed as type out of bounds! %v", msg.Type))
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return types.Invalid, fmt.Errorf("validateMessage: msg failed ValidateBasic err %v", err)
+	}
+	if index < 0 {
+		return types.Invalid, fmt.Errorf("validateMessage: FromAddress not int validator set")
+	}
 	if msg.DKGID != dkg.dkgID {
-		return fmt.Errorf("checkMsg: invalid dkgID %v", msg.DKGID)
+		return types.Invalid, fmt.Errorf("validateMessage: invalid dkgID %v", msg.DKGID)
 	}
 	if msg.DKGIteration != dkg.dkgIteration {
-		return fmt.Errorf("checkMsg: incorrect dkgIteration %v", msg.DKGIteration)
+		return types.Invalid, fmt.Errorf("validateMessage: incorrect dkgIteration %v", msg.DKGIteration)
 	}
-	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
-		return fmt.Errorf("checkMsg: not ToAddress")
+	if len(msg.ToAddress) != 0 {
+		index, _ :=  dkg.validators.GetByAddress(msg.ToAddress)
+		if index < 0 {
+			return types.Invalid, fmt.Errorf("validateMessage: ToAddress not a valid validator")
+		}
 	}
 	if !val.PubKey.VerifyBytes(msg.SignBytes(dkg.chainID), msg.Signature) {
-		return fmt.Errorf("checkMsg: failed signature verification")
+		return types.Invalid, fmt.Errorf("validateMessage: failed signature verification")
 	}
-	return nil
+
+	// Check we have the info to decode the message
+	if msg.Type != types.DKGEncryptionKey && msg.Type != types.DKGDryRun {
+		if _, ok := dkg.encryptionPublicKeys[uint(index)]; !ok {
+			return types.Invalid, fmt.Errorf("validateMessage: FromAddress with missing encryption key")
+		}
+	}
+
+	// Check whether it is for us
+	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
+		return types.NotForUs, fmt.Errorf("validateMessage: ToAddress not to us")
+	}
+
+	return types.OK, nil
 }
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {

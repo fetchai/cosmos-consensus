@@ -100,52 +100,57 @@ func TestDKGCheckMessage(t *testing.T) {
 		testName  string
 		changeMsg func(*types.DKGMessage)
 		passCheck bool
+		statusCode types.DKGMessageStatus
 	}{
-		{"Valid message", func(msg *types.DKGMessage) {}, true},
+		{"Valid message", func(msg *types.DKGMessage) {}, true, types.OK},
 		{"Fail validate basic", func(msg *types.DKGMessage) {
 			msg.Data = ""
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
-		}, false},
+		}, false, types.Invalid},
 		{"Incorrect dkg id", func(msg *types.DKGMessage) {
 			msg.DKGID = dkgToGenerateMsg.dkgID + 1
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
-		}, false},
+		}, false, types.Invalid},
 		{"Incorrect dkg iteration", func(msg *types.DKGMessage) {
 			msg.DKGIteration = dkgToGenerateMsg.dkgIteration + 1
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
-		}, false},
+		}, false, types.Invalid},
 		{"Not from validator", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
 			pubKey := privVal.GetPubKey()
 			msg.FromAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
-		}, false},
+		}, false, types.Invalid},
 		{"Correct ToAddress", func(msg *types.DKGMessage) {
 			pubKey := dkgToProcessMsg.privValidator.GetPubKey()
 			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
-		}, true},
+		}, true, types.OK},
 		{"Incorrect ToAddress", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
 			pubKey := privVal.GetPubKey()
 			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
-		}, false},
+		}, false, types.Invalid},
 		{"Incorrect Signature", func(msg *types.DKGMessage) {
 			msg.Data = "changed data"
-		}, false},
-		{"Message from self", func(msg *types.DKGMessage) {
+		}, false, types.Invalid},
+		{"Message from self (not signed correctly)", func(msg *types.DKGMessage) {
 			pubKey := dkgToProcessMsg.privValidator.GetPubKey()
 			msg.FromAddress = pubKey.Address()
-		}, false},
+		}, false, types.Invalid},
+		{"DKG message with incorrect type id", func(msg *types.DKGMessage) {
+			msg.Type = 999
+		}, false, types.Invalid},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			msg := dkgToGenerateMsg.newDKGMessage(types.DKGDryRun, "data", nil)
 			tc.changeMsg(msg)
 			index, val := dkgToProcessMsg.validators.GetByAddress(msg.FromAddress)
-			err := dkgToProcessMsg.checkMsg(msg, index, val)
+			status, err := dkgToProcessMsg.validateMessage(msg, index, val)
 			assert.Equal(t, tc.passCheck, err == nil, "Unexpected error %v", err)
+			assert.Equal(t, tc.statusCode, status)
 		})
 	}
 }
@@ -327,7 +332,7 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestBeaconConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, *state.Validators, 20, 100)
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, *state.Validators, 20, 100, nil)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -343,7 +348,7 @@ type testNode struct {
 func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, *vals, 20, 100),
+		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, *vals, 20, 100, nil),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
