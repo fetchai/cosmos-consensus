@@ -36,7 +36,7 @@ const (
 	// Multplier for increasing state duration on next dkg iteration
 	dkgIterationDurationMultiplier = float64(0.5)
 	maxDKGStateDuration            = int64(400)
-	dkgResetDelay                  = int64(2)
+	keylessOffset                  = int64(2)
 )
 
 type state struct {
@@ -249,7 +249,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.dkgIteration++
 	dkg.metrics.DKGFailures.Add(1)
 	// Reset start time
-	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
+	dkg.startHeight = dkg.startHeight + dkg.duration() + keylessOffset + 1
 	// Increase dkg time
 	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
 	if newStateDuration <= maxDKGStateDuration {
@@ -258,7 +258,7 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	// Dispatch empty keys to entropy generator. +1 need at the end of aeonEnd because consensus needs entropy for next block
 	// height and the next
 	if dkg.dkgCompletionCallback != nil {
-		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+1))
+		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+keylessOffset))
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
@@ -553,8 +553,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	nextAeonStart := dkg.currentAeonEnd + 1
 	dkgEnd := (dkg.startHeight + dkg.duration())
 	if dkgEnd >= nextAeonStart {
-		// +2 because the keyless aeon runs until dkgEnd +1 so the new set of keys starts at the block height after that
-		nextAeonStart = dkgEnd + 2
+		nextAeonStart = dkgEnd + keylessOffset + 1
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,

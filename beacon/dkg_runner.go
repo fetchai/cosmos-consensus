@@ -264,10 +264,11 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			dkgRunner.dkgCompletionCallback(keys)
 		}
 	})
-	// Dispatch off empty keys in case entropy generator has no keys
+	// Dispatch off empty keys in case entropy generator has no keys. Keyless offset is required for
+	// app to have sufficient notification time of new aeon start
 	if dkgRunner.dkgCompletionCallback != nil {
 		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
-			dkgRunner.activeDKG.duration()+1))
+			dkgRunner.activeDKG.duration()+keylessOffset))
 	}
 
 	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)
