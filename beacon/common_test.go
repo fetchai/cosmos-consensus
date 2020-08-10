@@ -78,7 +78,7 @@ func newStateWithConfigAndBlockStore(
 	proxyAppConnCon := abcicli.NewLocalClient(mtx, app)
 
 	// Make Mempool
-	mempool := mempool.NewCListMempool(thisConfig.Mempool, proxyAppConnMem, 0)
+	mempool := mempool.NewCListMempool(thisConfig.Mempool, proxyAppConnMem, 0, nil)
 	if thisConfig.Consensus.WaitForTxs() {
 		mempool.EnableTxsAvailable()
 	}
