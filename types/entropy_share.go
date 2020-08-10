@@ -29,13 +29,12 @@ type BlockEntropy struct {
 }
 
 // EmptyBlockEntropy for constructing BlockEntropy for empty group signature
-func EmptyBlockEntropy(nextAeonStart int64) *BlockEntropy {
+func EmptyBlockEntropy() *BlockEntropy {
 	return &BlockEntropy{
 		GroupSignature: []byte{},
 		Round:          -1,
 		AeonLength:     -1,
 		DKGID:          -1,
-		NextAeonStart:  nextAeonStart,
 	}
 }
 
@@ -45,13 +44,12 @@ func IsEmptyBlockEntropy(entropy *BlockEntropy) bool {
 }
 
 // NewBlockEntropy for constructing BlockEntropy
-func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64, nextAeonStart int64) *BlockEntropy {
+func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64) *BlockEntropy {
 	return &BlockEntropy{
 		GroupSignature: sig,
 		Round:          round,
 		AeonLength:     aeonLength,
 		DKGID:          dkgID,
-		NextAeonStart:  nextAeonStart,
 	}
 }
 

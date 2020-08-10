@@ -88,7 +88,7 @@ func TestBlockValidateBasic(t *testing.T) {
 		}, true},
 		{"Entropy too large", func(blk *Block) {
 			zeros := [MaxThresholdSignatureSize + 1]byte{1}
-			blk.Entropy = *NewBlockEntropy(zeros[0:len(zeros)], 0, 1, 0, -1)
+			blk.Entropy = *NewBlockEntropy(zeros[0:len(zeros)], 0, 1, 0)
 		}, true},
 	}
 	for i, tc := range testCases {
@@ -273,8 +273,8 @@ func TestHeaderHash(t *testing.T) {
 			LastResultsHash:    tmhash.Sum([]byte("last_results_hash")),
 			EvidenceHash:       tmhash.Sum([]byte("evidence_hash")),
 			ProposerAddress:    crypto.AddressHash([]byte("proposer_address")),
-			Entropy:            *NewBlockEntropy(tmhash.Sum([]byte("group_signature")), 0, 1, 0, -1),
-		}, hexBytesFromString("4CF204EB9162B5EA396C168CE771B2645F3AB381AEE6D035AF0F00DA1C2A20D0")},
+			Entropy:            *NewBlockEntropy(tmhash.Sum([]byte("group_signature")), 0, 1, 0),
+		}, hexBytesFromString("3BF2FD9A5E3223EB08289B3DCB759642E13DDE75D66EAD05A8ABDE71566B2A0C")},
 		{"nil header yields nil", nil, nil},
 		{"nil ValidatorsHash yields nil", &Header{
 			Version:            version.Consensus{Block: 1, App: 2},

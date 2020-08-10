@@ -69,7 +69,7 @@ func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) 
 	block := &Block{
 		Header: Header{
 			Height:  height,
-			Entropy: *EmptyBlockEntropy(-1),
+			Entropy: *EmptyBlockEntropy(),
 		},
 		Data: Data{
 			Txs: txs,
