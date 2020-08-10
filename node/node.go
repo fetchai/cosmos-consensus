@@ -191,27 +191,27 @@ type Node struct {
 	isListening bool
 
 	// services
-	eventBus               *types.EventBus // pub/sub for services
-	stateDB                dbm.DB
-	blockStore             *store.BlockStore // store the blockchain to disk
-	bcReactor              p2p.Reactor       // for fast-syncing
-	mempoolReactor         *mempl.Reactor    // for gossipping transactions
-	mempool                mempl.Mempool
-	consensusState         *cs.State      // latest consensus state
-	consensusReactor       *cs.Reactor    // for participating in the consensus
-	pexReactor             *pex.Reactor   // for exchanging peer addresses
-	evidencePool           *evidence.Pool // tracking evidence
-	proxyApp               proxy.AppConns // connection to the application
-	rpcListeners           []net.Listener // rpc servers
-	txIndexer              txindex.TxIndexer
-	indexerService         *txindex.IndexerService
-	prometheusSrv          *http.Server
-	beaconReactor          *beacon.Reactor // reactor for signature shares
-	dkgRunner              *beacon.DKGRunner
-	entropyGenerator       *beacon.EntropyGenerator
-	slotProtocolEnforcer   *beacon.SlotProtocolEnforcer
-	specialTxHandler       *tx_extensions.SpecialTxHandler
-	nativeLogCollector     *beacon.NativeLoggingCollector
+	eventBus             *types.EventBus // pub/sub for services
+	stateDB              dbm.DB
+	blockStore           *store.BlockStore // store the blockchain to disk
+	bcReactor            p2p.Reactor       // for fast-syncing
+	mempoolReactor       *mempl.Reactor    // for gossipping transactions
+	mempool              mempl.Mempool
+	consensusState       *cs.State      // latest consensus state
+	consensusReactor     *cs.Reactor    // for participating in the consensus
+	pexReactor           *pex.Reactor   // for exchanging peer addresses
+	evidencePool         *evidence.Pool // tracking evidence
+	proxyApp             proxy.AppConns // connection to the application
+	rpcListeners         []net.Listener // rpc servers
+	txIndexer            txindex.TxIndexer
+	indexerService       *txindex.IndexerService
+	prometheusSrv        *http.Server
+	beaconReactor        *beacon.Reactor // reactor for signature shares
+	dkgRunner            *beacon.DKGRunner
+	entropyGenerator     *beacon.EntropyGenerator
+	slotProtocolEnforcer *beacon.SlotProtocolEnforcer
+	specialTxHandler     *tx_extensions.SpecialTxHandler
+	nativeLogCollector   *beacon.NativeLoggingCollector
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -335,7 +335,7 @@ func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
 
 	// to avoid circular dependency we attach the enforcer here
 	// the mempool will call it via this function
-	slotProtofn := func(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) (bool) {
+	slotProtofn := func(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) bool {
 		return slotProtocolEnforcer.ShouldAdd(tx, peerID, peerP2PID, res)
 	}
 

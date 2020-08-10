@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/types"
 )
 
 // Set up a DKG and add it to a slot protocol for tests

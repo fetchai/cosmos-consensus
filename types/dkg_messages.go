@@ -21,7 +21,7 @@ const (
 	DKGDryRun
 
 	MaxDKGDataSize = 100000 // Max value calculated for committee size of 200
-	DKGTypeCount = 9        // number of different types of DKG message, important for the slot protocol
+	DKGTypeCount   = 9      // number of different types of DKG message, important for the slot protocol
 )
 
 // After checking DKG messages, these are the possible options
