@@ -172,7 +172,7 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 	dkgRunner.mtx.Unlock()
 }
 
-//GetNextAeonStart returns the next for entropy generation
+// NextAeonStart returns the start of the next entropy generation aeon
 func (dkgRunner *DKGRunner) NextAeonStart(height int64) int64 {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()

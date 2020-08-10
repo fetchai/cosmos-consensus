@@ -36,7 +36,9 @@ const (
 	// Multplier for increasing state duration on next dkg iteration
 	dkgIterationDurationMultiplier = float64(0.5)
 	maxDKGStateDuration            = int64(400)
-	keylessOffset                  = int64(2)
+	// Offset required to give app sufficient time to be notified of next aeon
+	// start for triggering validator changeovers
+	keylessOffset = int64(2)
 )
 
 type state struct {
