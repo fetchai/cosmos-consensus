@@ -1137,7 +1137,7 @@ func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 
 	// Return default entropy when testing
 	if cs.haveSetEntropyChannel == false {
-		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(-1), false, nil)
+		return types.NewChannelEntropy(1, *types.EmptyBlockEntropy(), false, nil)
 	}
 
 	// Attempt to get from the map
