@@ -1,8 +1,0 @@
---2020-08-06 14:49:38--  https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
-Resolving dl.google.com (dl.google.com)... 172.217.169.14, 2a00:1450:4009:816::200e
-Connecting to dl.google.com (dl.google.com)|172.217.169.14|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 123658438 (118M) [application/octet-stream]
-Saving to: ‘go1.14.2.linux-amd64.tar.gz’
-
-

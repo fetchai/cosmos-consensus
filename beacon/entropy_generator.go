@@ -153,6 +153,8 @@ func (entropyGenerator *EntropyGenerator) InjectNextAeonDetails(aeon *aeonDetail
 	if aeon == nil {
 		panic(fmt.Sprintf("Inject next aeon was called with a nil aeon!"))
 	}
+
+	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 }
 
 // SetNextAeonDetails adds new AeonDetails from DKG into the queue
