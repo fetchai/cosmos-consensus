@@ -809,14 +809,13 @@ func NewNode(config *cfg.Config,
 		dkgRunner.AttachMetrics(drbMetrics)
 
 		consensusState.SetEntropyChannel(entropyChannel)
+		consensusState.SetNextAeonStartFunc(dkgRunner.NextAeonStart)
 		sw.AddReactor("BEACON", beaconReactor)
 
 		// Catch up dkg on messages it has missed for the current aeon
-		if dkgRunner != nil {
-			err = dkgRunner.FastSync(blockStore)
-			if err != nil {
-				return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
-			}
+		err = dkgRunner.FastSync(blockStore)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
 		}
 	}
 

@@ -170,6 +170,17 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 	dkgRunner.mtx.Unlock()
 }
 
+//GetNextAeonStart returns the next for entropy generation
+func (dkgRunner *DKGRunner) NextAeonStart(height int64) int64 {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+
+	if height != dkgRunner.height+1 {
+		panic(fmt.Sprintf("consensus state requested next aeon start for unexpected height %v. Expected %v", height, dkgRunner.height+1))
+	}
+	return dkgRunner.aeonStart
+}
+
 // Returns validators for height from state DB
 func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, int64) {
 	for {
