@@ -37,7 +37,7 @@ type DKGRunner struct {
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
 
-	encryptionKey noise.DHKey
+	encryptionKey        noise.DHKey
 	slotProtocolEnforcer *SlotProtocolEnforcer
 
 	mtx     sync.Mutex
@@ -48,18 +48,18 @@ type DKGRunner struct {
 func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
 	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DKGRunner {
 	dkgRunner := &DKGRunner{
-		beaconConfig:  config,
-		chainID:       chain,
-		stateDB:       db,
-		privVal:       val,
-		height:        blockHeight,
-		aeonStart:     -1,
-		aeonEnd:       -1,
-		completedDKG:  false,
-		dkgCounter:    0,
-		metrics:       NopMetrics(),
-		fastSync:      false,
-		encryptionKey: encryptionKey,
+		beaconConfig:         config,
+		chainID:              chain,
+		stateDB:              db,
+		privVal:              val,
+		height:               blockHeight,
+		aeonStart:            -1,
+		aeonEnd:              -1,
+		completedDKG:         false,
+		dkgCounter:           0,
+		metrics:              NopMetrics(),
+		fastSync:             false,
+		encryptionKey:        encryptionKey,
 		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
@@ -214,7 +214,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 
 	// Start new dkg if there is currently no aeon active and if we are in the next
 	// aeon
-	if dkgRunner.activeDKG == nil && dkgRunner.height >= dkgRunner.aeonEnd+1 {
+	if dkgRunner.activeDKG == nil && dkgRunner.height >= dkgRunner.aeonStart {
 		// Set height at which validators are determined
 		validatorHeight := dkgRunner.aeonStart
 		if validatorHeight < 0 {
