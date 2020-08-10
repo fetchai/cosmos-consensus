@@ -109,7 +109,7 @@ type DistributedKeyGeneration struct {
 	encryptionKey        noise.DHKey
 	encryptionPublicKeys map[uint][]byte
 
-	metrics *Metrics
+	metrics              *Metrics
 	slotProtocolEnforcer *SlotProtocolEnforcer
 }
 
@@ -296,7 +296,9 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
 
-		if dkg.msgFromSelf(msg, index) {
+		// Need to collect dry run messages from block to ensure everyone completes DKG at the same
+		// block
+		if dkg.msgFromSelf(msg, index) && msg.Type != types.DKGDryRun {
 			continue
 		}
 
@@ -400,7 +402,7 @@ func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, inde
 		return types.Invalid, fmt.Errorf("validateMessage: incorrect dkgIteration %v", msg.DKGIteration)
 	}
 	if len(msg.ToAddress) != 0 {
-		index, _ :=  dkg.validators.GetByAddress(msg.ToAddress)
+		index, _ := dkg.validators.GetByAddress(msg.ToAddress)
 		if index < 0 {
 			return types.Invalid, fmt.Errorf("validateMessage: ToAddress not a valid validator")
 		}
@@ -570,13 +572,6 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		PublicInfo:     *dkg.aeonKeys.dkgOutput(),
 		SignatureShare: signature,
 	}
-	if _, haveKeys := dkg.dryRunKeys[msgToSign]; !haveKeys {
-		dkg.dryRunKeys[msgToSign] = *dkg.aeonKeys.dkgOutput()
-		dkg.dryRunSignatures[msgToSign] = make(map[string]string)
-	}
-	dkg.dryRunSignatures[msgToSign][string(dkg.privValidator.GetPubKey().Address())] = signature
-	dkg.dryRunCount.SetIndex(int(dkg.index()), true)
-
 	msg := cdc.MustMarshalBinaryBare(&dryRun)
 	dkg.broadcastMsg(types.DKGDryRun, string(msg), nil)
 }
