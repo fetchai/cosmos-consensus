@@ -250,15 +250,15 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.metrics.DKGState.Set(float64(dkg.currentState))
 	dkg.dkgIteration++
 	dkg.metrics.DKGFailures.Add(1)
-	// Reset start time
+	// Reset start time. +1 to ensure start is after the previous aeon end
 	dkg.startHeight = dkg.startHeight + dkg.duration() + keylessOffset + 1
 	// Increase dkg time
 	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
 	if newStateDuration <= maxDKGStateDuration {
 		dkg.stateDuration = newStateDuration
 	}
-	// Dispatch empty keys to entropy generator. +1 need at the end of aeonEnd because consensus needs entropy for next block
-	// height and the next
+	// Dispatch empty keys to entropy generator. +keylessOffset needed at the end of aeonEnd to give app sufficient time to be
+	// notified before next aeon start
 	if dkg.dkgCompletionCallback != nil {
 		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+keylessOffset))
 	}
