@@ -2,12 +2,12 @@ package beacon
 
 import (
 	"fmt"
-	"sync"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/types"
-	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/tx_extensions"
+	"github.com/tendermint/tendermint/types"
+	"sync"
 )
 
 type messageEnum int
@@ -29,20 +29,20 @@ const (
 // Should be attached to: dkg, the mempool, and the consensus state. If it is nill it always
 // allows Txs to pass through
 type SlotProtocolEnforcer struct {
-	activeDKG                *DistributedKeyGeneration
-	alreadySeenMsgs          map[string]struct{} // Txs seen going into the mempool
-	pendingTxs               []*pendingTx
-	cbWhenUpdated            func([]byte, uint16, p2p.ID, *abci.Response)
-	logger                   log.Logger
-	mtx                      sync.Mutex
+	activeDKG       *DistributedKeyGeneration
+	alreadySeenMsgs map[string]struct{} // Txs seen going into the mempool
+	pendingTxs      []*pendingTx
+	cbWhenUpdated   func([]byte, uint16, p2p.ID, *abci.Response)
+	logger          log.Logger
+	mtx             sync.Mutex
 }
 
-func NewSlotProtocolEnforcer() *SlotProtocolEnforcer{
+func NewSlotProtocolEnforcer() *SlotProtocolEnforcer {
 	return &SlotProtocolEnforcer{
-	alreadySeenMsgs     : make(map[string]struct{}),
-	pendingTxs          : make([]*pendingTx, 0),
-	cbWhenUpdated       : nil,
-	logger              : log.NewNopLogger(),
+		alreadySeenMsgs: make(map[string]struct{}),
+		pendingTxs:      make([]*pendingTx, 0),
+		cbWhenUpdated:   nil,
+		logger:          log.NewNopLogger(),
 	}
 }
 
@@ -66,10 +66,10 @@ func (sp *SlotProtocolEnforcer) UpdateDKG(dkg *DistributedKeyGeneration) {
 
 	sp.mtx.Lock()
 	sp.activeDKG = dkg
-	sp.alreadySeenMsgs      = make(map[string]struct{}, 0)
+	sp.alreadySeenMsgs = make(map[string]struct{}, 0)
 
-	pendingTxsCopy       := sp.pendingTxs
-	sp.pendingTxs        = make([]*pendingTx, 0)
+	pendingTxsCopy := sp.pendingTxs
+	sp.pendingTxs = make([]*pendingTx, 0)
 	sp.mtx.Unlock()
 
 	if sp.cbWhenUpdated == nil {
@@ -89,7 +89,7 @@ func (sp *SlotProtocolEnforcer) UpdateDKG(dkg *DistributedKeyGeneration) {
 
 // This function must be called on ALL transactions that would be added to the mempool. Normal txs
 // are ok, dkg txs will be added if it is known they are ok
-func (sp *SlotProtocolEnforcer) ShouldAdd(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) (bool) {
+func (sp *SlotProtocolEnforcer) ShouldAdd(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) bool {
 	sp.mtx.Lock()
 	defer sp.mtx.Unlock()
 
@@ -132,7 +132,7 @@ func (sp *SlotProtocolEnforcer) ShouldAdd(tx []byte, peerID uint16, peerP2PID p2
 }
 
 // Given a known dkg tx, is it valid for this dkg, or the next, or not at all
-func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
+func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) messageEnum {
 
 	dkgMessage, err := tx_extensions.FromBytes(tx)
 
@@ -141,9 +141,9 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
 	}
 
 	// All the possible valid options for its position in the dkg slots
-	messageWithinDKG       := dkgMessage.DKGID == sp.activeDKG.dkgID && dkgMessage.DKGIteration == sp.activeDKG.dkgIteration
-	messageNextIteration   := dkgMessage.DKGID == sp.activeDKG.dkgID && dkgMessage.DKGIteration == sp.activeDKG.dkgIteration + 1
-	messageNextDKG         := dkgMessage.DKGID == sp.activeDKG.dkgID + 1 && dkgMessage.DKGIteration == 0
+	messageWithinDKG := dkgMessage.DKGID == sp.activeDKG.dkgID && dkgMessage.DKGIteration == sp.activeDKG.dkgIteration
+	messageNextIteration := dkgMessage.DKGID == sp.activeDKG.dkgID && dkgMessage.DKGIteration == sp.activeDKG.dkgIteration+1
+	messageNextDKG := dkgMessage.DKGID == sp.activeDKG.dkgID+1 && dkgMessage.DKGIteration == 0
 
 	if !messageWithinDKG && !messageNextIteration && !messageNextDKG {
 		sp.logger.Error(fmt.Sprintf("Error when recieveing dkg message to mempool. Out of bounds: %v %v", dkgMessage.DKGID, dkgMessage.DKGIteration))
@@ -178,7 +178,6 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) (messageEnum) {
 	sp.alreadySeenMsgs[messageUniqueString] = struct{}{}
 	return messageOK
 }
-
 
 // SetLogger sets the Logger.
 func (sp *SlotProtocolEnforcer) SetLogger(l log.Logger) {

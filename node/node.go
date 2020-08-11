@@ -29,9 +29,11 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
+	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
@@ -49,8 +51,6 @@ import (
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
-	tmnoise "github.com/tendermint/tendermint/noise"
-	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 //------------------------------------------------------------------------------
@@ -191,27 +191,27 @@ type Node struct {
 	isListening bool
 
 	// services
-	eventBus               *types.EventBus // pub/sub for services
-	stateDB                dbm.DB
-	blockStore             *store.BlockStore // store the blockchain to disk
-	bcReactor              p2p.Reactor       // for fast-syncing
-	mempoolReactor         *mempl.Reactor    // for gossipping transactions
-	mempool                mempl.Mempool
-	consensusState         *cs.State      // latest consensus state
-	consensusReactor       *cs.Reactor    // for participating in the consensus
-	pexReactor             *pex.Reactor   // for exchanging peer addresses
-	evidencePool           *evidence.Pool // tracking evidence
-	proxyApp               proxy.AppConns // connection to the application
-	rpcListeners           []net.Listener // rpc servers
-	txIndexer              txindex.TxIndexer
-	indexerService         *txindex.IndexerService
-	prometheusSrv          *http.Server
-	beaconReactor          *beacon.Reactor // reactor for signature shares
-	dkgRunner              *beacon.DKGRunner
-	entropyGenerator       *beacon.EntropyGenerator
-	slotProtocolEnforcer   *beacon.SlotProtocolEnforcer
-	specialTxHandler       *tx_extensions.SpecialTxHandler
-	nativeLogCollector     *beacon.NativeLoggingCollector
+	eventBus             *types.EventBus // pub/sub for services
+	stateDB              dbm.DB
+	blockStore           *store.BlockStore // store the blockchain to disk
+	bcReactor            p2p.Reactor       // for fast-syncing
+	mempoolReactor       *mempl.Reactor    // for gossipping transactions
+	mempool              mempl.Mempool
+	consensusState       *cs.State      // latest consensus state
+	consensusReactor     *cs.Reactor    // for participating in the consensus
+	pexReactor           *pex.Reactor   // for exchanging peer addresses
+	evidencePool         *evidence.Pool // tracking evidence
+	proxyApp             proxy.AppConns // connection to the application
+	rpcListeners         []net.Listener // rpc servers
+	txIndexer            txindex.TxIndexer
+	indexerService       *txindex.IndexerService
+	prometheusSrv        *http.Server
+	beaconReactor        *beacon.Reactor // reactor for signature shares
+	dkgRunner            *beacon.DKGRunner
+	entropyGenerator     *beacon.EntropyGenerator
+	slotProtocolEnforcer *beacon.SlotProtocolEnforcer
+	specialTxHandler     *tx_extensions.SpecialTxHandler
+	nativeLogCollector   *beacon.NativeLoggingCollector
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -335,7 +335,7 @@ func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
 
 	// to avoid circular dependency we attach the enforcer here
 	// the mempool will call it via this function
-	slotProtofn := func(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) (bool) {
+	slotProtofn := func(tx []byte, peerID uint16, peerP2PID p2p.ID, res *abci.Response) bool {
 		return slotProtocolEnforcer.ShouldAdd(tx, peerID, peerP2PID, res)
 	}
 
@@ -825,14 +825,13 @@ func NewNode(config *cfg.Config,
 		dkgRunner.AttachMetrics(drbMetrics)
 
 		consensusState.SetEntropyChannel(entropyChannel)
+		consensusState.SetNextAeonStartFunc(dkgRunner.NextAeonStart)
 		sw.AddReactor("BEACON", beaconReactor)
 
 		// Catch up dkg on messages it has missed for the current aeon
-		if dkgRunner != nil {
-			err = dkgRunner.FastSync(blockStore)
-			if err != nil {
-				return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
-			}
+		err = dkgRunner.FastSync(blockStore)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not replay DKG messages from blockchain")
 		}
 	}
 

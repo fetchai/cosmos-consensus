@@ -25,10 +25,10 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
 	tmevents "github.com/tendermint/tendermint/libs/events"
+	tmtimer "github.com/tendermint/tendermint/libs/timer"
 	"github.com/tendermint/tendermint/p2p"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
-	tmtimer "github.com/tendermint/tendermint/libs/timer"
 )
 
 //-----------------------------------------------------------------------------
@@ -152,6 +152,7 @@ type State struct {
 	newEntropy            map[int64]*types.ChannelEntropy
 	haveSetEntropyChannel bool
 	entropyChannel        <-chan types.ChannelEntropy
+	nextAeonStartFunc     func(int64) int64
 }
 
 // StateOption sets an optional parameter on the State.
@@ -233,6 +234,11 @@ func StateMetrics(metrics *Metrics) StateOption {
 // StateMetrics sets the metrics.
 func StrictTxFiltering(filtering bool) StateOption {
 	return func(cs *State) { cs.strictFiltering = filtering }
+}
+
+// SetNextAeonStartFunc sets function to obtain next aeon start in block entropy
+func (cs *State) SetNextAeonStartFunc(nextAeonFunc func(int64) int64) {
+	cs.nextAeonStartFunc = nextAeonFunc
 }
 
 // String returns a string.
@@ -1145,6 +1151,10 @@ func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 
 		if entropy.Height != height {
 			panic(fmt.Sprintf("Height mismatch found between entropy and the height of entropy requested! %v vs %v", entropy.Height, height))
+		}
+		if cs.nextAeonStartFunc != nil && entropy.Entropy.NextAeonStart == 0 {
+			entropy.Entropy.NextAeonStart = cs.nextAeonStartFunc(height)
+			cs.newEntropy[height] = entropy
 		}
 
 		return entropy

@@ -36,7 +36,9 @@ const (
 	// Multplier for increasing state duration on next dkg iteration
 	dkgIterationDurationMultiplier = float64(0.5)
 	maxDKGStateDuration            = int64(400)
-	dkgResetDelay                  = int64(2)
+	// Offset required to give app sufficient time to be notified of next aeon
+	// start for triggering validator changeovers
+	keylessOffset = int64(2)
 )
 
 type state struct {
@@ -109,7 +111,7 @@ type DistributedKeyGeneration struct {
 	encryptionKey        noise.DHKey
 	encryptionPublicKeys map[uint][]byte
 
-	metrics *Metrics
+	metrics              *Metrics
 	slotProtocolEnforcer *SlotProtocolEnforcer
 }
 
@@ -248,17 +250,17 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.metrics.DKGState.Set(float64(dkg.currentState))
 	dkg.dkgIteration++
 	dkg.metrics.DKGFailures.Add(1)
-	// Reset start time
-	dkg.startHeight = dkg.startHeight + dkg.duration() + dkgResetDelay
+	// Reset start time. +1 to ensure start is after the previous aeon end
+	dkg.startHeight = dkg.startHeight + dkg.duration() + keylessOffset + 1
 	// Increase dkg time
 	newStateDuration := dkg.stateDuration + int64(float64(dkg.stateDuration)*dkgIterationDurationMultiplier)
 	if newStateDuration <= maxDKGStateDuration {
 		dkg.stateDuration = newStateDuration
 	}
-	// Dispatch empty keys to entropy generator. +1 need at the end of aeonEnd because consensus needs entropy for next block
-	// height and the next
+	// Dispatch empty keys to entropy generator. +keylessOffset needed at the end of aeonEnd to give app sufficient time to be
+	// notified before next aeon start
 	if dkg.dkgCompletionCallback != nil {
-		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+1))
+		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+keylessOffset))
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
@@ -296,7 +298,9 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
 
-		if dkg.msgFromSelf(msg, index) {
+		// Need to collect dry run messages from block to ensure everyone completes DKG at the same
+		// block
+		if dkg.msgFromSelf(msg, index) && msg.Type != types.DKGDryRun {
 			continue
 		}
 
@@ -400,7 +404,7 @@ func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, inde
 		return types.Invalid, fmt.Errorf("validateMessage: incorrect dkgIteration %v", msg.DKGIteration)
 	}
 	if len(msg.ToAddress) != 0 {
-		index, _ :=  dkg.validators.GetByAddress(msg.ToAddress)
+		index, _ := dkg.validators.GetByAddress(msg.ToAddress)
 		if index < 0 {
 			return types.Invalid, fmt.Errorf("validateMessage: ToAddress not a valid validator")
 		}
@@ -551,8 +555,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	nextAeonStart := dkg.currentAeonEnd + 1
 	dkgEnd := (dkg.startHeight + dkg.duration())
 	if dkgEnd >= nextAeonStart {
-		// +2 because the keyless aeon runs until dkgEnd +1 so the new set of keys starts at the block height after that
-		nextAeonStart = dkgEnd + 2
+		nextAeonStart = dkgEnd + keylessOffset + 1
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, &dkg.validators, aeonExecUnit,
@@ -570,13 +573,6 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 		PublicInfo:     *dkg.aeonKeys.dkgOutput(),
 		SignatureShare: signature,
 	}
-	if _, haveKeys := dkg.dryRunKeys[msgToSign]; !haveKeys {
-		dkg.dryRunKeys[msgToSign] = *dkg.aeonKeys.dkgOutput()
-		dkg.dryRunSignatures[msgToSign] = make(map[string]string)
-	}
-	dkg.dryRunSignatures[msgToSign][string(dkg.privValidator.GetPubKey().Address())] = signature
-	dkg.dryRunCount.SetIndex(int(dkg.index()), true)
-
 	msg := cdc.MustMarshalBinaryBare(&dryRun)
 	dkg.broadcastMsg(types.DKGDryRun, string(msg), nil)
 }
@@ -653,7 +649,7 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	if len(encodedOutput) == 0 {
-		dkg.Logger.Error("checkDryRuns: not enough dry run signatures. Needed %v", requiredPassSize)
+		dkg.Logger.Error("checkDryRuns: not enough dry run signatures.", "needed", requiredPassSize)
 		return false
 	}
 

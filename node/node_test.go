@@ -79,7 +79,10 @@ func TestNodeStartStop(t *testing.T) {
 
 			// Check block entropy is as expected
 			block := n.blockStore.LoadBlock(1)
-			assert.Equal(t, tc.blockHasEntropy, !block.Entropy.Equal(types.EmptyBlockEntropy()))
+			assert.Equal(t, tc.blockHasEntropy, !types.IsEmptyBlockEntropy(&block.Entropy))
+			if config.Beacon.RunDKG {
+				assert.True(t, block.Entropy.NextAeonStart != 0)
+			}
 
 			// stop the node
 			go func() {

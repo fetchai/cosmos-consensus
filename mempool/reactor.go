@@ -161,7 +161,6 @@ func (memR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // It adds any received transactions to the mempool.
 func (memR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 
-
 	msg, err := memR.decodeMsg(msgBytes)
 	if err != nil {
 		memR.Logger.Error("Error decoding message", "src", src, "chId", chID, "msg", msg, "err", err, "bytes", msgBytes)
@@ -236,8 +235,8 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 
 		// We know at least one TX is available. Collect new TXs from the mempool in bulk and send them to our peer
 		// (so long as the peer hasn't already seen the TX)
-		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest);len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, txsToRequest) {
-			for _, tx := range(newTxs) {
+		for newTxs := memR.mempool.GetNewTxs(peerID, txsToRequest); len(newTxs) > 0; newTxs = memR.mempool.GetNewTxs(peerID, txsToRequest) {
+			for _, tx := range newTxs {
 				msg := &TxMessage{Tx: *tx}
 				success := peer.Send(MempoolChannel, cdc.MustMarshalBinaryBare(msg))
 				if !success {

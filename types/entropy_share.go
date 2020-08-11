@@ -25,6 +25,7 @@ type BlockEntropy struct {
 	Round          int64              `json:"round"`
 	AeonLength     int64              `json:"aeon_length"`
 	DKGID          int64              `json:"dkg_id"`
+	NextAeonStart  int64              `json:"next_aeon_start`
 }
 
 // EmptyBlockEntropy for constructing BlockEntropy for empty group signature
@@ -57,7 +58,8 @@ func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
 	return bytes.Equal(blockEntropy.GroupSignature, anotherEntropy.GroupSignature) &&
 		blockEntropy.Round == anotherEntropy.Round &&
 		blockEntropy.AeonLength == anotherEntropy.AeonLength &&
-		blockEntropy.DKGID == anotherEntropy.DKGID
+		blockEntropy.DKGID == anotherEntropy.DKGID &&
+		blockEntropy.NextAeonStart == anotherEntropy.NextAeonStart
 }
 
 // ValidateBasic performs basic validation on block entropy
@@ -99,10 +101,12 @@ func (blockEntropy *BlockEntropy) StringIndented(indent string) string {
 	return fmt.Sprintf(`BlockEntropy{
 %s  Round/AeonLength: %v/%v
 %s  DKGID:			  %v 
+%s  NextAeonStart:    %v
 %s  GroupSignature:	  %v
 %s}`,
 		indent, blockEntropy.Round, blockEntropy.AeonLength,
 		indent, blockEntropy.DKGID,
+		indent, blockEntropy.NextAeonStart,
 		indent, blockEntropy.GroupSignature,
 		indent)
 }

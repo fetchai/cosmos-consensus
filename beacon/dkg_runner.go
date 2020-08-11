@@ -37,7 +37,7 @@ type DKGRunner struct {
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
 
-	encryptionKey noise.DHKey
+	encryptionKey        noise.DHKey
 	slotProtocolEnforcer *SlotProtocolEnforcer
 
 	mtx     sync.Mutex
@@ -48,18 +48,18 @@ type DKGRunner struct {
 func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
 	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DKGRunner {
 	dkgRunner := &DKGRunner{
-		beaconConfig:  config,
-		chainID:       chain,
-		stateDB:       db,
-		privVal:       val,
-		height:        blockHeight,
-		aeonStart:     -1,
-		aeonEnd:       -1,
-		completedDKG:  false,
-		dkgCounter:    0,
-		metrics:       NopMetrics(),
-		fastSync:      false,
-		encryptionKey: encryptionKey,
+		beaconConfig:         config,
+		chainID:              chain,
+		stateDB:              db,
+		privVal:              val,
+		height:               blockHeight,
+		aeonStart:            -1,
+		aeonEnd:              -1,
+		completedDKG:         false,
+		dkgCounter:           0,
+		metrics:              NopMetrics(),
+		fastSync:             false,
+		encryptionKey:        encryptionKey,
 		slotProtocolEnforcer: slotProtocolEnforcer,
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
@@ -110,7 +110,7 @@ func (dkgRunner *DKGRunner) FastSync(blockStore sm.BlockStore) error {
 		return fmt.Errorf("FastSync: dkgRunner running!")
 	}
 
-	dkgHeight := dkgRunner.aeonEnd
+	dkgHeight := dkgRunner.aeonStart
 	if dkgHeight < 0 {
 		dkgHeight = 1
 	}
@@ -172,6 +172,17 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 	dkgRunner.mtx.Unlock()
 }
 
+// NextAeonStart returns the start of the next entropy generation aeon
+func (dkgRunner *DKGRunner) NextAeonStart(height int64) int64 {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+
+	if height != dkgRunner.height+1 {
+		panic(fmt.Sprintf("consensus state requested next aeon start for unexpected height %v. Expected %v", height, dkgRunner.height+1))
+	}
+	return dkgRunner.aeonStart
+}
+
 // Returns validators for height from state DB
 func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, int64) {
 	for {
@@ -180,11 +191,14 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 			return nil, 0
 		}
 
-		newVals, err := sm.LoadValidators(dkgRunner.stateDB, height)
+		newVals, err := sm.LoadDKGValidators(dkgRunner.stateDB, height)
 		newParams, err1 := sm.LoadConsensusParams(dkgRunner.stateDB, height)
 		if err != nil || err1 != nil {
 			time.Sleep(100 * time.Millisecond)
 		} else {
+			if newVals.Size() == 0 {
+				panic(fmt.Sprintf("findValidators returned empty validator set. Height %v", height))
+			}
 			dkgRunner.Logger.Debug("findValidators: vals updated", "height", height)
 			return newVals, newParams.Entropy.AeonLength
 		}
@@ -200,10 +214,10 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 
 	// Start new dkg if there is currently no aeon active and if we are in the next
 	// aeon
-	if dkgRunner.activeDKG == nil && dkgRunner.height >= dkgRunner.aeonEnd+1 {
+	if dkgRunner.activeDKG == nil && dkgRunner.height >= dkgRunner.aeonStart {
 		// Set height at which validators are determined
-		validatorHeight := dkgRunner.aeonEnd + 1
-		if validatorHeight <= 0 {
+		validatorHeight := dkgRunner.aeonStart
+		if validatorHeight < 0 {
 			// Only time when there is no previous aeon is first dkg from genesis
 			validatorHeight = 1
 		}
@@ -248,15 +262,13 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		}
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
-			// Dispatch off empty keys to bridge validator changeover point as consensus
-			// needs two consecutive entropies
-			dkgRunner.dkgCompletionCallback(keylessAeonDetails(keys.End+1, keys.End+2))
 		}
 	})
-	// Dispatch off empty keys in case entropy generator has no keys
+	// Dispatch off empty keys in case entropy generator has no keys. Keyless offset is required for
+	// app to have sufficient notification time of new aeon start
 	if dkgRunner.dkgCompletionCallback != nil {
 		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
-			dkgRunner.activeDKG.duration()+1))
+			dkgRunner.activeDKG.duration()+keylessOffset))
 	}
 
 	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)

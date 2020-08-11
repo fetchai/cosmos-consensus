@@ -26,8 +26,8 @@ import (
 	tmrand "github.com/tendermint/tendermint/libs/rand"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/proxy"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/tx_extensions"
+	"github.com/tendermint/tendermint/types"
 )
 
 // A cleanupFunc cleans up any config / test files created for a particular
@@ -688,7 +688,7 @@ func TestSpecialTxPriority(t *testing.T) {
 
 	// Verify that the remaining original Txs still come out (request more than should be remaining here)
 	priorityTxs = mempool.GetNewTxs(dummyId, TxsToAdd)
-	require.Equal(t, len(priorityTxs), TxsToAdd - numTxsSubset, "wasn't able to get desired Txs from mempool")
+	require.Equal(t, len(priorityTxs), TxsToAdd-numTxsSubset, "wasn't able to get desired Txs from mempool")
 
 	// Check there is nothing remaining
 	require.Equal(t, len(mempool.GetNewTxs(dummyId, TxsToAdd)), 0, "There should be no new txs left at the end of these operations")

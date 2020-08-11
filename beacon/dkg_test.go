@@ -3,6 +3,7 @@ package beacon
 import (
 	"testing"
 	"time"
+
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
@@ -86,7 +87,7 @@ func TestDKGReset(t *testing.T) {
 	dkg.checkTransition(oldStartHeight + dkg.duration())
 
 	assert.True(t, !dkg.IsRunning())
-	assert.True(t, dkg.startHeight == oldStartHeight+oldDuration+dkgResetDelay)
+	assert.True(t, dkg.startHeight == oldStartHeight+oldDuration+keylessOffset+1)
 	assert.True(t, dkg.stateDuration == oldStateDuration+int64(float64(oldStateDuration)*dkgIterationDurationMultiplier))
 	assert.True(t, dkg.dkgIteration == 1)
 }
@@ -97,9 +98,9 @@ func TestDKGCheckMessage(t *testing.T) {
 	dkgToProcessMsg := nodes[1].dkg
 
 	testCases := []struct {
-		testName  string
-		changeMsg func(*types.DKGMessage)
-		passCheck bool
+		testName   string
+		changeMsg  func(*types.DKGMessage)
+		passCheck  bool
 		statusCode types.DKGMessageStatus
 	}{
 		{"Valid message", func(msg *types.DKGMessage) {}, true, types.OK},

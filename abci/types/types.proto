@@ -305,6 +305,7 @@ message BlockEntropy {
   int64 round = 2;
   int64 aeon_length = 3;
   int64 dkg_id = 4;
+  int64 next_aeon_start = 5;
 }
 
 message PartSetHeader {
