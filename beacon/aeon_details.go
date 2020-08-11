@@ -24,6 +24,7 @@ func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, q
 type aeonDetails struct {
 	privValidator   types.PrivValidator
 	validatorHeight int64 // Height at which validator set obtained
+	dkgID           int64
 	validators      *types.ValidatorSet
 	threshold       int
 	aeonExecUnit    BaseAeon
@@ -58,13 +59,13 @@ func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 	}
 
 	aeonExecUnit := newAeonExecUnit(keyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
-	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, validators, aeonExecUnit,
+	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, aeonDetailsFile.PublicInfo.DKGID, validators, aeonExecUnit,
 		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	return aeonDetails
 }
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
-func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
+func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id int64,
 	validators *types.ValidatorSet, aeonKeys BaseAeon,
 	startHeight int64, endHeight int64) (*aeonDetails, error) {
 	if valHeight <= 0 {
@@ -99,6 +100,7 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64,
 	ad := &aeonDetails{
 		privValidator:   newPrivValidator,
 		validatorHeight: valHeight,
+		dkgID:           id,
 		validators:      types.NewValidatorSet(validators.Validators),
 		aeonExecUnit:    aeonKeys,
 		threshold:       validators.Size()/2 + 1,
@@ -129,6 +131,7 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 		Generator:       aeon.aeonExecUnit.Generator(),
 		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
 		ValidatorHeight: aeon.validatorHeight,
+		DKGID:           aeon.dkgID,
 		Qual:            make([]uint, len(aeon.validators.Validators)),
 		Start:           aeon.Start,
 		End:             aeon.End,
@@ -238,6 +241,7 @@ type DKGOutput struct {
 	PublicKeyShares []string `json:"public_key_shares"`
 	Generator       string   `json:"generator"`
 	ValidatorHeight int64    `json:"validator_height"`
+	DKGID           int64    `json:"dkg_id"`
 	Qual            []uint   `json:"qual"`
 	Start           int64    `json:"start"`
 	End             int64    `json:"end"`
@@ -254,6 +258,9 @@ func (output *DKGOutput) ValidateBasic() error {
 		}
 		if len(output.Qual) == 0 || len(output.Qual) != len(output.PublicKeyShares) {
 			return fmt.Errorf("Mismatch in qual size %v and public key shares %v", len(output.Qual), len(output.PublicKeyShares))
+		}
+		if output.DKGID < 0 {
+			return fmt.Errorf("Invalid dkg id %v", output.DKGID)
 		}
 	}
 	if output.Start <= 0 || output.End < output.Start {

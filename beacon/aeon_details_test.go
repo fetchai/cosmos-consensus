@@ -18,23 +18,23 @@ func TestAeonDetailsNew(t *testing.T) {
 
 	// Panic with no validator set
 	assert.Panics(t, func() {
-		newAeonDetails(privVals[0], 1, nil, aeonSigning, 1, 10)
+		newAeonDetails(privVals[0], 1, 1, nil, aeonSigning, 1, 10)
 	})
 
 	// Panic with no aeon execution unit
 	assert.Panics(t, func() {
-		newAeonDetails(privVals[0], 1, state.Validators, nil, 1, 10)
+		newAeonDetails(privVals[0], 1, 1, state.Validators, nil, 1, 10)
 	})
 
 	// Panic if can sign and no priv validator
 	assert.Panics(t, func() {
-		newAeonDetails(nil, 1, state.Validators, aeonSigning, 1, 10)
+		newAeonDetails(nil, 1, 1, state.Validators, aeonSigning, 1, 10)
 	})
 
 	// Panic if can sign and not in validators
 	_, privVal := types.RandValidator(false, 30)
 	assert.Panics(t, func() {
-		newAeonDetails(privVal, 1, state.Validators, aeonSigning, 1, 10)
+		newAeonDetails(privVal, 1, 1, state.Validators, aeonSigning, 1, 10)
 	})
 
 	// Panic if validator index does not match dkg index
@@ -43,7 +43,7 @@ func TestAeonDetailsNew(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index != 0 {
 			assert.Panics(t, func() {
-				newAeonDetails(val, 1, state.Validators, aeonSigning, 1, 10)
+				newAeonDetails(val, 1, 1, state.Validators, aeonSigning, 1, 10)
 			})
 			break
 		}
@@ -52,7 +52,7 @@ func TestAeonDetailsNew(t *testing.T) {
 	// Does not panic if priv validator is invalid if can not sign
 	var newAeon *aeonDetails
 	assert.NotPanics(t, func() {
-		newAeon, _ = newAeonDetails(nil, 1, state.Validators, aeonNonSigning, 1, 10)
+		newAeon, _ = newAeonDetails(nil, 1, 1, state.Validators, aeonNonSigning, 1, 10)
 	})
 	assert.True(t, newAeon.threshold == nValidators/2+1)
 
@@ -62,7 +62,7 @@ func TestAeonDetailsNew(t *testing.T) {
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index == 0 {
 			assert.NotPanics(t, func() {
-				newAeonDetails(val, 1, state.Validators, aeonSigning, 1, 10)
+				newAeonDetails(val, 1, 1, state.Validators, aeonSigning, 1, 10)
 			})
 			break
 		}
@@ -75,7 +75,7 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 	aeonKeys := testAeonFromFile("test_keys/validator_0_of_4.txt")
-	newAeon, _ := newAeonDetails(privVals[0], 1, state.Validators, aeonKeys, 1, 10)
+	newAeon, _ := newAeonDetails(privVals[0], 1, 1, state.Validators, aeonKeys, 1, 10)
 
 	saveAeons(config.EntropyKeyFile(), newAeon)
 
