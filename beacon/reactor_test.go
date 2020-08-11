@@ -112,7 +112,7 @@ func TestReactorEntropy(t *testing.T) {
 	aeonKeys := setCrypto(N)
 	for i := 0; i < N; i++ {
 		existingAeon := entropyGenerators[i].nextAeons[0]
-		newKeys, _ := newAeonDetails(existingAeon.privValidator, 1, existingAeon.validators, aeonKeys[i], 20, 29)
+		newKeys, _ := newAeonDetails(existingAeon.privValidator, 1, 1, existingAeon.validators, aeonKeys[i], 20, 29)
 		// Insert in empty keys for gap in entropy generation
 		entropyGenerators[i].SetNextAeonDetails(keylessAeonDetails(10, 19))
 		entropyGenerators[i].SetNextAeonDetails(newKeys)

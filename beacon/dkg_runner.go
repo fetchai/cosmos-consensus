@@ -31,8 +31,7 @@ type DKGRunner struct {
 	validators   types.ValidatorSet
 	activeDKG    *DistributedKeyGeneration
 	completedDKG bool
-	dkgRunner    int
-	dkgCounter   int
+	dkgID        int64
 
 	dkgCompletionCallback func(aeon *aeonDetails)
 	fastSync              bool
@@ -56,7 +55,7 @@ func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.P
 		aeonStart:            -1,
 		aeonEnd:              -1,
 		completedDKG:         false,
-		dkgCounter:           0,
+		dkgID:                -1,
 		metrics:              NopMetrics(),
 		fastSync:             false,
 		encryptionKey:        encryptionKey,
@@ -101,6 +100,7 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	}
 	dkgRunner.aeonStart = aeon.Start
 	dkgRunner.aeonEnd = aeon.End
+	dkgRunner.dkgID = aeon.dkgID
 }
 
 // FastSync runs a dkg from block messages up to current block height
@@ -235,13 +235,14 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 // Starts new DKG if old one has completed for those in the current validator set
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, aeonLength int64) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
+	dkgRunner.dkgID++
 
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
-		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, *validators, dkgRunner.aeonEnd, aeonLength, dkgRunner.slotProtocolEnforcer)
+		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, dkgRunner.dkgID, *validators, dkgRunner.aeonEnd, aeonLength, dkgRunner.slotProtocolEnforcer)
 
 	// Set logger with dkgID and node index for debugging
-	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID)
+	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID, "index", dkgRunner.activeDKG.index())
 	dkgLogger.With("index", dkgRunner.activeDKG.index())
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
 

@@ -2,12 +2,13 @@ package beacon
 
 import (
 	"fmt"
+	"sync"
+
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
-	"sync"
 )
 
 type messageEnum int
@@ -84,7 +85,7 @@ func (sp *SlotProtocolEnforcer) UpdateDKG(dkg *DistributedKeyGeneration) {
 		sp.cbWhenUpdated(pending.tx, pending.peerID, pending.peerP2PID, pending.res)
 	}
 
-	sp.logger.Error(fmt.Sprintf("Updated with new DKG ID %v\n", dkg.dkgID))
+	sp.logger.Error(fmt.Sprintf("Updated with new DKG ID %v", dkg.dkgID))
 }
 
 // This function must be called on ALL transactions that would be added to the mempool. Normal txs
