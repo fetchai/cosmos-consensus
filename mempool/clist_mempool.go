@@ -644,7 +644,11 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	}
 
 	mem.metrics.GasReap.Set(float64(totalGas))
-	mem.metrics.MempoolReapedPercent.Set(float64((len(txs) / mem.Size()) * 100))
+	if mem.Size() > 0 {
+		mem.metrics.MempoolReapedPercent.Set(float64((len(txs) / mem.Size()) * 100))
+	} else {
+		mem.metrics.MempoolReapedPercent.Set(0.0)
+	}
 
 	return txs
 }
