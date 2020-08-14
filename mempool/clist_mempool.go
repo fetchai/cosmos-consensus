@@ -242,6 +242,12 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		txsBytes = mem.TxsBytes()
 		txSize   = len(tx)
 	)
+
+	// Try to push out a low priority Tx if the mempool is full
+	if memSize >= mem.config.Size && isPriority(tx) {
+		mem.ejectTx()
+	}
+
 	if memSize >= mem.config.Size ||
 		int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
 		return ErrMempoolIsFull{
@@ -303,6 +309,27 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
 
 	return nil
+}
+
+
+// Eject a tx from the mempool to make space for a high priority one.
+// For convenience choose the tx at the back of the queue. Must hold a lock.
+func (mem *CListMempool) ejectTx() (err error) {
+	elem := mem.txs.Back()
+
+	if elem == nil {
+		mem.logger.Error("eject tx called on empty clist!")
+		return
+	}
+
+	tx := elem.Value.(*mempoolTx).tx
+
+	if isPriority(tx) {
+		mem.logger.Error("Attempt to eject a priority tx indicates the mempool is full!")
+	}
+
+	mem.removeTx(tx, elem, false)
+	return
 }
 
 // Global callback that will be called after every ABCI response.

@@ -34,6 +34,8 @@ type Metrics struct {
 	GasReap metrics.Gauge
 	// Percentage of the mempool reaped by transaction
 	MempoolReapedPercent metrics.Gauge
+	// Number of ejected transactions.
+	EjectedTxs metrics.Counter
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -100,6 +102,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "mempool_reaped_percent",
 			Help:      "Percent of the mempool reaped for block creation",
 		}, labels).With(labelsAndValues...),
+		EjectedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "ejected_txs",
+			Help:      "Number of transactions that have been ejected from the mempool",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
@@ -113,7 +121,8 @@ func NopMetrics() *Metrics {
 		RecheckTimes:         discard.NewCounter(),
 		MaxBytesReap:         discard.NewGauge(),
 		MaxGasReap:           discard.NewGauge(),
-		GasReap:           discard.NewGauge(),
+		GasReap:              discard.NewGauge(),
 		MempoolReapedPercent: discard.NewGauge(),
+		EjectedTxs:           discard.NewCounter(),
 	}
 }
