@@ -598,6 +598,10 @@ func (mem *CListMempool) notifyTxsAvailable() {
 }
 
 func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
+
+	mem.metrics.MaxBytesReap.Set(float64(maxBytes))
+	mem.metrics.MaxGasReap.Set(float64(maxGas))
+
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
 
@@ -618,13 +622,13 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 		// Since we know all priority txs should be at the front, we can
 		// stop reaping once we find one that is not, when in fallback mode
 		if fallbackMode && !isPriority(memTx.tx) {
-			return txs
+			break
 		}
 
 		// Check total size requirement
 		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
 		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
-			return txs
+			break
 		}
 		totalBytes += int64(len(memTx.tx)) + aminoOverhead
 		// Check total gas requirement.
@@ -633,11 +637,19 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 		// must be non-negative, it follows that this won't overflow.
 		newTotalGas := totalGas + memTx.gasWanted
 		if maxGas > -1 && newTotalGas > maxGas {
-			return txs
+			break
 		}
 		totalGas = newTotalGas
 		txs = append(txs, memTx.tx)
 	}
+
+	mem.metrics.GasReap.Set(float64(totalGas))
+	if mem.Size() > 0 {
+		mem.metrics.MempoolReapedPercent.Set(float64((len(txs) / mem.Size()) * 100))
+	} else {
+		mem.metrics.MempoolReapedPercent.Set(0.0)
+	}
+
 	return txs
 }
 

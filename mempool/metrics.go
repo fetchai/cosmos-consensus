@@ -26,6 +26,14 @@ type Metrics struct {
 	FailedTxs metrics.Counter
 	// Number of times transactions are rechecked in the mempool.
 	RecheckTimes metrics.Counter
+	// Size of the max bytes reaped counter
+	MaxBytesReap metrics.Gauge
+	// Size of the max gas reaped counter
+	MaxGasReap metrics.Gauge
+	// Gas reaped
+	GasReap metrics.Gauge
+	// Percentage of the mempool reaped by transaction
+	MempoolReapedPercent metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -68,16 +76,44 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "recheck_times",
 			Help:      "Number of times transactions are rechecked in the mempool.",
 		}, labels).With(labelsAndValues...),
+		MaxBytesReap: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "max_bytes_reaped",
+			Help:      "Amount in bytes to reap from the mempool (max)",
+		}, labels).With(labelsAndValues...),
+		MaxGasReap: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "max_gas_reaped",
+			Help:      "Amount in gas to reap from the mempool (max)",
+		}, labels).With(labelsAndValues...),
+		GasReap: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "gas_reaped",
+			Help:      "Amount in gas reaped from the mempool",
+		}, labels).With(labelsAndValues...),
+		MempoolReapedPercent: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "mempool_reaped_percent",
+			Help:      "Percent of the mempool reaped for block creation",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
 // NopMetrics returns no-op Metrics.
 func NopMetrics() *Metrics {
 	return &Metrics{
-		Size:         discard.NewGauge(),
-		SizeBytes:    discard.NewGauge(),
-		TxSizeBytes:  discard.NewHistogram(),
-		FailedTxs:    discard.NewCounter(),
-		RecheckTimes: discard.NewCounter(),
+		Size:                 discard.NewGauge(),
+		SizeBytes:            discard.NewGauge(),
+		TxSizeBytes:          discard.NewHistogram(),
+		FailedTxs:            discard.NewCounter(),
+		RecheckTimes:         discard.NewCounter(),
+		MaxBytesReap:         discard.NewGauge(),
+		MaxGasReap:           discard.NewGauge(),
+		GasReap:           discard.NewGauge(),
+		MempoolReapedPercent: discard.NewGauge(),
 	}
 }
