@@ -239,7 +239,9 @@ func TestFastSyncBadBlockStopsPeer(t *testing.T) {
 	defer os.RemoveAll(config.RootDir)
 	genDoc, privVals := randGenesisDoc(1, false, 30)
 
-	otherChain := newBlockchainReactorPair(log.TestingLogger(), genDoc, privVals, maxBlockHeight)
+	// Other chain needs a different valiator set
+	otherGenDoc, otherPrivVals := randGenesisDoc(1, false, 30)
+	otherChain := newBlockchainReactorPair(log.TestingLogger(), otherGenDoc, otherPrivVals, maxBlockHeight)
 	defer func() {
 		_ = otherChain.bcR.Stop()
 		_ = otherChain.conR.Stop()
