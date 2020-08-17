@@ -646,6 +646,7 @@ func abciResponses(n int, code uint32) []*abci.ResponseDeliverTx {
 	return responses
 }
 
+
 // The mempool has been modified so that some transactions are considered 'priority'. These must always be included
 // over other Txs, and must be the only Txs included in fallback mode
 func TestSpecialTxPriority(t *testing.T) {

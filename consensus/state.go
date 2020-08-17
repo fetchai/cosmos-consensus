@@ -1285,6 +1285,8 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 
 	onlyDKGTxs := false
 
+	fmt.Printf("Strict: %v\n", cs.strictFiltering) // DELETEME_NH
+
 	// Only allow the mempool reaping to be in 'fallback mode' when strict and there
 	// is no entropy currently
 	if cs.strictFiltering == true && cs.getEntropy(cs.Height).Enabled == false {

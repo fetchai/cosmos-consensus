@@ -243,6 +243,14 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		txSize   = len(tx)
 	)
 
+	if isPriority(tx) {
+		fmt.Printf("is priority!\n") // DELETEME_NH
+	}
+
+	if memSize >= mem.config.Size {
+		fmt.Printf("ouch, too large\n") // DELETEME_NH
+	}
+
 	// Try to push out a low priority Tx if the mempool is full
 	if memSize >= mem.config.Size && isPriority(tx) {
 		mem.ejectTx()
@@ -316,6 +324,8 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 // For convenience choose the tx at the back of the queue. Must hold a lock.
 func (mem *CListMempool) ejectTx() (err error) {
 	elem := mem.txs.Back()
+
+	fmt.Printf("ejecting TX\n") // DELETEME_NH
 
 	if elem == nil {
 		mem.logger.Error("eject tx called on empty clist!")

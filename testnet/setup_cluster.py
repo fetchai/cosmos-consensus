@@ -19,7 +19,7 @@ TRADER_CONTAINER = DOCKER_HOST+"traders:latest"
 
 # Whether to supress stdout when calling programs like kubectl
 SILENT_MODE=False
-STDOUT_DEFAULT=None if False else subprocess.DEVNULL
+STDOUT_DEFAULT=None if True else subprocess.DEVNULL
 
 # If this is true, deployments use :latest rather than the commit tag
 USE_LATEST_TAG = False
