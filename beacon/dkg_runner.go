@@ -95,7 +95,7 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
 
-	if aeon.IsKeyless() {
+	if aeon == nil || aeon.IsKeyless() {
 		return
 	}
 	dkgRunner.aeonStart = aeon.Start

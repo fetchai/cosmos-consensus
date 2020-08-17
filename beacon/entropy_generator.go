@@ -6,12 +6,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
+	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/service"
+	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (
@@ -146,15 +150,44 @@ func (entropyGenerator *EntropyGenerator) setLastBlockHeight(height int64) {
 	}
 }
 
-func (entropyGenerator *EntropyGenerator) InjectNextAeonDetails(aeon *aeonDetails) {
-	entropyGenerator.mtx.Lock()
-	defer entropyGenerator.mtx.Unlock()
+// LoadEntropyKeyFiles inserts all keys saved to file into nextAeons in order
+func (entropyGenerator *EntropyGenerator) LoadEntropyKeyFiles(db dbm.DB, privValidator types.PrivValidator) (*aeonDetails, error) {
+	// There are three files for old entropy/keys, current entropy, and next entropy from the previous state.
+	// Load in the old entropy to generate forward from to avoid loading in a file that is higher than
+	// the current block height
+	keyFiles := []string{entropyGenerator.baseConfig.OldEntropyKeyFile(), entropyGenerator.baseConfig.EntropyKeyFile(),
+		entropyGenerator.baseConfig.NextEntropyKeyFile()}
+	var vals *types.ValidatorSet
+	var err1 error
+	var aeonDetails *aeonDetails
 
-	if aeon == nil {
-		panic(fmt.Sprintf("Inject next aeon was called with a nil aeon!"))
+	// Loop over the files trying to extract the keys and push them into the entropy generator
+	for _, fileToLoad := range keyFiles {
+		if tmos.FileExists(fileToLoad) {
+			// Load the aeon(s) from file
+			if aeonFiles, err := loadAeonDetailsFiles(fileToLoad); err == nil {
+				for _, aeonFile := range aeonFiles {
+
+					// If the aeon has keys in it, load the validators (don't otherwise as
+					// the height can be 0 which causes an error)
+					if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
+						vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+					}
+
+					if err1 == nil {
+						// Push the complete aeon into the entropy generator
+						aeonDetails = loadAeonDetails(aeonFile, vals, privValidator)
+						entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeonDetails)
+					} else {
+						return nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
+					}
+				}
+			} else {
+				return nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
+			}
+		}
 	}
-
-	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
+	return aeonDetails, nil
 }
 
 // SetNextAeonDetails adds new AeonDetails from DKG into the queue

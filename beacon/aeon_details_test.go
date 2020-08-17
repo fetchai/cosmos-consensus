@@ -79,9 +79,9 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 
 	saveAeons(config.EntropyKeyFile(), newAeon)
 
-	aeonDetailsFiles, err := LoadAeonDetailsFiles(config.EntropyKeyFile())
+	aeonDetailsFiles, err := loadAeonDetailsFiles(config.EntropyKeyFile())
 	assert.Equal(t, nil, err)
-	duplicateAeon := LoadAeonDetails(aeonDetailsFiles[0], state.Validators, privVals[0])
+	duplicateAeon := loadAeonDetails(aeonDetailsFiles[0], state.Validators, privVals[0])
 	assert.Equal(t, newAeon.validatorHeight, duplicateAeon.validatorHeight)
 	assert.Equal(t, newAeon.Start, duplicateAeon.Start)
 	assert.Equal(t, newAeon.End, duplicateAeon.End)
@@ -101,9 +101,9 @@ func TestAeonDetailsNoKeys(t *testing.T) {
 	assert.True(t, newAeon.aeonExecUnit == nil)
 	saveAeons(config.EntropyKeyFile(), newAeon)
 
-	keyFiles, err := LoadAeonDetailsFiles(config.BaseConfig.EntropyKeyFile())
+	keyFiles, err := loadAeonDetailsFiles(config.BaseConfig.EntropyKeyFile())
 	assert.Equal(t, nil, err)
 	assert.NotPanics(t, func() {
-		LoadAeonDetails(keyFiles[0], nil, nil)
+		loadAeonDetails(keyFiles[0], nil, nil)
 	})
 }
