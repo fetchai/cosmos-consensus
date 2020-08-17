@@ -113,7 +113,7 @@ func NopMetrics() *Metrics {
 		RecheckTimes:         discard.NewCounter(),
 		MaxBytesReap:         discard.NewGauge(),
 		MaxGasReap:           discard.NewGauge(),
-		GasReap:           discard.NewGauge(),
+		GasReap:              discard.NewGauge(),
 		MempoolReapedPercent: discard.NewGauge(),
 	}
 }

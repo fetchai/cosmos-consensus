@@ -29,7 +29,6 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -594,48 +593,14 @@ func createBeaconReactor(
 	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetEntropyChannel(entropyChannel)
+
+	aeon, err := entropyGenerator.LoadEntropyKeyFiles(db, privValidator)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if dkgRunner != nil {
 		dkgRunner.SetDKGCompletionCallback(entropyGenerator.SetNextAeonDetails)
-	}
-
-	// There are three files for old entropy/keys, current entropy, and next entropy from the previous state.
-	// Load in the old entropy to generate forward from to avoid loading in a file that is higher than
-	// the current block height
-	keyFiles := []string{config.BaseConfig.OldEntropyKeyFile(), config.BaseConfig.EntropyKeyFile(), config.BaseConfig.NextEntropyKeyFile()}
-	var vals *types.ValidatorSet
-	var err1 error
-
-	// Loop over the files trying to extract the keys and push them into the entropy generator
-	for _, fileToLoad := range keyFiles {
-		if tmos.FileExists(fileToLoad) {
-			// Load the aeon(s) from file
-			if aeonFiles, err := beacon.LoadAeonDetailsFiles(fileToLoad); err == nil {
-				for _, aeonFile := range aeonFiles {
-
-					// If the aeon has keys in it, load the validators (don't otherwise as
-					// the height can be 0 which causes an error)
-					if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
-						vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
-					}
-
-					// Get the validators for that aeon
-					if err1 == nil {
-						// Push the complete aeon into the entropy generator
-						aeonDetails := beacon.LoadAeonDetails(aeonFile, vals, privValidator)
-						entropyGenerator.InjectNextAeonDetails(aeonDetails)
-
-						// Set dkg runner to most recent aeon which we generated keys for
-						if dkgRunner != nil {
-							dkgRunner.SetCurrentAeon(aeonDetails)
-						}
-					} else {
-						return nil, nil, nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
-					}
-				}
-			} else {
-				return nil, nil, nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file(s): %v err: %v", fileToLoad, err))
-			}
-		}
+		dkgRunner.SetCurrentAeon(aeon)
 	}
 
 	if len(state.LastComputedEntropy) != 0 {

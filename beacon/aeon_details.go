@@ -34,7 +34,7 @@ type aeonDetails struct {
 }
 
 // LoadAeonDetails creates aeonDetails from keys saved in file
-func LoadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.ValidatorSet, privVal types.PrivValidator) *aeonDetails {
+func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.ValidatorSet, privVal types.PrivValidator) *aeonDetails {
 	if len(aeonDetailsFile.PublicInfo.GroupPublicKey) == 0 {
 		return keylessAeonDetails(aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	}
@@ -202,7 +202,7 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 }
 
 // LoadAeonDetailsFile creates a queue of AeonDetailsFiles from json
-func LoadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
+func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		tmos.Exit(err.Error())

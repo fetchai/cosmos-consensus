@@ -654,7 +654,7 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	aeonFile := &AeonDetailsFile{
 		PublicInfo: dkg.dryRunKeys[encodedOutput],
 	}
-	tempKeys := LoadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
+	tempKeys := loadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
 	for address, signature := range dkg.dryRunSignatures[encodedOutput] {
 		index, _ := tempKeys.validators.GetByAddress(crypto.Address(address))
 		if index < 0 {
