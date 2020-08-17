@@ -34,6 +34,10 @@ type Metrics struct {
 	GasReap metrics.Gauge
 	// Percentage of the mempool reaped by transaction
 	MempoolReapedPercent metrics.Gauge
+	// Number of Txs that have arrived in the mempool
+	TxsArrived metrics.Gauge
+	// Number of Txs that have been verified in the mempool
+	TxsVerified metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -100,6 +104,18 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "mempool_reaped_percent",
 			Help:      "Percent of the mempool reaped for block creation",
 		}, labels).With(labelsAndValues...),
+		TxsArrived: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "txs_arrived",
+			Help:      "Number of txs that have arrived in the mempool",
+		}, labels).With(labelsAndValues...),
+		TxsVerified: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "txs_verified",
+			Help:      "Number of txs that have been verified in the mempool",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
@@ -115,5 +131,7 @@ func NopMetrics() *Metrics {
 		MaxGasReap:           discard.NewGauge(),
 		GasReap:              discard.NewGauge(),
 		MempoolReapedPercent: discard.NewGauge(),
+		TxsArrived:           discard.NewGauge(),
+		TxsVerified:          discard.NewGauge(),
 	}
 }

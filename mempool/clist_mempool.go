@@ -233,6 +233,9 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 //     It gets called from another goroutine.
 // CONTRACT: Either cb will get called, or err returned.
 func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo TxInfo) (err error) {
+
+	mem.metrics.TxsArrived.Add(1.0)
+
 	mem.proxyMtx.Lock()
 	// use defer to unlock mutex because application (*local client*) might panic
 	defer mem.proxyMtx.Unlock()
@@ -366,6 +369,9 @@ func isPriority(tx types.Tx) bool {
 // Called from:
 //  - ResCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
+
+	mem.metrics.TxsVerified.Add(1.0)
+
 	if isPriority(memTx.tx) {
 		e := mem.txs.PushFront(memTx)
 		mem.txsMap.Store(txKey(memTx.tx), e)
