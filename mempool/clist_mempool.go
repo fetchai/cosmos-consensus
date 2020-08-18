@@ -652,6 +652,8 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	mem.metrics.GasReap.Set(float64(totalGas))
 	mem.metrics.BytesReap.Set(float64(totalBytes))
 
+	fmt.Printf("len of reaped: %v. Len of mempool %v\n", len(txs), mem.Size()) // DELETEME_NH
+
 	if mem.Size() > 0 {
 		mem.metrics.MempoolReapedPercent.Set((float64(len(txs)) / float64(mem.Size()) * 100))
 	} else {
