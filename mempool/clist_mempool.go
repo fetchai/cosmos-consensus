@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"runtime/debug"
 
 	"github.com/pkg/errors"
 
@@ -233,6 +234,8 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 //     It gets called from another goroutine.
 // CONTRACT: Either cb will get called, or err returned.
 func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo TxInfo) (err error) {
+
+	debug.PrintStack()
 
 	mem.metrics.TxsArrived.Add(1.0)
 
