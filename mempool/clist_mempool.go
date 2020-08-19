@@ -626,7 +626,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
 
-	if height < 100 || mem.Size() >= 20000 {
+	if mem.height < 100 || mem.Size() >= 20000 {
 		for e := mem.txs.Front(); e != nil; e = e.Next() {
 			memTx := e.Value.(*mempoolTx)
 
