@@ -625,31 +625,34 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// size per tx, and set the initial capacity based off of that.
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
-	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
 
-		// Since we know all priority txs should be at the front, we can
-		// stop reaping once we find one that is not, when in fallback mode
-		if fallbackMode && !isPriority(memTx.tx) {
-			break
-		}
+	if mem.Size() >= 20000 {
+		for e := mem.txs.Front(); e != nil; e = e.Next() {
+			memTx := e.Value.(*mempoolTx)
 
-		// Check total size requirement
-		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
-		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
-			break
+			// Since we know all priority txs should be at the front, we can
+			// stop reaping once we find one that is not, when in fallback mode
+			if fallbackMode && !isPriority(memTx.tx) {
+				break
+			}
+
+			// Check total size requirement
+			aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
+			if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
+				break
+			}
+			totalBytes += int64(len(memTx.tx)) + aminoOverhead
+			// Check total gas requirement.
+			// If maxGas is negative, skip this check.
+			// Since newTotalGas < masGas, which
+			// must be non-negative, it follows that this won't overflow.
+			newTotalGas := totalGas + memTx.gasWanted
+			if maxGas > -1 && newTotalGas > maxGas {
+				break
+			}
+			totalGas = newTotalGas
+			txs = append(txs, memTx.tx)
 		}
-		totalBytes += int64(len(memTx.tx)) + aminoOverhead
-		// Check total gas requirement.
-		// If maxGas is negative, skip this check.
-		// Since newTotalGas < masGas, which
-		// must be non-negative, it follows that this won't overflow.
-		newTotalGas := totalGas + memTx.gasWanted
-		if maxGas > -1 && newTotalGas > maxGas {
-			break
-		}
-		totalGas = newTotalGas
-		txs = append(txs, memTx.tx)
 	}
 
 	// Update metrics
