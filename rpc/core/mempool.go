@@ -32,7 +32,7 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 
 	globalTxPending <- &tx
 
-	if rand.Intn(50) == 0 {
+	if rand.Intn(500) == 0 {
 		go func() {
 			timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcastBulk", nil)
 			defer timer.Finish()
@@ -53,7 +53,9 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 			FIN:
 
 			fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
-			mempool.CheckTxBulk(bulk, mempl.TxInfo{})
+			if len(bulk) > 0 {
+				mempool.CheckTxBulk(bulk, mempl.TxInfo{})
+			}
 		}()
 	}
 
