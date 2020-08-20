@@ -40,6 +40,7 @@ type CListMempool struct {
 	height     int64 // the last block Update()'d to
 	txsBytes   int64 // total size of mempool, in bytes
 	rechecking int32 // for re-checking filtered txs on Update()
+	buildingUp bool
 
 	// notify listeners (ie. consensus) when txs are available
 	notifiedTxsAvailable bool
@@ -114,6 +115,7 @@ func NewCListMempool(
 		rechecking:           0,
 		recheckCursor:        nil,
 		recheckEnd:           nil,
+		buildingUp:           false,
 		logger:               log.NewNopLogger(),
 		metrics:              NopMetrics(),
 		slotProtocolEnforcer: slotProtocolEnforcer,
@@ -626,7 +628,15 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
 
-	if mem.height < 100 || mem.Size() >= 20000 {
+	if mem.Size() >= 20000 {
+		mem.buildingUp = false
+	}
+
+	if mem.height == 150 {
+		mem.buildingUp = true
+	}
+
+	if mem.buildingUp == false {
 		for e := mem.txs.Front(); e != nil; e = e.Next() {
 			memTx := e.Value.(*mempoolTx)
 
