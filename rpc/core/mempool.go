@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	tmtimer "github.com/tendermint/tendermint/libs/timer"
 	abci "github.com/tendermint/tendermint/abci/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -21,6 +22,10 @@ import (
 // CheckTx nor DeliverTx results.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_async
 func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+
+	timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcast", nil)
+	defer timer.Finish()
+
 	go mempool.CheckTx(tx, nil, mempl.TxInfo{})
 
 	//if err != nil {
@@ -33,6 +38,10 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 // DeliverTx result.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_sync
 func BroadcastTxSync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+
+	timer := tmtimer.NewFunctionTimer(1, "SyncBroadcast", nil)
+	defer timer.Finish()
+
 	resCh := make(chan *abci.Response, 1)
 	err := mempool.CheckTx(tx, func(res *abci.Response) {
 		resCh <- res
