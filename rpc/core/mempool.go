@@ -13,7 +13,7 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/lib/types"
 	"github.com/tendermint/tendermint/types"
-	//"math/rand"
+	"math/rand"
 )
 
 var globalTxPending chan *types.Tx = make(chan *types.Tx, 10000)
