@@ -13,7 +13,10 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/lib/types"
 	"github.com/tendermint/tendermint/types"
+	"math/rand"
 )
+
+var globalTxPending chan *types.Tx = make(chan *types.Tx, 10000)
 
 //-----------------------------------------------------------------------------
 // NOTE: tx should be signed, but this is only checked at the app level (not by Tendermint!)
@@ -26,7 +29,33 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 	timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcast", nil)
 	defer timer.Finish()
 
-	go mempool.CheckTx(tx, nil, mempl.TxInfo{})
+	globalTxPending <- &tx
+
+	if rand.Intn(50) == 0 {
+		go func() {
+			timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcastBulk", nil)
+			defer timer.Finish()
+
+			fmt.Printf("Sending bulk Tx.\n") // DELETEME_NH
+
+			var bulk []*types.Tx
+
+			// collect all txs
+			for {
+				select {
+				case tx := <-globalTxPending:
+					bulk = append(bulk, tx)
+				default:
+					break
+				}
+			}
+
+			fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
+			mempool.CheckTxBulk(bulk, mempl.TxInfo{})
+		}()
+	}
+
+	//go mempool.CheckTx(tx, nil, mempl.TxInfo{})
 
 	//if err != nil {
 	//	return nil, err

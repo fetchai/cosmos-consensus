@@ -309,6 +309,65 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 	return nil
 }
 
+func (mem *CListMempool) CheckTxBulk(txs []*types.Tx, txInfo TxInfo) (err error) {
+
+	mem.metrics.TxsArrived.Add(float64(len(txs)))
+
+	mem.proxyMtx.Lock()
+	// use defer to unlock mutex because application (*local client*) might panic
+	defer mem.proxyMtx.Unlock()
+
+	for _, txPtr := range txs {
+
+		tx := *txPtr
+
+		// CACHE
+		if !mem.cache.Push(tx) {
+			// Record a new sender for a tx we've already seen.
+			// Note it's possible a tx is still in the cache but no longer in the mempool
+			// (eg. after committing a block, txs are removed from mempool but not cache),
+			// so we only record the sender for txs still in the mempool.
+			if e, ok := mem.txsMap.Load(txKey(tx)); ok {
+				memTx := e.(*clist.CElement).Value.(*mempoolTx)
+				memTx.senders.LoadOrStore(txInfo.SenderID, true)
+				// TODO: consider punishing peer for dups,
+				// its non-trivial since invalid txs can become valid,
+				// but they can spam the same tx with little cost to them atm.
+			}
+
+			fmt.Printf("asdasdf tx in cache\n") // DELETEME_NH
+			return ErrTxInCache
+		}
+		// END CACHE
+
+		//// WAL
+		//if mem.wal != nil {
+		//	// TODO: Notify administrators when WAL fails
+		//	_, err := mem.wal.Write([]byte(tx))
+		//	if err != nil {
+		//		mem.logger.Error("Error writing to WAL", "err", err)
+		//	}
+		//	_, err = mem.wal.Write([]byte("\n"))
+		//	if err != nil {
+		//		mem.logger.Error("Error writing to WAL", "err", err)
+		//	}
+		//}
+		// END WAL
+
+		// NOTE: proxyAppConn may error if tx buffer is full
+		if err = mem.proxyAppConn.Error(); err != nil {
+			fmt.Printf("Proxy app error!\n") // DELETEME_NH
+			return err
+		}
+
+		reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
+		reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, nil))
+	}
+
+	return nil
+}
+
+
 // Global callback that will be called after every ABCI response.
 // Having a single global callback avoids needing to set a callback for each request.
 // However, processing the checkTx response requires the peerID (so we can track which txs we heard from who),

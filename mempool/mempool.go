@@ -17,6 +17,8 @@ type Mempool interface {
 	// its validity and whether it should be added to the mempool.
 	CheckTx(tx types.Tx, callback func(*abci.Response), txInfo TxInfo) error
 
+	CheckTxBulk(tx []*types.Tx, txInfo TxInfo) error
+
 	// ReapMaxBytesMaxGas reaps transactions from the mempool up to maxBytes
 	// bytes total with the condition that the total gasWanted must be less than
 	// maxGas.
