@@ -13,7 +13,7 @@ import (
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/lib/types"
 	"github.com/tendermint/tendermint/types"
-	"math/rand"
+	//"math/rand"
 )
 
 var globalTxPending chan *types.Tx = make(chan *types.Tx, 10000)
@@ -32,29 +32,39 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 
 	globalTxPending <- &tx
 
-	if rand.Intn(500) == 0 {
+	if globalFnExists == false {
+		globalFnExists = true
+
+		fmt.Printf("startme\n") // DELETEME_NH
+
 		go func() {
-			timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcastBulk", nil)
-			defer timer.Finish()
 
-			fmt.Printf("Sending bulk Tx.\n") // DELETEME_NH
+			fmt.Printf("startme2\n") // DELETEME_NH
 
-			var bulk []*types.Tx
-
-			// collect all txs
 			for {
-				select {
-				case tx := <-globalTxPending:
-					bulk = append(bulk, tx)
-				default:
-					goto FIN
-				}
-			}
-			FIN:
+				timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcastBulk", nil)
+				defer timer.Finish()
 
-			fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
-			if len(bulk) > 0 {
-				mempool.CheckTxBulk(bulk, mempl.TxInfo{})
+				var bulk []*types.Tx
+
+				// collect all txs
+				for {
+					select {
+					case tx := <-globalTxPending:
+						bulk = append(bulk, tx)
+					default:
+						goto FIN
+					}
+				}
+				FIN:
+
+				fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
+
+				if len(bulk) > 0 {
+					mempool.CheckTxBulk(bulk, mempl.TxInfo{})
+				}
+
+				time.Sleep(100 * time.Millisecond)
 			}
 		}()
 	}
