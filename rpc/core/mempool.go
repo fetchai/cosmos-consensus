@@ -32,7 +32,7 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 
 	globalTxPending <- &tx
 
-	if !globalFnExists {
+	if rand.Intn(50) == 0 {
 		go func() {
 			timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcastBulk", nil)
 			defer timer.Finish()
