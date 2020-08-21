@@ -58,9 +58,8 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 				}
 				FIN:
 
-				fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
-
 				if len(bulk) > 0 {
+					fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
 					mempool.CheckTxBulk(bulk, mempl.TxInfo{})
 				}
 
