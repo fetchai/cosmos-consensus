@@ -616,6 +616,9 @@ func (entropyGenerator *EntropyGenerator) validators() *types.ValidatorSet {
 	entropyGenerator.mtx.RLock()
 	defer entropyGenerator.mtx.RUnlock()
 
+	if entropyGenerator.aeon == nil || entropyGenerator.aeon.validators == nil {
+		return types.NewValidatorSet([]*types.Validator{})
+	}
 	return entropyGenerator.aeon.validators
 }
 
