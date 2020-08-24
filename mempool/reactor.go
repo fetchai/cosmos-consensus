@@ -39,6 +39,7 @@ type Reactor struct {
 	config  *cfg.MempoolConfig
 	mempool Mempool
 	ids     *mempoolIDs
+	metrics *Metrics
 }
 
 type mempoolIDs struct {

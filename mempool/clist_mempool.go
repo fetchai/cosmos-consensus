@@ -797,6 +797,10 @@ func (mem *CListMempool) Update(
 	preCheck PreCheckFunc,
 	postCheck PostCheckFunc,
 ) error {
+
+	timer := tmtimer.NewFunctionTimer(5, "Update", nil)
+	defer timer.Finish()
+
 	// Set height
 	mem.height = height
 	mem.notifiedTxsAvailable = false
