@@ -692,7 +692,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	if mem.Size() >= 20000 {
 
 		if mem.buildingUp == true {
-			mem.stopIngress = true
+			//mem.stopIngress = true
 			fmt.Printf("stopping ingress\n") // DELETEME_NH
 		}
 
