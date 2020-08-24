@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 	"github.com/pkg/errors"
+	tmtimer "github.com/tendermint/tendermint/libs/timer"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -671,11 +672,17 @@ func (mem *CListMempool) notifyTxsAvailable() {
 
 func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
 
+	timer := tmtimer.NewFunctionTimer(10, "ReapMaxBytesMaxGas", nil)
+	defer timer.Finish()
+
 	mem.metrics.MaxBytesReap.Set(float64(maxBytes))
 	mem.metrics.MaxGasReap.Set(float64(maxGas))
 
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
+
+	timer2 := tmtimer.NewFunctionTimer(5, "ReapMaxBytesMaxGasPostLock", nil)
+	defer timer2.Finish()
 
 	for atomic.LoadInt32(&mem.rechecking) > 0 {
 		// TODO: Something better?

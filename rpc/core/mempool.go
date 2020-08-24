@@ -42,7 +42,7 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 			fmt.Printf("startme2\n") // DELETEME_NH
 
 			for {
-				timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcastBulk", nil)
+				timer := tmtimer.NewFunctionTimer(10, "AsyncBroadcastBulk", nil)
 				defer timer.Finish()
 
 				var bulk []*types.Tx
@@ -81,7 +81,7 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_sync
 func BroadcastTxSync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 
-	timer := tmtimer.NewFunctionTimer(1, "SyncBroadcast", nil)
+	timer := tmtimer.NewFunctionTimer(10, "SyncBroadcast", nil)
 	defer timer.Finish()
 
 	resCh := make(chan *abci.Response, 1)
