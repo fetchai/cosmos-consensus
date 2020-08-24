@@ -856,19 +856,19 @@ func (mem *CListMempool) recheckTxs() {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
 
-	atomic.StoreInt32(&mem.rechecking, 1)
-	mem.recheckCursor = mem.txs.Front()
-	mem.recheckEnd = mem.txs.Back()
-
-	// Push txs to proxyAppConn
-	// NOTE: globalCb may be called concurrently.
-	for e := mem.txs.Front(); e != nil; e = e.Next() {
-		memTx := e.Value.(*mempoolTx)
-		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
-			Tx:   memTx.tx,
-			Type: abci.CheckTxType_Recheck,
-		})
-	}
+	//atomic.StoreInt32(&mem.rechecking, 1)
+//	mem.recheckCursor = mem.txs.Front()
+//	mem.recheckEnd = mem.txs.Back()
+//
+//	// Push txs to proxyAppConn
+//	// NOTE: globalCb may be called concurrently.
+//	for e := mem.txs.Front(); e != nil; e = e.Next() {
+//		memTx := e.Value.(*mempoolTx)
+//		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
+//			Tx:   memTx.tx,
+//			Type: abci.CheckTxType_Recheck,
+//		})
+//	}
 
 	mem.proxyAppConn.FlushAsync()
 }
