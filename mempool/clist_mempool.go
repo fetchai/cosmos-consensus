@@ -41,6 +41,7 @@ type CListMempool struct {
 	rechecking int32 // for re-checking filtered txs on Update()
 	buildingUp bool
 	stopIngress bool
+	allowTxCheck bool
 
 	// notify listeners (ie. consensus) when txs are available
 	notifiedTxsAvailable bool
@@ -117,6 +118,7 @@ func NewCListMempool(
 		recheckEnd:           nil,
 		buildingUp:           false,
 		stopIngress:          false,
+		allowTxCheck:         false,
 		logger:               log.NewNopLogger(),
 		metrics:              NopMetrics(),
 		slotProtocolEnforcer: slotProtocolEnforcer,
@@ -317,6 +319,12 @@ func (mem *CListMempool) CheckTxBulk(txs []*types.Tx, txInfo TxInfo) (err error)
 	if mem.stopIngress == true {
 		return nil
 	}
+
+	for mem.allowTxCheck == false {
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	mem.allowTxCheck = false
 
 	mem.metrics.TxsArrived.Add(float64(len(txs)))
 
@@ -858,6 +866,8 @@ func (mem *CListMempool) Update(
 	// Update metrics
 	mem.metrics.Size.Set(float64(mem.Size()))
 	mem.metrics.SizeBytes.Set(float64(mem.TxsBytes()))
+
+	mem.allowTxCheck = true
 
 	return nil
 }
