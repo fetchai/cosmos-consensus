@@ -1873,6 +1873,7 @@ func (m *ResponseEndBlock) GetDkgValidatorUpdates() []ValidatorUpdate {
 type ResponseCommit struct {
 	// reserve 1
 	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	RetainHeight         int64    `protobuf:"varint,3,opt,name=retain_height,json=retainHeight,proto3" json:"retain_height,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1916,6 +1917,13 @@ func (m *ResponseCommit) GetData() []byte {
 		return m.Data
 	}
 	return nil
+}
+
+func (m *ResponseCommit) GetRetainHeight() int64 {
+	if m != nil {
+		return m.RetainHeight
+	}
+	return 0
 }
 
 // ConsensusParams contains all consensus-relevant parameters
@@ -4685,6 +4693,9 @@ func (this *ResponseCommit) Equal(that interface{}) bool {
 	if !bytes.Equal(this.Data, that1.Data) {
 		return false
 	}
+	if this.RetainHeight != that1.RetainHeight {
+		return false
+	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
@@ -7402,6 +7413,11 @@ func (m *ResponseCommit) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.RetainHeight != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.RetainHeight))
+		i--
+		dAtA[i] = 0x18
+	}
 	if len(m.Data) > 0 {
 		i -= len(m.Data)
 		copy(dAtA[i:], m.Data)
@@ -8854,8 +8870,12 @@ func NewPopulatedResponseCommit(r randyTypes, easy bool) *ResponseCommit {
 	for i := 0; i < v32; i++ {
 		this.Data[i] = byte(r.Intn(256))
 	}
+	this.RetainHeight = int64(r.Int63())
+	if r.Intn(2) == 0 {
+		this.RetainHeight *= -1
+	}
 	if !easy && r.Intn(10) != 0 {
-		this.XXX_unrecognized = randUnrecognizedTypes(r, 3)
+		this.XXX_unrecognized = randUnrecognizedTypes(r, 4)
 	}
 	return this
 }
@@ -10091,6 +10111,9 @@ func (m *ResponseCommit) Size() (n int) {
 	l = len(m.Data)
 	if l > 0 {
 		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.RetainHeight != 0 {
+		n += 1 + sovTypes(uint64(m.RetainHeight))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -14556,6 +14579,25 @@ func (m *ResponseCommit) Unmarshal(dAtA []byte) error {
 				m.Data = []byte{}
 			}
 			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetainHeight", wireType)
+			}
+			m.RetainHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.RetainHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTypes(dAtA[iNdEx:])

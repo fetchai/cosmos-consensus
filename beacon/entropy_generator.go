@@ -413,10 +413,14 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		panic(fmt.Sprintf("Has keys but previous entropy not set. Height %v", entropyGenerator.lastBlockHeight))
 	}
 
-	pubKey := entropyGenerator.aeon.privValidator.GetPubKey()
+	pubKey, err := entropyGenerator.aeon.privValidator.GetPubKey()
+	if err != nil {
+		entropyGenerator.Logger.Error("failed to retrieve public key", "err", err)
+		return
+	}
 	index, _ := entropyGenerator.aeon.validators.GetByAddress(pubKey.Address())
 	blockHeight := entropyGenerator.lastBlockHeight + 1
-	err := entropyGenerator.validInputs(blockHeight, index)
+	err = entropyGenerator.validInputs(blockHeight, index)
 	if err != nil {
 		entropyGenerator.Logger.Debug(err.Error())
 		return

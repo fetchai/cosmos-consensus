@@ -84,7 +84,11 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 		if newPrivValidator == nil {
 			panic(fmt.Errorf("aeonDetails has DKG keys but no privValidator"))
 		}
-		index, _ := validators.GetByAddress(newPrivValidator.GetPubKey().Address())
+		pubKey, err := newPrivValidator.GetPubKey()
+		if err != nil {
+			panic(fmt.Errorf("aeonDetails failed to retrieve public key. Err %v", err))
+		}
+		index, _ := validators.GetByAddress(pubKey.Address())
 		if index < 0 || !aeonKeys.InQual(uint(index)) {
 			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators or qual"))
 		}

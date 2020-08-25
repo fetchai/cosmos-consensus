@@ -121,7 +121,7 @@ func (memR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
 	return peer
 }
 
-// SetLogger sets the Logger on the reactor
+// SetLogger sets the Logger on the reactor and the underlying mempool.
 func (memR *Reactor) SetLogger(l log.Logger) {
 	memR.Logger = l
 }
