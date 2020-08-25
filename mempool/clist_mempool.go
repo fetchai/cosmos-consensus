@@ -320,11 +320,11 @@ func (mem *CListMempool) CheckTxBulk(txs []*types.Tx, txInfo TxInfo) (err error)
 		return nil
 	}
 
-	for mem.allowTxCheck == false {
-		time.Sleep(5 * time.Millisecond)
-	}
+	//for mem.allowTxCheck == false {
+	//	time.Sleep(5 * time.Millisecond)
+	//}
 
-	mem.allowTxCheck = false
+	//mem.allowTxCheck = false
 
 	mem.metrics.TxsArrived.Add(float64(len(txs)))
 

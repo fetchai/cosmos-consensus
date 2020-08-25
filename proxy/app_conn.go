@@ -79,7 +79,7 @@ func (app *appConnConsensus) BeginBlockSync(req types.RequestBeginBlock) (*types
 func (app *appConnConsensus) DeliverTxAsync(req types.RequestDeliverTx) *abcicli.ReqRes {
 
 	// Special case for DKG TXs
-	if tx_extensions.IsDKGRelated(req.Tx) {
+	if tx_extensions.IsDKGRelated(req.Tx) || true {
 
 		no_events := []types.Event{}
 
