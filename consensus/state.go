@@ -1780,7 +1780,7 @@ func (cs *State) finalizeCommit(height int64) {
 
 	// Clear old entropy from map - it should now be
 	// accessable via the block store
-	for key, _ := range cs.newEntropy {
+	for key := range cs.newEntropy {
 		if key < cs.Height {
 			delete(cs.newEntropy, key)
 		}

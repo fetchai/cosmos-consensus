@@ -6,6 +6,7 @@ import (
 
 	"github.com/flynn/noise"
 	"github.com/pkg/errors"
+
 	cfg "github.com/tendermint/tendermint/config"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	tempfile "github.com/tendermint/tendermint/libs/tempfile"

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/flynn/noise"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	bits "github.com/tendermint/tendermint/libs/bits"

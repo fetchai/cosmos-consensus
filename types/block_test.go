@@ -88,7 +88,7 @@ func TestBlockValidateBasic(t *testing.T) {
 		}, true},
 		{"Entropy too large", func(blk *Block) {
 			zeros := [MaxThresholdSignatureSize + 1]byte{1}
-			blk.Entropy = *NewBlockEntropy(zeros[0:len(zeros)], 0, 1, 0)
+			blk.Entropy = *NewBlockEntropy(zeros[0:], 0, 1, 0)
 		}, true},
 	}
 	for i, tc := range testCases {

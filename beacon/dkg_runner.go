@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/flynn/noise"
+	dbm "github.com/tendermint/tm-db"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/service"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
 // DKGRunner manages the starting of the DKG each aeon with new validator sets and forwards on

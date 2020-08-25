@@ -1,8 +1,9 @@
 package beacon
 
 import (
-	"github.com/tendermint/tendermint/libs/log"
 	"time"
+
+	"github.com/tendermint/tendermint/libs/log"
 )
 
 const (
