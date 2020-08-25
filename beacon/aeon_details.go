@@ -85,20 +85,20 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 			panic(fmt.Errorf("aeonDetails has DKG keys but no privValidator"))
 		}
 		pubKey, err := newPrivValidator.GetPubKey()
-		if err != nil {
-			panic(fmt.Errorf("aeonDetails failed to retrieve public key. Err %v", err))
-		}
-		index, _ := validators.GetByAddress(pubKey.Address())
-		if index < 0 || !aeonKeys.InQual(uint(index)) {
-			panic(fmt.Errorf("aeonDetails has DKG keys but not in validators or qual"))
-		}
-		if !aeonKeys.CheckIndex(uint(index)) {
-			i := 0
-			for !aeonKeys.CheckIndex(uint(i)) && i < validators.Size() {
-				i++
+		if err == nil {
+			index, _ := validators.GetByAddress(pubKey.Address())
+			if index < 0 || !aeonKeys.InQual(uint(index)) {
+				panic(fmt.Errorf("aeonDetails has DKG keys but not in validators or qual"))
 			}
-			panic(fmt.Errorf("aeonDetails has DKG keys index %v not matching validator index %v", i, index))
+			if !aeonKeys.CheckIndex(uint(index)) {
+				i := 0
+				for !aeonKeys.CheckIndex(uint(i)) && i < validators.Size() {
+					i++
+				}
+				panic(fmt.Errorf("aeonDetails has DKG keys index %v not matching validator index %v", i, index))
+			}
 		}
+
 	}
 
 	ad := &aeonDetails{
