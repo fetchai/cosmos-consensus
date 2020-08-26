@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/flynn/noise"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	bits "github.com/tendermint/tendermint/libs/bits"
@@ -363,7 +364,13 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 }
 
 func (dkg *DistributedKeyGeneration) index() int {
-	index, _ := dkg.validators.GetByAddress(dkg.privValidator.GetPubKey().Address())
+	pubKey, err := dkg.privValidator.GetPubKey()
+	if err != nil {
+		dkg.Logger.Error("failed to retrieve public key", "err", err)
+		return -1
+	}
+
+	index, _ := dkg.validators.GetByAddress(pubKey.Address())
 	return index
 }
 
@@ -410,8 +417,16 @@ func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, inde
 		return types.Invalid, fmt.Errorf("validateMessage: failed signature verification")
 	}
 
+	if len(msg.ToAddress) == 0 {
+		return types.OK, nil
+	}
+
 	// Check whether it is for us
-	if len(msg.ToAddress) != 0 && !bytes.Equal(msg.ToAddress, dkg.privValidator.GetPubKey().Address()) {
+	pubKey, err := dkg.privValidator.GetPubKey()
+	if err != nil {
+		return types.Invalid, fmt.Errorf("validatorMessage, failed to retrieve public Key %v", err)
+	}
+	if !bytes.Equal(msg.ToAddress, pubKey.Address()) {
 		return types.NotForUs, fmt.Errorf("validateMessage: ToAddress not to us")
 	}
 
@@ -459,15 +474,20 @@ func (dkg *DistributedKeyGeneration) newDKGMessage(msgType types.DKGMessageType,
 	if toAddress == nil {
 		toAddress = []byte{}
 	}
+	pubKey, err := dkg.privValidator.GetPubKey()
+	if err != nil {
+		dkg.Logger.Error("failed to retrieve public key", "err", err)
+		return &types.DKGMessage{}
+	}
 	newMsg := &types.DKGMessage{
 		Type:         msgType,
 		DKGID:        dkg.dkgID,
 		DKGIteration: dkg.dkgIteration,
-		FromAddress:  dkg.privValidator.GetPubKey().Address(),
+		FromAddress:  pubKey.Address(),
 		ToAddress:    toAddress,
 		Data:         data,
 	}
-	err := dkg.privValidator.SignDKGMessage(dkg.chainID, newMsg)
+	err = dkg.privValidator.SignDKGMessage(dkg.chainID, newMsg)
 	if err != nil {
 		dkg.Logger.Error(err.Error())
 	}

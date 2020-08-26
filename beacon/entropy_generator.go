@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	dbm "github.com/tendermint/tm-db"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
@@ -15,7 +17,6 @@ import (
 	"github.com/tendermint/tendermint/libs/service"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
 const (
@@ -413,10 +414,14 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		panic(fmt.Sprintf("Has keys but previous entropy not set. Height %v", entropyGenerator.lastBlockHeight))
 	}
 
-	pubKey := entropyGenerator.aeon.privValidator.GetPubKey()
+	pubKey, err := entropyGenerator.aeon.privValidator.GetPubKey()
+	if err != nil {
+		entropyGenerator.Logger.Error("failed to retrieve public key", "err", err)
+		return
+	}
 	index, _ := entropyGenerator.aeon.validators.GetByAddress(pubKey.Address())
 	blockHeight := entropyGenerator.lastBlockHeight + 1
-	err := entropyGenerator.validInputs(blockHeight, index)
+	err = entropyGenerator.validInputs(blockHeight, index)
 	if err != nil {
 		entropyGenerator.Logger.Debug(err.Error())
 		return
