@@ -5,7 +5,7 @@ import (
 
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
-	"runtime/debug"
+	//"runtime/debug"
 	"fmt"
 )
 
@@ -99,8 +99,8 @@ func (app *localClient) DeliverTxAsync(params types.RequestDeliverTx) *ReqRes {
 }
 
 func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	//app.mtx.Lock()
+	//defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
 	return app.callback(
@@ -110,7 +110,7 @@ func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 }
 
 func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
-	debug.PrintStack()
+	//debug.PrintStack()
 	fmt.Printf("query.\n") // DELETEME_NH
 	//app.mtx.Lock()
 	//defer app.mtx.Unlock()
@@ -201,8 +201,8 @@ func (app *localClient) DeliverTxSync(req types.RequestDeliverTx) (*types.Respon
 }
 
 func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCheckTx, error) {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	//app.mtx.Lock()
+	//defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
 	return &res, nil
@@ -210,7 +210,7 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
 
-	debug.PrintStack()
+	//debug.PrintStack()
 	fmt.Printf("query sync\n") // DELETEME_NH
 
 	//app.mtx.Lock()
