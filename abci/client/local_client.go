@@ -5,6 +5,7 @@ import (
 
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
+	"runtime/debug"
 )
 
 var _ Client = (*localClient)(nil)
@@ -54,8 +55,8 @@ func (app *localClient) FlushAsync() *ReqRes {
 }
 
 func (app *localClient) EchoAsync(msg string) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	return app.callback(
 		types.ToRequestEcho(msg),
@@ -64,8 +65,8 @@ func (app *localClient) EchoAsync(msg string) *ReqRes {
 }
 
 func (app *localClient) InfoAsync(req types.RequestInfo) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.Info(req)
 	return app.callback(
@@ -75,8 +76,8 @@ func (app *localClient) InfoAsync(req types.RequestInfo) *ReqRes {
 }
 
 func (app *localClient) SetOptionAsync(req types.RequestSetOption) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.SetOption(req)
 	return app.callback(
@@ -86,8 +87,8 @@ func (app *localClient) SetOptionAsync(req types.RequestSetOption) *ReqRes {
 }
 
 func (app *localClient) DeliverTxAsync(params types.RequestDeliverTx) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.DeliverTx(params)
 	return app.callback(
@@ -97,8 +98,8 @@ func (app *localClient) DeliverTxAsync(params types.RequestDeliverTx) *ReqRes {
 }
 
 func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
 	return app.callback(
@@ -108,6 +109,8 @@ func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 }
 
 func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
+	debug.StackTrace()
+	fmt.Printf("query.\n") // DELETEME_NH
 	//app.mtx.Lock()
 	//defer app.mtx.Unlock()
 
@@ -119,8 +122,8 @@ func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
 }
 
 func (app *localClient) CommitAsync() *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.Commit()
 	return app.callback(
@@ -130,8 +133,8 @@ func (app *localClient) CommitAsync() *ReqRes {
 }
 
 func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.InitChain(req)
 	return app.callback(
@@ -141,8 +144,8 @@ func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 }
 
 func (app *localClient) BeginBlockAsync(req types.RequestBeginBlock) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.BeginBlock(req)
 	return app.callback(
@@ -152,8 +155,8 @@ func (app *localClient) BeginBlockAsync(req types.RequestBeginBlock) *ReqRes {
 }
 
 func (app *localClient) EndBlockAsync(req types.RequestEndBlock) *ReqRes {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.EndBlock(req)
 	return app.callback(
@@ -173,38 +176,42 @@ func (app *localClient) EchoSync(msg string) (*types.ResponseEcho, error) {
 }
 
 func (app *localClient) InfoSync(req types.RequestInfo) (*types.ResponseInfo, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.Info(req)
 	return &res, nil
 }
 
 func (app *localClient) SetOptionSync(req types.RequestSetOption) (*types.ResponseSetOption, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.SetOption(req)
 	return &res, nil
 }
 
 func (app *localClient) DeliverTxSync(req types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.DeliverTx(req)
 	return &res, nil
 }
 
 func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCheckTx, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
 	return &res, nil
 }
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
+
+	debug.StackTrace()
+	fmt.Printf("query sync\n") // DELETEME_NH
+
 	//app.mtx.Lock()
 	//defer app.mtx.Unlock()
 
@@ -213,32 +220,32 @@ func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery,
 }
 
 func (app *localClient) CommitSync() (*types.ResponseCommit, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.Commit()
 	return &res, nil
 }
 
 func (app *localClient) InitChainSync(req types.RequestInitChain) (*types.ResponseInitChain, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.InitChain(req)
 	return &res, nil
 }
 
 func (app *localClient) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.BeginBlock(req)
 	return &res, nil
 }
 
 func (app *localClient) EndBlockSync(req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.EndBlock(req)
 	return &res, nil
