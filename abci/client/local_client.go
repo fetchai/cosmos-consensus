@@ -6,6 +6,7 @@ import (
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
 	"runtime/debug"
+	"fmt"
 )
 
 var _ Client = (*localClient)(nil)
@@ -109,7 +110,7 @@ func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 }
 
 func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
-	debug.StackTrace()
+	debug.PrintStack()
 	fmt.Printf("query.\n") // DELETEME_NH
 	//app.mtx.Lock()
 	//defer app.mtx.Unlock()
@@ -209,7 +210,7 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
 
-	debug.StackTrace()
+	debug.PrintStack()
 	fmt.Printf("query sync\n") // DELETEME_NH
 
 	//app.mtx.Lock()
