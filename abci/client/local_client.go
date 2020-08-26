@@ -211,12 +211,14 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
 
 	//debug.PrintStack()
-	fmt.Printf("query sync\n") // DELETEME_NH
 
 	//app.mtx.Lock()
 	//defer app.mtx.Unlock()
 
 	res := app.Application.Query(req)
+
+	fmt.Sprintf("query sync %v\n", res) // DELETEME_NH
+
 	return &res, nil
 }
 
