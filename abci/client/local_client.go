@@ -221,7 +221,7 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
 
-	time.Sleep(5 * time.Millisecond)
+	//time.Sleep(1 * time.Millisecond)
 
 	app.queries++
 
