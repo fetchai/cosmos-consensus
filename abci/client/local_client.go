@@ -70,7 +70,7 @@ func (app *localClient) InfoAsync(req types.RequestInfo) *ReqRes {
 
 	res := app.Application.Info(req)
 
-	fmt.Printf("info async %v\n", res) // DELETEME_NH
+	//fmt.Printf("info async %v\n", res) // DELETEME_NH
 
 	return app.callback(
 		types.ToRequestInfo(req),
@@ -106,7 +106,7 @@ func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 
 	res := app.Application.CheckTx(req)
 
-	fmt.Printf("check tx async %v\n", res) // DELETEME_NH
+	//fmt.Printf("check tx async %v\n", res) // DELETEME_NH
 
 	return app.callback(
 		types.ToRequestCheckTx(req),
@@ -120,7 +120,7 @@ func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
 
 	res := app.Application.Query(req)
 
-	fmt.Printf("query async %v\n", res) // DELETEME_NH
+	//fmt.Printf("query async %v\n", res) // DELETEME_NH
 
 	return app.callback(
 		types.ToRequestQuery(req),
@@ -212,18 +212,18 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 
 	res := app.Application.CheckTx(req)
 
-	fmt.Printf("check tx sync %v\n", res) // DELETEME_NH
+	//fmt.Printf("check tx sync %v\n", res) // DELETEME_NH
 
 	return &res, nil
 }
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	//app.mtx.Lock()
+	//defer app.mtx.Unlock()
 
 	res := app.Application.Query(req)
 
-	fmt.Printf("query sync %v\n", res) // DELETEME_NH
+	//fmt.Printf("query sync %v\n", res) // DELETEME_NH
 
 	return &res, nil
 }
