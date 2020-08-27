@@ -2,7 +2,7 @@ package abcicli
 
 import (
 	"sync"
-	"fmt"
+	//"fmt"
 
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
