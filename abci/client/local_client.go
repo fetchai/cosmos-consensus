@@ -2,7 +2,7 @@ package abcicli
 
 import (
 	"sync"
-	//"fmt"
+	"fmt"
 
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
@@ -20,6 +20,7 @@ type localClient struct {
 	mtx *sync.Mutex
 	types.Application
 	Callback
+	queries int
 }
 
 func NewLocalClient(mtx *sync.Mutex, app types.Application) Client {
@@ -218,12 +219,15 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 }
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
-	//app.mtx.Lock()
-	//defer app.mtx.Unlock()
+
+	app.queries++
+
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.Query(req)
 
-	//fmt.Printf("query sync %v\n", res) // DELETEME_NH
+	fmt.Printf("query sync %v\n", app.queries) // DELETEME_NH
 
 	return &res, nil
 }
