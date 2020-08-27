@@ -3,6 +3,7 @@ package abcicli
 import (
 	"sync"
 	"fmt"
+	"time"
 
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
@@ -219,6 +220,8 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 }
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
+
+	time.Sleep(500 * time.Millisecond)
 
 	app.queries++
 
