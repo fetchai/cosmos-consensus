@@ -69,6 +69,9 @@ func (app *localClient) InfoAsync(req types.RequestInfo) *ReqRes {
 	defer app.mtx.Unlock()
 
 	res := app.Application.Info(req)
+
+	fmt.Sprintf("info async %v\n", res) // DELETEME_NH
+
 	return app.callback(
 		types.ToRequestInfo(req),
 		types.ToResponseInfo(res),
@@ -102,6 +105,9 @@ func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 	defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
+
+	fmt.Sprintf("check tx async %v\n", res) // DELETEME_NH
+
 	return app.callback(
 		types.ToRequestCheckTx(req),
 		types.ToResponseCheckTx(res),
@@ -113,6 +119,9 @@ func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
 	defer app.mtx.Unlock()
 
 	res := app.Application.Query(req)
+
+	fmt.Sprintf("query async %v\n", res) // DELETEME_NH
+
 	return app.callback(
 		types.ToRequestQuery(req),
 		types.ToResponseQuery(res),
@@ -202,6 +211,9 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 	defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
+
+	fmt.Sprintf("check tx sync %v\n", res) // DELETEME_NH
+
 	return &res, nil
 }
 
