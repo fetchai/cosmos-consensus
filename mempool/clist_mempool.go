@@ -877,7 +877,7 @@ func (mem *CListMempool) recheckTxs() {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
 
-	fmt.Printf("Not rechecking\n") // DELETEME_NH
+	fmt.Printf("Not rechecking!\n") // DELETEME_NH
 
 	//atomic.StoreInt32(&mem.rechecking, 1)
 //	mem.recheckCursor = mem.txs.Front()
