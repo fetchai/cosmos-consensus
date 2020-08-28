@@ -714,7 +714,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 		mem.buildingUp = false
 	}
 
-	if mem.height == 2500 {
+	if mem.height == 300 {
 		mem.buildingUp = true
 	}
 
