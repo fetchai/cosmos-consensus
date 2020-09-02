@@ -231,12 +231,12 @@ func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery,
 
 	res := app.Application.Query(req)
 
-	fmt.Printf("query sync %v\n", app.queries) // DELETEME_NH
+	//fmt.Printf("query sync %v\n", app.queries) // DELETEME_NH
 	//fmt.Printf("query sync %v\n", req.) // DELETEME_NH
 
-	if app.queries <= 100 {
-		debug.PrintStack()
-	}
+	//if app.queries <= 100 {
+	//	debug.PrintStack()
+	//}
 
 	return &res, nil
 }

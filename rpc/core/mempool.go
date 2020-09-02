@@ -21,7 +21,7 @@ var globalFnExists bool = false
 
 func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
 
-	fmt.Printf("received a bulk tx submission\n") // DELETEME_NH
+	fmt.Printf("received a bulk tx submission len %v\n", len(txs)) // DELETEME_NH
 
 	for _, tx := range txs {
 		BroadcastTxAsync(ctx, tx)
