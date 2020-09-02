@@ -2,9 +2,6 @@ package abcicli
 
 import (
 	"sync"
-	"fmt"
-	//"time"
-	"runtime/debug"
 
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
