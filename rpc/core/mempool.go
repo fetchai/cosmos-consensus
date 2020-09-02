@@ -23,6 +23,10 @@ func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.Result
 
 	fmt.Printf("received a bulk tx submission len %v\n", len(txs)) // DELETEME_NH
 
+	if len(txs) == 0 {
+		return &ctypes.ResultBroadcastTx{}, nil
+	}
+
 	for _, tx := range txs {
 		BroadcastTxAsync(ctx, tx)
 	}
