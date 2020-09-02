@@ -19,6 +19,17 @@ import (
 var globalTxPending chan *types.Tx = make(chan *types.Tx, 10000)
 var globalFnExists bool = false
 
+func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
+
+	fmt.Printf("received a bulk tx submission\n") // DELETEME_NH
+
+	for _, tx := range txs {
+		BroadcastTxAsync(ctx, tx)
+	}
+
+	return &ctypes.ResultBroadcastTx{Hash: txs[0].Hash()}, nil
+}
+
 //-----------------------------------------------------------------------------
 // NOTE: tx should be signed, but this is only checked at the app level (not by Tendermint!)
 

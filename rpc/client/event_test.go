@@ -81,6 +81,7 @@ func TestBlockEvents(t *testing.T) {
 }
 
 func TestTxEventsSentWithBroadcastTxAsync(t *testing.T) { testTxEventsSent(t, "async") }
+func TestTxEventsSentWithBroadcastTxAsyncBulk(t *testing.T) { testTxEventsSent(t, "asyncBulk") }
 func TestTxEventsSentWithBroadcastTxSync(t *testing.T)  { testTxEventsSent(t, "sync") }
 
 func testTxEventsSent(t *testing.T, broadcastMethod string) {
@@ -108,6 +109,8 @@ func testTxEventsSent(t *testing.T, broadcastMethod string) {
 			switch broadcastMethod {
 			case "async":
 				txres, err = c.BroadcastTxAsync(tx)
+			case "asyncBulk":
+				txres, err = c.BroadcastTxAsyncBulk(tx)
 			case "sync":
 				txres, err = c.BroadcastTxSync(tx)
 			default:

@@ -79,9 +79,10 @@ func RPCRoutes(c rpcclient.Client) map[string]*rpcserver.RPCFunc {
 		"validators": rpcserver.NewRPCFunc(makeValidatorsFunc(c), "height"),
 
 		// broadcast API
-		"broadcast_tx_commit": rpcserver.NewRPCFunc(makeBroadcastTxCommitFunc(c), "tx"),
-		"broadcast_tx_sync":   rpcserver.NewRPCFunc(makeBroadcastTxSyncFunc(c), "tx"),
-		"broadcast_tx_async":  rpcserver.NewRPCFunc(makeBroadcastTxAsyncFunc(c), "tx"),
+		"broadcast_tx_commit":       rpcserver.NewRPCFunc(makeBroadcastTxCommitFunc(c), "tx"),
+		"broadcast_tx_sync":         rpcserver.NewRPCFunc(makeBroadcastTxSyncFunc(c), "tx"),
+		"broadcast_tx_async":        rpcserver.NewRPCFunc(makeBroadcastTxAsyncFunc(c), "tx"),
+		"broadcast_tx_async_bulk":  rpcserver.NewRPCFunc(makeBroadcastTxAsyncBulkFunc(c), "tx"),
 
 		// abci API
 		"abci_query": rpcserver.NewRPCFunc(makeABCIQueryFunc(c), "path,data"),
@@ -162,6 +163,14 @@ func makeBroadcastTxAsyncFunc(c rpcclient.Client) func(
 ) (*ctypes.ResultBroadcastTx, error) {
 	return func(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 		return c.BroadcastTxAsync(tx)
+	}
+}
+func makeBroadcastTxAsyncBulkFunc(c rpcclient.Client) func(
+	ctx *rpctypes.Context,
+	txs []types.Tx,
+) (*ctypes.ResultBroadcastTx, error) {
+	return func(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
+		return c.BroadcastTxAsyncBulk(txs)
 	}
 }
 
