@@ -19,7 +19,6 @@ type localClient struct {
 	mtx *sync.Mutex
 	types.Application
 	Callback
-	queries int
 }
 
 func NewLocalClient(mtx *sync.Mutex, app types.Application) Client {
@@ -69,9 +68,6 @@ func (app *localClient) InfoAsync(req types.RequestInfo) *ReqRes {
 	defer app.mtx.Unlock()
 
 	res := app.Application.Info(req)
-
-	//fmt.Printf("info async %v\n", res) // DELETEME_NH
-
 	return app.callback(
 		types.ToRequestInfo(req),
 		types.ToResponseInfo(res),
@@ -105,9 +101,6 @@ func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
 	defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
-
-	//fmt.Printf("check tx async %v\n", res) // DELETEME_NH
-
 	return app.callback(
 		types.ToRequestCheckTx(req),
 		types.ToResponseCheckTx(res),
@@ -119,9 +112,6 @@ func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
 	defer app.mtx.Unlock()
 
 	res := app.Application.Query(req)
-
-	//fmt.Printf("query async %v\n", res) // DELETEME_NH
-
 	return app.callback(
 		types.ToRequestQuery(req),
 		types.ToResponseQuery(res),
@@ -211,30 +201,14 @@ func (app *localClient) CheckTxSync(req types.RequestCheckTx) (*types.ResponseCh
 	defer app.mtx.Unlock()
 
 	res := app.Application.CheckTx(req)
-
-	//fmt.Printf("check tx sync %v\n", res) // DELETEME_NH
-
 	return &res, nil
 }
 
 func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, error) {
-
-	//time.Sleep(1 * time.Millisecond)
-
-	app.queries++
-
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
 	res := app.Application.Query(req)
-
-	//fmt.Printf("query sync %v\n", app.queries) // DELETEME_NH
-	//fmt.Printf("query sync %v\n", req.) // DELETEME_NH
-
-	//if app.queries <= 100 {
-	//	debug.PrintStack()
-	//}
-
 	return &res, nil
 }
 

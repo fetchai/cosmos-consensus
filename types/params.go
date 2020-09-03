@@ -80,7 +80,7 @@ func DefaultBlockParams() BlockParams {
 	return BlockParams{
 		MaxBytes:   22020096, // 21MB
 		MaxGas:     -1,
-		TimeIotaMs: 10, // 1s
+		TimeIotaMs: 1000, // 1s
 	}
 }
 

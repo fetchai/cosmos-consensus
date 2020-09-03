@@ -149,12 +149,11 @@ func (pubKey PubKeyEd25519) Bytes() []byte {
 }
 
 func (pubKey PubKeyEd25519) VerifyBytes(msg []byte, sig []byte) bool {
-	return true
-	//// make sure we use the same algorithm to sign
-	//if len(sig) != SignatureSize {
-	//	return false
-	//}
-	//return ed25519.Verify(pubKey[:], msg, sig)
+	// make sure we use the same algorithm to sign
+	if len(sig) != SignatureSize {
+		return false
+	}
+	return ed25519.Verify(pubKey[:], msg, sig)
 }
 
 func (pubKey PubKeyEd25519) String() string {

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
 	"github.com/pkg/errors"
-	tmtimer "github.com/tendermint/tendermint/libs/timer"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -39,9 +39,6 @@ type CListMempool struct {
 	height     int64 // the last block Update()'d to
 	txsBytes   int64 // total size of mempool, in bytes
 	rechecking int32 // for re-checking filtered txs on Update()
-	buildingUp bool
-	stopIngress bool
-	allowTxCheck bool
 
 	// notify listeners (ie. consensus) when txs are available
 	notifiedTxsAvailable bool
@@ -116,9 +113,6 @@ func NewCListMempool(
 		rechecking:           0,
 		recheckCursor:        nil,
 		recheckEnd:           nil,
-		buildingUp:           false,
-		stopIngress:          false,
-		allowTxCheck:         false,
 		logger:               log.NewNopLogger(),
 		metrics:              NopMetrics(),
 		slotProtocolEnforcer: slotProtocolEnforcer,
@@ -313,75 +307,6 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 
 	return nil
 }
-
-func (mem *CListMempool) CheckTxBulk(txs []*types.Tx, txInfo TxInfo) (err error) {
-
-	if mem.stopIngress == true {
-		return nil
-	}
-
-	//for mem.allowTxCheck == false {
-	//	time.Sleep(5 * time.Millisecond)
-	//}
-
-	//mem.allowTxCheck = false
-
-	mem.metrics.TxsArrived.Add(float64(len(txs)))
-
-	mem.proxyMtx.Lock()
-	// use defer to unlock mutex because application (*local client*) might panic
-	defer mem.proxyMtx.Unlock()
-
-	for _, txPtr := range txs {
-
-		tx := *txPtr
-
-		// CACHE
-		if !mem.cache.Push(tx) {
-			// Record a new sender for a tx we've already seen.
-			// Note it's possible a tx is still in the cache but no longer in the mempool
-			// (eg. after committing a block, txs are removed from mempool but not cache),
-			// so we only record the sender for txs still in the mempool.
-			if e, ok := mem.txsMap.Load(txKey(tx)); ok {
-				memTx := e.(*clist.CElement).Value.(*mempoolTx)
-				memTx.senders.LoadOrStore(txInfo.SenderID, true)
-				// TODO: consider punishing peer for dups,
-				// its non-trivial since invalid txs can become valid,
-				// but they can spam the same tx with little cost to them atm.
-			}
-
-			fmt.Printf("asdasdf tx in cache\n") // DELETEME_NH
-			return ErrTxInCache
-		}
-		// END CACHE
-
-		//// WAL
-		//if mem.wal != nil {
-		//	// TODO: Notify administrators when WAL fails
-		//	_, err := mem.wal.Write([]byte(tx))
-		//	if err != nil {
-		//		mem.logger.Error("Error writing to WAL", "err", err)
-		//	}
-		//	_, err = mem.wal.Write([]byte("\n"))
-		//	if err != nil {
-		//		mem.logger.Error("Error writing to WAL", "err", err)
-		//	}
-		//}
-		// END WAL
-
-		// NOTE: proxyAppConn may error if tx buffer is full
-		if err = mem.proxyAppConn.Error(); err != nil {
-			fmt.Printf("Proxy app error!\n") // DELETEME_NH
-			return err
-		}
-
-		reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
-		reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, nil))
-	}
-
-	return nil
-}
-
 
 // Global callback that will be called after every ABCI response.
 // Having a single global callback avoids needing to set a callback for each request.
@@ -584,7 +509,7 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 
 	// There isn't any new Txs
-	if mem.txs.Len() == 0 || true {
+	if mem.txs.Len() == 0 {
 		return
 	}
 
@@ -680,17 +605,11 @@ func (mem *CListMempool) notifyTxsAvailable() {
 
 func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode bool) types.Txs {
 
-	timer := tmtimer.NewFunctionTimer(10, "ReapMaxBytesMaxGas", nil)
-	defer timer.Finish()
-
 	mem.metrics.MaxBytesReap.Set(float64(maxBytes))
 	mem.metrics.MaxGasReap.Set(float64(maxGas))
 
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
-
-	timer2 := tmtimer.NewFunctionTimer(5, "ReapMaxBytesMaxGasPostLock", nil)
-	defer timer2.Finish()
 
 	for atomic.LoadInt32(&mem.rechecking) > 0 {
 		// TODO: Something better?
@@ -703,61 +622,36 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 	// size per tx, and set the initial capacity based off of that.
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
 	txs := make([]types.Tx, 0, mem.txs.Len())
+	for e := mem.txs.Front(); e != nil; e = e.Next() {
+		memTx := e.Value.(*mempoolTx)
 
-	if mem.Size() >= 20000 {
-
-		if mem.buildingUp == true {
-			//mem.stopIngress = true
-			fmt.Printf("stopping ingress\n") // DELETEME_NH
+		// Since we know all priority txs should be at the front, we can
+		// stop reaping once we find one that is not, when in fallback mode
+		if fallbackMode && !isPriority(memTx.tx) {
+			break
 		}
 
-		mem.buildingUp = false
-	}
-
-	if mem.height == 300 {
-		mem.buildingUp = true
-	}
-
-	if mem.buildingUp == false {
-		for e := mem.txs.Front(); e != nil; e = e.Next() {
-			memTx := e.Value.(*mempoolTx)
-
-			// Since we know all priority txs should be at the front, we can
-			// stop reaping once we find one that is not, when in fallback mode
-			if fallbackMode && !isPriority(memTx.tx) {
-				break
-			}
-
-			// Check total size requirement
-			aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
-			if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
-				break
-			}
-			totalBytes += int64(len(memTx.tx)) + aminoOverhead
-			// Check total gas requirement.
-			// If maxGas is negative, skip this check.
-			// Since newTotalGas < masGas, which
-			// must be non-negative, it follows that this won't overflow.
-			newTotalGas := totalGas + memTx.gasWanted
-			if maxGas > -1 && newTotalGas > maxGas {
-				break
-			}
-			totalGas = newTotalGas
-			txs = append(txs, memTx.tx)
+		// Check total size requirement
+		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
+		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
+			break
 		}
+		totalBytes += int64(len(memTx.tx)) + aminoOverhead
+		// Check total gas requirement.
+		// If maxGas is negative, skip this check.
+		// Since newTotalGas < masGas, which
+		// must be non-negative, it follows that this won't overflow.
+		newTotalGas := totalGas + memTx.gasWanted
+		if maxGas > -1 && newTotalGas > maxGas {
+			break
+		}
+		totalGas = newTotalGas
+		txs = append(txs, memTx.tx)
 	}
-
-	// Update metrics
-	mem.metrics.Size.Set(float64(mem.Size()))
-	mem.metrics.SizeBytes.Set(float64(mem.TxsBytes()))
 
 	mem.metrics.GasReap.Set(float64(totalGas))
-	mem.metrics.BytesReap.Set(float64(totalBytes))
-
-	fmt.Printf("Len of reaped: %v. Len of mempool %v\n", len(txs), mem.Size()) // DELETEME_NH
-
 	if mem.Size() > 0 {
-		mem.metrics.MempoolReapedPercent.Set((float64(len(txs)) / float64(mem.Size()) * 100))
+		mem.metrics.MempoolReapedPercent.Set(float64((len(txs) / mem.Size()) * 100))
 	} else {
 		mem.metrics.MempoolReapedPercent.Set(0.0)
 	}
@@ -805,10 +699,6 @@ func (mem *CListMempool) Update(
 	preCheck PreCheckFunc,
 	postCheck PostCheckFunc,
 ) error {
-
-	timer := tmtimer.NewFunctionTimer(5, "Update", nil)
-	defer timer.Finish()
-
 	// Set height
 	mem.height = height
 	mem.notifiedTxsAvailable = false
@@ -867,8 +757,6 @@ func (mem *CListMempool) Update(
 	mem.metrics.Size.Set(float64(mem.Size()))
 	mem.metrics.SizeBytes.Set(float64(mem.TxsBytes()))
 
-	mem.allowTxCheck = true
-
 	return nil
 }
 
@@ -877,21 +765,19 @@ func (mem *CListMempool) recheckTxs() {
 		panic("recheckTxs is called, but the mempool is empty")
 	}
 
-	fmt.Printf("Not rechecking!\n") // DELETEME_NH
+	atomic.StoreInt32(&mem.rechecking, 1)
+	mem.recheckCursor = mem.txs.Front()
+	mem.recheckEnd = mem.txs.Back()
 
-	//atomic.StoreInt32(&mem.rechecking, 1)
-//	mem.recheckCursor = mem.txs.Front()
-//	mem.recheckEnd = mem.txs.Back()
-//
-//	// Push txs to proxyAppConn
-//	// NOTE: globalCb may be called concurrently.
-//	for e := mem.txs.Front(); e != nil; e = e.Next() {
-//		memTx := e.Value.(*mempoolTx)
-//		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
-//			Tx:   memTx.tx,
-//			Type: abci.CheckTxType_Recheck,
-//		})
-//	}
+	// Push txs to proxyAppConn
+	// NOTE: globalCb may be called concurrently.
+	for e := mem.txs.Front(); e != nil; e = e.Next() {
+		memTx := e.Value.(*mempoolTx)
+		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
+			Tx:   memTx.tx,
+			Type: abci.CheckTxType_Recheck,
+		})
+	}
 
 	mem.proxyAppConn.FlushAsync()
 }
