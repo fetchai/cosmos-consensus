@@ -7,21 +7,31 @@ import (
 
 	"github.com/pkg/errors"
 
-	tmtimer "github.com/tendermint/tendermint/libs/timer"
 	abci "github.com/tendermint/tendermint/abci/types"
 	mempl "github.com/tendermint/tendermint/mempool"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	rpctypes "github.com/tendermint/tendermint/rpc/lib/types"
 	"github.com/tendermint/tendermint/types"
-	//"math/rand"
 )
 
-var globalTxPending chan *types.Tx = make(chan *types.Tx, 10000)
-var globalFnExists bool = false
+//-----------------------------------------------------------------------------
+// NOTE: tx should be signed, but this is only checked at the app level (not by Tendermint!)
 
+// BroadcastTxAsync returns right away, with no response. Does not wait for
+// CheckTx nor DeliverTx results.
+// More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_async
+func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+	err := mempool.CheckTx(tx, nil, mempl.TxInfo{})
+
+	if err != nil {
+		return nil, err
+	}
+	return &ctypes.ResultBroadcastTx{Hash: tx.Hash()}, nil
+}
+
+// BroadcastTxAsyncBulk acts as a bulk version of BroadcastTxAsync. Only the first tx hash is returned
+// as a performance shortcut
 func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
-
-	fmt.Printf("received a bulk tx submission len %v\n", len(txs)) // DELETEME_NH
 
 	if len(txs) == 0 {
 		return &ctypes.ResultBroadcastTx{}, nil
@@ -34,71 +44,10 @@ func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.Result
 	return &ctypes.ResultBroadcastTx{Hash: txs[0].Hash()}, nil
 }
 
-//-----------------------------------------------------------------------------
-// NOTE: tx should be signed, but this is only checked at the app level (not by Tendermint!)
-
-// BroadcastTxAsync returns right away, with no response. Does not wait for
-// CheckTx nor DeliverTx results.
-// More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_async
-func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
-
-	timer := tmtimer.NewFunctionTimer(1, "AsyncBroadcast", nil)
-	defer timer.Finish()
-
-	globalTxPending <- &tx
-
-	if globalFnExists == false {
-		globalFnExists = true
-
-		fmt.Printf("startme\n") // DELETEME_NH
-
-		go func() {
-
-			fmt.Printf("startme2\n") // DELETEME_NH
-
-			for {
-				timer := tmtimer.NewFunctionTimer(10, "AsyncBroadcastBulk", nil)
-				defer timer.Finish()
-
-				var bulk []*types.Tx
-
-				// collect all txs
-				for {
-					select {
-					case tx := <-globalTxPending:
-						bulk = append(bulk, tx)
-					default:
-						goto FIN
-					}
-				}
-				FIN:
-
-				if len(bulk) > 0 {
-					//fmt.Printf("bulk txs %v\n", len(bulk)) // DELETEME_NH
-					mempool.CheckTxBulk(bulk, mempl.TxInfo{})
-				}
-
-				time.Sleep(100 * time.Millisecond)
-			}
-		}()
-	}
-
-	//go mempool.CheckTx(tx, nil, mempl.TxInfo{})
-
-	//if err != nil {
-	//	return nil, err
-	//}
-	return &ctypes.ResultBroadcastTx{Hash: tx.Hash()}, nil
-}
-
 // BroadcastTxSync returns with the response from CheckTx. Does not wait for
 // DeliverTx result.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_sync
 func BroadcastTxSync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
-
-	timer := tmtimer.NewFunctionTimer(10, "SyncBroadcast", nil)
-	defer timer.Finish()
-
 	resCh := make(chan *abci.Response, 1)
 	err := mempool.CheckTx(tx, func(res *abci.Response) {
 		resCh <- res
