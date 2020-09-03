@@ -36,35 +36,36 @@ func NewPubKeyMultisigThreshold(k int, pubkeys []crypto.PubKey) crypto.PubKey {
 // The multisig uses a bitarray, so multiple signatures for the same key is not
 // a concern.
 func (pk PubKeyMultisigThreshold) VerifyBytes(msg []byte, marshalledSig []byte) bool {
-	var sig Multisignature
-	err := cdc.UnmarshalBinaryBare(marshalledSig, &sig)
-	if err != nil {
-		return false
-	}
-	size := sig.BitArray.Size()
-	// ensure bit array is the correct size
-	if len(pk.PubKeys) != size {
-		return false
-	}
-	// ensure size of signature list
-	if len(sig.Sigs) < int(pk.K) || len(sig.Sigs) > size {
-		return false
-	}
-	// ensure at least k signatures are set
-	if sig.BitArray.NumTrueBitsBefore(size) < int(pk.K) {
-		return false
-	}
-	// index in the list of signatures which we are concerned with.
-	sigIndex := 0
-	for i := 0; i < size; i++ {
-		if sig.BitArray.GetIndex(i) {
-			if !pk.PubKeys[i].VerifyBytes(msg, sig.Sigs[sigIndex]) {
-				return false
-			}
-			sigIndex++
-		}
-	}
 	return true
+//	var sig Multisignature
+//	err := cdc.UnmarshalBinaryBare(marshalledSig, &sig)
+//	if err != nil {
+//		return false
+//	}
+//	size := sig.BitArray.Size()
+//	// ensure bit array is the correct size
+//	if len(pk.PubKeys) != size {
+//		return false
+//	}
+//	// ensure size of signature list
+//	if len(sig.Sigs) < int(pk.K) || len(sig.Sigs) > size {
+//		return false
+//	}
+//	// ensure at least k signatures are set
+//	if sig.BitArray.NumTrueBitsBefore(size) < int(pk.K) {
+//		return false
+//	}
+//	// index in the list of signatures which we are concerned with.
+//	sigIndex := 0
+//	for i := 0; i < size; i++ {
+//		if sig.BitArray.GetIndex(i) {
+//			if !pk.PubKeys[i].VerifyBytes(msg, sig.Sigs[sigIndex]) {
+//				return false
+//			}
+//			sigIndex++
+//		}
+//	}
+//	return true
 }
 
 // Bytes returns the amino encoded version of the PubKeyMultisigThreshold
