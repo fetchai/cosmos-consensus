@@ -72,7 +72,7 @@ func (a ABCIApp) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, error
 	}, nil
 }
 
-func (a ABCIApp) BroadcastTxAsyncBulk(txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
+func (a ABCIApp) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
 	tx := txs[0]
 	c := a.App.CheckTx(abci.RequestCheckTx{Tx: tx})
 	// and this gets written in a background thread...
@@ -147,7 +147,7 @@ func (m ABCIMock) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, erro
 	return res.(*ctypes.ResultBroadcastTx), nil
 }
 
-func (m ABCIMock) BroadcastTxAsyncBulk(txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
+func (m ABCIMock) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
 	tx := txs[0]
 	res, err := m.Broadcast.GetResponse(tx)
 	if err != nil {
@@ -239,7 +239,7 @@ func (r *ABCIRecorder) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx,
 	return res, err
 }
 
-func (r *ABCIRecorder) BroadcastTxAsyncBulk(txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
+func (r *ABCIRecorder) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
 	res, err := r.Client.BroadcastTxAsyncBulk(txs)
 
 	r.addCall(Call{
