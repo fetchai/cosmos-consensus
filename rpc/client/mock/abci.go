@@ -73,13 +73,21 @@ func (a ABCIApp) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, error
 }
 
 func (a ABCIApp) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
-	tx := txs[0]
-	c := a.App.CheckTx(abci.RequestCheckTx{Tx: tx})
-	// and this gets written in a background thread...
-	if !c.IsErr() {
-		go func() { a.App.DeliverTx(abci.RequestDeliverTx{Tx: tx}) }() // nolint: errcheck
+	var c abci.ResponseCheckTx
+
+	for _, tx := range txs {
+		c = a.App.CheckTx(abci.RequestCheckTx{Tx: tx})
+		// and this gets written in a background thread...
+		if !c.IsErr() {
+			go func() { a.App.DeliverTx(abci.RequestDeliverTx{Tx: tx}) }() // nolint: errcheck
+		}
 	}
-	return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: tx.Hash()}, nil
+
+	if len(txs) == 0 {
+		return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: nil}, nil
+	}
+
+	return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: txs[0].Hash()}, nil
 }
 
 func (a ABCIApp) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
@@ -148,12 +156,22 @@ func (m ABCIMock) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, erro
 }
 
 func (m ABCIMock) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
-	tx := txs[0]
-	res, err := m.Broadcast.GetResponse(tx)
-	if err != nil {
-		return nil, err
+
+	var res *ctypes.ResultBroadcastTx
+	var err error
+
+	for _, tx := range txs {
+		res1, err1 := m.Broadcast.GetResponse(tx)
+
+		res = res1.(*ctypes.ResultBroadcastTx)
+		err = err1
+
+		if err != nil {
+			return nil, err
+		}
 	}
-	return res.(*ctypes.ResultBroadcastTx), nil
+
+	return res, nil
 }
 
 func (m ABCIMock) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
