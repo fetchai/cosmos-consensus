@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/tendermint/tendermint/tx_extensions"
 
 	"github.com/tendermint/tendermint/libs/service"

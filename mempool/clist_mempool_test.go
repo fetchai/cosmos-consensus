@@ -675,9 +675,9 @@ func TestSpecialTxPriority(t *testing.T) {
 	require.Equal(t, len(priorityTxs), TxsToAdd, "wasn't able to get desired Txs from mempool")
 
 	// Check parity (note the order is reversed from what went in)
-	for tx, _ := range priorityTxs {
+	for tx := range priorityTxs {
 		foundTx := false
-		for origTx, _ := range origTxs {
+		for origTx := range origTxs {
 			if tx == origTx {
 				foundTx = true
 				break

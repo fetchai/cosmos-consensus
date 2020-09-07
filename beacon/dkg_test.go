@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	dbm "github.com/tendermint/tm-db"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/log"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
 type dkgFailure uint8
@@ -118,18 +119,18 @@ func TestDKGCheckMessage(t *testing.T) {
 		}, false, types.Invalid},
 		{"Not from validator", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
-			pubKey := privVal.GetPubKey()
+			pubKey, _ := privVal.GetPubKey()
 			msg.FromAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false, types.Invalid},
 		{"Correct ToAddress", func(msg *types.DKGMessage) {
-			pubKey := dkgToProcessMsg.privValidator.GetPubKey()
+			pubKey, _ := dkgToProcessMsg.privValidator.GetPubKey()
 			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, true, types.OK},
 		{"Incorrect ToAddress", func(msg *types.DKGMessage) {
 			privVal := types.NewMockPV()
-			pubKey := privVal.GetPubKey()
+			pubKey, _ := privVal.GetPubKey()
 			msg.ToAddress = pubKey.Address()
 			dkgToGenerateMsg.privValidator.SignDKGMessage(dkgToGenerateMsg.chainID, msg)
 		}, false, types.Invalid},
@@ -137,7 +138,7 @@ func TestDKGCheckMessage(t *testing.T) {
 			msg.Data = "changed data"
 		}, false, types.Invalid},
 		{"Message from self (not signed correctly)", func(msg *types.DKGMessage) {
-			pubKey := dkgToProcessMsg.privValidator.GetPubKey()
+			pubKey, _ := dkgToProcessMsg.privValidator.GetPubKey()
 			msg.FromAddress = pubKey.Address()
 		}, false, types.Invalid},
 		{"DKG message with incorrect type id", func(msg *types.DKGMessage) {
@@ -314,7 +315,7 @@ func TestDKGMessageMaxDataSize(t *testing.T) {
 		SignatureShare: signature,
 	}
 
-	pubKey := privVal.GetPubKey()
+	pubKey, _ := privVal.GetPubKey()
 
 	dkgMessage := types.DKGMessage{
 		Type:         types.DKGDryRun,
@@ -356,7 +357,7 @@ func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivVal
 		sentBadShare: false,
 	}
 
-	pubKey := privVal.GetPubKey()
+	pubKey, _ := privVal.GetPubKey()
 
 	index, _ := vals.GetByAddress(pubKey.Address())
 	node.dkg.SetLogger(log.TestingLogger().With("dkgIndex", index))

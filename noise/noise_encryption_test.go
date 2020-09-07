@@ -6,6 +6,7 @@ import (
 
 	"github.com/flynn/noise"
 	"github.com/stretchr/testify/assert"
+
 	cfg "github.com/tendermint/tendermint/config"
 )
 

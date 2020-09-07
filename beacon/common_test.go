@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-kit/kit/log/term"
 
+	dbm "github.com/tendermint/tm-db"
+
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -21,7 +23,6 @@ import (
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
-	dbm "github.com/tendermint/tm-db"
 )
 
 const (
@@ -125,7 +126,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 		thisConfig := cfg.ResetTestRoot(fmt.Sprintf("%s_%d", testName, i))
 		configRootDirs = append(configRootDirs, thisConfig.RootDir)
 
-		pubKey := privVals[i].GetPubKey()
+		pubKey, _ := privVals[i].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		blockStores[i] = store.NewBlockStore(stateDB)
 

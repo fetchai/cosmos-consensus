@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/types"
 )
@@ -39,7 +40,7 @@ func TestAeonDetailsNew(t *testing.T) {
 
 	// Panic if validator index does not match dkg index
 	for _, val := range privVals {
-		pubKey := val.GetPubKey()
+		pubKey, _ := val.GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index != 0 {
 			assert.Panics(t, func() {
@@ -58,7 +59,7 @@ func TestAeonDetailsNew(t *testing.T) {
 
 	// Does not panic for all valid inputs
 	for _, val := range privVals {
-		pubKey := val.GetPubKey()
+		pubKey, _ := val.GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index == 0 {
 			assert.NotPanics(t, func() {

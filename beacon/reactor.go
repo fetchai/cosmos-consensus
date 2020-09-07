@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tendermint/go-amino"
+
 	bits "github.com/tendermint/tendermint/libs/bits"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"

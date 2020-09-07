@@ -77,14 +77,6 @@ $(PROTOBUF):
 	@go get github.com/gogo/protobuf/protoc-gen-gogo@v1.3.1
 .PHONY: protobuf
 
-buf: 
-	@echo "Installing buf..."
-	@curl -sSL \
-    "https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_S)-$(UNAME_M)" \
-    -o "$(BIN)/buf" && \
-	chmod +x "$(BIN)/buf"
-.PHONY: buf
-
 goodman: $(GOODMAN)
 $(GOODMAN):
 	@echo "Get Goodman"

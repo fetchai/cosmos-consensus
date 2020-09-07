@@ -1,11 +1,13 @@
 package beacon
 
 import (
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/tx_extensions"
 	"testing"
 
+	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/tx_extensions"
+
 	"github.com/stretchr/testify/assert"
+
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
 )

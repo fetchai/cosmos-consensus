@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -145,7 +146,10 @@ func testnetFiles(cmd *cobra.Command, args []string) error {
 		pvStateFile := filepath.Join(nodeDir, config.BaseConfig.PrivValidatorState)
 		pv := privval.LoadFilePV(pvKeyFile, pvStateFile)
 
-		pubKey := pv.GetPubKey()
+		pubKey, err := pv.GetPubKey()
+		if err != nil {
+			return errors.Wrap(err, "can't get pubkey")
+		}
 		genVals[i] = types.GenesisValidator{
 			Address: pubKey.Address(),
 			PubKey:  pubKey,

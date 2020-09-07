@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	amino "github.com/tendermint/go-amino"
+
 	tmlog "github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
 )

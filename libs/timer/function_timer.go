@@ -2,9 +2,10 @@ package timer
 
 import (
 	"fmt"
-	"github.com/tendermint/tendermint/libs/log"
 	"runtime/debug"
 	"time"
+
+	"github.com/tendermint/tendermint/libs/log"
 )
 
 //----------------------------------------
