@@ -111,8 +111,8 @@ func testTxEventsSent(t *testing.T, broadcastMethod string) {
 			switch broadcastMethod {
 			case "async":
 				txres, err = c.BroadcastTxAsync(tx)
-			case "asyncBulk":
-				txres, err = c.BroadcastTxAsyncBulk(tx)
+			//case "asyncBulk":
+			//	txres, err = c.BroadcastTxAsyncBulk(tx)
 			case "sync":
 				txres, err = c.BroadcastTxSync(tx)
 			default:
