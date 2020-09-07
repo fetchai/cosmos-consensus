@@ -7,7 +7,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 
-	//schnorrkel "github.com/ChainSafe/go-schnorrkel"
+	schnorrkel "github.com/ChainSafe/go-schnorrkel"
 )
 
 var _ crypto.PubKey = PubKeySr25519{}
@@ -33,29 +33,28 @@ func (pubKey PubKeySr25519) Bytes() []byte {
 }
 
 func (pubKey PubKeySr25519) VerifyBytes(msg []byte, sig []byte) bool {
-	return true
-//	// make sure we use the same algorithm to sign
-//	if len(sig) != SignatureSize {
-//		return false
-//	}
-//	var sig64 [SignatureSize]byte
-//	copy(sig64[:], sig)
-//
-//	publicKey := &(schnorrkel.PublicKey{})
-//	err := publicKey.Decode(pubKey)
-//	if err != nil {
-//		return false
-//	}
-//
-//	signingContext := schnorrkel.NewSigningContext([]byte{}, msg)
-//
-//	signature := &(schnorrkel.Signature{})
-//	err = signature.Decode(sig64)
-//	if err != nil {
-//		return false
-//	}
-//
-//	return publicKey.Verify(signature, signingContext)
+	// make sure we use the same algorithm to sign
+	if len(sig) != SignatureSize {
+		return false
+	}
+	var sig64 [SignatureSize]byte
+	copy(sig64[:], sig)
+
+	publicKey := &(schnorrkel.PublicKey{})
+	err := publicKey.Decode(pubKey)
+	if err != nil {
+		return false
+	}
+
+	signingContext := schnorrkel.NewSigningContext([]byte{}, msg)
+
+	signature := &(schnorrkel.Signature{})
+	err = signature.Decode(sig64)
+	if err != nil {
+		return false
+	}
+
+	return publicKey.Verify(signature, signingContext)
 }
 
 func (pubKey PubKeySr25519) String() string {

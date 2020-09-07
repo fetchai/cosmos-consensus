@@ -31,22 +31,21 @@ func (privKey PrivKeySecp256k1) Sign(msg []byte) ([]byte, error) {
 // VerifyBytes verifies a signature of the form R || S.
 // It rejects signatures which are not in lower-S form.
 func (pubKey PubKeySecp256k1) VerifyBytes(msg []byte, sigStr []byte) bool {
-	return true
-//	if len(sigStr) != 64 {
-//		return false
-//	}
-//	pub, err := secp256k1.ParsePubKey(pubKey[:], secp256k1.S256())
-//	if err != nil {
-//		return false
-//	}
-//	// parse the signature:
-//	signature := signatureFromBytes(sigStr)
-//	// Reject malleable signatures. libsecp256k1 does this check but btcec doesn't.
-//	// see: https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/signature_nocgo.go#L90-L93
-//	if signature.S.Cmp(secp256k1halfN) > 0 {
-//		return false
-//	}
-//	return signature.Verify(crypto.Sha256(msg), pub)
+	if len(sigStr) != 64 {
+		return false
+	}
+	pub, err := secp256k1.ParsePubKey(pubKey[:], secp256k1.S256())
+	if err != nil {
+		return false
+	}
+	// parse the signature:
+	signature := signatureFromBytes(sigStr)
+	// Reject malleable signatures. libsecp256k1 does this check but btcec doesn't.
+	// see: https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/signature_nocgo.go#L90-L93
+	if signature.S.Cmp(secp256k1halfN) > 0 {
+		return false
+	}
+	return signature.Verify(crypto.Sha256(msg), pub)
 }
 
 // Read Signature struct from R || S. Caller needs to ensure
