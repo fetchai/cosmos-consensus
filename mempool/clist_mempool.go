@@ -584,7 +584,7 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 
 	// There isn't any new Txs
-	if mem.txs.Len() == 0 || true {
+	if mem.txs.Len() == 0 {
 		return
 	}
 
