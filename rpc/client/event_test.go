@@ -82,9 +82,9 @@ func TestBlockEvents(t *testing.T) {
 	}
 }
 
-func TestTxEventsSentWithBroadcastTxAsync(t *testing.T) { testTxEventsSent(t, "async") }
+func TestTxEventsSentWithBroadcastTxAsync(t *testing.T)     { testTxEventsSent(t, "async") }
 func TestTxEventsSentWithBroadcastTxAsyncBulk(t *testing.T) { testTxEventsSent(t, "asyncBulk") }
-func TestTxEventsSentWithBroadcastTxSync(t *testing.T)  { testTxEventsSent(t, "sync") }
+func TestTxEventsSentWithBroadcastTxSync(t *testing.T)      { testTxEventsSent(t, "sync") }
 
 func testTxEventsSent(t *testing.T, broadcastMethod string) {
 	for i, c := range GetClients() {

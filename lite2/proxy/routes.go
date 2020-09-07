@@ -35,10 +35,10 @@ func RPCRoutes(c *lrpc.Client) map[string]*rpcserver.RPCFunc {
 		"num_unconfirmed_txs":  rpcserver.NewRPCFunc(makeNumUnconfirmedTxsFunc(c), ""),
 
 		// tx broadcast API
-		"broadcast_tx_commit": rpcserver.NewRPCFunc(makeBroadcastTxCommitFunc(c), "tx"),
-		"broadcast_tx_sync":   rpcserver.NewRPCFunc(makeBroadcastTxSyncFunc(c), "tx"),
-		"broadcast_tx_async":  rpcserver.NewRPCFunc(makeBroadcastTxAsyncFunc(c), "tx"),
-		"broadcast_tx_async_bulk":  rpcserver.NewRPCFunc(makeBroadcastTxAsyncBulkFunc(c), "tx"),
+		"broadcast_tx_commit":     rpcserver.NewRPCFunc(makeBroadcastTxCommitFunc(c), "tx"),
+		"broadcast_tx_sync":       rpcserver.NewRPCFunc(makeBroadcastTxSyncFunc(c), "tx"),
+		"broadcast_tx_async":      rpcserver.NewRPCFunc(makeBroadcastTxAsyncFunc(c), "tx"),
+		"broadcast_tx_async_bulk": rpcserver.NewRPCFunc(makeBroadcastTxAsyncBulkFunc(c), "tx"),
 
 		// abci API
 		"abci_query": rpcserver.NewRPCFunc(makeABCIQueryFunc(c), "path,data,height,prove"),
