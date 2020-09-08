@@ -26,7 +26,7 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 	if err != nil {
 		return nil, err
 	}
-	return &ctypes.ResultBroadcastTx{}, nil
+	return &ctypes.ResultBroadcastTx{Hash: tx.Hash()}, nil
 }
 
 // BroadcastTxAsyncBulk acts as a bulk version of BroadcastTxAsync. Only the first tx hash is returned
@@ -41,7 +41,7 @@ func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.Result
 		BroadcastTxAsync(ctx, tx)
 	}
 
-	return &ctypes.ResultBroadcastTx{Hash: txs[0].Hash()}, nil
+	return &ctypes.ResultBroadcastTx{}, nil
 }
 
 // BroadcastTxSync returns with the response from CheckTx. Does not wait for
