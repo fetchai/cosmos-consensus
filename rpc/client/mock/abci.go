@@ -72,7 +72,7 @@ func (a ABCIApp) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, error
 	}, nil
 }
 
-func (a ABCIApp) BroadcastTxAsyncBulk(txs types.Txs) (error) {
+func (a ABCIApp) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
 	var c abci.ResponseCheckTx
 
 	for _, tx := range txs {
@@ -83,7 +83,11 @@ func (a ABCIApp) BroadcastTxAsyncBulk(txs types.Txs) (error) {
 		}
 	}
 
-	return nil
+	if len(txs) == 0 {
+		return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: nil}, nil
+	}
+
+	return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: txs[0].Hash()}, nil
 }
 
 func (a ABCIApp) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
@@ -151,17 +155,23 @@ func (m ABCIMock) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, erro
 	return res.(*ctypes.ResultBroadcastTx), nil
 }
 
-func (m ABCIMock) BroadcastTxAsyncBulk(txs types.Txs) (error) {
+func (m ABCIMock) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
+
+	var res *ctypes.ResultBroadcastTx
+	var err error
 
 	for _, tx := range txs {
-		_, err := m.Broadcast.GetResponse(tx)
+		res1, err1 := m.Broadcast.GetResponse(tx)
+
+		res = res1.(*ctypes.ResultBroadcastTx)
+		err = err1
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return res, nil
 }
 
 func (m ABCIMock) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
@@ -247,15 +257,16 @@ func (r *ABCIRecorder) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx,
 	return res, err
 }
 
-func (r *ABCIRecorder) BroadcastTxAsyncBulk(txs types.Txs) (error) {
-	err := r.Client.BroadcastTxAsyncBulk(txs)
+func (r *ABCIRecorder) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
+	res, err := r.Client.BroadcastTxAsyncBulk(txs)
 
 	r.addCall(Call{
 		Name:     "broadcast_tx_async_bulk",
 		Args:     txs,
+		Response: res,
 		Error:    err,
 	})
-	return err
+	return res, err
 }
 
 func (r *ABCIRecorder) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {

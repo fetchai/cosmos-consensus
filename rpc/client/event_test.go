@@ -116,7 +116,7 @@ func testTxEventsSent(t *testing.T, broadcastMethod string) {
 			case "async":
 				txres, err = c.BroadcastTxAsync(tx)
 			case "asyncBulk":
-				err = c.BroadcastTxAsyncBulk(txs)
+				txres, err = c.BroadcastTxAsyncBulk(txs)
 			case "sync":
 				txres, err = c.BroadcastTxSync(tx)
 			default:
@@ -124,9 +124,7 @@ func testTxEventsSent(t *testing.T, broadcastMethod string) {
 			}
 
 			require.NoError(t, err)
-			if txres != nil {
-				require.Equal(t, txres.Code, abci.CodeTypeOK)
-			}
+			require.Equal(t, txres.Code, abci.CodeTypeOK)
 
 			// and wait for confirmation
 			evt, err := client.WaitForOneEvent(c, evtTyp, waitForEventTimeout)

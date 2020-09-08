@@ -167,8 +167,8 @@ func makeBroadcastTxAsyncFunc(c rpcclient.Client) func(
 func makeBroadcastTxAsyncBulkFunc(c rpcclient.Client) func(
 	ctx *rpctypes.Context,
 	txs types.Txs,
-) (error) {
-	return func(ctx *rpctypes.Context, txs types.Txs) (error) {
+) (*ctypes.ResultBroadcastTx, error) {
+	return func(ctx *rpctypes.Context, txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
 		return c.BroadcastTxAsyncBulk(txs)
 	}
 }

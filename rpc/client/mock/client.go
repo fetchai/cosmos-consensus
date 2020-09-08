@@ -106,7 +106,7 @@ func (c Client) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, error)
 	return core.BroadcastTxAsync(&rpctypes.Context{}, tx)
 }
 
-func (c Client) BroadcastTxAsyncBulk(txs types.Txs) (error) {
+func (c Client) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
 	return core.BroadcastTxAsyncBulk(&rpctypes.Context{}, txs)
 }
 

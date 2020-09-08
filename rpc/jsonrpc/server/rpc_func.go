@@ -3,7 +3,6 @@ package server
 import (
 	"net/http"
 	"reflect"
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -91,10 +90,8 @@ func funcReturnTypes(f interface{}) []reflect.Type {
 
 // NOTE: assume returns is result struct and error. If error is not nil, return it
 func unreflectResult(returns []reflect.Value) (interface{}, error) {
-	fmt.Printf("doing it\n") // DELETEME_NH
 	errV := returns[1]
 	if errV.Interface() != nil {
-		fmt.Printf("this happened!!!\n") // DELETEME_NH
 		return nil, errors.Errorf("%v", errV.Interface())
 	}
 	rv := returns[0]
