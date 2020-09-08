@@ -28,6 +28,8 @@ type Metrics struct {
 	RecheckTimes metrics.Counter
 	// Size of the max bytes reaped counter
 	MaxBytesReap metrics.Gauge
+	// Amount of bytes reaped
+	BytesReap metrics.Gauge
 	// Size of the max gas reaped counter
 	MaxGasReap metrics.Gauge
 	// Gas reaped
@@ -86,6 +88,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "max_bytes_reaped",
 			Help:      "Amount in bytes to reap from the mempool (max)",
 		}, labels).With(labelsAndValues...),
+		BytesReap: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "bytes_reaped",
+			Help:      "Amount in bytes reaped from the mempool",
+		}, labels).With(labelsAndValues...),
 		MaxGasReap: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -128,6 +136,7 @@ func NopMetrics() *Metrics {
 		FailedTxs:            discard.NewCounter(),
 		RecheckTimes:         discard.NewCounter(),
 		MaxBytesReap:         discard.NewGauge(),
+		BytesReap:            discard.NewGauge(),
 		MaxGasReap:           discard.NewGauge(),
 		GasReap:              discard.NewGauge(),
 		MempoolReapedPercent: discard.NewGauge(),

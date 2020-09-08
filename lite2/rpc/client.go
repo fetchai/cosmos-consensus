@@ -132,6 +132,10 @@ func (c *Client) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx, error
 	return c.next.BroadcastTxAsync(tx)
 }
 
+func (c *Client) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
+	return c.next.BroadcastTxAsyncBulk(txs)
+}
+
 func (c *Client) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 	return c.next.BroadcastTxSync(tx)
 }

@@ -82,8 +82,9 @@ func TestBlockEvents(t *testing.T) {
 	}
 }
 
-func TestTxEventsSentWithBroadcastTxAsync(t *testing.T) { testTxEventsSent(t, "async") }
-func TestTxEventsSentWithBroadcastTxSync(t *testing.T)  { testTxEventsSent(t, "sync") }
+func TestTxEventsSentWithBroadcastTxAsync(t *testing.T)     { testTxEventsSent(t, "async") }
+func TestTxEventsSentWithBroadcastTxAsyncBulk(t *testing.T) { testTxEventsSent(t, "asyncBulk") }
+func TestTxEventsSentWithBroadcastTxSync(t *testing.T)      { testTxEventsSent(t, "sync") }
 
 func testTxEventsSent(t *testing.T, broadcastMethod string) {
 	for i, c := range GetClients() {
@@ -100,6 +101,10 @@ func testTxEventsSent(t *testing.T, broadcastMethod string) {
 
 			// make the tx
 			_, _, tx := MakeTxKV()
+
+			// Make txs
+			txs := types.Txs{tx}
+
 			evtTyp := types.EventTx
 
 			// send
@@ -110,6 +115,8 @@ func testTxEventsSent(t *testing.T, broadcastMethod string) {
 			switch broadcastMethod {
 			case "async":
 				txres, err = c.BroadcastTxAsync(tx)
+			case "asyncBulk":
+				txres, err = c.BroadcastTxAsyncBulk(txs)
 			case "sync":
 				txres, err = c.BroadcastTxSync(tx)
 			default:

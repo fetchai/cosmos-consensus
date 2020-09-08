@@ -255,6 +255,10 @@ func (c *baseRPCClient) BroadcastTxAsync(tx types.Tx) (*ctypes.ResultBroadcastTx
 	return c.broadcastTX("broadcast_tx_async", tx)
 }
 
+func (c *baseRPCClient) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
+	return c.broadcastTXs("broadcast_tx_async_bulk", txs)
+}
+
 func (c *baseRPCClient) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 	return c.broadcastTX("broadcast_tx_sync", tx)
 }
@@ -262,6 +266,15 @@ func (c *baseRPCClient) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx,
 func (c *baseRPCClient) broadcastTX(route string, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 	result := new(ctypes.ResultBroadcastTx)
 	_, err := c.caller.Call(route, map[string]interface{}{"tx": tx}, result)
+	if err != nil {
+		return nil, errors.Wrap(err, route)
+	}
+	return result, nil
+}
+
+func (c *baseRPCClient) broadcastTXs(route string, txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
+	result := new(ctypes.ResultBroadcastTx)
+	_, err := c.caller.Call(route, map[string]interface{}{"txs": txs}, result)
 	if err != nil {
 		return nil, errors.Wrap(err, route)
 	}

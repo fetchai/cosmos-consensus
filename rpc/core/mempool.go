@@ -29,6 +29,21 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 	return &ctypes.ResultBroadcastTx{Hash: tx.Hash()}, nil
 }
 
+// BroadcastTxAsyncBulk acts as a bulk version of BroadcastTxAsync. Only the first tx hash is returned
+// as a performance shortcut
+func BroadcastTxAsyncBulk(ctx *rpctypes.Context, txs []types.Tx) (*ctypes.ResultBroadcastTx, error) {
+
+	if len(txs) == 0 {
+		return &ctypes.ResultBroadcastTx{}, nil
+	}
+
+	for _, tx := range txs {
+		BroadcastTxAsync(ctx, tx)
+	}
+
+	return &ctypes.ResultBroadcastTx{}, nil
+}
+
 // BroadcastTxSync returns with the response from CheckTx. Does not wait for
 // DeliverTx result.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_sync
