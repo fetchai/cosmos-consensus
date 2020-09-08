@@ -72,11 +72,26 @@ log_format = "plain"
 genesis_file = "config/genesis.json"
 
 # Path to the JSON file containing the private key to use as a validator in the consensus protocol
-priv_validator_file = "config/priv_validator.json"
+priv_validator_key_file = "config/priv_validator.json"
+
+# Path to the JSON file containing the last sign state of a validator
+priv_validator_state_file = "data/priv_validator_state.json"
 
 # TCP or UNIX socket address for Tendermint to listen on for
 # connections from an external PrivValidator process
 priv_validator_laddr = ""
+
+# Path to the JSON file containing the old dkg output for entropy generation
+old_entropy_key_file = "data/old_entropy_key.json"
+
+# Path to the JSON file containing the dkg output for entropy generation
+entropy_key_file = "data/entropy_key.json"
+
+# Path to the JSON file containing the dkg output for next aeon entropy generation
+next_entropy_key_file = "data/next_entropy_key.json"
+
+# Path to the JSON file containing the noise key for the dkg
+noise_key_file = "data/noise_key.json"
 
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node_key_file = "config/node_key.json"
@@ -152,22 +167,24 @@ max_subscriptions_per_client = 5
 timeout_broadcast_tx_commit = "10s"
 
 # Maximum size of request body, in bytes
-max_body_bytes = {{ .RPC.MaxBodyBytes }}
+max_body_bytes = 1000000
 
 # Maximum size of request header, in bytes
-max_header_bytes = {{ .RPC.MaxHeaderBytes }}
+max_header_bytes = 1048576
 
 # The path to a file containing certificate that is used to create the HTTPS server.
 # Migth be either absolute path or path related to tendermint's config directory.
 # If the certificate is signed by a certificate authority,
 # the certFile should be the concatenation of the server's certificate, any intermediates,
 # and the CA's certificate.
-# NOTE: both tls_cert_file and tls_key_file must be present for Tendermint to create HTTPS server. Otherwise, HTTP server is run.
+# NOTE: both tls_cert_file and tls_key_file must be present for Tendermint to create HTTPS server.
+# Otherwise, HTTP server is run.
 tls_cert_file = ""
 
 # The path to a file containing matching private key that is used to create the HTTPS server.
 # Migth be either absolute path or path related to tendermint's config directory.
-# NOTE: both tls_cert_file and tls_key_file must be present for Tendermint to create HTTPS server. Otherwise, HTTP server is run.
+# NOTE: both tls_cert_file and tls_key_file must be present for Tendermint to create HTTPS server.
+# Otherwise, HTTP server is run.
 tls_key_file = ""
 
 ##### peer to peer configuration options #####
@@ -203,6 +220,12 @@ max_num_inbound_peers = 40
 
 # Maximum number of outbound peers to connect to, excluding persistent peers
 max_num_outbound_peers = 10
+
+# List of node IDs, to which a connection will be (re)established ignoring any existing limits
+unconditional_peer_ids = ""
+
+# Maximum pause when redialing a persistent peer (if zero, exponential backoff is used)
+persistent_peers_max_dial_period = "0s"
 
 # Time to wait before flushing messages out on the connection
 flush_throttle_timeout = "100ms"
@@ -263,6 +286,7 @@ max_tx_bytes = 1048576
 # Fast Sync version to use:
 #   1) "v0" (default) - the legacy fast sync implementation
 #   2) "v1" - refactor of v0 version for better testability
+#   3) "v2" - refactor of v1 version for better usability
 version = "v0"
 
 ##### consensus configuration options #####
@@ -289,9 +313,6 @@ create_empty_blocks_interval = "0s"
 peer_gossip_sleep_duration = "100ms"
 peer_query_maj23_sleep_duration = "2s"
 
-# Block time parameters. Corresponds to the minimum time increment between consecutive blocks.
-blocktime_iota = "1s"
-
 ##### transactions indexer configuration options #####
 [tx_index]
 
@@ -309,7 +330,7 @@ indexer = "kv"
 #  ...
 # ]
 #
-# You can also index transactions by height by adding "tx.height" event here.
+# You can also index transactions by height by adding "tx.height" key here.
 #
 # It's recommended to index only a subset of keys due to possible memory
 # bloat. This is, of course, depends on the indexer's DB and the volume of
@@ -319,8 +340,8 @@ index_keys = ""
 # When set to true, tells indexer to index all compositeKeys (predefined keys:
 # "tx.hash", "tx.height" and all keys from DeliverTx responses).
 #
-# Note this may be not desirable (see the comment above). IndexEvents has a
-# precedence over IndexAllEvents (i.e. when given both, IndexEvents will be
+# Note this may be not desirable (see the comment above). IndexKeys has a
+# precedence over IndexAllKeys (i.e. when given both, IndexKeys will be
 # indexed).
 index_all_keys = false
 
@@ -343,6 +364,19 @@ max_open_connections = 3
 
 # Instrumentation namespace
 namespace = "tendermint"
+
+##### beacon configuration options #####
+[beacon]
+
+entropy_channel_capacity = "3"
+
+# Reactor sleep duration parameters
+peer_gossip_sleep_duration = "100ms"
+compute_entropy_sleep_duration = "50ms"
+
+# DKG parameters
+run_dkg = "true"
+strict_tx_filtering = "false"
 ```
 
 ## Empty blocks VS no empty blocks

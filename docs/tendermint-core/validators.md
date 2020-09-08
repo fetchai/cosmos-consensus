@@ -1,7 +1,9 @@
 # Validators
 
-Validators are responsible for committing new blocks in the blockchain.
-These validators participate in the consensus protocol by broadcasting
+Validators are responsible for running the DKG, producing entropy and 
+committing new blocks in the blockchain. The on-chain DKG is run by submitting DKG
+transactions to the blockchain and using the result of the DKG to generate entropy 
+for each block. These validators participate in the consensus protocol by broadcasting
 _votes_ which contain cryptographic signatures signed by each
 validator's private key.
 

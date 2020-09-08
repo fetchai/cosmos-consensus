@@ -43,3 +43,9 @@ order/nonce/sequence number, the application can reject transactions that are
 out of order. So if a node receives tx3, then tx1, it can reject tx3 and then
 accept tx1. The sender can then retry sending tx3, which should probably be
 rejected until the node has seen tx2.
+
+# Transaction Prioritisation
+
+The mempool currently prioritises DKG transactions, which are prefixed with `SP:DKG`. 
+When strict transaction filtering is turned on in the configuration file `$TMHOME/config/config.toml` 
+then blocks with empty entropy can not contain non-DKG transactions.
