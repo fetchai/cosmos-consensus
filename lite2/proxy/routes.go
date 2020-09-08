@@ -205,10 +205,10 @@ func makeBroadcastTxAsyncFunc(c *lrpc.Client) rpcBroadcastTxAsyncFunc {
 	}
 }
 
-type rpcBroadcastTxAsyncBulkFunc func(ctx *rpctypes.Context, txs types.Txs) (*ctypes.ResultBroadcastTx, error)
+type rpcBroadcastTxAsyncBulkFunc func(ctx *rpctypes.Context, txs types.Txs) (error)
 
 func makeBroadcastTxAsyncBulkFunc(c *lrpc.Client) rpcBroadcastTxAsyncBulkFunc {
-	return func(ctx *rpctypes.Context, txs types.Txs) (*ctypes.ResultBroadcastTx, error) {
+	return func(ctx *rpctypes.Context, txs types.Txs) (error) {
 		return c.BroadcastTxAsyncBulk(txs)
 	}
 }
