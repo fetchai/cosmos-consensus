@@ -83,11 +83,7 @@ func (a ABCIApp) BroadcastTxAsyncBulk(txs types.Txs) (*ctypes.ResultBroadcastTx,
 		}
 	}
 
-	if len(txs) == 0 {
-		return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: nil}, nil
-	}
-
-	return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: txs[0].Hash()}, nil
+	return &ctypes.ResultBroadcastTx{Code: c.Code, Data: c.Data, Log: c.Log, Hash: nil}, nil
 }
 
 func (a ABCIApp) BroadcastTxSync(tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
