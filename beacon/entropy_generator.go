@@ -77,6 +77,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		entropyShares:             make(map[int64]map[uint]types.EntropyShare),
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
+		nextAeons:                 make([]*aeonDetails, 0),
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
 		baseConfig:                bConfig,
 		beaconConfig:              beaconConfig,
@@ -200,6 +201,13 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 		panic(fmt.Sprintf("Set next aeon was called with a nil aeon!"))
 	}
 
+	// Prevent next aeons getting out of order
+	numNextAeons := len(entropyGenerator.nextAeons)
+	if numNextAeons != 0 && entropyGenerator.nextAeons[numNextAeons-1].End > aeon.End {
+		entropyGenerator.Logger.Error(fmt.Sprintf("SetNextAeonsDetails: received aeon end %v less than aeon end from last element in queue %v",
+			aeon.End, entropyGenerator.nextAeons[numNextAeons-1].End))
+		return
+	}
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 
 	saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
