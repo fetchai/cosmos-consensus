@@ -77,7 +77,6 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		entropyShares:             make(map[int64]map[uint]types.EntropyShare),
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
-		nextAeons:                 make([]*aeonDetails, 0),
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
 		baseConfig:                bConfig,
 		beaconConfig:              beaconConfig,
