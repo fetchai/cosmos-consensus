@@ -177,7 +177,12 @@ func (entropyGenerator *EntropyGenerator) LoadEntropyKeyFiles(db dbm.DB, privVal
 
 					if err1 == nil {
 						// Push the complete aeon into the entropy generator
-						aeonDetails = loadAeonDetails(aeonFile, vals, privValidator)
+						nextAeonDetails := loadAeonDetails(aeonFile, vals, privValidator)
+						if aeonDetails != nil && aeonDetails.End > nextAeonDetails.End {
+							return nil, fmt.Errorf("File %v contains out of order aeon keys. Previous aeon end %v, next aeon end %v",
+								fileToLoad, aeonDetails.End, nextAeonDetails.End)
+						}
+						aeonDetails = nextAeonDetails
 						entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeonDetails)
 					} else {
 						return nil, errors.Wrap(err1, fmt.Sprintf("error loading validators for keyfile %v err: %v", fileToLoad, err1))
@@ -200,6 +205,13 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 		panic(fmt.Sprintf("Set next aeon was called with a nil aeon!"))
 	}
 
+	// Prevent next aeons getting out of order
+	numNextAeons := len(entropyGenerator.nextAeons)
+	if numNextAeons != 0 && entropyGenerator.nextAeons[numNextAeons-1].End > aeon.End {
+		entropyGenerator.Logger.Error(fmt.Sprintf("SetNextAeonsDetails: received aeon end %v less than aeon end from last element in queue %v",
+			aeon.End, entropyGenerator.nextAeons[numNextAeons-1].End))
+		return
+	}
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 
 	saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
