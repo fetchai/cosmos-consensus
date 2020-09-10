@@ -1225,13 +1225,13 @@ func (cs *State) defaultDecideProposal(height int64, round int) {
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
 		block, blockParts = cs.createProposalBlock()
-		// Add entropy and reset blockParts
-
-		block.Header.Entropy = cs.getEntropy(height).Entropy
-		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 		if block == nil { // on error
 			return
 		}
+
+		// Add entropy and reset blockParts
+		block.Header.Entropy = cs.getEntropy(height).Entropy
+		blockParts = block.MakePartSet(types.BlockPartSizeBytes)
 	}
 
 	// Flush the WAL. Otherwise, we may not recompute the same proposal to sign,
