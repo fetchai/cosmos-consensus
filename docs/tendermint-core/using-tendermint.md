@@ -64,7 +64,7 @@ definition](https://github.com/tendermint/tendermint/blob/master/types/genesis.g
   not match, Tendermint will panic.
 - `app_state`: The application state (e.g. initial distribution
   of tokens).
-  - `entropy`: The starting entropy, which maybe empty
+  - `entropy`: The starting entropy, which may be empty
 
 #### Sample genesis.json
 
