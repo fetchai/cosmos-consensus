@@ -1128,13 +1128,19 @@ func (cs *State) getNewEntropy(height int64) {
 					panic(fmt.Sprintf("getNewEntropy(H:%d): invalid entropy error: %v. Current block height: %v", newEntropy.Height, err, height))
 				}
 				// Check validator hash matches
-				valHash := cs.Validators.Hash()
+				vals := cs.Validators
 				if newEntropy.Height == height+1 {
-					valHash = cs.state.NextValidators.Hash()
+					vals = cs.state.NextValidators
 				}
-				if newEntropy.Enabled && !bytes.Equal(newEntropy.ValidatorHash, valHash) {
-					panic(fmt.Sprintf("getNewEntropy(h:%d): invalid entropy validator hash: %v. Consensus validator hash %v", newEntropy.Height,
-						newEntropy.ValidatorHash, valHash))
+				if newEntropy.Enabled && !bytes.Equal(vals.Hash(), newEntropy.Validators.Hash()) {
+					// Check there are no consensus validators that are not in entropy generation validators (do not necessarily have exact match
+					// due to jailed validators being removed from consensus)
+					for _, val := range vals.Validators {
+						if !newEntropy.Validators.HasAddress(val.Address) {
+							panic(fmt.Sprintf("getNewEntropy(h:%d): consensus state has validator %v not found in entropy validators", newEntropy.Height,
+								val.Address))
+						}
+					}
 				}
 
 				// We want height and height +1, but don't drop older stuff
