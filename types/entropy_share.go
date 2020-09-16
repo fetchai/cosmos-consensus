@@ -115,19 +115,19 @@ func (blockEntropy *BlockEntropy) StringIndented(indent string) string {
 
 // ChannelEntropy struct for sending entropy from entropy generator to consensus
 type ChannelEntropy struct {
-	Height        int64
-	Entropy       BlockEntropy
-	Enabled       bool
-	ValidatorHash []byte
+	Height     int64
+	Entropy    BlockEntropy
+	Enabled    bool
+	Validators *ValidatorSet
 }
 
 // NewChannelEntropy for constructing ChannelEntropy
-func NewChannelEntropy(height int64, entropy BlockEntropy, enabled bool, validatorHash []byte) *ChannelEntropy {
+func NewChannelEntropy(height int64, entropy BlockEntropy, enabled bool, validators *ValidatorSet) *ChannelEntropy {
 	return &ChannelEntropy{
-		Height:        height,
-		Entropy:       entropy,
-		Enabled:       enabled,
-		ValidatorHash: validatorHash,
+		Height:     height,
+		Entropy:    entropy,
+		Enabled:    enabled,
+		Validators: validators,
 	}
 }
 
