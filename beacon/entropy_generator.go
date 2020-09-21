@@ -207,9 +207,15 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 
 	// Prevent next aeons getting out of order
 	numNextAeons := len(entropyGenerator.nextAeons)
-	if numNextAeons != 0 && entropyGenerator.nextAeons[numNextAeons-1].End > aeon.End {
+	var previousAeon *aeonDetails
+	if numNextAeons == 0 && entropyGenerator.aeon != nil {
+		previousAeon = entropyGenerator.aeon
+	} else if numNextAeons > 0 {
+		previousAeon = entropyGenerator.nextAeons[numNextAeons-1]
+	}
+	if previousAeon != nil && previousAeon.End > aeon.End {
 		entropyGenerator.Logger.Error(fmt.Sprintf("SetNextAeonsDetails: received aeon end %v less than aeon end from last element in queue %v",
-			aeon.End, entropyGenerator.nextAeons[numNextAeons-1].End))
+			aeon.End, previousAeon.End))
 		return
 	}
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
