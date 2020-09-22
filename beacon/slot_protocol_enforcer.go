@@ -138,7 +138,7 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) messageEnum {
 	dkgMessage, err := tx_extensions.FromBytes(tx)
 
 	if err != nil {
-		sp.logger.Error("Error when recieveing dkg message to mempool", err)
+		sp.logger.Error("Error when receiving dkg message to mempool", err)
 	}
 
 	// All the possible valid options for its position in the dkg slots
@@ -147,12 +147,13 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) messageEnum {
 	messageNextDKG := dkgMessage.DKGID == sp.activeDKG.dkgID+1 && dkgMessage.DKGIteration == 0
 
 	if !messageWithinDKG && !messageNextIteration && !messageNextDKG {
-		sp.logger.Error(fmt.Sprintf("Error when recieveing dkg message to mempool. Out of bounds: %v %v", dkgMessage.DKGID, dkgMessage.DKGIteration))
+		sp.logger.Error(fmt.Sprintf("Error when receiving dkg message to mempool. Out of bounds: %v %v", dkgMessage.DKGID, dkgMessage.DKGIteration))
 		return messageInvalid
 	}
 
 	// If the message is in the next iteration we will need to wait to verify it
 	if messageNextIteration || messageNextDKG {
+		sp.logger.Debug(fmt.Sprintf("Message early: DKG ID %v, DKG iteration %v", dkgMessage.DKGID, dkgMessage.DKGIteration))
 		return messageEarly
 	}
 
@@ -164,19 +165,20 @@ func (sp *SlotProtocolEnforcer) messageStatus(tx []byte) messageEnum {
 	messageUniqueString := fmt.Sprintf("%v%v%v%v%v", index, index2, dkgMessage.DKGID, dkgMessage.DKGIteration, dkgMessage.Type)
 
 	if _, exists := sp.alreadySeenMsgs[messageUniqueString]; exists {
-		sp.logger.Error("already exists")
+		sp.logger.Error(fmt.Sprintf("Message already exists: %v", messageUniqueString))
 		return messageInvalid
 	}
 
 	// Otherwise, we are able to determine whether it is valid
 	// using the DKG
 	if status, err := sp.activeDKG.validateMessage(dkgMessage, index, val); status == types.Invalid {
-		sp.logger.Error("SlotProtocolEnforcer: message staus", "from", dkgMessage.FromAddress, "err", err)
+		sp.logger.Error("SlotProtocolEnforcer: message status", "from", dkgMessage.FromAddress, "err", err)
 		return messageInvalid
 	}
 
 	// Since it is valid, add it to the already seen cache
 	sp.alreadySeenMsgs[messageUniqueString] = struct{}{}
+	sp.logger.Debug(fmt.Sprintf("Added message: %v", messageUniqueString))
 	return messageOK
 }
 

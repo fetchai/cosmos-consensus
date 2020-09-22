@@ -192,7 +192,6 @@ func (beaconR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // Receive implements Reactor and processes either state or entropy share messages
 func (beaconR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	if !beaconR.IsRunning() {
-		beaconR.Logger.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
 		return
 	}
 
@@ -391,7 +390,6 @@ func (ps *PeerState) setLastComputedEntropyHeight(height int64) {
 
 func (ps *PeerState) sendEntropy(nextEntropyHeight int64, entropy types.ThresholdSignature) {
 	// Send peer entropy from block store
-	ps.logger.Debug("sendEntropy", "ps", ps, "height", nextEntropyHeight)
 	msg := &ComputedEntropyMessage{Height: nextEntropyHeight, GroupSignature: entropy}
 	ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg))
 }
@@ -402,7 +400,6 @@ func (ps *PeerState) pickSendEntropyShare(nextEntropyHeight int64, entropyShares
 		if key, value, ok := ps.pickEntropyShare(nextEntropyHeight, entropyShares); ok {
 			msg := &EntropyShareMessage{value}
 			if ps.peer.Send(EntropyChannel, cdc.MustMarshalBinaryBare(msg)) {
-				ps.logger.Debug("pickSendEntropyShare succeeded", "ps", ps, "height", value.Height, "share index", key)
 				ps.hasEntropyShare(nextEntropyHeight, int(key), numValidators)
 			}
 		} else {
