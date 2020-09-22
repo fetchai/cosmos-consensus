@@ -382,6 +382,11 @@ func (mem *CListMempool) addTx(memTx *mempoolTx) {
 	if isPriority(memTx.tx) {
 		e := mem.txs.PushFront(memTx)
 		mem.txsMap.Store(txKey(memTx.tx), e)
+
+		// Also add tx to peer priority txs
+		for _, peer := range mem.peerPointers {
+			peer.PriorityTxs = append(peer.PriorityTxs, e)
+		}
 	} else {
 		e := mem.txs.PushBack(memTx)
 		mem.txsMap.Store(txKey(memTx.tx), e)
@@ -594,6 +599,12 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 	for next != nil && len(ret) < max {
 		// Only add/return this if the peer hasn't seen it
 		memTx := next.Value.(*mempoolTx)
+
+		// Priority txs are gossiped using peer pointer priority txs so we to do not include
+		// them here to avoid sending duplicates
+		if isPriority(memTx.tx) {
+			continue
+		}
 
 		if _, ok := memTx.senders.Load(peerID); !ok {
 			ret = append(ret, &memTx.tx)
