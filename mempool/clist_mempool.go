@@ -602,11 +602,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 
 		// Priority txs are gossiped using peer pointer priority txs so we to do not include
 		// them here to avoid sending duplicates
-		if isPriority(memTx.tx) {
-			continue
-		}
-
-		if _, ok := memTx.senders.Load(peerID); !ok {
+		if _, ok := memTx.senders.Load(peerID); !ok && !isPriority(memTx.tx) {
 			ret = append(ret, &memTx.tx)
 		}
 		peerPointer.Element = next
