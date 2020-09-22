@@ -5,8 +5,8 @@ and serialisation, respectively.
 
 Install dependencies:
 ```bash 
-git clone https://github.com/herumi/mcl
-cd mcl
+wget https://github.com/herumi/mcl/archive/v1.05.tar.gz 
+tar xvf v1.05.tar.gz && cd mcl-1.05 
 make install
 ```
 You will also need swig and GMP for the go-c++ interface and mcl. On Ubuntu

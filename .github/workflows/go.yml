@@ -29,12 +29,12 @@ jobs:
 
     - name: Install system dependencies
       shell: bash
-      run: sudo apt-get install -y swig libboost-all-dev libgmp-dev git
+      run: sudo apt-get install -y swig libboost-all-dev libgmp-dev git wget
 
     - name: Install mcl
       run: |
-        git clone --depth 1 https://github.com/herumi/mcl
-        cd mcl
+        wget https://github.com/herumi/mcl/archive/v1.05.tar.gz &&\
+        tar xvf v1.05.tar.gz && cd mcl-1.05 && \
         sudo make install
 
     - name: Check out code into the Go module directory
