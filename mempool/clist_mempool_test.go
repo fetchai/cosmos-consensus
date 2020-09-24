@@ -97,12 +97,13 @@ func checkPriorityTxs(t *testing.T, mempool Mempool, count int, peerID uint16) t
 	txInfo := TxInfo{SenderID: peerID}
 	for i := 0; i < count; i++ {
 		txBytes := make([]byte, 20)
-		txBytes = tx_extensions.PrependBytes(txBytes) // Convert to priority tx (dkg)
-		txs[i] = txBytes
 		_, err := rand.Read(txBytes)
 		if err != nil {
 			t.Error(err)
 		}
+		txBytes = tx_extensions.PrependBytes(txBytes) // Convert to priority tx (dkg)
+		assert.True(t, isPriority(txBytes))
+		txs[i] = txBytes
 
 		if err := mempool.CheckTx(txBytes, nil, txInfo); err != nil {
 			// Skip invalid txs.

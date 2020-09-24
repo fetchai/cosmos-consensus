@@ -53,7 +53,7 @@ type CListMempool struct {
 	proxyAppConn proxy.AppConnMempool
 
 	// Map of peerID to location in the linked list they have broadcast to
-	peerPointers map[uint16]peerPointer
+	peerPointers map[uint16]*peerPointer
 
 	// Track whether we're rechecking txs.
 	// These are not protected by a mutex and are expected to be mutated in
@@ -105,7 +105,7 @@ func NewCListMempool(
 		config:               config,
 		proxyAppConn:         proxyAppConn,
 		txs:                  clist.New(),
-		peerPointers:         make(map[uint16]peerPointer),
+		peerPointers:         make(map[uint16]*peerPointer),
 		height:               height,
 		recheckCursor:        nil,
 		recheckEnd:           nil,
@@ -562,7 +562,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 			mem.updateMtx.Unlock()
 			return
 		}
-		mem.peerPointers[peerID] = peerPointer{mem.txs.Front(), make([]*clist.CElement, 0)}
+		mem.peerPointers[peerID] = &peerPointer{mem.txs.Front(), make([]*clist.CElement, 0)}
 		ret = append(ret, &front.Value.(*mempoolTx).tx) // corner case where we want this + next
 	}
 
@@ -600,9 +600,7 @@ func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 		// Only add/return this if the peer hasn't seen it
 		memTx := next.Value.(*mempoolTx)
 
-		// Priority txs are gossiped using peer pointer priority txs so we to do not include
-		// them here to avoid sending duplicates
-		if _, ok := memTx.senders.Load(peerID); !ok && !isPriority(memTx.tx) {
+		if _, ok := memTx.senders.Load(peerID); !ok {
 			ret = append(ret, &memTx.tx)
 		}
 		peerPointer.Element = next
