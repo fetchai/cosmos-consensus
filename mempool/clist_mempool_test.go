@@ -102,7 +102,6 @@ func checkPriorityTxs(t *testing.T, mempool Mempool, count int, peerID uint16) t
 			t.Error(err)
 		}
 		txBytes = tx_extensions.PrependBytes(txBytes) // Convert to priority tx (dkg)
-		assert.True(t, isPriority(txBytes))
 		txs[i] = txBytes
 
 		if err := mempool.CheckTx(txBytes, nil, txInfo); err != nil {
