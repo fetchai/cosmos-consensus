@@ -3,6 +3,7 @@ package beacon
 import (
 	"fmt"
 	"io/ioutil"
+	"runtime"
 
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/tempfile"
@@ -111,6 +112,11 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 		Start:           startHeight,
 		End:             endHeight,
 	}
+
+	runtime.SetFinalizer(ad,
+		func(ad *aeonDetails) {
+			DeleteBaseAeon(ad.aeonExecUnit)
+		})
 
 	return ad, nil
 }
