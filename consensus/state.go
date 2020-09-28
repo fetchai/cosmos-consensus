@@ -1323,6 +1323,8 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 		onlyDKGTxs = true
 	}
 
+	fmt.Printf("strict: %v\n", cs.strictFiltering) // DELETEME_NH
+
 	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr, onlyDKGTxs)
 }
 

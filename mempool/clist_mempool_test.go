@@ -646,6 +646,36 @@ func abciResponses(n int, code uint32) []*abci.ResponseDeliverTx {
 	return responses
 }
 
+// Check that the mempool, if it gets full, can remove transactions
+func TestMakeSpace(t *testing.T) {
+	app := kvstore.NewApplication()
+	cc := proxy.NewLocalClientCreator(app)
+	mempool, cleanup := newMempoolWithApp(cc)
+	defer cleanup()
+
+	const TxsToAdd int = 10
+
+	// Add 10 'normal' Txs
+	checkTxs(t, mempool, TxsToAdd, UnknownPeerID)
+
+	// Make space, creating 9 TXs
+	mempool.makeSpace()
+	require.Equal(t, mempool.Size(), TxsToAdd-1, fmt.Sprintf("expected %v, txs after making space, got %v", TxsToAdd-1, mempool.Size()))
+
+	// Now, add a priority TX, make sure this is removed last when making space
+	checkPriorityTxs(t, mempool, 1, UnknownPeerID)
+
+	for i := 0;i < TxsToAdd;i++ {
+		memTx := mempool.makeSpace()
+
+		if i < TxsToAdd-1 {
+			require.Equal(t, isPriority(memTx.tx), false, fmt.Sprintf("Expected to get non priority TX when making space"))
+		} else {
+			require.Equal(t, isPriority(memTx.tx), true, fmt.Sprintf("Expected to get priority TX when making space"))
+		}
+	}
+}
+
 // The mempool has been modified so that some transactions are considered 'priority'. These must always be included
 // over other Txs, and must be the only Txs included in fallback mode
 func TestSpecialTxPriority(t *testing.T) {
@@ -692,5 +722,4 @@ func TestSpecialTxPriority(t *testing.T) {
 
 	// Check there is nothing remaining
 	require.Equal(t, len(mempool.GetNewTxs(dummyId, TxsToAdd)), 0, "There should be no new txs left at the end of these operations")
-
 }
