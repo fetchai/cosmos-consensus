@@ -37,18 +37,6 @@ with fileinput.FileInput("mytestnet/node0/config/config.toml", inplace=True) as 
     for line in file:
         print(line.replace("prometheus = false", "prometheus = true"), end='')
 
-# Set all nodes to 5s block time
-#with fileinput.FileInput("mytestnet/node0/config/config.toml", inplace=True) as file:
-#    for line in file:
-#        print(line.replace("prometheus = false", "prometheus = true"), end='')
-#timeout_commit = "1s"
-
-pathlist = sorted(Path("mytestnet").glob('**/config.toml'))
-for path in pathlist:
-    with fileinput.FileInput(str(path), inplace=True) as file:
-        for line in file:
-            print(line.replace("timeout_commit = \"1s\"", "timeout_commit = \"6s\""), end='')
-
 node_ids = []
 nodes = []
 
@@ -91,43 +79,22 @@ timed_out=False
 
 # Wait until entropy started generating to collect result
 while True:
-    #if time.time() - time_now >= TEST_TIMEOUT_S:
-    #    print("\nThe test has run for too long! Quitting.")
-    #    timed_out = True
-    #    break
+    if time.time() - time_now >= TEST_TIMEOUT_S:
+        print("\nThe test has run for too long! Quitting.")
+        timed_out = True
+        break
 
-    block_height = 0.0
+    has_entropy = 0.0
 
     try:
-        #import ipdb; ipdb.set_trace(context=20)
-        block_height = get_metric("tendermint_consensus_latest_block_height")
-        print(block_height)
-    except Exception as e:
-        print(e)
+        has_entropy = get_metric("tendermint_consensus_block_with_entropy")
+    except:
         pass
 
-    if block_height is not None and block_height >= 2.0:
+    if has_entropy == 1.0:
         break
 
     time.sleep(2)
-
-print("submitting TXs")
-
-for i in range(0,100000):
-
-    tx_string=f"random_tx0{i}"
-    subprocess.Popen(f"curl localhost:7000/broadcast_tx_sync?tx=\"{tx_string}\"".split(), stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    tx_string=f"random_tx1{i}"
-    subprocess.Popen(f"curl localhost:7001/broadcast_tx_sync?tx=\"{tx_string}\"".split(), stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    tx_string=f"random_tx2{i}"
-    subprocess.Popen(f"curl localhost:7002/broadcast_tx_sync?tx=\"{tx_string}\"".split(), stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    tx_string=f"random_tx3{i}"
-    subprocess.Popen(f"curl localhost:7003/broadcast_tx_sync?tx=\"{tx_string}\"".split(), stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-
-print("submitted all now.")
-
-time.sleep(10000)
-
 
 if timed_out == False:
     # Submit a TX to node 1

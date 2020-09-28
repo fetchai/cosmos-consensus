@@ -298,10 +298,6 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		return err
 	}
 
-	//if isPriority(tx) {
-	//	fmt.Printf("adding tx for dkg\n") // DELETEME_NH
-	//}
-
 	// The size of the corresponding amino-encoded TxMessage
 	// can't be larger than the maxMsgSize, otherwise we can't
 	// relay it to peers.
@@ -461,8 +457,6 @@ func (mem *CListMempool) isFull(txSize int) error {
 	)
 
 	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
-
-		//fmt.Printf("mempool over size %v\n", mem.config.Size) // DELETEME_NH
 
 		return ErrMempoolIsFull{
 			memSize, mem.config.Size,
@@ -694,8 +688,6 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64, fallbackMode
 
 	mem.metrics.MaxBytesReap.Set(float64(maxBytes))
 	mem.metrics.MaxGasReap.Set(float64(maxGas))
-
-	fmt.Printf("mempool size: %v\n", mem.Size()) // DELETEME_NH
 
 	mem.updateMtx.RLock()
 	defer mem.updateMtx.RUnlock()
