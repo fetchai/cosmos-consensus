@@ -243,14 +243,14 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 func (mem *CListMempool) makeSpace() *mempoolTx {
 
 	// Do nothing if empty, otherwise assume we want to drop at least one
-	if (mem.txs.Len() == 0) {
+	if mem.txs.Len() == 0 {
 		return nil
 	}
 
 	// Scan the list from the front, at the first non priority TX, drop it,
 	// otherwise drop a priority one (should drop oldest of either TX).
 	front := mem.txs.Front()
-	prev  := mem.txs.Front()
+	prev := mem.txs.Front()
 
 	for {
 		front = front.Next()

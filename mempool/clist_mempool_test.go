@@ -665,7 +665,7 @@ func TestMakeSpace(t *testing.T) {
 	// Now, add a priority TX, make sure this is removed last when making space
 	checkPriorityTxs(t, mempool, 1, UnknownPeerID)
 
-	for i := 0;i < TxsToAdd;i++ {
+	for i := 0; i < TxsToAdd; i++ {
 		memTx := mempool.makeSpace()
 
 		if i < TxsToAdd-1 {
