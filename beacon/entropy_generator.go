@@ -22,6 +22,7 @@ import (
 const (
 	// History length of entropy to keep in number of blocks
 	entropyHistoryLength = 10
+	maxNextAeons         = 5
 )
 
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
@@ -217,6 +218,11 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 		entropyGenerator.Logger.Error(fmt.Sprintf("SetNextAeonsDetails: received aeon end %v less than aeon end from last element in queue %v",
 			aeon.End, previousAeon.End))
 		return
+	}
+
+	// If over max number of keys pop of the oldest one
+	if len(entropyGenerator.nextAeons) > maxNextAeons {
+		entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
 	}
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 
