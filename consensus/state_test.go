@@ -318,21 +318,21 @@ func TestWeightedValidatorSelection(t *testing.T) {
 	// is which validator got that result
 	var aggregatedResults [4][4]int
 
-	for i := 0;i < 1000;i++ {
+	for i := 0; i < 1000; i++ {
 		weightedResult := cs1.shuffledValidators([]byte(fmt.Sprintf("random value: %d", i)))
 
-		for j := 0;j < len(weightedResult);j++ {
+		for j := 0; j < len(weightedResult); j++ {
 			switch weightedResult[j].Address.String() {
-				case validators[0].Address.String():
-					aggregatedResults[j][0] += 1
-				case validators[1].Address.String():
-					aggregatedResults[j][1] += 1
-				case validators[2].Address.String():
-					aggregatedResults[j][2] += 1
-				case validators[3].Address.String():
-					aggregatedResults[j][3] += 1
-				default:
-					panic("Failed to match a validator after shuffling")
+			case validators[0].Address.String():
+				aggregatedResults[j][0] += 1
+			case validators[1].Address.String():
+				aggregatedResults[j][1] += 1
+			case validators[2].Address.String():
+				aggregatedResults[j][2] += 1
+			case validators[3].Address.String():
+				aggregatedResults[j][3] += 1
+			default:
+				panic("Failed to match a validator after shuffling")
 			}
 		}
 	}
@@ -355,6 +355,45 @@ func TestWeightedValidatorSelection(t *testing.T) {
 	assert.True(t, aggregatedResults[3][3] > aggregatedResults[3][0])
 	assert.True(t, aggregatedResults[3][3] > aggregatedResults[3][1])
 	assert.True(t, aggregatedResults[3][3] > aggregatedResults[3][2])
+}
+
+// Check the same result is always obtained with the same seed
+func TestWeightedValidatorDeterministic(t *testing.T) {
+	cs1, _ := randState(4)
+
+	// Replace the consensus state validators with ones with specific voting
+	// powers
+	_, v1 := cs1.Validators.GetByIndex(0)
+	_, v2 := cs1.Validators.GetByIndex(1)
+	_, v3 := cs1.Validators.GetByIndex(2)
+	_, v4 := cs1.Validators.GetByIndex(3)
+
+	// For convenience make these sum to 100
+	v1.VotingPower = 40
+	v2.VotingPower = 30
+	v3.VotingPower = 20
+	v4.VotingPower = 10
+
+	validators := []*types.Validator{v1, v2, v3, v4}
+
+	cs1.Validators = types.NewValidatorSet(validators)
+
+	assert.True(t, cs1.Validators.TotalVotingPower() == 100)
+
+	weightedResult := cs1.shuffledValidators([]byte(fmt.Sprintf("random value: %d", 100)))
+	assert.True(t, weightedResult[0].Address.String() == validators[0].Address.String())
+
+	weightedResult = cs1.shuffledValidators([]byte(fmt.Sprintf("random value: %d", 1001)))
+	assert.True(t, weightedResult[1].Address.String() == validators[0].Address.String())
+
+	weightedResult = cs1.shuffledValidators([]byte(fmt.Sprintf("random value: %d", 1)))
+	assert.True(t, weightedResult[3].Address.String() == validators[0].Address.String())
+
+	weightedResult = cs1.shuffledValidators([]byte(fmt.Sprintf("random value: %d", 99)))
+	assert.True(t, weightedResult[0].Address.String() == validators[0].Address.String())
+
+	weightedResult = cs1.shuffledValidators([]byte(fmt.Sprintf("random value: %d", 10000000000)))
+	assert.True(t, weightedResult[2].Address.String() == validators[0].Address.String())
 }
 
 //----------------------------------------------------------------------------------------------------

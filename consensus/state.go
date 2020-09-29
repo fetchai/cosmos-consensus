@@ -1209,7 +1209,7 @@ func (cs *State) shuffledValidators(entropy []byte) (weightedValidators types.Va
 	var seed uint64 = 0
 	var entropyByte uint64 = 0
 
-	for i := 0;i < len(entropy);i++ {
+	for i := 0; i < len(entropy); i++ {
 		entropyByte = uint64(entropy[i])
 		entropyByte = entropyByte << ((i % 7) * 8)
 		seed ^= entropyByte
@@ -1230,30 +1230,30 @@ func (cs *State) shuffledValidators(entropy []byte) (weightedValidators types.Va
 			panic("The running voting power of should not be negative")
 		}
 
-		for i := 0;i < len(sortedValidators);i++ {
+		for i := 0; i < len(sortedValidators); i++ {
 			validator := sortedValidators[i]
 			validatorWeight := validator.VotingPower
 
-			if randomNumber >= votingPowerSum && randomNumber < (votingPowerSum + validatorWeight) {
+			if randomNumber >= votingPowerSum && randomNumber < (votingPowerSum+validatorWeight) {
 				// If the random number 'hits' this validator, move it from the sortedValidators to the weightedValidators
 				// deleting that element with a swap and truncate
 				weightedValidators = append(weightedValidators, validator)
 				totalVotingPower -= validatorWeight
 				sortedValidators[i] = sortedValidators[len(sortedValidators)-1]
-				sortedValidators = sortedValidators[0:len(sortedValidators)-1]
+				sortedValidators = sortedValidators[0 : len(sortedValidators)-1]
 				break
 			}
 
 			votingPowerSum += validatorWeight
 
 			// One of the validators should have been selected in the prior loop
-			if i == len(sortedValidators) - 1 {
+			if i == len(sortedValidators)-1 {
 				panic("Failed to calculate validator weight")
 			}
 		}
 	}
 
-	cs.Logger.Debug( "seed", seed, "weighted validators", weightedValidators)
+	cs.Logger.Debug("seed", seed, "weighted validators", weightedValidators)
 
 	return
 }
