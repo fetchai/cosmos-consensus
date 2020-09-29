@@ -1046,6 +1046,8 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 		return cs.Validators.GetProposer()
 	}
 
+	//cs.Validators.I
+
 	index := round
 	if round >= cs.Validators.Size() {
 		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round", round, "validator size", cs.Validators.Size())
@@ -1197,24 +1199,32 @@ func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 	return chanEnt
 }
 
-// TODO: Check that rand.Shuffle is same across different platforms
+// TODO(HUT): cabinet -> validators
+// Shuffle the cabinet, given a random byte array, weighting by the voting power.
+// To shuffle, we first convert the byes into a uint64 ( xxx by repeated XOR xxx )
 func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
 	if len(entropy) < 8 {
 		cs.Logger.Error("Entropy byte array too small for int64 for random seed", "size", len(entropy))
 		return nil
 	}
 	seed := int64(binary.BigEndian.Uint64(entropy))
-	source := rand.NewSource(seed)
-	random := rand.New(source)
 
-	// Shuffle validators
-	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
-	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
-	random.Shuffle(len(sortedValidators), func(i, j int) {
-		sortedValidators.Swap(i, j)
-	})
-	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
-	return sortedValidators
+	// First 
+
+//	source := rand.NewSource(seed)
+//	random := rand.New(source)
+//
+//	_, a := cs.Validators.GetByIndex(0)
+//	a.VotingPower
+//
+//	// Shuffle validators
+//	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
+//	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
+//	random.Shuffle(len(sortedValidators), func(i, j int) {
+//		sortedValidators.Swap(i, j)
+//	})
+//	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
+//	return sortedValidators
 }
 
 func (cs *State) defaultDecideProposal(height int64, round int) {
