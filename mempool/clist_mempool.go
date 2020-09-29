@@ -237,6 +237,43 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 	return mem.txs.WaitChan()
 }
 
+// Make space in the mempool for at least one more transaction. First the oldest non priority transaction will be dropped,
+// and then the oldest priority one. The lock must be held for this call. Regardless of whether there is already space,
+// a single TX will be dropped if there is one to drop
+func (mem *CListMempool) makeSpace() *mempoolTx {
+
+	// Do nothing if empty, otherwise assume we want to drop at least one
+	if mem.txs.Len() == 0 {
+		return nil
+	}
+
+	// Scan the list from the front, at the first non priority TX, drop it,
+	// otherwise drop a priority one (should drop oldest of either TX).
+	front := mem.txs.Front()
+	prev := mem.txs.Front()
+
+	for {
+		front = front.Next()
+
+		// Reached end (all are priority)
+		if front == nil {
+			memTx := prev.Value.(*mempoolTx)
+			mem.removeTx(memTx.tx, prev, false)
+			return memTx
+		}
+
+		// Reached first non-priority
+		if memTx := prev.Value.(*mempoolTx); !isPriority(memTx.tx) {
+			mem.removeTx(memTx.tx, prev, false)
+			return memTx
+		}
+
+		prev = front
+	}
+
+	return nil
+}
+
 // It blocks if we're waiting on Update() or Reap().
 // cb: A callback from the CheckTx command.
 //     It gets called from another goroutine.
@@ -254,6 +291,10 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 	txSize := len(tx)
 
 	if err := mem.isFull(txSize); err != nil {
+		if isPriority(tx) {
+			mem.makeSpace()
+			return mem.CheckTx(tx, cb, txInfo)
+		}
 		return err
 	}
 
@@ -416,6 +457,7 @@ func (mem *CListMempool) isFull(txSize int) error {
 	)
 
 	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
+
 		return ErrMempoolIsFull{
 			memSize, mem.config.Size,
 			txsBytes, mem.config.MaxTxsBytes,
@@ -545,13 +587,14 @@ func (mem *CListMempool) TxsAvailable() <-chan struct{} {
 // forward references in the list.
 func (mem *CListMempool) GetNewTxs(peerID uint16, max int) (ret []*types.Tx) {
 
-	// There isn't any new Txs
-	if mem.txs.Len() == 0 {
-		return
-	}
-
 	// Lock here protects peer pointers map and front of clist
 	mem.updateMtx.Lock()
+
+	// There isn't any new Txs
+	if mem.txs.Len() == 0 {
+		mem.updateMtx.Unlock()
+		return
+	}
 
 	// Does this peer already exist in the map? If not, create and
 	// point to the front of the list

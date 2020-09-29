@@ -1066,7 +1066,7 @@ func DefaultBeaconConfig() *BeaconConfig {
 		EntropyChannelCapacity:      3,
 		ComputeEntropySleepDuration: 50 * time.Millisecond,
 		RunDKG:                      true,
-		StrictTxFiltering:           false,
+		StrictTxFiltering:           true,
 	}
 }
 
@@ -1075,6 +1075,7 @@ func TestBeaconConfig() *BeaconConfig {
 	cfg := DefaultBeaconConfig()
 	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
 	cfg.RunDKG = false
+	cfg.StrictTxFiltering = false
 	return cfg
 }
 
