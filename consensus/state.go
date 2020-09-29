@@ -1055,7 +1055,7 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 	}
 
 	entropy := tmhash.Sum(newEntropy.Entropy.GroupSignature)
-	proposer := cs.shuffledCabinet(entropy)[index]
+	proposer := cs.shuffledValidators(entropy)[index]
 	cs.Logger.Debug("getProposer with entropy", "height", height, "round", round, "entropyProposer", proposer.Address, "nonEntropyProposer", cs.Validators.GetProposer().Address)
 	return proposer
 }
@@ -1199,32 +1199,63 @@ func (cs *State) getEntropy(height int64) *types.ChannelEntropy {
 	return chanEnt
 }
 
-// TODO(HUT): cabinet -> validators
-// Shuffle the cabinet, given a random byte array, weighting by the voting power.
-// To shuffle, we first convert the byes into a uint64 ( xxx by repeated XOR xxx )
-func (cs *State) shuffledCabinet(entropy []byte) types.ValidatorsByAddress {
-	if len(entropy) < 8 {
-		cs.Logger.Error("Entropy byte array too small for int64 for random seed", "size", len(entropy))
-		return nil
+// Shuffle the validators, given a random byte array for seeding, weighting by the voting power.
+// To weighted shuffle, we iteratively:
+// Pick a random number between 0 and sortedValidators total weight
+// Index into the sortedValidators by this random weight
+// Move this validator from sortedValidators to weightedValidators without replacement
+// Recalculate the total weight
+func (cs *State) shuffledValidators(entropy []byte) (weightedValidators types.ValidatorsByAddress) {
+
+	// Construct a starting seed using the input byte array by rotating and XORing
+	// into a 64 bit number
+	var seed uint64 = 0
+	var entropyByte uint64 = 0
+
+	for i := 0;i < len(entropy);i++ {
+		entropyByte = binary.BigEndian.Uint64(entropy[i:i])
+		seed ^= (entropyByte << i % 8)
 	}
-	seed := int64(binary.BigEndian.Uint64(entropy))
 
-	// First 
+	source := rand.NewSource(int64(seed))
+	random := rand.New(source)
 
-//	source := rand.NewSource(seed)
-//	random := rand.New(source)
-//
-//	_, a := cs.Validators.GetByIndex(0)
-//	a.VotingPower
-//
-//	// Shuffle validators
-//	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
-//	cs.Logger.Debug("shuffledCabinet", "seed", seed, "validators", sortedValidators)
-//	random.Shuffle(len(sortedValidators), func(i, j int) {
-//		sortedValidators.Swap(i, j)
-//	})
-//	cs.Logger.Debug("shuffledCabinet", "seed", seed, "shuffled validators", sortedValidators)
-//	return sortedValidators
+	// To get sorted validators take them by address
+	sortedValidators := types.ValidatorsByAddress(cs.Validators.Copy().Validators)
+	totalVotingPower := cs.Validators.TotalVotingPower()
+
+	for len(sortedValidators) > 0 {
+		randomNumber := random.Int63() % totalVotingPower
+		var votingPowerSum int64 = 0
+
+		if totalVotingPower < 0 {
+			panic("The running voting power of should not be negative")
+		}
+
+		for i := 0;i < len(sortedValidators);i++ {
+			validator := sortedValidators[i]
+			validatorWeight := validator.VotingPower
+
+			if randomNumber >= votingPowerSum && randomNumber < (votingPowerSum + validatorWeight) {
+				// If the random number 'hits' this validator, move it from the sortedValidators to the weightedValidators
+				// deleting that element with a swap and truncate
+				weightedValidators = append(weightedValidators, validator)
+				totalVotingPower -= validatorWeight
+				sortedValidators[i] = sortedValidators[len(sortedValidators)-1]
+				sortedValidators = sortedValidators[0:len(sortedValidators)-1]
+				break
+			}
+
+			// One of the validators should have been selected in the prior loop
+			if i == len(sortedValidators) - 1 {
+				panic("Failed to calculate validator weight")
+			}
+		}
+	}
+
+	cs.Logger.Debug( "seed", seed, "weighted validators", weightedValidators)
+
+	return
 }
 
 func (cs *State) defaultDecideProposal(height int64, round int) {
