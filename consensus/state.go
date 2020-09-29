@@ -1211,7 +1211,8 @@ func (cs *State) shuffledValidators(entropy []byte) (weightedValidators types.Va
 
 	for i := 0;i < len(entropy);i++ {
 		entropyByte = uint64(entropy[i])
-		seed ^= entropyByte << (i % 8)
+		entropyByte = entropyByte << ((i % 7) * 8)
+		seed ^= entropyByte
 	}
 
 	source := rand.NewSource(int64(seed))
