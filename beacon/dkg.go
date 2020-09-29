@@ -3,6 +3,7 @@ package beacon
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/flynn/noise"
@@ -158,6 +159,12 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 
 	// notify the slot protocol enforcer of the new DKG details
 	dkg.slotProtocolEnforcer.UpdateDKG(dkg)
+
+	// Free beacon setup service when DKG is garbage collected
+	runtime.SetFinalizer(dkg,
+		func(dkg *DistributedKeyGeneration) {
+			DeleteBeaconSetupService(dkg.beaconService)
+		})
 
 	return dkg
 }
