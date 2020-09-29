@@ -263,8 +263,8 @@ func (mem *CListMempool) makeSpace() *mempoolTx {
 		}
 
 		// Reached first non-priority
-		if memTx := front.Value.(*mempoolTx); isPriority(memTx.tx) {
-			mem.removeTx(memTx.tx, front, false)
+		if memTx := prev.Value.(*mempoolTx); !isPriority(memTx.tx) {
+			mem.removeTx(memTx.tx, prev, false)
 			return memTx
 		}
 
