@@ -1045,8 +1045,6 @@ func (cs *State) getProposer(height int64, round int) *types.Validator {
 		return cs.Validators.GetProposer()
 	}
 
-	//cs.Validators.I
-
 	index := round
 	if round >= cs.Validators.Size() {
 		cs.Logger.Debug("getProposer, looping validator list", "height", height, "round", round, "validator size", cs.Validators.Size())
