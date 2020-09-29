@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"os"
@@ -1213,8 +1212,8 @@ func (cs *State) shuffledValidators(entropy []byte) (weightedValidators types.Va
 	var entropyByte uint64 = 0
 
 	for i := 0;i < len(entropy);i++ {
-		entropyByte = binary.BigEndian.Uint64(entropy[i:i])
-		seed ^= (entropyByte << i % 8)
+		entropyByte = uint64(entropy[i])
+		seed ^= entropyByte << (i % 8)
 	}
 
 	source := rand.NewSource(int64(seed))
@@ -1245,6 +1244,8 @@ func (cs *State) shuffledValidators(entropy []byte) (weightedValidators types.Va
 				sortedValidators = sortedValidators[0:len(sortedValidators)-1]
 				break
 			}
+
+			votingPowerSum += validatorWeight
 
 			// One of the validators should have been selected in the prior loop
 			if i == len(sortedValidators) - 1 {
