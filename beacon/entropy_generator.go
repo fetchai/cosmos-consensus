@@ -173,7 +173,7 @@ func (entropyGenerator *EntropyGenerator) LoadEntropyKeyFiles(db dbm.DB, privVal
 					// If the aeon has keys in it, load the validators (don't otherwise as
 					// the height can be 0 which causes an error)
 					if len(aeonFile.PublicInfo.GroupPublicKey) != 0 {
-						vals, err1 = sm.LoadValidators(db, aeonFile.PublicInfo.ValidatorHeight)
+						vals, err1 = sm.LoadDKGValidators(db, aeonFile.PublicInfo.ValidatorHeight)
 					}
 
 					if err1 == nil {
