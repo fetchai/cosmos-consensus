@@ -57,6 +57,14 @@ func DefaultValidationRequestHandler(
 			res = &SignedDKGResponse{r.DKGMessage, nil}
 		}
 
+	case *SignEvidenceRequest:
+		sig, err := privVal.SignEvidence(chainID, r.Evidence)
+		if err != nil {
+			res = &SignedEvidenceResponse{nil, &RemoteSignerError{0, err.Error()}}
+		} else {
+			res = &SignedEvidenceResponse{sig, nil}
+		}
+
 	case *PingRequest:
 		err, res = nil, &PingResponse{}
 

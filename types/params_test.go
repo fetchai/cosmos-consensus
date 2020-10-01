@@ -70,7 +70,8 @@ func makeParams(
 			PubKeyTypes: pubkeyTypes,
 		},
 		Entropy: EntropyParams{
-			AeonLength: aeonLength,
+			AeonLength:           aeonLength,
+			InactivityWindowSize: 1,
 		},
 	}
 }
@@ -130,7 +131,8 @@ func TestConsensusParamsUpdate(t *testing.T) {
 					PubKeyTypes: valSecp256k1,
 				},
 				Entropy: &abci.EntropyParams{
-					AeonLength: 120,
+					AeonLength:           120,
+					InactivityWindowSize: 1,
 				},
 			},
 			makeParams(100, 200, 10, 300, valSecp256k1, 120),
