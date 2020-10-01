@@ -338,5 +338,6 @@ func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator,
 
 func testEntropyGenerator() *EntropyGenerator {
 	config := cfg.ResetTestRoot("entropy_generator_test")
-	return NewEntropyGenerator(&config.BaseConfig, config.Beacon, 0)
+	stateDB := dbm.NewMemDB() // each state needs its own db
+	return NewEntropyGenerator(&config.BaseConfig, config.Beacon, 0, sm.MockEvidencePool{}, stateDB)
 }
