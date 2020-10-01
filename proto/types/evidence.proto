@@ -47,6 +47,16 @@ message LunaticValidatorEvidence {
   string invalid_header_field = 3;
 }
 
+message BeaconInactivityEvidence {
+  int64 evidence_height = 1;
+  google.protobuf.Timestamp evidence_time   = 2
+      [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  bytes defendant_address = 3;
+  bytes complainant_address = 4;
+  int64 aeon_start = 5;
+  bytes complainant_signature = 6;
+}
+
 message Evidence {
   oneof sum {
     DuplicateVoteEvidence      duplicate_vote_evidence      = 1;
@@ -56,6 +66,8 @@ message Evidence {
 
     MockEvidence       mock_evidence        = 5;
     MockRandomEvidence mock_random_evidence = 6;
+
+    BeaconInactivityEvidence beacon_inactivity_evidence = 7;
   }
 }
 

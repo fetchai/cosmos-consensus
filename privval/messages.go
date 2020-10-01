@@ -82,6 +82,17 @@ type SignedDKGResponse struct {
 	Error      *RemoteSignerError
 }
 
+// SignDKGRequest is a request to sign a DKG message
+type SignEvidenceRequest struct {
+	Evidence types.Evidence
+}
+
+// SignedDKGResponse is response containing a signed dkg message or an error
+type SignedEvidenceResponse struct {
+	Signature []byte
+	Error     *RemoteSignerError
+}
+
 // PingRequest is a request to confirm that the connection is alive.
 type PingRequest struct {
 }

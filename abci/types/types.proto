@@ -248,6 +248,8 @@ message ValidatorParams {
 message EntropyParams {
   // Note: must be greater than 0
   int64 aeon_length = 1;
+  int64 inactivity_window_size = 2;
+  int64 required_activity_percentage = 3;
 }
 
 message LastCommitInfo {

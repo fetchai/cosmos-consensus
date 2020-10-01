@@ -283,6 +283,17 @@ func (pv *FilePV) SignDKGMessage(chainID string, msg *types.DKGMessage) error {
 	return nil
 }
 
+// SignEvidence signs a canonical representation of the Evidence, along with
+// the chainID. Implements PrivValidator.
+func (pv *FilePV) SignEvidence(chainID string, msg types.Evidence) ([]byte, error) {
+	signBytes := msg.SignBytes(chainID)
+	sig, err := pv.Key.PrivKey.Sign(signBytes)
+	if err != nil {
+		return nil, err
+	}
+	return sig, nil
+}
+
 // Save persists the FilePV to disk.
 func (pv *FilePV) Save() {
 	pv.Key.Save()

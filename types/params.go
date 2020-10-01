@@ -63,6 +63,10 @@ type ValidatorParams struct {
 // EntropyParams determine configuration of DKG and entropy generation
 type EntropyParams struct {
 	AeonLength int64 `json:"aeon_length"`
+
+	// DRB slashing parameters
+	InactivityWindowSize       int64 `json:"inactivity_window_size"`
+	RequiredActivityPercentage int64 `json:"required_activity_percentage"`
 }
 
 // DefaultConsensusParams returns a default ConsensusParams.
@@ -101,7 +105,9 @@ func DefaultValidatorParams() ValidatorParams {
 // DefaultEntropyParams returns a default EntropyParams.
 func DefaultEntropyParams() EntropyParams {
 	return EntropyParams{
-		AeonLength: 100,
+		AeonLength:                 100,
+		InactivityWindowSize:       50, // No. of blocks in which we track drb signature shares obtained
+		RequiredActivityPercentage: 50, // Minimum % of signature shares expected within window
 	}
 }
 
@@ -162,6 +168,12 @@ func (params *ConsensusParams) Validate() error {
 	if params.Entropy.AeonLength <= 0 {
 		return errors.Errorf("entropyParams.AeonLength must be greater than 0. Got %v", params.Entropy.AeonLength)
 	}
+	if params.Entropy.InactivityWindowSize <= 0 {
+		return errors.Errorf("entropyParams.InactivityWindowSize must be greater than 0. Got %v", params.Entropy.InactivityWindowSize)
+	}
+	if params.Entropy.RequiredActivityPercentage < 0 {
+		return errors.Errorf("entropyParams.RequiredActivityFraction can not be negative. Got %v", params.Entropy.RequiredActivityPercentage)
+	}
 
 	return nil
 }
@@ -215,6 +227,8 @@ func (params ConsensusParams) Update(params2 *abci.ConsensusParams) ConsensusPar
 	}
 	if params2.Entropy != nil {
 		res.Entropy.AeonLength = params2.Entropy.AeonLength
+		res.Entropy.InactivityWindowSize = params2.Entropy.InactivityWindowSize
+		res.Entropy.RequiredActivityPercentage = params2.Entropy.RequiredActivityPercentage
 	}
 	return res
 }
