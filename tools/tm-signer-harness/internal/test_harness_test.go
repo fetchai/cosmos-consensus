@@ -55,7 +55,9 @@ const (
 			]
 		},
 		"entropy": {
-		  "aeon_length": "100"
+		  "aeon_length": "100",
+		  "inactivity_window_size": "1",
+		  "required_activity_percentage": "0"
 		}
 	},
 	"validators": [

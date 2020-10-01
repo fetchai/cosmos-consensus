@@ -174,7 +174,7 @@ func (sc *SignerClient) SignDKGMessage(chainID string, msg *types.DKGMessage) er
 	return nil
 }
 
-// SignEvidence requests a remote signer to sign a DKG message
+// SignEvidence requests a remote signer to sign Evidence
 func (sc *SignerClient) SignEvidence(chainID string, msg types.Evidence) ([]byte, error) {
 	response, err := sc.endpoint.SendRequest(&SignEvidenceRequest{Evidence: msg})
 	if err != nil {
