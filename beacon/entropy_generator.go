@@ -727,8 +727,9 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 			sigShareCount += e.Value.(int)
 		}
 
-		threshold := float64(entropyGenerator.aeonEntropyParams.RequiredActivityPercentage*entropyGenerator.aeonEntropyParams.InactivityWindowSize) * 0.01
-		if sigShareCount < int(threshold) {
+		requiredFraction := float64(entropyGenerator.aeonEntropyParams.RequiredActivityPercentage) * 0.01
+		threshold := int(requiredFraction * float64(entropyGenerator.aeonEntropyParams.InactivityWindowSize))
+		if sigShareCount < threshold {
 			// Create evidence and submit to evpool
 			defAddress, _ := entropyGenerator.aeon.validators.GetByIndex(int(valIndex))
 			pubKey, err := entropyGenerator.aeon.privValidator.GetPubKey()
@@ -745,8 +746,12 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 			}
 			evidence.ComplainantSignature = sig
 
-			entropyGenerator.Logger.Debug("Add evidence for inactivity", "height", entropy.Height, "validator", crypto.AddressHash(defAddress))
-			entropyGenerator.evpool.AddEvidence(evidence)
+			entropyGenerator.Logger.Info("Add evidence for inactivity", "height", entropy.Height, "validator", crypto.AddressHash(defAddress),
+				"shareCount", sigShareCount, "threshold", threshold, "windowSize", entropyGenerator.aeonEntropyParams.InactivityWindowSize)
+			err = entropyGenerator.evpool.AddEvidence(evidence)
+			if err != nil {
+				entropyGenerator.Logger.Error("updateActivityTracking: error adding evidence", "err", err)
+			}
 
 			// Paid price for not contributing in this window so now convert the entire window to 1s in order
 			// for validator not be slashed again for this window

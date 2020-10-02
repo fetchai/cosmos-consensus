@@ -106,8 +106,8 @@ func DefaultValidatorParams() ValidatorParams {
 func DefaultEntropyParams() EntropyParams {
 	return EntropyParams{
 		AeonLength:                 100,
-		InactivityWindowSize:       50, // No. of blocks in which we track drb signature shares obtained
-		RequiredActivityPercentage: 50, // Minimum % of signature shares expected within window
+		InactivityWindowSize:       100, // No. of blocks in which we track drb signature shares obtained
+		RequiredActivityPercentage: 50,  // Minimum % of signature shares expected within window
 	}
 }
 
