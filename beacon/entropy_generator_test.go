@@ -370,6 +370,9 @@ func TestEntropyResetActivityTracking(t *testing.T) {
 func TestEntropyActivityTracking(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
+	entropyParams := state.ConsensusParams.Entropy
+	windowSize := entropyParams.InactivityWindowSize
+	threshold := int64(float64(entropyParams.RequiredActivityPercentage*windowSize) * 0.01)
 
 	// Set up validator
 	pubKey, _ := privVals[0].GetPubKey()
@@ -383,10 +386,10 @@ func TestEntropyActivityTracking(t *testing.T) {
 		pendingEvidence int
 	}{
 		{"Less than window size", 10, 10, true, 0},
-		{"Slash all but one", 24, 50, false, 2},
-		{"Slash everyone", 24, 50, true, 3},
-		{"Does not double slash", 26, 51, true, 2},
-		{"Slash new misbehaviour", 25, 51, true, 3},
+		{"Slash all but one", threshold - 1, windowSize, false, 2},
+		{"Slash everyone", threshold - 1, windowSize, true, 3},
+		{"Does not double slash", threshold + 1, windowSize + 1, true, 2},
+		{"Slash new misbehaviour", threshold, windowSize + 1, true, 3},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {

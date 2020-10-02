@@ -171,10 +171,14 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 	}
 	sort.Sort(types.PrivValidatorsByAddress(privValidators))
 
+	// Make inactivity window smaller for tests
+	params := types.DefaultConsensusParams()
+	params.Entropy.InactivityWindowSize = 50
+
 	return &types.GenesisDoc{
 		GenesisTime:     tmtime.Now(),
 		ChainID:         config.ChainID(),
-		ConsensusParams: types.DefaultConsensusParams(),
+		ConsensusParams: params,
 		Validators:      validators,
 		Entropy:         "Fetch.ai Test Genesis Entropy",
 	}, privValidators
