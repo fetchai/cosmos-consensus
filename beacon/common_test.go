@@ -172,9 +172,10 @@ func randGenesisDoc(numValidators int, randPower bool, minPower int64) (*types.G
 	sort.Sort(types.PrivValidatorsByAddress(privValidators))
 
 	return &types.GenesisDoc{
-		GenesisTime: tmtime.Now(),
-		ChainID:     config.ChainID(),
-		Validators:  validators,
-		Entropy:     "Fetch.ai Test Genesis Entropy",
+		GenesisTime:     tmtime.Now(),
+		ChainID:         config.ChainID(),
+		ConsensusParams: types.DefaultConsensusParams(),
+		Validators:      validators,
+		Entropy:         "Fetch.ai Test Genesis Entropy",
 	}, privValidators
 }

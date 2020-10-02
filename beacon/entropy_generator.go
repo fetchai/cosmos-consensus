@@ -11,6 +11,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	cfg "github.com/tendermint/tendermint/config"
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
@@ -29,6 +30,7 @@ const (
 // interface to the evidence pool
 type evidencePool interface {
 	AddEvidence(types.Evidence) error
+	PendingEvidence(int64) []types.Evidence
 }
 
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
@@ -66,9 +68,10 @@ type EntropyGenerator struct {
 	creatingEntropyAtTimeMs time.Time
 
 	// add evidence to the pool when it's detected
-	stateDB          dbm.DB
-	evpool           evidencePool
-	activityTracking map[uint]*list.List // Record of validators
+	stateDB           dbm.DB
+	evpool            evidencePool
+	aeonEntropyParams *types.EntropyParams // Inactivity params for this aeon
+	activityTracking  map[uint]*list.List  // Record of validators
 }
 
 func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
@@ -674,24 +677,34 @@ func (entropyGenerator *EntropyGenerator) resetActivityTracking() {
 			entropyGenerator.activityTracking[valIndex] = list.New()
 		}
 	}
+
+	// Fetch parameters at aeon dkg validator height so that they remain constant during the entire aeon
+	paramHeight := entropyGenerator.aeon.validatorHeight
+	newParams, err := sm.LoadConsensusParams(entropyGenerator.stateDB, paramHeight)
+	if err != nil {
+		entropyGenerator.Logger.Error("resetActivityTracking: error fetching consensus params", "height", paramHeight,
+			"err", err)
+		return
+	}
+	entropyGenerator.aeonEntropyParams = &newParams.Entropy
 }
 
-// Updates tracking information with signature shares from most recent height. If
+// Updates tracking information with signature shares from most recent height. Calculates signature shares
+// received in the last window and creates evidence if not enough were received
 func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.ChannelEntropy) {
 	if entropyGenerator.aeon.aeonExecUnit == nil || !entropyGenerator.aeon.aeonExecUnit.CanSign() {
 		return
 	}
-
-	newParams, err := sm.LoadConsensusParams(entropyGenerator.stateDB, entropy.Height)
-	if err != nil {
-		entropyGenerator.Logger.Error("updateActivityTracking: error fetching consensus params", "height", entropy.Height,
-			"err", err)
+	if entropyGenerator.aeonEntropyParams == nil {
 		return
 	}
 
-	// If entropy is not enabled then should have received no signature shares from anyone this
-	// height and append true to all validators activity tracking
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
+
 	for valIndex, activity := range entropyGenerator.activityTracking {
+		// If entropy is not enabled then should have received no signature shares from anyone this
+		// height and append true to all validators activity tracking
 		if _, haveShare := entropyGenerator.entropyShares[entropy.Height][valIndex]; !entropy.Enabled || haveShare {
 			activity.PushBack(1)
 		} else {
@@ -699,12 +712,12 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 		}
 
 		// Return if we have not got records for InactivityWindowSize blocks
-		if activity.Len() < int(newParams.Entropy.InactivityWindowSize) {
+		if activity.Len() < int(entropyGenerator.aeonEntropyParams.InactivityWindowSize) {
 			continue
 		}
 
 		// Trim to sliding window size if too large by removing oldest elements
-		for activity.Len() > int(newParams.Entropy.InactivityWindowSize) {
+		for activity.Len() > int(entropyGenerator.aeonEntropyParams.InactivityWindowSize) {
 			activity.Remove(activity.Front())
 		}
 
@@ -714,7 +727,8 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 			sigShareCount += e.Value.(int)
 		}
 
-		if int64(sigShareCount) < (newParams.Entropy.RequiredActivityPercentage/100.0)*newParams.Entropy.InactivityWindowSize {
+		threshold := float64(entropyGenerator.aeonEntropyParams.RequiredActivityPercentage*entropyGenerator.aeonEntropyParams.InactivityWindowSize) * 0.01
+		if sigShareCount < int(threshold) {
 			// Create evidence and submit to evpool
 			defAddress, _ := entropyGenerator.aeon.validators.GetByIndex(int(valIndex))
 			pubKey, err := entropyGenerator.aeon.privValidator.GetPubKey()
@@ -730,7 +744,16 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 				continue
 			}
 			evidence.ComplainantSignature = sig
+
+			entropyGenerator.Logger.Debug("Add evidence for inactivity", "height", entropy.Height, "validator", crypto.AddressHash(defAddress))
 			entropyGenerator.evpool.AddEvidence(evidence)
+
+			// Paid price for not contributing in this window so now convert the entire window to 1s in order
+			// for validator not be slashed again for this window
+			entropyGenerator.activityTracking[valIndex] = list.New()
+			for i := int64(0); i < entropyGenerator.aeonEntropyParams.InactivityWindowSize; i++ {
+				entropyGenerator.activityTracking[valIndex].PushBack(1)
+			}
 		}
 	}
 }
