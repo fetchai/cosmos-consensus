@@ -52,6 +52,7 @@ type EntropyGenerator struct {
 	nextAeons              []*aeonDetails
 	aeon                   *aeonDetails
 
+	chainID      string
 	baseConfig   *cfg.BaseConfig
 	beaconConfig *cfg.BeaconConfig
 
@@ -84,7 +85,7 @@ func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
-func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig, blockHeight int64,
+func NewEntropyGenerator(chainID string, bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig, blockHeight int64,
 	evpool evidencePool, stateDB dbm.DB) *EntropyGenerator {
 	if bConfig == nil || beaconConfig == nil {
 		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/beaconConfig can not be nil"))
@@ -94,6 +95,7 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
+		chainID:                   chainID,
 		baseConfig:                bConfig,
 		beaconConfig:              beaconConfig,
 		evsw:                      tmevents.NewEventSwitch(),
@@ -378,7 +380,7 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	}
 
 	// Verify signature on message
-	verifySig := validator.PubKey.VerifyBytes(share.SignBytes(entropyGenerator.baseConfig.ChainID()), share.Signature)
+	verifySig := validator.PubKey.VerifyBytes(share.SignBytes(entropyGenerator.chainID), share.Signature)
 	if !verifySig {
 		entropyGenerator.Logger.Error("applyEntropyShare: invalid validator signature", "validator", share.SignerAddress, "index", index)
 		return
@@ -493,7 +495,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		SignatureShare: signature,
 	}
 	// Sign message
-	err = entropyGenerator.aeon.privValidator.SignEntropy(entropyGenerator.baseConfig.ChainID(), &share)
+	err = entropyGenerator.aeon.privValidator.SignEntropy(entropyGenerator.chainID, &share)
 	if err != nil {
 		entropyGenerator.Logger.Error(err.Error())
 		return
@@ -739,7 +741,7 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 			}
 			evidence := types.NewBeaconInactivityEvidence(entropy.Height, defAddress, pubKey.Address(),
 				entropyGenerator.aeon.Start)
-			sig, err := entropyGenerator.aeon.privValidator.SignEvidence(entropyGenerator.baseConfig.ChainID(), evidence)
+			sig, err := entropyGenerator.aeon.privValidator.SignEvidence(entropyGenerator.chainID, evidence)
 			if err != nil {
 				entropyGenerator.Logger.Error("updateActivityTracking: error signing evidence", "err", err)
 				continue

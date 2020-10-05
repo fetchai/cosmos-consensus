@@ -55,7 +55,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			newGen := testEntropyGenerator()
+			newGen := testEntropyGenerator("TestChain")
 			tc.setup(newGen)
 			assert.NotPanics(t, func() {
 				newGen.Start()
@@ -65,7 +65,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 }
 
 func TestEntropyGeneratorSetAeon(t *testing.T) {
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator("TestChain")
 	// Set be on the end of first aeon
 	lastBlockHeight := int64(99)
 	newGen.setLastBlockHeight(lastBlockHeight)
@@ -245,7 +245,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 func TestEntropyGeneratorFlush(t *testing.T) {
 	state, privVal := groupTestSetup(1)
 
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator(state.ChainID)
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := testAeonFromFile("test_keys/single_validator.txt")
@@ -319,7 +319,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 }
 
 func TestEntropyGeneratorChangeKeys(t *testing.T) {
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator("TestChain")
 	newGen.SetLogger(log.TestingLogger())
 	newGen.SetNextAeonDetails(keylessAeonDetails(0, 4))
 
@@ -408,7 +408,13 @@ func TestEntropyActivityTracking(t *testing.T) {
 				newGen.updateActivityTracking(types.NewChannelEntropy(i+1, types.BlockEntropy{}, enabled, nil))
 			}
 
-			assert.Equal(t, tc.pendingEvidence, len(newGen.evpool.PendingEvidence(0)))
+			evidence := newGen.evpool.PendingEvidence(0)
+			assert.Equal(t, tc.pendingEvidence, len(evidence))
+			for _, ev := range evidence {
+				_, val := state.Validators.GetByAddress(ev.Address())
+				assert.Nil(t, ev.Verify(state.ChainID, val.PubKey))
+			}
+
 		})
 	}
 }
@@ -421,7 +427,7 @@ func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 }
 
 func testEntropyGen(state sm.State, privVal types.PrivValidator, index int) *EntropyGenerator {
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator(state.ChainID)
 	newGen.SetLogger(log.TestingLogger())
 	sm.SaveState(newGen.stateDB, state)
 
@@ -436,8 +442,8 @@ func testEntropyGen(state sm.State, privVal types.PrivValidator, index int) *Ent
 	return newGen
 }
 
-func testEntropyGenerator() *EntropyGenerator {
+func testEntropyGenerator(chainID string) *EntropyGenerator {
 	config := cfg.ResetTestRoot("entropy_generator_test")
 	stateDB := dbm.NewMemDB() // each state needs its own db
-	return NewEntropyGenerator(&config.BaseConfig, config.Beacon, 0, newMockEvidencePool(), stateDB)
+	return NewEntropyGenerator(chainID, &config.BaseConfig, config.Beacon, 0, newMockEvidencePool(), stateDB)
 }

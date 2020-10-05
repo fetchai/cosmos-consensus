@@ -575,7 +575,7 @@ func createBeaconReactor(
 	evpool *evidence.Pool) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
 	beacon.InitialiseMcl()
-	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Beacon, state.LastBlockHeight, evpool, db)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, config.Beacon, state.LastBlockHeight, evpool, db)
 	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetEntropyChannel(entropyChannel)

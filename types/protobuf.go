@@ -16,8 +16,9 @@ import (
 // Use strings to distinguish types in ABCI messages
 
 const (
-	ABCIEvidenceTypeDuplicateVote = "duplicate/vote"
-	ABCIEvidenceTypeMock          = "mock/evidence"
+	ABCIEvidenceTypeDuplicateVote    = "duplicate/vote"
+	ABCIEvidenceTypeMock             = "mock/evidence"
+	ABCIEvidenceTypeBeaconInactivity = "beacon/inactivity"
 )
 
 const (
@@ -181,6 +182,8 @@ func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, evTime time.Time) abci.
 	case MockEvidence:
 		// XXX: not great to have test types in production paths ...
 		evType = ABCIEvidenceTypeMock
+	case *BeaconInactivityEvidence:
+		evType = ABCIEvidenceTypeBeaconInactivity
 	default:
 		panic(fmt.Sprintf("Unknown evidence type: %v %v", ev, reflect.TypeOf(ev)))
 	}
