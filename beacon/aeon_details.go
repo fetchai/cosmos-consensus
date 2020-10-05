@@ -269,8 +269,8 @@ func (output *DKGOutput) ValidateBasic() error {
 		if output.ValidatorHeight <= 0 {
 			return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
 		}
-		if len(output.Qual) == 0 || len(output.Qual) != len(output.PublicKeyShares) {
-			return fmt.Errorf("Mismatch in qual size %v and public key shares %v", len(output.Qual), len(output.PublicKeyShares))
+		if len(output.Qual) == 0 || len(output.Qual) > len(output.PublicKeyShares) {
+			return fmt.Errorf("Qual size %v invalid. Expected non-zero qual less than public key shares %v", len(output.Qual), len(output.PublicKeyShares))
 		}
 		if output.DKGID < 0 {
 			return fmt.Errorf("Invalid dkg id %v", output.DKGID)
