@@ -26,6 +26,7 @@ type BlockEntropy struct {
 	AeonLength     int64              `json:"aeon_length"`
 	DKGID          int64              `json:"dkg_id"`
 	NextAeonStart  int64              `json:"next_aeon_start"`
+	Qual           []int64            `json:"qual"`
 }
 
 // EmptyBlockEntropy for constructing BlockEntropy for empty group signature
@@ -35,6 +36,7 @@ func EmptyBlockEntropy() *BlockEntropy {
 		Round:          -1,
 		AeonLength:     -1,
 		DKGID:          -1,
+		Qual:           make([]int64, 0),
 	}
 }
 
@@ -44,17 +46,23 @@ func IsEmptyBlockEntropy(entropy *BlockEntropy) bool {
 }
 
 // NewBlockEntropy for constructing BlockEntropy
-func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64) *BlockEntropy {
+func NewBlockEntropy(sig ThresholdSignature, round int64, aeonLength int64, dkgID int64, qual []int64) *BlockEntropy {
 	return &BlockEntropy{
 		GroupSignature: sig,
 		Round:          round,
 		AeonLength:     aeonLength,
 		DKGID:          dkgID,
+		Qual:           qual,
 	}
 }
 
 // Equal compares two block entropies and returns if they are identical
 func (blockEntropy *BlockEntropy) Equal(anotherEntropy *BlockEntropy) bool {
+	for index, elem := range blockEntropy.Qual {
+		if anotherEntropy.Qual == nil || anotherEntropy.Qual[index] != elem {
+			return false
+		}
+	}
 	return bytes.Equal(blockEntropy.GroupSignature, anotherEntropy.GroupSignature) &&
 		blockEntropy.Round == anotherEntropy.Round &&
 		blockEntropy.AeonLength == anotherEntropy.AeonLength &&
@@ -87,6 +95,9 @@ func (blockEntropy *BlockEntropy) ValidateBasic() error {
 	}
 	if blockEntropy.DKGID < 0 {
 		return fmt.Errorf("expected DKG ID >= 0, got %d", blockEntropy.DKGID)
+	}
+	if blockEntropy.Qual == nil {
+		return fmt.Errorf("expected non-nil Qual")
 	}
 	return nil
 }

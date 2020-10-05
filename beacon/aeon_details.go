@@ -32,6 +32,8 @@ type aeonDetails struct {
 	// start and end are inclusive
 	Start int64
 	End   int64
+
+	qual []int64
 }
 
 // LoadAeonDetails creates aeonDetails from keys saved in file
@@ -50,7 +52,7 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 	keys.SetPublic_key_shares(keyShares)
 	qual := NewIntVector()
 	for i := 0; i < len(aeonDetailsFile.PublicInfo.Qual); i++ {
-		qual.Add(aeonDetailsFile.PublicInfo.Qual[i])
+		qual.Add(uint(aeonDetailsFile.PublicInfo.Qual[i]))
 	}
 
 	keyType := aeonDetailsFile.PublicInfo.KeyType
@@ -101,6 +103,7 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 		}
 
 	}
+	qual := aeonKeys.Qual()
 
 	ad := &aeonDetails{
 		privValidator:   newPrivValidator,
@@ -111,6 +114,10 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 		threshold:       validators.Size()/2 + 1,
 		Start:           startHeight,
 		End:             endHeight,
+		qual:            make([]int64, qual.Size()),
+	}
+	for i := 0; i < int(qual.Size()); i++ {
+		ad.qual[i] = int64(qual.Get(i))
 	}
 
 	runtime.SetFinalizer(ad,
@@ -142,17 +149,13 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
 		ValidatorHeight: aeon.validatorHeight,
 		DKGID:           aeon.dkgID,
-		Qual:            make([]uint, len(aeon.validators.Validators)),
+		Qual:            aeon.qual,
 		Start:           aeon.Start,
 		End:             aeon.End,
 	}
 	publicKeyShares := aeon.aeonExecUnit.PublicKeyShares()
 	for i := 0; i < int(publicKeyShares.Size()); i++ {
 		output.PublicKeyShares[i] = publicKeyShares.Get(i)
-	}
-	qual := aeon.aeonExecUnit.Qual()
-	for i := 0; i < int(qual.Size()); i++ {
-		output.Qual[i] = qual.Get(i)
 	}
 	return &output
 }
@@ -252,7 +255,7 @@ type DKGOutput struct {
 	Generator       string   `json:"generator"`
 	ValidatorHeight int64    `json:"validator_height"`
 	DKGID           int64    `json:"dkg_id"`
-	Qual            []uint   `json:"qual"`
+	Qual            []int64  `json:"qual"`
 	Start           int64    `json:"start"`
 	End             int64    `json:"end"`
 }

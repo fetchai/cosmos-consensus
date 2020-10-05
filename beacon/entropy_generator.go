@@ -644,7 +644,8 @@ func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.Block
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
 		entropyGenerator.aeon.End-entropyGenerator.aeon.Start+1,
-		entropyGenerator.aeon.dkgID)
+		entropyGenerator.aeon.dkgID,
+		entropyGenerator.aeon.qual)
 }
 
 func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
