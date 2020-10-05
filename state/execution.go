@@ -486,8 +486,6 @@ func updateState(
 		LastComputedEntropy:              header.Entropy.GroupSignature,
 		DKGValidators:                    nDKGValSet,
 		LastHeightDKGValidatorsChanged:   lastHeightDKGValsChanged,
-		LastAeonStart:                    header.Entropy.NextAeonStart,
-		LastDKGQual:                      header.Entropy.Qual,
 	}, nil
 }
 
