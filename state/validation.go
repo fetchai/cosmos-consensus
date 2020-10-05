@@ -159,6 +159,7 @@ func validateBlock(evidencePool EvidencePool, stateDB dbm.DB, blockStore BlockSt
 // - it is internally consistent
 // - it was properly signed by the alleged equivocator
 func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence types.Evidence) error {
+	// General validation of evidence age
 	var (
 		height         = state.LastBlockHeight
 		evidenceParams = state.ConsensusParams.Evidence
@@ -177,6 +178,22 @@ func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence
 		)
 	}
 
+	// Validation that is evidence type dependent
+	switch evType := evidence.(type) {
+	case *types.DuplicateVoteEvidence:
+		return verifyDuplicateVoteEvidence(stateDB, state.ChainID, evType)
+	case *types.BeaconInactivityEvidence:
+		return verifyBeaconInactivityEvidence(stateDB, blockStore, state.ChainID, evType)
+	case types.MockEvidence:
+		return nil
+	case types.MockRandomEvidence:
+		return nil
+	default:
+		return fmt.Errorf("VerifyEvidence: evidence is not recognized: %T", evType)
+	}
+}
+
+func verifyDuplicateVoteEvidence(stateDB dbm.DB, chainID string, evidence *types.DuplicateVoteEvidence) error {
 	valset, err := LoadValidators(stateDB, evidence.ValidatorHeight())
 	if err != nil {
 		// TODO: if err is just that we cant find it cuz we pruned, ignore.
@@ -196,9 +213,23 @@ func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence
 		return fmt.Errorf("address %X was not a validator at height %d", addr, height)
 	}
 
-	if err := evidence.Verify(state.ChainID, val.PubKey); err != nil {
+	if err := evidence.Verify(chainID, val.PubKey); err != nil {
 		return err
 	}
+	return nil
+}
 
+func verifyBeaconInactivityEvidence(stateDB dbm.DB, blockStore BlockStore, chainID string, evidence *types.BeaconInactivityEvidence) error {
+	blockMeta := blockStore.LoadBlockMeta(evidence.ValidatorHeight())
+	if blockMeta == nil {
+		return fmt.Errorf("could not retrieve block header for height %v", evidence.ValidatorHeight())
+	}
+	valset, err := LoadDKGValidators(stateDB, evidence.ValidatorHeight()-1)
+	if err != nil {
+		return err
+	}
+	if err := evidence.Verify(chainID, blockMeta.Header.Entropy, valset); err != nil {
+		return err
+	}
 	return nil
 }
