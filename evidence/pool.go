@@ -22,14 +22,15 @@ type Pool struct {
 	evidenceList *clist.CList // concurrent linked-list of evidence
 
 	// needed to load validators to verify evidence
-	stateDB dbm.DB
+	stateDB    dbm.DB
+	blockStore sm.BlockStore
 
 	// latest state
 	mtx   sync.Mutex
 	state sm.State
 }
 
-func NewPool(stateDB, evidenceDB dbm.DB) *Pool {
+func NewPool(stateDB, evidenceDB dbm.DB, blockStore sm.BlockStore) *Pool {
 	store := NewStore(evidenceDB)
 	evpool := &Pool{
 		stateDB:      stateDB,
@@ -37,6 +38,7 @@ func NewPool(stateDB, evidenceDB dbm.DB) *Pool {
 		logger:       log.NewNopLogger(),
 		store:        store,
 		evidenceList: clist.New(),
+		blockStore:   blockStore,
 	}
 	return evpool
 }
@@ -102,7 +104,7 @@ func (evpool *Pool) AddEvidence(evidence types.Evidence) error {
 		return ErrEvidenceAlreadyStored{}
 	}
 
-	if err := sm.VerifyEvidence(evpool.stateDB, evpool.State(), evidence); err != nil {
+	if err := sm.VerifyEvidence(evpool.stateDB, evpool.blockStore, evpool.State(), evidence); err != nil {
 		return ErrInvalidEvidence{err}
 	}
 

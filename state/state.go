@@ -85,6 +85,7 @@ type State struct {
 	DKGValidators                  *types.ValidatorSet
 	LastHeightDKGValidatorsChanged int64
 	LastAeonStart                  int64
+	LastDKGQual                    []int64
 }
 
 // Copy makes a copy of the State for mutating.
@@ -113,6 +114,7 @@ func (state State) Copy() State {
 		DKGValidators:                  state.DKGValidators.Copy(),
 		LastHeightDKGValidatorsChanged: state.LastHeightDKGValidatorsChanged,
 		LastAeonStart:                  state.LastAeonStart,
+		LastDKGQual:                    state.LastDKGQual,
 	}
 }
 
@@ -263,5 +265,6 @@ func MakeGenesisState(genDoc *types.GenesisDoc) (State, error) {
 		DKGValidators:                  dkgValidatorSet,
 		LastHeightDKGValidatorsChanged: 1,
 		LastAeonStart:                  -1,
+		LastDKGQual:                    []int64{},
 	}, nil
 }

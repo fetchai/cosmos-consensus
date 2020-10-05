@@ -38,6 +38,8 @@ type BlockExecutor struct {
 	logger log.Logger
 
 	metrics *Metrics
+
+	blockStore BlockStore
 }
 
 type BlockExecutorOption func(executor *BlockExecutor)
@@ -56,16 +58,18 @@ func NewBlockExecutor(
 	proxyApp proxy.AppConnConsensus,
 	mempool mempl.Mempool,
 	evpool EvidencePool,
+	blockStore BlockStore,
 	options ...BlockExecutorOption,
 ) *BlockExecutor {
 	res := &BlockExecutor{
-		db:       db,
-		proxyApp: proxyApp,
-		eventBus: types.NopEventBus{},
-		mempool:  mempool,
-		evpool:   evpool,
-		logger:   logger,
-		metrics:  NopMetrics(),
+		db:         db,
+		proxyApp:   proxyApp,
+		eventBus:   types.NopEventBus{},
+		mempool:    mempool,
+		evpool:     evpool,
+		logger:     logger,
+		metrics:    NopMetrics(),
+		blockStore: blockStore,
 	}
 
 	for _, option := range options {
@@ -115,7 +119,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 // Validation does not mutate state, but does require historical information from the stateDB,
 // ie. to verify evidence from a validator at an old height.
 func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) error {
-	return validateBlock(blockExec.evpool, blockExec.db, state, block)
+	return validateBlock(blockExec.evpool, blockExec.db, blockExec.blockStore, state, block)
 }
 
 // ApplyBlock validates the block against the state, executes it against the app,
@@ -483,6 +487,7 @@ func updateState(
 		DKGValidators:                    nDKGValSet,
 		LastHeightDKGValidatorsChanged:   lastHeightDKGValsChanged,
 		LastAeonStart:                    header.Entropy.NextAeonStart,
+		LastDKGQual:                      header.Entropy.Qual,
 	}, nil
 }
 

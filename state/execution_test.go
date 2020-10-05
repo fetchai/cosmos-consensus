@@ -16,8 +16,10 @@ import (
 	"github.com/tendermint/tendermint/mock"
 	"github.com/tendermint/tendermint/proxy"
 	sm "github.com/tendermint/tendermint/state"
+	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
@@ -36,9 +38,10 @@ func TestApplyBlock(t *testing.T) {
 	defer proxyApp.Stop()
 
 	state, stateDB, _ := makeState(1, 1)
-
+	blockDB := dbm.NewMemDB()
+	blockStore := store.NewBlockStore(blockDB)
 	blockExec := sm.NewBlockExecutor(stateDB, log.TestingLogger(), proxyApp.Consensus(),
-		mock.Mempool{}, sm.MockEvidencePool{})
+		mock.Mempool{}, sm.MockEvidencePool{}, blockStore)
 
 	block := makeBlock(state, 1)
 	blockID := types.BlockID{Hash: block.Hash(), PartsHeader: block.MakePartSet(testPartSize).Header()}
@@ -328,13 +331,15 @@ func TestEndBlockValidatorUpdates(t *testing.T) {
 	defer proxyApp.Stop()
 
 	state, stateDB, _ := makeState(1, 1)
-
+	blockDB := dbm.NewMemDB()
+	blockStore := store.NewBlockStore(blockDB)
 	blockExec := sm.NewBlockExecutor(
 		stateDB,
 		log.TestingLogger(),
 		proxyApp.Consensus(),
 		mock.Mempool{},
 		sm.MockEvidencePool{},
+		blockStore,
 	)
 
 	eventBus := types.NewEventBus()
@@ -396,12 +401,15 @@ func TestEndBlockValidatorUpdatesResultingInEmptySet(t *testing.T) {
 	defer proxyApp.Stop()
 
 	state, stateDB, _ := makeState(1, 1)
+	blockDB := dbm.NewMemDB()
+	blockStore := store.NewBlockStore(blockDB)
 	blockExec := sm.NewBlockExecutor(
 		stateDB,
 		log.TestingLogger(),
 		proxyApp.Consensus(),
 		mock.Mempool{},
 		sm.MockEvidencePool{},
+		blockStore,
 	)
 
 	block := makeBlock(state, 1)
