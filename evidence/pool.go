@@ -122,7 +122,7 @@ func (evpool *Pool) AddEvidence(evidence types.Evidence) error {
 		return err
 	}
 
-	evpool.logger.Info("Verified new evidence of byzantine behaviour", "evidence", evidence)
+	evpool.logger.Info("Verified new evidence", "type", fmt.Sprintf("%T", evidence), "evidence", evidence)
 
 	// add evidence to clist
 	evpool.evidenceList.PushBack(evidence)
