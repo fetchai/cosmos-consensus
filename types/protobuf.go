@@ -167,34 +167,50 @@ func (tm2pb) ConsensusParams(params *ConsensusParams) *abci.ConsensusParams {
 // ABCI Evidence includes information from the past that's not included in the evidence itself
 // so Evidence types stays compact.
 // XXX: panics on nil or unknown pubkey type
-func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, evTime time.Time) abci.Evidence {
-	_, val := valSet.GetByAddress(ev.Address())
-	if val == nil {
-		// should already have checked this
-		panic(val)
-	}
+func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, dkgValSet *ValidatorSet, evTime time.Time) abci.Evidence {
 
-	// set type
-	var evType string
-	switch ev.(type) {
-	case *DuplicateVoteEvidence:
-		evType = ABCIEvidenceTypeDuplicateVote
-	case MockEvidence:
-		// XXX: not great to have test types in production paths ...
-		evType = ABCIEvidenceTypeMock
-	case *BeaconInactivityEvidence:
-		evType = ABCIEvidenceTypeBeaconInactivity
-	default:
-		panic(fmt.Sprintf("Unknown evidence type: %v %v", ev, reflect.TypeOf(ev)))
-	}
-
-	return abci.Evidence{
-		Type:             evType,
-		Validator:        TM2PB.Validator(val),
+	evidence := abci.Evidence{
 		Height:           ev.Height(),
 		Time:             evTime,
 		TotalVotingPower: valSet.TotalVotingPower(),
 	}
+
+	// set type and relevant validator set
+	relevantValSet := valSet
+	switch evType := ev.(type) {
+	case *DuplicateVoteEvidence:
+		evidence.Type = ABCIEvidenceTypeDuplicateVote
+	case MockEvidence:
+		// XXX: not great to have test types in production paths ...
+		evidence.Type = ABCIEvidenceTypeMock
+	case *BeaconInactivityEvidence:
+		evidence.Type = ABCIEvidenceTypeBeaconInactivity
+		if dkgValSet == nil {
+			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.Height()))
+		}
+		relevantValSet = dkgValSet
+		_, com := relevantValSet.GetByAddress(evType.ComplainantAddress)
+		if com == nil {
+			panic(com)
+		}
+		evidence.Complainant = &abci.Validator{
+			Address: com.PubKey.Address(),
+			Power:   com.VotingPower,
+		}
+	default:
+		panic(fmt.Sprintf("Unknown evidence type: %v %v", ev, reflect.TypeOf(ev)))
+	}
+
+	if relevantValSet == nil {
+		panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", reflect.TypeOf(ev), ev.Height()))
+	}
+	_, val := relevantValSet.GetByAddress(ev.Address())
+	if val == nil {
+		panic(val)
+	}
+	evidence.Validator = TM2PB.Validator(val)
+
+	return evidence
 }
 
 // XXX: panics on nil or unknown pubkey type

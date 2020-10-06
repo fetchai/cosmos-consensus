@@ -104,18 +104,10 @@ func (evpool *Pool) AddEvidence(evidence types.Evidence) error {
 		return ErrEvidenceAlreadyStored{}
 	}
 
-	if err := sm.VerifyEvidence(evpool.stateDB, evpool.blockStore, evpool.State(), evidence); err != nil {
+	priority, err := sm.VerifyEvidence(evpool.stateDB, evpool.blockStore, evpool.State(), evidence)
+	if err != nil {
 		return ErrInvalidEvidence{err}
 	}
-
-	// fetch the validator and return its voting power as its priority
-	// TODO: something better ?
-	valset, err := sm.LoadValidators(evpool.stateDB, evidence.ValidatorHeight())
-	if err != nil {
-		return err
-	}
-	_, val := valset.GetByAddress(evidence.Address())
-	priority := val.VotingPower
 
 	_, err = evpool.store.AddNewEvidence(evidence, priority)
 	if err != nil {

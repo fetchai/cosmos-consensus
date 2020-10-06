@@ -143,10 +143,10 @@ func TestBeginBlockByzantineValidators(t *testing.T) {
 		expectedByzantineValidators []abci.Evidence
 	}{
 		{"none byzantine", []types.Evidence{}, []abci.Evidence{}},
-		{"one byzantine", []types.Evidence{ev1}, []abci.Evidence{types.TM2PB.Evidence(ev1, valSet, now)}},
+		{"one byzantine", []types.Evidence{ev1}, []abci.Evidence{types.TM2PB.Evidence(ev1, valSet, nil, now)}},
 		{"multiple byzantine", []types.Evidence{ev1, ev2}, []abci.Evidence{
-			types.TM2PB.Evidence(ev1, valSet, now),
-			types.TM2PB.Evidence(ev2, valSet, now)}},
+			types.TM2PB.Evidence(ev1, valSet, nil, now),
+			types.TM2PB.Evidence(ev2, valSet, nil, now)}},
 	}
 
 	var (

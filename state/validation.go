@@ -132,7 +132,7 @@ func validateBlock(evidencePool EvidencePool, stateDB dbm.DB, blockStore BlockSt
 
 	// Validate all evidence.
 	for _, ev := range block.Evidence.Evidence {
-		if err := VerifyEvidence(stateDB, blockStore, state, ev); err != nil {
+		if _, err := VerifyEvidence(stateDB, blockStore, state, ev); err != nil {
 			return types.NewErrEvidenceInvalid(ev, err)
 		}
 		if evidencePool != nil && evidencePool.IsCommitted(ev) {
@@ -158,7 +158,8 @@ func validateBlock(evidencePool EvidencePool, stateDB dbm.DB, blockStore BlockSt
 // - it is from a key who was a validator at the given height
 // - it is internally consistent
 // - it was properly signed by the alleged equivocator
-func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence types.Evidence) error {
+// - returns voting power of validator accused of misbehaviour
+func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence types.Evidence) (int64, error) {
 	// General validation of evidence age
 	var (
 		height         = state.LastBlockHeight
@@ -169,7 +170,7 @@ func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence
 	)
 
 	if ageDuration > evidenceParams.MaxAgeDuration && ageNumBlocks > evidenceParams.MaxAgeNumBlocks {
-		return fmt.Errorf(
+		return 0, fmt.Errorf(
 			"evidence from height %d (created at: %v) is too old; min height is %d and evidence can not be older than %v",
 			evidence.Height(),
 			evidence.Time(),
@@ -185,20 +186,20 @@ func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence
 	case *types.BeaconInactivityEvidence:
 		return verifyBeaconInactivityEvidence(stateDB, blockStore, state.ChainID, evType)
 	case types.MockEvidence:
-		return nil
+		return verifyMockEvidence(stateDB, evidence)
 	case types.MockRandomEvidence:
-		return nil
+		return verifyMockEvidence(stateDB, evidence)
 	default:
-		return fmt.Errorf("VerifyEvidence: evidence is not recognized: %T", evType)
+		return 0, fmt.Errorf("VerifyEvidence: evidence is not recognized: %T", evType)
 	}
 }
 
-func verifyDuplicateVoteEvidence(stateDB dbm.DB, chainID string, evidence *types.DuplicateVoteEvidence) error {
+func verifyDuplicateVoteEvidence(stateDB dbm.DB, chainID string, evidence *types.DuplicateVoteEvidence) (int64, error) {
 	valset, err := LoadValidators(stateDB, evidence.ValidatorHeight())
 	if err != nil {
 		// TODO: if err is just that we cant find it cuz we pruned, ignore.
 		// TODO: if its actually bad evidence, punish peer
-		return err
+		return 0, err
 	}
 
 	// The address must have been an active validator at the height.
@@ -210,26 +211,42 @@ func verifyDuplicateVoteEvidence(stateDB dbm.DB, chainID string, evidence *types
 	height, addr := ev.ValidatorHeight(), ev.Address()
 	_, val := valset.GetByAddress(addr)
 	if val == nil {
-		return fmt.Errorf("address %X was not a validator at height %d", addr, height)
+		return 0, fmt.Errorf("address %X was not a validator at height %d", addr, height)
 	}
 
 	if err := evidence.Verify(chainID, val.PubKey); err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return val.VotingPower, nil
 }
 
-func verifyBeaconInactivityEvidence(stateDB dbm.DB, blockStore BlockStore, chainID string, evidence *types.BeaconInactivityEvidence) error {
+func verifyBeaconInactivityEvidence(stateDB dbm.DB, blockStore BlockStore, chainID string, evidence *types.BeaconInactivityEvidence) (int64, error) {
 	blockMeta := blockStore.LoadBlockMeta(evidence.ValidatorHeight())
 	if blockMeta == nil {
-		return fmt.Errorf("could not retrieve block header for height %v", evidence.ValidatorHeight())
+		return 0, fmt.Errorf("could not retrieve block header for height %v", evidence.ValidatorHeight())
 	}
 	valset, err := LoadDKGValidators(stateDB, evidence.ValidatorHeight()-1)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if err := evidence.Verify(chainID, blockMeta.Header.Entropy, valset); err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	_, val := valset.GetByAddress(evidence.Address())
+	return val.VotingPower, nil
+}
+
+func verifyMockEvidence(stateDB dbm.DB, evidence types.Evidence) (int64, error) {
+	valset, err := LoadValidators(stateDB, evidence.ValidatorHeight())
+	if err != nil {
+		return 0, err
+	}
+
+	ev := evidence
+	height, addr := ev.ValidatorHeight(), ev.Address()
+	_, val := valset.GetByAddress(addr)
+	if val == nil {
+		return 0, fmt.Errorf("address %X was not a validator at height %d", addr, height)
+	}
+	return val.VotingPower, nil
 }

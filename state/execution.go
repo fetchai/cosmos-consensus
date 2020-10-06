@@ -305,7 +305,7 @@ func execBlockOnProxyApp(
 	}
 	proxyAppConn.SetResponseCallback(proxyCb)
 
-	commitInfo, byzVals := getBeginBlockValidatorInfo(block, stateDB)
+	commitInfo, byzVals := getBeginBlockValidatorInfo(logger, block, stateDB)
 
 	// Begin block
 	var err error
@@ -340,7 +340,7 @@ func execBlockOnProxyApp(
 	return abciResponses, nil
 }
 
-func getBeginBlockValidatorInfo(block *types.Block, stateDB dbm.DB) (abci.LastCommitInfo, []abci.Evidence) {
+func getBeginBlockValidatorInfo(logger log.Logger, block *types.Block, stateDB dbm.DB) (abci.LastCommitInfo, []abci.Evidence) {
 	voteInfos := make([]abci.VoteInfo, block.LastCommit.Size())
 	// block.Height=1 -> LastCommitInfo.Votes are empty.
 	// Remember that the first LastCommit is intentionally empty, so it makes
@@ -378,9 +378,13 @@ func getBeginBlockValidatorInfo(block *types.Block, stateDB dbm.DB) (abci.LastCo
 		// `SetValidatorSet()` and `ToABCI` methods ?
 		valset, err := LoadValidators(stateDB, ev.ValidatorHeight())
 		if err != nil {
-			panic(err)
+			logger.Error("Error in getting validators", "err", err, "height", ev.ValidatorHeight())
 		}
-		byzVals[i] = types.TM2PB.Evidence(ev, valset, block.Time)
+		dkgValSet, err := LoadDKGValidators(stateDB, ev.ValidatorHeight())
+		if err != nil {
+			logger.Error("Error in getting dkg validators", "err", err, "height", ev.ValidatorHeight())
+		}
+		byzVals[i] = types.TM2PB.Evidence(ev, valset, dkgValSet, block.Time)
 	}
 
 	return abci.LastCommitInfo{

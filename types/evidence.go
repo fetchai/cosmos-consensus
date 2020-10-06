@@ -522,7 +522,7 @@ func (bie *BeaconInactivityEvidence) Time() time.Time {
 
 // Address returns the address of the validator.
 func (bie *BeaconInactivityEvidence) Address() []byte {
-	return bie.ComplainantAddress
+	return bie.DefendantAddress
 }
 
 // Bytes returns the evidence as byte slice
