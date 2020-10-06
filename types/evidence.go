@@ -576,9 +576,6 @@ func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEn
 		return fmt.Errorf("ComplainantSignature invalid")
 	}
 
-	// Need to verify defendant address in state and also aeon start is correct
-	// and evidence height is greater than aeon start
-
 	return nil
 }
 
