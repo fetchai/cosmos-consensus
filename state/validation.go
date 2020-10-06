@@ -177,7 +177,7 @@ func VerifyEvidence(stateDB dbm.DB, state State, evidence types.Evidence) error 
 		)
 	}
 
-	valset, err := LoadValidators(stateDB, evidence.Height())
+	valset, err := LoadValidators(stateDB, evidence.ValidatorHeight())
 	if err != nil {
 		// TODO: if err is just that we cant find it cuz we pruned, ignore.
 		// TODO: if its actually bad evidence, punish peer
@@ -190,7 +190,7 @@ func VerifyEvidence(stateDB dbm.DB, state State, evidence types.Evidence) error 
 	// XXX: this makes lite-client bisection as is unsafe
 	// See https://github.com/tendermint/tendermint/issues/3244
 	ev := evidence
-	height, addr := ev.Height(), ev.Address()
+	height, addr := ev.ValidatorHeight(), ev.Address()
 	_, val := valset.GetByAddress(addr)
 	if val == nil {
 		return fmt.Errorf("address %X was not a validator at height %d", addr, height)

@@ -16,6 +16,26 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+// Mock evidence pool for inactivity tracking
+type mockEvidencePool struct {
+	receivedEvidence []types.Evidence
+}
+
+func newMockEvidencePool() *mockEvidencePool {
+	return &mockEvidencePool{
+		receivedEvidence: make([]types.Evidence, 0),
+	}
+}
+
+func (mep *mockEvidencePool) AddEvidence(ev types.Evidence) error {
+	mep.receivedEvidence = append(mep.receivedEvidence, ev)
+	return nil
+}
+
+func (mep *mockEvidencePool) PendingEvidence(int64) []types.Evidence {
+	return mep.receivedEvidence
+}
+
 func TestEntropyGeneratorStart(t *testing.T) {
 	testCases := []struct {
 		testName string
@@ -35,7 +55,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			newGen := testEntropyGenerator()
+			newGen := testEntropyGenerator("TestChain")
 			tc.setup(newGen)
 			assert.NotPanics(t, func() {
 				newGen.Start()
@@ -45,7 +65,7 @@ func TestEntropyGeneratorStart(t *testing.T) {
 }
 
 func TestEntropyGeneratorSetAeon(t *testing.T) {
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator("TestChain")
 	// Set be on the end of first aeon
 	lastBlockHeight := int64(99)
 	newGen.setLastBlockHeight(lastBlockHeight)
@@ -76,7 +96,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 	nValidators := 4
 	state, privVals := groupTestSetup(nValidators)
 
-	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen := testEntropyGen(state, nil, -1)
 
 	// Does not panic if can not sign
 	assert.NotPanics(t, func() {
@@ -90,7 +110,7 @@ func TestEntropyGeneratorNonValidator(t *testing.T) {
 		privVal := privVals[i]
 		pubKey, _ := privVal.GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		tempGen := testEntropyGen(state.Validators, privVal, index)
+		tempGen := testEntropyGen(state, privVal, index)
 		tempGen.sign()
 
 		share := tempGen.entropyShares[1][uint(index)]
@@ -106,7 +126,7 @@ func TestEntropyGeneratorSign(t *testing.T) {
 
 	pubKey, _ := privVals[0].GetPubKey()
 	index, _ := state.Validators.GetByAddress(pubKey.Address())
-	newGen := testEntropyGen(state.Validators, privVals[0], index)
+	newGen := testEntropyGen(state, privVals[0], index)
 	newGen.SetLastComputedEntropy(2, []byte("Test Entropy"))
 	newGen.setLastBlockHeight(2)
 
@@ -126,7 +146,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	state, privVals := groupTestSetup(nValidators)
 
 	// Set up non-validator
-	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen := testEntropyGen(state, nil, -1)
 	newGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 	newGen.setLastBlockHeight(1)
 
@@ -150,7 +170,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	t.Run("applyShare old height", func(t *testing.T) {
 		pubKey, _ := privVals[0].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen := testEntropyGen(state, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
 
@@ -163,7 +183,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	t.Run("applyShare height far ahead", func(t *testing.T) {
 		pubKey, _ := privVals[0].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen := testEntropyGen(state, privVals[0], index)
 		otherGen.SetLastComputedEntropy(3, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(3)
 
@@ -195,7 +215,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	t.Run("applyShare invalid validator signature", func(t *testing.T) {
 		pubKey, _ := privVals[0].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen := testEntropyGen(state, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
 
@@ -210,7 +230,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 	t.Run("applyShare correct", func(t *testing.T) {
 		pubKey, _ := privVals[0].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen := testEntropyGen(state, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
 
@@ -225,7 +245,7 @@ func TestEntropyGeneratorApplyShare(t *testing.T) {
 func TestEntropyGeneratorFlush(t *testing.T) {
 	state, privVal := groupTestSetup(1)
 
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator(state.ChainID)
 	newGen.SetLogger(log.TestingLogger())
 
 	aeonExecUnit := testAeonFromFile("test_keys/single_validator.txt")
@@ -247,7 +267,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 	state, privVals := groupTestSetup(nValidators)
 
 	// Set up non-validator
-	newGen := testEntropyGen(state.Validators, nil, -1)
+	newGen := testEntropyGen(state, nil, -1)
 	newGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 	newGen.setLastBlockHeight(1)
 	newGen.Start()
@@ -263,7 +283,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 	t.Run("applyEntropy invalid entropy", func(t *testing.T) {
 		pubKey, _ := privVals[0].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen := testEntropyGen(state, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
 
@@ -275,7 +295,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 	t.Run("applyEntropy correct", func(t *testing.T) {
 		pubKey, _ := privVals[0].GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
-		otherGen := testEntropyGen(state.Validators, privVals[0], index)
+		otherGen := testEntropyGen(state, privVals[0], index)
 		otherGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 		otherGen.setLastBlockHeight(1)
 		otherGen.Start()
@@ -283,7 +303,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 		for _, val := range privVals {
 			pubKey, _ := val.GetPubKey()
 			tempIndex, _ := state.Validators.GetByAddress(pubKey.Address())
-			tempGen := testEntropyGen(state.Validators, val, tempIndex)
+			tempGen := testEntropyGen(state, val, tempIndex)
 			tempGen.SetLastComputedEntropy(1, []byte("Test Entropy"))
 			tempGen.setLastBlockHeight(1)
 
@@ -299,7 +319,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 }
 
 func TestEntropyGeneratorChangeKeys(t *testing.T) {
-	newGen := testEntropyGenerator()
+	newGen := testEntropyGenerator("TestChain")
 	newGen.SetLogger(log.TestingLogger())
 	newGen.SetNextAeonDetails(keylessAeonDetails(0, 4))
 
@@ -314,6 +334,91 @@ func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	assert.Eventually(t, func() bool { return newGen.isSigningEntropy() }, time.Second, 100*time.Millisecond)
 }
 
+func TestEntropyResetActivityTracking(t *testing.T) {
+	nValidators := 4
+	state, privVals := groupTestSetup(nValidators)
+
+	testCases := []struct {
+		testName             string
+		privVal              types.PrivValidator
+		mapNil               bool
+		activityTrackingSize int
+	}{
+		{"Sentry", nil, true, 0},
+		{"Validator", privVals[0], false, 3},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			index := -1
+			if tc.privVal != nil {
+				pubKey, _ := tc.privVal.GetPubKey()
+				index, _ = state.Validators.GetByAddress(pubKey.Address())
+			}
+			newGen := testEntropyGen(state, tc.privVal, index)
+
+			assert.Equal(t, tc.mapNil, newGen.activityTracking == nil)
+			if !tc.mapNil {
+				assert.Equal(t, tc.activityTrackingSize, len(newGen.activityTracking))
+				_, haveIndex := newGen.activityTracking[uint(index)]
+				assert.False(t, haveIndex)
+				assert.True(t, newGen.aeonEntropyParams != nil)
+			}
+		})
+	}
+}
+
+func TestEntropyActivityTracking(t *testing.T) {
+	nValidators := 4
+	state, privVals := groupTestSetup(nValidators)
+	entropyParams := state.ConsensusParams.Entropy
+	windowSize := entropyParams.InactivityWindowSize
+	threshold := int64(float64(entropyParams.RequiredActivityPercentage*windowSize) * 0.01)
+
+	// Set up validator
+	pubKey, _ := privVals[0].GetPubKey()
+	index, _ := state.Validators.GetByAddress(pubKey.Address())
+
+	testCases := []struct {
+		testName        string
+		sharesReceived  int64
+		entropyHeight   int64
+		entropyEnabled  bool
+		pendingEvidence int
+	}{
+		{"Less than window size", 10, 10, true, 0},
+		{"Slash all but one", threshold - 1, windowSize, false, 2},
+		{"Slash everyone", threshold - 1, windowSize, true, 3},
+		{"Does not double slash", threshold + 1, windowSize + 1, true, 2},
+		{"Slash new misbehaviour", threshold, windowSize + 1, true, 3},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			newGen := testEntropyGen(state, privVals[0], index)
+
+			otherIndex := uint((index + 1) % nValidators)
+			for i := int64(0); i < tc.entropyHeight; i++ {
+				if i < tc.sharesReceived {
+					newGen.entropyShares[i+1] = make(map[uint]types.EntropyShare)
+					newGen.entropyShares[i+1][otherIndex] = types.EntropyShare{}
+				}
+				enabled := true
+				if i == tc.entropyHeight-1 {
+					enabled = tc.entropyEnabled
+				}
+				newGen.updateActivityTracking(types.NewChannelEntropy(i+1, types.BlockEntropy{}, enabled, nil))
+			}
+
+			evidence := newGen.evpool.PendingEvidence(0)
+			assert.Equal(t, tc.pendingEvidence, len(evidence))
+			for _, ev := range evidence {
+				_, val := state.Validators.GetByAddress(ev.Address())
+				assert.Nil(t, ev.Verify(state.ChainID, val.PubKey))
+			}
+
+		})
+	}
+}
+
 func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 	genDoc, privVals := randGenesisDoc(nValidators, false, 30)
 	stateDB := dbm.NewMemDB() // each state needs its own db
@@ -321,22 +426,24 @@ func groupTestSetup(nValidators int) (sm.State, []types.PrivValidator) {
 	return state, privVals
 }
 
-func testEntropyGen(validators *types.ValidatorSet, privVal types.PrivValidator, index int) *EntropyGenerator {
-	newGen := testEntropyGenerator()
+func testEntropyGen(state sm.State, privVal types.PrivValidator, index int) *EntropyGenerator {
+	newGen := testEntropyGenerator(state.ChainID)
 	newGen.SetLogger(log.TestingLogger())
+	sm.SaveState(newGen.stateDB, state)
 
 	aeonExecUnit := testAeonFromFile("test_keys/non_validator.txt")
 	if index >= 0 {
 		aeonExecUnit = testAeonFromFile("test_keys/validator_" + strconv.Itoa(int(index)) + "_of_4.txt")
 	}
-	aeonDetails, _ := newAeonDetails(privVal, 1, 1, validators, aeonExecUnit, 1, 50)
+	aeonDetails, _ := newAeonDetails(privVal, 1, 1, state.Validators, aeonExecUnit, 1, 50)
 	newGen.SetNextAeonDetails(aeonDetails)
 	newGen.SetLastComputedEntropy(0, []byte("Test Entropy"))
 	newGen.changeKeys()
 	return newGen
 }
 
-func testEntropyGenerator() *EntropyGenerator {
+func testEntropyGenerator(chainID string) *EntropyGenerator {
 	config := cfg.ResetTestRoot("entropy_generator_test")
-	return NewEntropyGenerator(&config.BaseConfig, config.Beacon, 0)
+	stateDB := dbm.NewMemDB() // each state needs its own db
+	return NewEntropyGenerator(chainID, &config.BaseConfig, config.Beacon, 0, newMockEvidencePool(), stateDB)
 }

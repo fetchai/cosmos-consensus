@@ -108,7 +108,7 @@ func (evpool *Pool) AddEvidence(evidence types.Evidence) error {
 
 	// fetch the validator and return its voting power as its priority
 	// TODO: something better ?
-	valset, err := sm.LoadValidators(evpool.stateDB, evidence.Height())
+	valset, err := sm.LoadValidators(evpool.stateDB, evidence.ValidatorHeight())
 	if err != nil {
 		return err
 	}

@@ -58,6 +58,7 @@ func (err *ErrEvidenceOverflow) Error() string {
 // Evidence represents any provable malicious activity by a validator
 type Evidence interface {
 	Height() int64                                     // height of the equivocation
+	ValidatorHeight() int64                            // height of validators
 	Time() time.Time                                   // time of the equivocation
 	Address() []byte                                   // address of the equivocating validator
 	Bytes() []byte                                     // bytes which comprise the evidence
@@ -214,6 +215,7 @@ func EvidenceFromProto(evidence *tmproto.Evidence) (Evidence, error) {
 func RegisterEvidences(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Evidence)(nil), nil)
 	cdc.RegisterConcrete(&DuplicateVoteEvidence{}, "tendermint/DuplicateVoteEvidence", nil)
+	cdc.RegisterConcrete(&BeaconInactivityEvidence{}, "tendermint/BeaconInactivityEvidence", nil)
 }
 
 func RegisterMockEvidences(cdc *amino.Codec) {
@@ -277,6 +279,11 @@ func (dve *DuplicateVoteEvidence) String() string {
 
 // Height returns the height this evidence refers to.
 func (dve *DuplicateVoteEvidence) Height() int64 {
+	return dve.VoteA.Height
+}
+
+// Height returns the height this evidence refers to.
+func (dve *DuplicateVoteEvidence) ValidatorHeight() int64 {
 	return dve.VoteA.Height
 }
 
@@ -438,9 +445,10 @@ func NewMockEvidence(height int64, eTime time.Time, idx int, address []byte) Moc
 		EvidenceAddress: address}
 }
 
-func (e MockEvidence) Height() int64   { return e.EvidenceHeight }
-func (e MockEvidence) Time() time.Time { return e.EvidenceTime }
-func (e MockEvidence) Address() []byte { return e.EvidenceAddress }
+func (e MockEvidence) Height() int64          { return e.EvidenceHeight }
+func (e MockEvidence) ValidatorHeight() int64 { return e.EvidenceHeight }
+func (e MockEvidence) Time() time.Time        { return e.EvidenceTime }
+func (e MockEvidence) Address() []byte        { return e.EvidenceAddress }
 func (e MockEvidence) Hash() []byte {
 	return []byte(fmt.Sprintf("%d-%x-%s",
 		e.EvidenceHeight, e.EvidenceAddress, e.EvidenceTime))
@@ -471,18 +479,18 @@ func (e MockEvidence) SignBytes(chainID string) []byte {
 
 // BeaconInactivityEvidence contains evidence a validator was did not
 type BeaconInactivityEvidence struct {
-	CreationHeight       int64     // Height evidence was created
-	CreationTime         time.Time // Time evidence was created
-	DefendantAddress     []byte    // Address of validator accused of inactivity
-	ComplainantAddress   []byte    // Address of validator submitting complaint complaint
-	AeonStart            int64
+	CreationHeight       int64          // Height evidence was created
+	CreationTime         time.Time      // Time evidence was created
+	DefendantAddress     crypto.Address // Address of validator accused of inactivity
+	ComplainantAddress   crypto.Address // Address of validator submitting complaint complaint
+	AeonStart            int64          // Height for fetching validators
 	ComplainantSignature []byte
 }
 
 var _ Evidence = &BeaconInactivityEvidence{}
 
 // NewBeaconInactivityEvidence creates BeaconInactivityEvidence
-func NewBeaconInactivityEvidence(height int64, defAddress []byte, comAddress []byte, aeon int64) *BeaconInactivityEvidence {
+func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64) *BeaconInactivityEvidence {
 	return &BeaconInactivityEvidence{
 		CreationHeight:     height,
 		CreationTime:       time.Now(),
@@ -499,9 +507,14 @@ func (bie *BeaconInactivityEvidence) String() string {
 
 }
 
-// Height returns aeon start
+// Height returns evidence was created
 func (bie *BeaconInactivityEvidence) Height() int64 {
 	return bie.CreationHeight
+}
+
+// Height returns validator height
+func (bie *BeaconInactivityEvidence) ValidatorHeight() int64 {
+	return bie.AeonStart
 }
 
 // Time return
@@ -529,6 +542,9 @@ func (bie *BeaconInactivityEvidence) Verify(chainID string, complainantPubKey cr
 	if !complainantPubKey.VerifyBytes(bie.SignBytes(chainID), bie.ComplainantSignature) {
 		return fmt.Errorf("ComplainantSignature invalid")
 	}
+
+	// Need to verify defendant address in state and also aeon start is correct
+	// and evidence height is greater than aeon start
 
 	return nil
 }

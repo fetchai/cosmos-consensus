@@ -571,10 +571,11 @@ func createBeaconReactor(
 	beaconLogger log.Logger, fastSync bool,
 	blockStore sm.BlockStore,
 	dkgRunner *beacon.DKGRunner,
-	db dbm.DB) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
+	db dbm.DB,
+	evpool *evidence.Pool) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
 	beacon.InitialiseMcl()
-	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Beacon, state.LastBlockHeight)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, config.Beacon, state.LastBlockHeight, evpool, db)
 	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetEntropyChannel(entropyChannel)
@@ -763,7 +764,7 @@ func NewNode(config *cfg.Config,
 		// Make BeaconReactor
 		beaconLogger := logger.With("module", "beacon")
 		entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
-			beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
+			beaconLogger, fastSync, blockStore, dkgRunner, stateDB, evidencePool)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "could not load aeon keys from file")
