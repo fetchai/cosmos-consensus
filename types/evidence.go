@@ -57,14 +57,13 @@ func (err *ErrEvidenceOverflow) Error() string {
 
 // Evidence represents any provable malicious activity by a validator
 type Evidence interface {
-	Height() int64                                     // height of the equivocation
-	ValidatorHeight() int64                            // height of validators
-	Time() time.Time                                   // time of the equivocation
-	Address() []byte                                   // address of the equivocating validator
-	Bytes() []byte                                     // bytes which comprise the evidence
-	Hash() []byte                                      // hash of the evidence
-	Verify(chainID string, pubKey crypto.PubKey) error // verify the evidence
-	Equal(Evidence) bool                               // check equality of evidence
+	Height() int64          // height of the equivocation
+	ValidatorHeight() int64 // height of validators
+	Time() time.Time        // time of the equivocation
+	Address() []byte        // address of the equivocating validator
+	Bytes() []byte          // bytes which comprise the evidence
+	Hash() []byte           // hash of the evidence
+	Equal(Evidence) bool    // check equality of evidence
 
 	ValidateBasic() error
 	String() string
@@ -457,7 +456,6 @@ func (e MockEvidence) Bytes() []byte {
 	return []byte(fmt.Sprintf("%d-%x-%s",
 		e.EvidenceHeight, e.EvidenceAddress, e.EvidenceTime))
 }
-func (e MockEvidence) Verify(chainID string, pubKey crypto.PubKey) error { return nil }
 func (e MockEvidence) Equal(ev Evidence) bool {
 	e2 := ev.(MockEvidence)
 	return e.EvidenceHeight == e2.EvidenceHeight &&
@@ -524,7 +522,7 @@ func (bie *BeaconInactivityEvidence) Time() time.Time {
 
 // Address returns the address of the validator.
 func (bie *BeaconInactivityEvidence) Address() []byte {
-	return bie.ComplainantAddress
+	return bie.DefendantAddress
 }
 
 // Bytes returns the evidence as byte slice
@@ -537,14 +535,46 @@ func (bie *BeaconInactivityEvidence) Hash() []byte {
 	return tmhash.Sum(cdcEncode(bie))
 }
 
-// Verify returns the signature attached to the evidence matches the complainant address
-func (bie *BeaconInactivityEvidence) Verify(chainID string, complainantPubKey crypto.PubKey) error {
-	if !complainantPubKey.VerifyBytes(bie.SignBytes(chainID), bie.ComplainantSignature) {
-		return fmt.Errorf("ComplainantSignature invalid")
+// Verify validates information contained in Evidence. Ensures signature verifies with complainant address, valid aeon start and
+// that the evidence was created after the aeon start
+func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet) error {
+	// Check aeon start is correct
+	if blockEntropy.NextAeonStart != bie.ValidatorHeight() {
+		return fmt.Errorf("incorrect aeon start. Got %v, expected %v", bie.ValidatorHeight(), blockEntropy.NextAeonStart)
+	}
+	if bie.CreationHeight <= bie.AeonStart {
+		return fmt.Errorf("CreationHeight %v before AeonStart %v", bie.CreationHeight, bie.AeonStart)
 	}
 
-	// Need to verify defendant address in state and also aeon start is correct
-	// and evidence height is greater than aeon start
+	// Check both complainant and defendant addresses are in DKG validator set at aeon start - 1, and that they are in qual
+	defIndex, val := valset.GetByAddress(bie.DefendantAddress)
+	if val == nil {
+		return fmt.Errorf("defendant address %X was not a validator at height %v", bie.DefendantAddress, bie.ValidatorHeight())
+	}
+	comIndex, val := valset.GetByAddress(bie.ComplainantAddress)
+	if val == nil {
+		return fmt.Errorf("complainant address %X was not a validator at height %v", bie.ComplainantAddress, bie.ValidatorHeight())
+	}
+	defInQual := false
+	comInQual := false
+	for _, valIndex := range blockEntropy.Qual {
+		if valIndex == int64(defIndex) {
+			defInQual = true
+		} else if valIndex == int64(comIndex) {
+			comInQual = true
+		}
+
+		if defInQual && comInQual {
+			break
+		}
+	}
+	if !defInQual || !comInQual {
+		return fmt.Errorf("address not in qual: defendant in qual %v, complainant in qual %v", defInQual, comInQual)
+	}
+
+	if !val.PubKey.VerifyBytes(bie.SignBytes(chainID), bie.ComplainantSignature) {
+		return fmt.Errorf("ComplainantSignature invalid")
+	}
 
 	return nil
 }

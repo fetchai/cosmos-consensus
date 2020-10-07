@@ -29,6 +29,7 @@ import (
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/proxy"
 	sm "github.com/tendermint/tendermint/state"
+	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
@@ -307,11 +308,14 @@ func TestCreateProposalBlock(t *testing.T) {
 	)
 	mempool.SetLogger(logger)
 
+	// Make blockstore
+	blockStore := store.NewBlockStore(dbm.NewMemDB())
+
 	// Make EvidencePool
 	types.RegisterMockEvidencesGlobal() // XXX!
 	evidence.RegisterMockEvidences()
 	evidenceDB := dbm.NewMemDB()
-	evidencePool := evidence.NewPool(stateDB, evidenceDB)
+	evidencePool := evidence.NewPool(stateDB, evidenceDB, blockStore)
 	evidencePool.SetLogger(logger)
 
 	// fill the evidence pool with more evidence
@@ -339,6 +343,7 @@ func TestCreateProposalBlock(t *testing.T) {
 		proxyApp.Consensus(),
 		mempool,
 		evidencePool,
+		blockStore,
 	)
 
 	commit := types.NewCommit(height-1, 0, types.BlockID{}, nil)

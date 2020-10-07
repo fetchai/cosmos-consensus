@@ -22,14 +22,15 @@ type Pool struct {
 	evidenceList *clist.CList // concurrent linked-list of evidence
 
 	// needed to load validators to verify evidence
-	stateDB dbm.DB
+	stateDB    dbm.DB
+	blockStore sm.BlockStore
 
 	// latest state
 	mtx   sync.Mutex
 	state sm.State
 }
 
-func NewPool(stateDB, evidenceDB dbm.DB) *Pool {
+func NewPool(stateDB, evidenceDB dbm.DB, blockStore sm.BlockStore) *Pool {
 	store := NewStore(evidenceDB)
 	evpool := &Pool{
 		stateDB:      stateDB,
@@ -37,6 +38,7 @@ func NewPool(stateDB, evidenceDB dbm.DB) *Pool {
 		logger:       log.NewNopLogger(),
 		store:        store,
 		evidenceList: clist.New(),
+		blockStore:   blockStore,
 	}
 	return evpool
 }
@@ -102,25 +104,17 @@ func (evpool *Pool) AddEvidence(evidence types.Evidence) error {
 		return ErrEvidenceAlreadyStored{}
 	}
 
-	if err := sm.VerifyEvidence(evpool.stateDB, evpool.State(), evidence); err != nil {
+	priority, err := sm.VerifyEvidence(evpool.stateDB, evpool.blockStore, evpool.State(), evidence)
+	if err != nil {
 		return ErrInvalidEvidence{err}
 	}
-
-	// fetch the validator and return its voting power as its priority
-	// TODO: something better ?
-	valset, err := sm.LoadValidators(evpool.stateDB, evidence.ValidatorHeight())
-	if err != nil {
-		return err
-	}
-	_, val := valset.GetByAddress(evidence.Address())
-	priority := val.VotingPower
 
 	_, err = evpool.store.AddNewEvidence(evidence, priority)
 	if err != nil {
 		return err
 	}
 
-	evpool.logger.Info("Verified new evidence of byzantine behaviour", "evidence", evidence)
+	evpool.logger.Info("Verified new evidence", "type", fmt.Sprintf("%T", evidence), "evidence", evidence)
 
 	// add evidence to clist
 	evpool.evidenceList.PushBack(evidence)

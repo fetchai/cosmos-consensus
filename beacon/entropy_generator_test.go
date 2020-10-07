@@ -410,11 +410,13 @@ func TestEntropyActivityTracking(t *testing.T) {
 
 			evidence := newGen.evpool.PendingEvidence(0)
 			assert.Equal(t, tc.pendingEvidence, len(evidence))
+			blockEntropy := newGen.blockEntropy(newGen.aeon.Start + 1)
+			blockEntropy.NextAeonStart = 1
 			for _, ev := range evidence {
-				_, val := state.Validators.GetByAddress(ev.Address())
-				assert.Nil(t, ev.Verify(state.ChainID, val.PubKey))
+				beaconInactivityEvidence, err := ev.(*types.BeaconInactivityEvidence)
+				assert.True(t, err)
+				assert.Nil(t, beaconInactivityEvidence.Verify(state.ChainID, blockEntropy, state.Validators))
 			}
-
 		})
 	}
 }
