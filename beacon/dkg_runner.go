@@ -15,6 +15,11 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+const (
+	maxFindValSleepIterations = 10 // Equal to 1s total sleep time
+	findValSleepDuration      = 100 * time.Millisecond
+)
+
 // DKGRunner manages the starting of the DKG each aeon with new validator sets and forwards on
 // the output of the DKG. New DKGs are started at the beginning of every aeon assuming the previous
 // DKG completed on time.
@@ -91,14 +96,34 @@ func (dkgRunner *DKGRunner) AttachMessageHandler(handler tx_extensions.MessageHa
 	dkgRunner.messageHandler.WhenChainTxSeen(dkgRunner.OnBlock)
 }
 
-// SetCurrentAeon sets the entropy generation aeon currently active
+// SetCurrentAeon sets the lastest aeon in the key files
 func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
 
-	if aeon == nil || aeon.IsKeyless() {
+	if aeon == nil {
 		return
 	}
+	if aeon.IsKeyless() {
+		// aeonStart is fetched from dkgRunner to be included in the  block and must
+		// always correspond to the start of entropy generation periods, or -1
+		dkgRunner.aeonStart = aeon.validatorHeight
+		// Special case for genesis.
+		if dkgRunner.aeonStart == 1 {
+			dkgRunner.aeonStart = -1
+		}
+	} else {
+		dkgRunner.aeonStart = aeon.Start
+	}
+	dkgRunner.aeonEnd = aeon.End
+	dkgRunner.dkgID = aeon.dkgID
+}
+
+// SetCurrentAeon sets the new aeon from dkg completion
+func (dkgRunner *DKGRunner) setNextAeon(aeon *aeonDetails) {
+	dkgRunner.mtx.Lock()
+	defer dkgRunner.mtx.Unlock()
+
 	dkgRunner.aeonStart = aeon.Start
 	dkgRunner.aeonEnd = aeon.End
 	dkgRunner.dkgID = aeon.dkgID
@@ -186,16 +211,21 @@ func (dkgRunner *DKGRunner) NextAeonStart(height int64) int64 {
 
 // Returns validators for height from state DB
 func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, int64) {
+	sleepIterations := 0
 	for {
 		if !dkgRunner.fastSync && !dkgRunner.IsRunning() {
 			dkgRunner.Logger.Debug("findValidators: exiting", "height", dkgRunner.height)
 			return nil, 0
 		}
+		if sleepIterations > maxFindValSleepIterations {
+			panic(fmt.Sprintf("findValidatorsAndParams: could not retrieve for height %v", height))
+		}
 
 		newVals, err := sm.LoadDKGValidators(dkgRunner.stateDB, height)
 		newParams, err1 := sm.LoadConsensusParams(dkgRunner.stateDB, height)
 		if err != nil || err1 != nil {
-			time.Sleep(100 * time.Millisecond)
+			sleepIterations++
+			time.Sleep(findValSleepDuration)
 		} else {
 			if newVals.Size() == 0 {
 				panic(fmt.Sprintf("findValidators returned empty validator set. Height %v", height))
@@ -260,7 +290,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
 			}
-			dkgRunner.SetCurrentAeon(keys)
+			dkgRunner.setNextAeon(keys)
 		}
 		if dkgRunner.dkgCompletionCallback != nil {
 			dkgRunner.dkgCompletionCallback(keys)
@@ -269,8 +299,9 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	// Dispatch off empty keys in case entropy generator has no keys. Keyless offset is required for
 	// app to have sufficient notification time of new aeon start
 	if dkgRunner.dkgCompletionCallback != nil {
-		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
-			dkgRunner.activeDKG.duration()+keylessOffset))
+		dkgRunner.dkgCompletionCallback(keylessAeonDetails(dkgRunner.activeDKG.dkgID, validatorHeight,
+			dkgRunner.activeDKG.startHeight, dkgRunner.activeDKG.startHeight+
+				dkgRunner.activeDKG.duration()+keylessOffset))
 	}
 
 	dkgRunner.activeDKG.attachMetrics(dkgRunner.metrics)

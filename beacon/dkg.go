@@ -264,7 +264,8 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	// Dispatch empty keys to entropy generator. +keylessOffset needed at the end of aeonEnd to give app sufficient time to be
 	// notified before next aeon start
 	if dkg.dkgCompletionCallback != nil {
-		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.startHeight, dkg.startHeight+dkg.duration()+keylessOffset))
+		dkg.dkgCompletionCallback(keylessAeonDetails(dkg.dkgID, dkg.validatorHeight,
+			dkg.startHeight, dkg.startHeight+dkg.duration()+keylessOffset))
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
