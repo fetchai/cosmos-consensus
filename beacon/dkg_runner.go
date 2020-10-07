@@ -119,11 +119,14 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	dkgRunner.dkgID = aeon.dkgID
 }
 
-// SetCurrentAeon sets the new aeon from dkg completion
+// setNextAeon sets the new aeon from dkg completion
 func (dkgRunner *DKGRunner) setNextAeon(aeon *aeonDetails) {
 	dkgRunner.mtx.Lock()
 	defer dkgRunner.mtx.Unlock()
 
+	if aeon.IsKeyless() {
+		return
+	}
 	dkgRunner.aeonStart = aeon.Start
 	dkgRunner.aeonEnd = aeon.End
 	dkgRunner.dkgID = aeon.dkgID
