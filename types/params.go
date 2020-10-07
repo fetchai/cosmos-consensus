@@ -65,8 +65,9 @@ type EntropyParams struct {
 	AeonLength int64 `json:"aeon_length"`
 
 	// DRB slashing parameters
-	InactivityWindowSize       int64 `json:"inactivity_window_size"`
-	RequiredActivityPercentage int64 `json:"required_activity_percentage"`
+	InactivityWindowSize        int64 `json:"inactivity_window_size"`
+	RequiredActivityPercentage  int64 `json:"required_activity_percentage"`
+	SlashingThresholdPercentage int64 `json:"slashing_threshold_percentage"`
 }
 
 // DefaultConsensusParams returns a default ConsensusParams.
@@ -105,9 +106,11 @@ func DefaultValidatorParams() ValidatorParams {
 // DefaultEntropyParams returns a default EntropyParams.
 func DefaultEntropyParams() EntropyParams {
 	return EntropyParams{
-		AeonLength:                 100,
-		InactivityWindowSize:       100, // No. of blocks in which we track drb signature shares obtained
-		RequiredActivityPercentage: 50,  // Minimum % of signature shares expected within window
+		AeonLength:                  100,
+		InactivityWindowSize:        100, // No. of blocks in which we track drb signature shares obtained
+		RequiredActivityPercentage:  50,  // Minimum % of signature shares expected within window
+		SlashingThresholdPercentage: 50,  // Minimum % of complaints required for slashing
+
 	}
 }
 
@@ -174,7 +177,9 @@ func (params *ConsensusParams) Validate() error {
 	if params.Entropy.RequiredActivityPercentage < 0 {
 		return errors.Errorf("entropyParams.RequiredActivityFraction can not be negative. Got %v", params.Entropy.RequiredActivityPercentage)
 	}
-
+	if params.Entropy.SlashingThresholdPercentage < 0 {
+		return errors.Errorf("entropyParams.SlashingThresholdPercentage can not be negative. Got %v", params.Entropy.SlashingThresholdPercentage)
+	}
 	return nil
 }
 
@@ -229,6 +234,7 @@ func (params ConsensusParams) Update(params2 *abci.ConsensusParams) ConsensusPar
 		res.Entropy.AeonLength = params2.Entropy.AeonLength
 		res.Entropy.InactivityWindowSize = params2.Entropy.InactivityWindowSize
 		res.Entropy.RequiredActivityPercentage = params2.Entropy.RequiredActivityPercentage
+		res.Entropy.SlashingThresholdPercentage = params2.Entropy.SlashingThresholdPercentage
 	}
 	return res
 }
