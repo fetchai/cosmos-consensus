@@ -105,3 +105,15 @@ func (sc *RetrySignerClient) SignEntropy(chainID string, entropy *types.EntropyS
 	}
 	return fmt.Errorf("exhausted all attempts to sign entropy: %w", err)
 }
+
+func (sc *RetrySignerClient) SignEvidence(chainID string, msg types.Evidence) ([]byte, error) {
+	var err error
+	for i := 0; i < sc.retries || sc.retries == 0; i++ {
+		sig, err := sc.next.SignEvidence(chainID, msg)
+		if err == nil {
+			return sig, nil
+		}
+		time.Sleep(sc.timeout)
+	}
+	return nil, fmt.Errorf("exhausted all attempts to sign entropy: %w", err)
+}

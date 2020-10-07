@@ -240,8 +240,9 @@ func TestStateBeaconProposerSelection(t *testing.T) {
 	entropyChannel := make(chan types.ChannelEntropy, 5)
 	cs1.SetEntropyChannel(entropyChannel)
 
-	entropyChannel <- *types.NewChannelEntropy(1, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 1, 2, 3, 4}, 0, 100, 0), true, cs1.Validators)
-	entropyChannel <- *types.NewChannelEntropy(2, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 5, 6, 7, 8}, 0, 100, 0), true, cs1.Validators)
+	qual := []int64{0, 1, 2, 3}
+	entropyChannel <- *types.NewChannelEntropy(1, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 1, 2, 3, 4}, 0, 100, 0, qual), true, cs1.Validators)
+	entropyChannel <- *types.NewChannelEntropy(2, *types.NewBlockEntropy([]byte{0, 0, 0, 0, 5, 6, 7, 8}, 0, 100, 0, qual), true, cs1.Validators)
 	entropyChannel <- *types.NewChannelEntropy(3, *types.EmptyBlockEntropy(), false, nil) // Push through extra empty entropy so consensus can 'look ahead'
 
 	// Check validators for height 1

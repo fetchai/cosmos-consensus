@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"container/list"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	cfg "github.com/tendermint/tendermint/config"
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
@@ -24,6 +26,12 @@ const (
 	entropyHistoryLength = 10
 	maxNextAeons         = 5
 )
+
+// interface to the evidence pool
+type evidencePool interface {
+	AddEvidence(types.Evidence) error
+	PendingEvidence(int64) []types.Evidence
+}
 
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
 // and entropy for dispatching along channel. Entropy generation is blocked by arrival of keys for the
@@ -44,6 +52,7 @@ type EntropyGenerator struct {
 	nextAeons              []*aeonDetails
 	aeon                   *aeonDetails
 
+	chainID      string
 	baseConfig   *cfg.BaseConfig
 	beaconConfig *cfg.BeaconConfig
 
@@ -58,6 +67,12 @@ type EntropyGenerator struct {
 	metrics                 *Metrics
 	creatingEntropyAtHeight int64
 	creatingEntropyAtTimeMs time.Time
+
+	// add evidence to the pool when it's detected
+	stateDB           dbm.DB
+	evpool            evidencePool
+	aeonEntropyParams *types.EntropyParams // Inactivity params for this aeon
+	activityTracking  map[uint]*list.List  // Record of validators
 }
 
 func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
@@ -70,7 +85,8 @@ func (entropyGenerator *EntropyGenerator) AttachMetrics(metrics *Metrics) {
 }
 
 // NewEntropyGenerator creates new entropy generator with validator information
-func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig, blockHeight int64) *EntropyGenerator {
+func NewEntropyGenerator(chainID string, bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig, blockHeight int64,
+	evpool evidencePool, stateDB dbm.DB) *EntropyGenerator {
 	if bConfig == nil || beaconConfig == nil {
 		panic(fmt.Errorf("NewEntropyGenerator: baseConfig/beaconConfig can not be nil"))
 	}
@@ -79,11 +95,14 @@ func NewEntropyGenerator(bConfig *cfg.BaseConfig, beaconConfig *cfg.BeaconConfig
 		lastBlockHeight:           blockHeight,
 		lastComputedEntropyHeight: -1, // value is invalid and requires last entropy to be set
 		entropyComputed:           make(map[int64]types.ThresholdSignature),
+		chainID:                   chainID,
 		baseConfig:                bConfig,
 		beaconConfig:              beaconConfig,
 		evsw:                      tmevents.NewEventSwitch(),
 		quit:                      make(chan struct{}),
 		metrics:                   NopMetrics(),
+		evpool:                    evpool,
+		stateDB:                   stateDB,
 	}
 
 	es.BaseService = *service.NewBaseService(nil, "EntropyGenerator", es)
@@ -222,6 +241,7 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 
 	// If over max number of keys pop of the oldest one
 	if len(entropyGenerator.nextAeons) > maxNextAeons {
+		entropyGenerator.nextAeons[0] = nil
 		entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
 	}
 	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
@@ -245,6 +265,7 @@ func (entropyGenerator *EntropyGenerator) trimNextAeons() {
 			if len(entropyGenerator.nextAeons) == 1 {
 				entropyGenerator.nextAeons = make([]*aeonDetails, 0)
 			} else {
+				entropyGenerator.nextAeons[0] = nil
 				entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
 			}
 		} else {
@@ -302,6 +323,8 @@ func (entropyGenerator *EntropyGenerator) changeKeys() (didChangeKeys bool) {
 		entropyGenerator.Logger.Info("changeKeys: Loaded new keys", "blockHeight", entropyGenerator.lastBlockHeight,
 			"start", entropyGenerator.aeon.Start)
 		didChangeKeys = true
+
+		entropyGenerator.resetActivityTracking()
 	}
 
 	// If lastComputedEntropyHeight is not set then set it is equal to group public key (should
@@ -357,7 +380,7 @@ func (entropyGenerator *EntropyGenerator) applyEntropyShare(share *types.Entropy
 	}
 
 	// Verify signature on message
-	verifySig := validator.PubKey.VerifyBytes(share.SignBytes(entropyGenerator.baseConfig.ChainID()), share.Signature)
+	verifySig := validator.PubKey.VerifyBytes(share.SignBytes(entropyGenerator.chainID), share.Signature)
 	if !verifySig {
 		entropyGenerator.Logger.Error("applyEntropyShare: invalid validator signature", "validator", share.SignerAddress, "index", index)
 		return
@@ -472,7 +495,7 @@ func (entropyGenerator *EntropyGenerator) sign() {
 		SignatureShare: signature,
 	}
 	// Sign message
-	err = entropyGenerator.aeon.privValidator.SignEntropy(entropyGenerator.baseConfig.ChainID(), &share)
+	err = entropyGenerator.aeon.privValidator.SignEntropy(entropyGenerator.chainID, &share)
 	if err != nil {
 		entropyGenerator.Logger.Error(err.Error())
 		return
@@ -552,6 +575,9 @@ OUTER_LOOP:
 				entropyGenerator.metrics.EntropyGenerating.Set(0.0)
 			}
 
+			// Check tracking information
+			entropyGenerator.updateActivityTracking(entropyToSend)
+
 			// Clean out old entropy shares and computed entropy
 			entropyGenerator.flushOldEntropy()
 		}
@@ -618,7 +644,8 @@ func (entropyGenerator *EntropyGenerator) blockEntropy(height int64) types.Block
 		entropyGenerator.entropyComputed[height],
 		height-entropyGenerator.aeon.Start,
 		entropyGenerator.aeon.End-entropyGenerator.aeon.Start+1,
-		entropyGenerator.aeon.dkgID)
+		entropyGenerator.aeon.dkgID,
+		entropyGenerator.aeon.qual)
 }
 
 func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
@@ -631,6 +658,111 @@ func (entropyGenerator *EntropyGenerator) flushOldEntropy() {
 		delete(entropyGenerator.entropyShares, deleteHeight)
 		// Clean computed entropy
 		delete(entropyGenerator.entropyComputed, deleteHeight)
+	}
+}
+
+// Resets the activity tracking when aeon keys have changed over. Only track signature shares if in qual,
+// but do not track own activity
+func (entropyGenerator *EntropyGenerator) resetActivityTracking() {
+	if entropyGenerator.aeon.aeonExecUnit == nil || !entropyGenerator.aeon.aeonExecUnit.CanSign() {
+		return
+	}
+
+	entropyGenerator.activityTracking = make(map[uint]*list.List)
+	ownIndex := -1
+	pubKey, err := entropyGenerator.aeon.privValidator.GetPubKey()
+	if err == nil {
+		ownIndex, _ = entropyGenerator.aeon.validators.GetByAddress(pubKey.Address())
+	}
+	for i := 0; i < entropyGenerator.aeon.validators.Size(); i++ {
+		valIndex := uint(i)
+		if i != ownIndex && entropyGenerator.aeon.aeonExecUnit.InQual(valIndex) {
+			entropyGenerator.activityTracking[valIndex] = list.New()
+		}
+	}
+
+	// Fetch parameters at aeon dkg validator height so that they remain constant during the entire aeon
+	paramHeight := entropyGenerator.aeon.validatorHeight
+	newParams, err := sm.LoadConsensusParams(entropyGenerator.stateDB, paramHeight)
+	if err != nil {
+		entropyGenerator.Logger.Error("resetActivityTracking: error fetching consensus params", "height", paramHeight,
+			"err", err)
+		return
+	}
+	entropyGenerator.aeonEntropyParams = &newParams.Entropy
+}
+
+// Updates tracking information with signature shares from most recent height. Calculates signature shares
+// received in the last window and creates evidence if not enough were received
+func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.ChannelEntropy) {
+	if entropyGenerator.aeon.aeonExecUnit == nil || !entropyGenerator.aeon.aeonExecUnit.CanSign() {
+		return
+	}
+	if entropyGenerator.aeonEntropyParams == nil {
+		return
+	}
+
+	entropyGenerator.mtx.Lock()
+	defer entropyGenerator.mtx.Unlock()
+
+	for valIndex, activity := range entropyGenerator.activityTracking {
+		// If entropy is not enabled then should have received no signature shares from anyone this
+		// height and append true to all validators activity tracking
+		if _, haveShare := entropyGenerator.entropyShares[entropy.Height][valIndex]; !entropy.Enabled || haveShare {
+			activity.PushBack(1)
+		} else {
+			activity.PushBack(0)
+		}
+
+		// Return if we have not got records for InactivityWindowSize blocks
+		if activity.Len() < int(entropyGenerator.aeonEntropyParams.InactivityWindowSize) {
+			continue
+		}
+
+		// Trim to sliding window size if too large by removing oldest elements
+		for activity.Len() > int(entropyGenerator.aeonEntropyParams.InactivityWindowSize) {
+			activity.Remove(activity.Front())
+		}
+
+		// Measure inactivity
+		sigShareCount := 0
+		for e := activity.Front(); e != nil; e = e.Next() {
+			sigShareCount += e.Value.(int)
+		}
+
+		requiredFraction := float64(entropyGenerator.aeonEntropyParams.RequiredActivityPercentage) * 0.01
+		threshold := int(requiredFraction * float64(entropyGenerator.aeonEntropyParams.InactivityWindowSize))
+		if sigShareCount < threshold {
+			// Create evidence and submit to evpool
+			defAddress, _ := entropyGenerator.aeon.validators.GetByIndex(int(valIndex))
+			pubKey, err := entropyGenerator.aeon.privValidator.GetPubKey()
+			if err != nil {
+				entropyGenerator.Logger.Error("updateActivityTracking: error getting pub key", "err", err)
+				continue
+			}
+			evidence := types.NewBeaconInactivityEvidence(entropy.Height, defAddress, pubKey.Address(),
+				entropyGenerator.aeon.Start)
+			sig, err := entropyGenerator.aeon.privValidator.SignEvidence(entropyGenerator.chainID, evidence)
+			if err != nil {
+				entropyGenerator.Logger.Error("updateActivityTracking: error signing evidence", "err", err)
+				continue
+			}
+			evidence.ComplainantSignature = sig
+
+			entropyGenerator.Logger.Info("Add evidence for inactivity", "height", entropy.Height, "validator", crypto.AddressHash(defAddress),
+				"shareCount", sigShareCount, "threshold", threshold, "windowSize", entropyGenerator.aeonEntropyParams.InactivityWindowSize)
+			err = entropyGenerator.evpool.AddEvidence(evidence)
+			if err != nil {
+				entropyGenerator.Logger.Error("updateActivityTracking: error adding evidence", "err", err)
+			}
+
+			// Paid price for not contributing in this window so now convert the entire window to 1s in order
+			// for validator not be slashed again for this window
+			entropyGenerator.activityTracking[valIndex] = list.New()
+			for i := int64(0); i < entropyGenerator.aeonEntropyParams.InactivityWindowSize; i++ {
+				entropyGenerator.activityTracking[valIndex].PushBack(1)
+			}
+		}
 	}
 }
 

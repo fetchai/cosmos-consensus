@@ -173,3 +173,23 @@ func (sc *SignerClient) SignDKGMessage(chainID string, msg *types.DKGMessage) er
 
 	return nil
 }
+
+// SignEvidence requests a remote signer to sign Evidence
+func (sc *SignerClient) SignEvidence(chainID string, msg types.Evidence) ([]byte, error) {
+	response, err := sc.endpoint.SendRequest(&SignEvidenceRequest{Evidence: msg})
+	if err != nil {
+		sc.endpoint.Logger.Error("SignerClient::SignEvidence", "err", err)
+		return nil, err
+	}
+
+	resp, ok := response.(*SignedEvidenceResponse)
+	if !ok {
+		sc.endpoint.Logger.Error("SignerClient::SignEvidence", "err", "response != SignedEvidence")
+		return nil, ErrUnexpectedResponse
+	}
+	if resp.Error != nil {
+		return nil, resp.Error
+	}
+
+	return resp.Signature, nil
+}

@@ -57,16 +57,18 @@ func (err *ErrEvidenceOverflow) Error() string {
 
 // Evidence represents any provable malicious activity by a validator
 type Evidence interface {
-	Height() int64                                     // height of the equivocation
-	Time() time.Time                                   // time of the equivocation
-	Address() []byte                                   // address of the equivocating validator
-	Bytes() []byte                                     // bytes which comprise the evidence
-	Hash() []byte                                      // hash of the evidence
-	Verify(chainID string, pubKey crypto.PubKey) error // verify the evidence
-	Equal(Evidence) bool                               // check equality of evidence
+	Height() int64          // height of the equivocation
+	ValidatorHeight() int64 // height of validators
+	Time() time.Time        // time of the equivocation
+	Address() []byte        // address of the equivocating validator
+	Bytes() []byte          // bytes which comprise the evidence
+	Hash() []byte           // hash of the evidence
+	Equal(Evidence) bool    // check equality of evidence
 
 	ValidateBasic() error
 	String() string
+
+	SignBytes(chainID string) []byte // for signing: evidence as bytes with chainID appended
 }
 
 func EvidenceToProto(evidence Evidence) (*tmproto.Evidence, error) {
@@ -124,6 +126,24 @@ func EvidenceToProto(evidence Evidence) (*tmproto.Evidence, error) {
 			},
 		}
 		return tp, nil
+	case *BeaconInactivityEvidence:
+		if err := evi.ValidateBasic(); err != nil {
+			return nil, err
+		}
+
+		tp := &tmproto.Evidence{
+			Sum: &tmproto.Evidence_BeaconInactivityEvidence{
+				BeaconInactivityEvidence: &tmproto.BeaconInactivityEvidence{
+					EvidenceHeight:       evi.Height(),
+					EvidenceTime:         evi.Time(),
+					DefendantAddress:     evi.DefendantAddress,
+					ComplainantAddress:   evi.ComplainantAddress,
+					AeonStart:            evi.AeonStart,
+					ComplainantSignature: evi.ComplainantSignature,
+				},
+			},
+		}
+		return tp, nil
 	default:
 		return nil, fmt.Errorf("toproto: evidence is not recognized: %T", evi)
 	}
@@ -176,6 +196,16 @@ func EvidenceFromProto(evidence *tmproto.Evidence) (Evidence, error) {
 			randBytes: evi.MockRandomEvidence.RandBytes,
 		}
 		return mre, mre.ValidateBasic()
+	case *tmproto.Evidence_BeaconInactivityEvidence:
+		bie := BeaconInactivityEvidence{
+			CreationHeight:       evi.BeaconInactivityEvidence.GetEvidenceHeight(),
+			CreationTime:         evi.BeaconInactivityEvidence.GetEvidenceTime(),
+			DefendantAddress:     evi.BeaconInactivityEvidence.GetDefendantAddress(),
+			ComplainantAddress:   evi.BeaconInactivityEvidence.GetComplainantAddress(),
+			AeonStart:            evi.BeaconInactivityEvidence.GetAeonStart(),
+			ComplainantSignature: evi.BeaconInactivityEvidence.GetComplainantSignature(),
+		}
+		return &bie, bie.ValidateBasic()
 	default:
 		return nil, errors.New("evidence is not recognized")
 	}
@@ -184,6 +214,7 @@ func EvidenceFromProto(evidence *tmproto.Evidence) (Evidence, error) {
 func RegisterEvidences(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Evidence)(nil), nil)
 	cdc.RegisterConcrete(&DuplicateVoteEvidence{}, "tendermint/DuplicateVoteEvidence", nil)
+	cdc.RegisterConcrete(&BeaconInactivityEvidence{}, "tendermint/BeaconInactivityEvidence", nil)
 }
 
 func RegisterMockEvidences(cdc *amino.Codec) {
@@ -247,6 +278,11 @@ func (dve *DuplicateVoteEvidence) String() string {
 
 // Height returns the height this evidence refers to.
 func (dve *DuplicateVoteEvidence) Height() int64 {
+	return dve.VoteA.Height
+}
+
+// Height returns the height this evidence refers to.
+func (dve *DuplicateVoteEvidence) ValidatorHeight() int64 {
 	return dve.VoteA.Height
 }
 
@@ -358,6 +394,15 @@ func (dve *DuplicateVoteEvidence) ValidateBasic() error {
 	return nil
 }
 
+// Returns evidence as bytes with chainID appended
+func (dve *DuplicateVoteEvidence) SignBytes(chainID string) []byte {
+	bz, err := cdc.MarshalBinaryLengthPrefixed(dve)
+	if err != nil {
+		panic(err)
+	}
+	return append([]byte(chainID), bz...)
+}
+
 //-----------------------------------------------------------------
 
 // UNSTABLE
@@ -399,9 +444,10 @@ func NewMockEvidence(height int64, eTime time.Time, idx int, address []byte) Moc
 		EvidenceAddress: address}
 }
 
-func (e MockEvidence) Height() int64   { return e.EvidenceHeight }
-func (e MockEvidence) Time() time.Time { return e.EvidenceTime }
-func (e MockEvidence) Address() []byte { return e.EvidenceAddress }
+func (e MockEvidence) Height() int64          { return e.EvidenceHeight }
+func (e MockEvidence) ValidatorHeight() int64 { return e.EvidenceHeight }
+func (e MockEvidence) Time() time.Time        { return e.EvidenceTime }
+func (e MockEvidence) Address() []byte        { return e.EvidenceAddress }
 func (e MockEvidence) Hash() []byte {
 	return []byte(fmt.Sprintf("%d-%x-%s",
 		e.EvidenceHeight, e.EvidenceAddress, e.EvidenceTime))
@@ -410,7 +456,6 @@ func (e MockEvidence) Bytes() []byte {
 	return []byte(fmt.Sprintf("%d-%x-%s",
 		e.EvidenceHeight, e.EvidenceAddress, e.EvidenceTime))
 }
-func (e MockEvidence) Verify(chainID string, pubKey crypto.PubKey) error { return nil }
 func (e MockEvidence) Equal(ev Evidence) bool {
 	e2 := ev.(MockEvidence)
 	return e.EvidenceHeight == e2.EvidenceHeight &&
@@ -419,6 +464,158 @@ func (e MockEvidence) Equal(ev Evidence) bool {
 func (e MockEvidence) ValidateBasic() error { return nil }
 func (e MockEvidence) String() string {
 	return fmt.Sprintf("Evidence: %d/%s/%s", e.EvidenceHeight, e.Time(), e.EvidenceAddress)
+}
+func (e MockEvidence) SignBytes(chainID string) []byte {
+	bz, err := cdc.MarshalBinaryLengthPrefixed(e)
+	if err != nil {
+		panic(err)
+	}
+	return append([]byte(chainID), bz...)
+}
+
+//-------------------------------------------
+
+// BeaconInactivityEvidence contains evidence a validator was did not
+type BeaconInactivityEvidence struct {
+	CreationHeight       int64          // Height evidence was created
+	CreationTime         time.Time      // Time evidence was created
+	DefendantAddress     crypto.Address // Address of validator accused of inactivity
+	ComplainantAddress   crypto.Address // Address of validator submitting complaint complaint
+	AeonStart            int64          // Height for fetching validators
+	ComplainantSignature []byte
+}
+
+var _ Evidence = &BeaconInactivityEvidence{}
+
+// NewBeaconInactivityEvidence creates BeaconInactivityEvidence
+func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64) *BeaconInactivityEvidence {
+	return &BeaconInactivityEvidence{
+		CreationHeight:     height,
+		CreationTime:       time.Now(),
+		DefendantAddress:   defAddress,
+		ComplainantAddress: comAddress,
+		AeonStart:          aeon,
+	}
+}
+
+// String returns a string representation of the evidence.
+func (bie *BeaconInactivityEvidence) String() string {
+	return fmt.Sprintf("DefendantPubKey: %s, ComplainantPubKey: %s, Aeon: %v", bie.DefendantAddress,
+		bie.ComplainantAddress, bie.AeonStart)
+
+}
+
+// Height returns evidence was created
+func (bie *BeaconInactivityEvidence) Height() int64 {
+	return bie.CreationHeight
+}
+
+// Height returns validator height
+func (bie *BeaconInactivityEvidence) ValidatorHeight() int64 {
+	return bie.AeonStart
+}
+
+// Time return
+func (bie *BeaconInactivityEvidence) Time() time.Time {
+	return bie.CreationTime
+}
+
+// Address returns the address of the validator.
+func (bie *BeaconInactivityEvidence) Address() []byte {
+	return bie.DefendantAddress
+}
+
+// Bytes returns the evidence as byte slice
+func (bie *BeaconInactivityEvidence) Bytes() []byte {
+	return cdcEncode(bie)
+}
+
+// Hash returns the hash of the evidence.
+func (bie *BeaconInactivityEvidence) Hash() []byte {
+	return tmhash.Sum(cdcEncode(bie))
+}
+
+// Verify validates information contained in Evidence. Ensures signature verifies with complainant address, valid aeon start and
+// that the evidence was created after the aeon start
+func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet) error {
+	// Check aeon start is correct
+	if blockEntropy.NextAeonStart != bie.ValidatorHeight() {
+		return fmt.Errorf("incorrect aeon start. Got %v, expected %v", bie.ValidatorHeight(), blockEntropy.NextAeonStart)
+	}
+	if bie.CreationHeight <= bie.AeonStart {
+		return fmt.Errorf("CreationHeight %v before AeonStart %v", bie.CreationHeight, bie.AeonStart)
+	}
+
+	// Check both complainant and defendant addresses are in DKG validator set at aeon start - 1, and that they are in qual
+	defIndex, val := valset.GetByAddress(bie.DefendantAddress)
+	if val == nil {
+		return fmt.Errorf("defendant address %X was not a validator at height %v", bie.DefendantAddress, bie.ValidatorHeight())
+	}
+	comIndex, val := valset.GetByAddress(bie.ComplainantAddress)
+	if val == nil {
+		return fmt.Errorf("complainant address %X was not a validator at height %v", bie.ComplainantAddress, bie.ValidatorHeight())
+	}
+	defInQual := false
+	comInQual := false
+	for _, valIndex := range blockEntropy.Qual {
+		if valIndex == int64(defIndex) {
+			defInQual = true
+		} else if valIndex == int64(comIndex) {
+			comInQual = true
+		}
+
+		if defInQual && comInQual {
+			break
+		}
+	}
+	if !defInQual || !comInQual {
+		return fmt.Errorf("address not in qual: defendant in qual %v, complainant in qual %v", defInQual, comInQual)
+	}
+
+	if !val.PubKey.VerifyBytes(bie.SignBytes(chainID), bie.ComplainantSignature) {
+		return fmt.Errorf("ComplainantSignature invalid")
+	}
+
+	return nil
+}
+
+// For signing with private key
+func (bie BeaconInactivityEvidence) SignBytes(chainID string) []byte {
+	bie.ComplainantSignature = nil
+	bz, err := cdc.MarshalBinaryLengthPrefixed(bie)
+	if err != nil {
+		panic(err)
+	}
+	return append([]byte(chainID), bz...)
+}
+
+// Equal checks if two pieces of evidence are equal.
+func (bie *BeaconInactivityEvidence) Equal(ev Evidence) bool {
+	if _, ok := ev.(*BeaconInactivityEvidence); !ok {
+		return false
+	}
+
+	// just check their hashes
+	bieHash := tmhash.Sum(cdcEncode(bie))
+	evHash := tmhash.Sum(cdcEncode(ev))
+	return bytes.Equal(bieHash, evHash)
+}
+
+// ValidateBasic performs basic validation.
+func (bie *BeaconInactivityEvidence) ValidateBasic() error {
+	if len(bie.ComplainantAddress) == 0 {
+		return errors.New("empty ComplainantAddress")
+	}
+	if len(bie.DefendantAddress) == 0 {
+		return errors.New("empty DefendantAddress")
+	}
+	if bie.AeonStart <= 0 {
+		return errors.New("invalid aeon start")
+	}
+	if len(bie.ComplainantSignature) == 0 {
+		return errors.New("empty complainant signature")
+	}
+	return nil
 }
 
 //-------------------------------------------

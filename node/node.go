@@ -346,14 +346,14 @@ func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
 }
 
 func createEvidenceReactor(config *cfg.Config, dbProvider DBProvider,
-	stateDB dbm.DB, logger log.Logger) (*evidence.Reactor, *evidence.Pool, error) {
+	stateDB dbm.DB, blockStore *store.BlockStore, logger log.Logger) (*evidence.Reactor, *evidence.Pool, error) {
 
 	evidenceDB, err := dbProvider(&DBContext{"evidence", config})
 	if err != nil {
 		return nil, nil, err
 	}
 	evidenceLogger := logger.With("module", "evidence")
-	evidencePool := evidence.NewPool(stateDB, evidenceDB)
+	evidencePool := evidence.NewPool(stateDB, evidenceDB, blockStore)
 	evidencePool.SetLogger(evidenceLogger)
 	evidenceReactor := evidence.NewReactor(evidencePool)
 	evidenceReactor.SetLogger(evidenceLogger)
@@ -571,10 +571,11 @@ func createBeaconReactor(
 	beaconLogger log.Logger, fastSync bool,
 	blockStore sm.BlockStore,
 	dkgRunner *beacon.DKGRunner,
-	db dbm.DB) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
+	db dbm.DB,
+	evpool *evidence.Pool) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
 	beacon.InitialiseMcl()
-	entropyGenerator := beacon.NewEntropyGenerator(&config.BaseConfig, config.Beacon, state.LastBlockHeight)
+	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, config.Beacon, state.LastBlockHeight, evpool, db)
 	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)
 	entropyGenerator.SetEntropyChannel(entropyChannel)
@@ -704,7 +705,7 @@ func NewNode(config *cfg.Config,
 	mempoolReactor, mempool := createMempoolAndMempoolReactor(config, proxyApp, state, memplMetrics, logger, slotProtocolEnforcer)
 
 	// Make Evidence Reactor
-	evidenceReactor, evidencePool, err := createEvidenceReactor(config, dbProvider, stateDB, logger)
+	evidenceReactor, evidencePool, err := createEvidenceReactor(config, dbProvider, stateDB, blockStore, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -716,6 +717,7 @@ func NewNode(config *cfg.Config,
 		proxyApp.Consensus(),
 		mempool,
 		evidencePool,
+		blockStore,
 		sm.BlockExecutorWithMetrics(smMetrics),
 	)
 
@@ -763,7 +765,7 @@ func NewNode(config *cfg.Config,
 		// Make BeaconReactor
 		beaconLogger := logger.With("module", "beacon")
 		entropyChannel, entropyGenerator, beaconReactor, err := createBeaconReactor(config, state, privValidator,
-			beaconLogger, fastSync, blockStore, dkgRunner, stateDB)
+			beaconLogger, fastSync, blockStore, dkgRunner, stateDB, evidencePool)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "could not load aeon keys from file")

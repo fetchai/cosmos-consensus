@@ -18,6 +18,7 @@ type PrivValidator interface {
 	SignProposal(chainID string, proposal *Proposal) error
 	SignEntropy(chainID string, share *EntropyShare) error
 	SignDKGMessage(chainID string, msg *DKGMessage) error
+	SignEvidence(chainID string, msg Evidence) ([]byte, error)
 }
 
 //----------------------------------------
@@ -127,6 +128,15 @@ func (pv MockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
 	return nil
 }
 
+func (pv MockPV) SignEvidence(chainID string, msg Evidence) ([]byte, error) {
+	signBytes := msg.SignBytes(chainID)
+	sig, err := pv.PrivKey.Sign(signBytes)
+	if err != nil {
+		return nil, err
+	}
+	return sig, nil
+}
+
 // String returns a string representation of the MockPV.
 func (pv MockPV) String() string {
 	mpv, _ := pv.GetPubKey() // mockPV will never return an error, ignored here
@@ -163,6 +173,11 @@ func (pv *ErroringMockPV) SignEntropy(chainID string, entropy *EntropyShare) err
 // Implements PrivValidator
 func (pv *ErroringMockPV) SignDKGMessage(chainID string, msg *DKGMessage) error {
 	return ErroringMockPVErr
+}
+
+// Implements PrivValidator
+func (pv *ErroringMockPV) SignEvidence(chainID string, msg Evidence) ([]byte, error) {
+	return nil, ErroringMockPVErr
 }
 
 // NewErroringMockPV returns a MockPV that fails on each signing request. Again, for testing only.

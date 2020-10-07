@@ -143,6 +143,7 @@ func TestABCIEvidence(t *testing.T) {
 	abciEv := TM2PB.Evidence(
 		ev,
 		NewValidatorSet([]*Validator{NewValidator(pubKey, 10)}),
+		nil,
 		time.Now(),
 	)
 
