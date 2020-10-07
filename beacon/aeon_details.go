@@ -122,10 +122,10 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 	return ad, nil
 }
 
-func keylessAeonDetails(validatorHeight int64, dkgID int64, aeonStart int64, aeonEnd int64) *aeonDetails {
+func keylessAeonDetails(dkgID int64, validatorHeight int64, aeonStart int64, aeonEnd int64) *aeonDetails {
 	return &aeonDetails{
-		validatorHeight: validatorHeight,
 		dkgID:           dkgID,
+		validatorHeight: validatorHeight,
 		Start:           aeonStart,
 		End:             aeonEnd,
 	}
