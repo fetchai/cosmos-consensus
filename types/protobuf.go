@@ -157,9 +157,10 @@ func (tm2pb) ConsensusParams(params *ConsensusParams) *abci.ConsensusParams {
 			PubKeyTypes: params.Validator.PubKeyTypes,
 		},
 		Entropy: &abci.EntropyParams{
-			AeonLength:                 params.Entropy.AeonLength,
-			InactivityWindowSize:       params.Entropy.InactivityWindowSize,
-			RequiredActivityPercentage: params.Entropy.RequiredActivityPercentage,
+			AeonLength:                  params.Entropy.AeonLength,
+			InactivityWindowSize:        params.Entropy.InactivityWindowSize,
+			RequiredActivityPercentage:  params.Entropy.RequiredActivityPercentage,
+			SlashingThresholdPercentage: params.Entropy.SlashingThresholdPercentage,
 		},
 	}
 }
