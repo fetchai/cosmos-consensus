@@ -15,6 +15,11 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+const (
+	maxFindValSleepIterations = 10 // Equal to 1s total sleep time
+	findValSleepDuration      = 100 * time.Millisecond
+)
+
 // DKGRunner manages the starting of the DKG each aeon with new validator sets and forwards on
 // the output of the DKG. New DKGs are started at the beginning of every aeon assuming the previous
 // DKG completed on time.
@@ -206,16 +211,21 @@ func (dkgRunner *DKGRunner) NextAeonStart(height int64) int64 {
 
 // Returns validators for height from state DB
 func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, int64) {
+	sleepIterations := 0
 	for {
 		if !dkgRunner.fastSync && !dkgRunner.IsRunning() {
 			dkgRunner.Logger.Debug("findValidators: exiting", "height", dkgRunner.height)
 			return nil, 0
 		}
+		if sleepIterations > maxFindValSleepIterations {
+			panic(fmt.Sprintf("findValidatorsAndParams: could not retrieve for height %v", height))
+		}
 
 		newVals, err := sm.LoadDKGValidators(dkgRunner.stateDB, height)
 		newParams, err1 := sm.LoadConsensusParams(dkgRunner.stateDB, height)
 		if err != nil || err1 != nil {
-			time.Sleep(100 * time.Millisecond)
+			sleepIterations++
+			time.Sleep(findValSleepDuration)
 		} else {
 			if newVals.Size() == 0 {
 				panic(fmt.Sprintf("findValidators returned empty validator set. Height %v", height))
