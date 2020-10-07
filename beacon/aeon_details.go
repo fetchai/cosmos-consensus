@@ -37,7 +37,8 @@ type aeonDetails struct {
 // LoadAeonDetails creates aeonDetails from keys saved in file
 func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.ValidatorSet, privVal types.PrivValidator) *aeonDetails {
 	if len(aeonDetailsFile.PublicInfo.GroupPublicKey) == 0 {
-		return keylessAeonDetails(aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
+		return keylessAeonDetails(aeonDetailsFile.PublicInfo.DKGID, aeonDetailsFile.PublicInfo.ValidatorHeight,
+			aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	}
 
 	keys := NewDKGKeyInformation()
@@ -121,10 +122,12 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 	return ad, nil
 }
 
-func keylessAeonDetails(aeonStart int64, aeonEnd int64) *aeonDetails {
+func keylessAeonDetails(validatorHeight int64, dkgID int64, aeonStart int64, aeonEnd int64) *aeonDetails {
 	return &aeonDetails{
-		Start: aeonStart,
-		End:   aeonEnd,
+		validatorHeight: validatorHeight,
+		dkgID:           dkgID,
+		Start:           aeonStart,
+		End:             aeonEnd,
 	}
 }
 

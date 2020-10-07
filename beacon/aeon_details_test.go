@@ -98,7 +98,7 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 func TestAeonDetailsNoKeys(t *testing.T) {
 	config := cfg.ResetTestRoot("keyless_aeon_details_test")
 
-	newAeon := keylessAeonDetails(1, 10)
+	newAeon := keylessAeonDetails(1, 1, 1, 10)
 	assert.True(t, newAeon.aeonExecUnit == nil)
 	saveAeons(config.EntropyKeyFile(), newAeon)
 
