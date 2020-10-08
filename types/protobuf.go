@@ -190,14 +190,7 @@ func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, dkgValSet *ValidatorSet
 			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.Height()))
 		}
 		relevantValSet = dkgValSet
-		_, com := relevantValSet.GetByAddress(evType.ComplainantAddress)
-		if com == nil {
-			panic(com)
-		}
-		evidence.Complainant = &abci.Validator{
-			Address: com.PubKey.Address(),
-			Power:   com.VotingPower,
-		}
+		evidence.Threshold = evType.Threshold
 	default:
 		panic(fmt.Sprintf("Unknown evidence type: %v %v", ev, reflect.TypeOf(ev)))
 	}
