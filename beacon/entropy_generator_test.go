@@ -321,7 +321,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	newGen := testEntropyGenerator("TestChain")
 	newGen.SetLogger(log.TestingLogger())
-	newGen.SetNextAeonDetails(keylessAeonDetails(0, 4))
+	newGen.SetNextAeonDetails(keylessAeonDetails(1, 1, 0, 4))
 
 	assert.True(t, !newGen.isSigningEntropy())
 
