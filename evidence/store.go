@@ -39,7 +39,7 @@ const (
 )
 
 func keyLookup(evidence types.Evidence) []byte {
-	return keyLookupFromHeightAndHash(evidence.Height(), evidence.Hash())
+	return keyLookupFromHeightAndHash(evidence.ValidatorHeight(), evidence.Hash())
 }
 
 // big endian padded hex
@@ -52,11 +52,11 @@ func keyLookupFromHeightAndHash(height int64, hash []byte) []byte {
 }
 
 func keyOutqueue(evidence types.Evidence, priority int64) []byte {
-	return _key("%s/%s/%s/%X", baseKeyOutqueue, bE(priority), bE(evidence.Height()), evidence.Hash())
+	return _key("%s/%s/%s/%X", baseKeyOutqueue, bE(priority), bE(evidence.ValidatorHeight()), evidence.Hash())
 }
 
 func keyPending(evidence types.Evidence) []byte {
-	return _key("%s/%s/%X", baseKeyPending, bE(evidence.Height()), evidence.Hash())
+	return _key("%s/%s/%X", baseKeyPending, bE(evidence.ValidatorHeight()), evidence.Hash())
 }
 
 func _key(format string, o ...interface{}) []byte {
@@ -218,5 +218,5 @@ func (store *Store) MarkEvidenceAsCommitted(evidence types.Evidence) {
 
 // getInfo is convenience for calling GetInfo if we have the full evidence.
 func (store *Store) getInfo(evidence types.Evidence) Info {
-	return store.GetInfo(evidence.Height(), evidence.Hash())
+	return store.GetInfo(evidence.ValidatorHeight(), evidence.Hash())
 }
