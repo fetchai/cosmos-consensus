@@ -139,23 +139,20 @@ func keylessAeonDetails(dkgID int64, validatorHeight int64, aeonStart int64, aeo
 }
 
 func (aeon *aeonDetails) dkgOutput() *DKGOutput {
-	if aeon.aeonExecUnit == nil {
-		return &DKGOutput{
-			Start: aeon.Start,
-			End:   aeon.End,
-		}
-	}
 	output := DKGOutput{
-		KeyType:         aeon.aeonExecUnit.Name(),
-		GroupPublicKey:  aeon.aeonExecUnit.GroupPublicKey(),
-		Generator:       aeon.aeonExecUnit.Generator(),
-		PublicKeyShares: make([]string, len(aeon.validators.Validators)),
-		ValidatorHeight: aeon.validatorHeight,
-		DKGID:           aeon.dkgID,
-		Qual:            aeon.qual,
 		Start:           aeon.Start,
 		End:             aeon.End,
+		DKGID:           aeon.dkgID,
+		ValidatorHeight: aeon.validatorHeight,
 	}
+	if aeon.IsKeyless() {
+		return &output
+	}
+	output.KeyType = aeon.aeonExecUnit.Name()
+	output.GroupPublicKey = aeon.aeonExecUnit.GroupPublicKey()
+	output.Generator = aeon.aeonExecUnit.Generator()
+	output.PublicKeyShares = make([]string, len(aeon.validators.Validators))
+	output.Qual = aeon.qual
 	publicKeyShares := aeon.aeonExecUnit.PublicKeyShares()
 	for i := 0; i < int(publicKeyShares.Size()); i++ {
 		output.PublicKeyShares[i] = publicKeyShares.Get(i)
@@ -269,15 +266,15 @@ func (output *DKGOutput) ValidateBasic() error {
 		if len(output.Generator) == 0 {
 			return fmt.Errorf("Empty generator")
 		}
-		if output.ValidatorHeight <= 0 {
-			return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
-		}
 		if len(output.Qual) == 0 || len(output.Qual) > len(output.PublicKeyShares) {
 			return fmt.Errorf("Qual size %v invalid. Expected non-zero qual less than public key shares %v", len(output.Qual), len(output.PublicKeyShares))
 		}
-		if output.DKGID < 0 {
-			return fmt.Errorf("Invalid dkg id %v", output.DKGID)
-		}
+	}
+	if output.ValidatorHeight <= 0 {
+		return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
+	}
+	if output.DKGID < 0 {
+		return fmt.Errorf("Invalid dkg id %v", output.DKGID)
 	}
 	if output.Start <= 0 || output.End < output.Start {
 		return fmt.Errorf("Invalid start %v or end %v", output.Start, output.End)
