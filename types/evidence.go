@@ -482,19 +482,21 @@ type BeaconInactivityEvidence struct {
 	DefendantAddress     crypto.Address // Address of validator accused of inactivity
 	ComplainantAddress   crypto.Address // Address of validator submitting complaint complaint
 	AeonStart            int64          // Height for fetching validators
+	Threshold            int64          // Threshold of complaints for slashing (depends on validator size)
 	ComplainantSignature []byte
 }
 
 var _ Evidence = &BeaconInactivityEvidence{}
 
 // NewBeaconInactivityEvidence creates BeaconInactivityEvidence
-func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64) *BeaconInactivityEvidence {
+func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64, threshold int64) *BeaconInactivityEvidence {
 	return &BeaconInactivityEvidence{
 		CreationHeight:     height,
 		CreationTime:       time.Now(),
 		DefendantAddress:   defAddress,
 		ComplainantAddress: comAddress,
 		AeonStart:          aeon,
+		Threshold:          threshold,
 	}
 }
 
@@ -510,9 +512,10 @@ func (bie *BeaconInactivityEvidence) Height() int64 {
 	return bie.CreationHeight
 }
 
-// Height returns validator height
+// ValidatorHeight returns validator height. Validators running DRB at aeon start
+// correspond to the DKG validators at aeon start -1
 func (bie *BeaconInactivityEvidence) ValidatorHeight() int64 {
-	return bie.AeonStart
+	return bie.AeonStart - 1
 }
 
 // Time return
@@ -530,20 +533,36 @@ func (bie *BeaconInactivityEvidence) Bytes() []byte {
 	return cdcEncode(bie)
 }
 
-// Hash returns the hash of the evidence.
+// Hash returns the hash of the unique fields in evidence. Prevents submission
+// of multiple evidence by using a different creation time or signature
 func (bie *BeaconInactivityEvidence) Hash() []byte {
-	return tmhash.Sum(cdcEncode(bie))
+	uniqueInfo := struct {
+		AeonStart          int64
+		DefendantAddress   []byte
+		ComplainantAddress []byte
+		Threshold          int64
+	}{bie.AeonStart, bie.DefendantAddress, bie.ComplainantAddress, bie.Threshold}
+	return tmhash.Sum(cdcEncode(uniqueInfo))
 }
 
 // Verify validates information contained in Evidence. Ensures signature verifies with complainant address, valid aeon start and
 // that the evidence was created after the aeon start
-func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet) error {
+func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet,
+	params EntropyParams) error {
 	// Check aeon start is correct
-	if blockEntropy.NextAeonStart != bie.ValidatorHeight() {
+	if blockEntropy.NextAeonStart != bie.AeonStart {
 		return fmt.Errorf("incorrect aeon start. Got %v, expected %v", bie.ValidatorHeight(), blockEntropy.NextAeonStart)
 	}
-	if bie.CreationHeight <= bie.AeonStart {
-		return fmt.Errorf("CreationHeight %v before AeonStart %v", bie.CreationHeight, bie.AeonStart)
+	// Creation height of evidence needs to be during the entropy generation aeon
+	if bie.CreationHeight <= bie.AeonStart || bie.CreationHeight > bie.AeonStart+params.AeonLength {
+		return fmt.Errorf("invalid creation height %v for aeon start %v", bie.CreationHeight, bie.AeonStart)
+	}
+
+	// Check theshold is correct
+	slashingFraction := float64(params.SlashingThresholdPercentage) * 0.01
+	slashingThreshold := int64(slashingFraction * float64(valset.Size()))
+	if slashingThreshold != bie.Threshold {
+		return fmt.Errorf("incorrect Threshold. Got %v, expected %v", bie.Threshold, slashingThreshold)
 	}
 
 	// Check both complainant and defendant addresses are in DKG validator set at aeon start - 1, and that they are in qual

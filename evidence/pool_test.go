@@ -153,3 +153,42 @@ func TestAddEvidence(t *testing.T) {
 		}
 	}
 }
+
+func TestAddNonUniqueBeaconEvidence(t *testing.T) {
+	var (
+		evidenceDB    = dbm.NewMemDB()
+		height        = int64(10)
+		stateDB       = dbm.NewMemDB()
+		blockStore    = store.NewBlockStore(dbm.NewMemDB())
+		pool          = NewPool(stateDB, evidenceDB, blockStore)
+		valAddr       = []byte("val1")
+		valAddr2      = []byte("val2")
+		complainantPV = types.NewMockPV()
+	)
+	complainantPubKey, _ := complainantPV.GetPubKey()
+
+	// Add unique evidence
+	ev := types.NewBeaconInactivityEvidence(height, valAddr, complainantPubKey.Address(), 1, 1)
+	hasEvidence := pool.store.Has(ev)
+	assert.Equal(t, hasEvidence, false)
+	_, err := pool.store.AddNewEvidence(ev, 10)
+	assert.Nil(t, err)
+
+	testCases := []struct {
+		name           string
+		evHeight       int64
+		defAddr        []byte
+		evidenceUnique bool
+	}{
+		{"Different height", height + 1, valAddr, false},
+		{"Different defendant address", height, valAddr2, true},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			ev := types.NewBeaconInactivityEvidence(tc.evHeight, tc.defAddr, complainantPubKey.Address(), 1, 1)
+			hasEvidence := pool.store.Has(ev)
+			assert.Equal(t, tc.evidenceUnique, !hasEvidence)
+		})
+	}
+}

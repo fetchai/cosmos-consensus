@@ -415,7 +415,7 @@ func TestEntropyActivityTracking(t *testing.T) {
 			for _, ev := range evidence {
 				beaconInactivityEvidence, err := ev.(*types.BeaconInactivityEvidence)
 				assert.True(t, err)
-				assert.Nil(t, beaconInactivityEvidence.Verify(state.ChainID, blockEntropy, state.Validators))
+				assert.Nil(t, beaconInactivityEvidence.Verify(state.ChainID, blockEntropy, state.Validators, state.ConsensusParams.Entropy))
 			}
 		})
 	}

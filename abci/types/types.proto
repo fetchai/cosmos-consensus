@@ -250,6 +250,7 @@ message EntropyParams {
   int64 aeon_length = 1;
   int64 inactivity_window_size = 2;
   int64 required_activity_percentage = 3;
+  int64 slashing_threshold_percentage = 4;
 }
 
 message LastCommitInfo {
@@ -346,7 +347,7 @@ message Evidence {
   int64                     height    = 3;
   google.protobuf.Timestamp time = 4 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
   int64                     total_voting_power = 5;
-  Validator                 complainant = 6; // Allowed to be null
+  int64                     threshold = 6; 
 }
 
 //----------------------------------------

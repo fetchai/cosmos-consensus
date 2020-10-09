@@ -740,8 +740,19 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 				entropyGenerator.Logger.Error("updateActivityTracking: error getting pub key", "err", err)
 				continue
 			}
-			evidence := types.NewBeaconInactivityEvidence(entropy.Height, defAddress, pubKey.Address(),
-				entropyGenerator.aeon.Start)
+
+			// Calculate threshold for slashing
+			slashingFraction := float64(entropyGenerator.aeonEntropyParams.SlashingThresholdPercentage) * 0.01
+			slashingThreshold := int64(slashingFraction * float64(entropyGenerator.aeon.validators.Size()))
+
+			// Subtract off entropy channel capacity to obtain current working block height
+			infractionHeight := entropy.Height - entropyGenerator.beaconConfig.EntropyChannelCapacity
+			if infractionHeight <= 0 {
+				// Just in case window gets set to something smaller than the channel capacity
+				continue
+			}
+			evidence := types.NewBeaconInactivityEvidence(infractionHeight, defAddress, pubKey.Address(),
+				entropyGenerator.aeon.Start, slashingThreshold)
 			sig, err := entropyGenerator.aeon.privValidator.SignEvidence(entropyGenerator.chainID, evidence)
 			if err != nil {
 				entropyGenerator.Logger.Error("updateActivityTracking: error signing evidence", "err", err)
