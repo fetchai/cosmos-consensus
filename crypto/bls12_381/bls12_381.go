@@ -3,10 +3,10 @@ package bls12_381
 import (
 	"bytes"
 	"crypto/sha256"
-	"crypto/subtle"
+	//"crypto/subtle"
 	"fmt"
 	"io"
-	"math/big"
+	//"math/big"
 
 	"golang.org/x/crypto/ripemd160" // nolint: staticcheck // necessary for Bitcoin address format
 
@@ -40,6 +40,15 @@ var _ crypto.PrivKey = PrivKeyBls{}
 // PrivKeyBls implements PrivKey.
 type PrivKeyBls [32]byte
 
+// Sign - for now this is just the SHA2 of the message
+// TODO(HUT): not secure.
+func (privKey PrivKeyBls) Sign(msg []byte) (ret []byte, err error) {
+	hasherSHA256 := sha256.New()
+	hasherSHA256.Write(msg[:]) // does not error
+	ret = hasherSHA256.Sum(nil)
+	return
+}
+
 // Bytes marshalls the private key using amino encoding.
 func (privKey PrivKeyBls) Bytes() []byte {
 	return cdc.MustMarshalBinaryBare(privKey)
@@ -47,8 +56,7 @@ func (privKey PrivKeyBls) Bytes() []byte {
 
 // PubKey can be inferred from the private key
 func (privKey PrivKeyBls) PubKey() (ret crypto.PubKey) {
-	copy(ret[:], privKey)
-	return pubkeyBytes
+	return PubKeyBls{}
 }
 
 // Equals - you probably don't need to use this.
@@ -76,8 +84,8 @@ func genPrivKey(rand io.Reader) (ret PrivKeyBls) {
 
 // GenPrivKeyBls hashes the secret with SHA2, and uses
 // that 32 byte output to create the private key.
-func GenPrivKeyBls(secret []byte) PrivKeyBls {
-	copy(ret, secret)
+func GenPrivKeyBls(secret []byte) (ret PrivKeyBls) {
+	//copy(ret, secret)
 	return
 }
 
@@ -90,6 +98,11 @@ const PubKeyBlsSize = 33
 
 // PubKeyBls implements crypto.PubKey.
 type PubKeyBls [PubKeyBlsSize]byte
+
+
+func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
+	return true
+}
 
 // Address returns a Bitcoin style addresses: RIPEMD160(SHA256(pubkey))
 func (pubKey PubKeyBls) Address() crypto.Address {
