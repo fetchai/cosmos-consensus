@@ -755,9 +755,13 @@ func (de *DKGEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset 
 	if blockEntropy.DKGID+1 != de.DKGID {
 		return fmt.Errorf("incorrect dkg id. Got %v, expected %v", de.DKGID, blockEntropy.DKGID+1)
 	}
-	// Check val height corresponds to last aeon starts
-	if blockEntropy.NextAeonStart != de.ValHeight {
-		return fmt.Errorf("incorrect validator height. Got %v, expected %v", de.ValHeight, blockEntropy.NextAeonStart)
+	// Check val height corresponds to last aeon start (except at genesis)
+	valHeight := blockEntropy.NextAeonStart
+	if valHeight < 0 {
+		valHeight = 1
+	}
+	if valHeight != de.ValHeight {
+		return fmt.Errorf("incorrect validator height. Got %v, expected %v", de.ValHeight, valHeight)
 	}
 	// Creation height of evidence after dkg has started
 	if de.CreationHeight <= de.ValHeight {
