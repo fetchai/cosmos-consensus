@@ -751,6 +751,7 @@ func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
 	slashingFraction := float64(dkg.entropyParams.SlashingThresholdPercentage) * 0.01
 	slashingThreshold := int64(slashingFraction * float64(dkg.validators.Size()))
 
+	var err error
 	for index := 0; index < dkg.validators.Size(); index++ {
 		if index == dkg.index() {
 			continue
@@ -759,7 +760,11 @@ func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
 			addr, _ := dkg.validators.GetByIndex(index)
 			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, dkg.dkgIteration,
 				slashingThreshold)
-			ev.ComplaintantSignature = dkg.privValidator.SignEvidence(ev)
+			ev.ComplainantSignature, err = dkg.privValidator.SignEvidence(dkg.chainID, ev)
+			if err != nil {
+				dkg.Logger.Error("Error signing evidence", "err", err)
+				return
+			}
 			dkg.evidenceHandler(ev)
 		}
 	}
