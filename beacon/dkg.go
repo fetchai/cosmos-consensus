@@ -765,6 +765,7 @@ func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
 				dkg.Logger.Error("Error signing evidence", "err", err)
 				return
 			}
+			dkg.Logger.Info("Add evidence for dkg failure", "height", blockHeight, "val", fmt.Sprintf("%X", addr))
 			dkg.evidenceHandler(ev)
 		}
 	}

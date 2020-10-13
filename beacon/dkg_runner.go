@@ -279,8 +279,8 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, dkgRunner.dkgID, *validators, dkgRunner.aeonEnd, entropyParams, dkgRunner.slotProtocolEnforcer)
 
 	// Set logger with dkgID and node index for debugging
-	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID, "index", dkgRunner.activeDKG.index())
-	dkgLogger.With("index", dkgRunner.activeDKG.index())
+	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID, "iteration", dkgRunner.activeDKG.dkgIteration,
+		"index", dkgRunner.dkgRunner.activeDKG.index())
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
 
 	// Set message handler for sending DKG transactions
@@ -304,7 +304,10 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	})
 	// Set evidence handler
 	dkgRunner.activeDKG.evidenceHandler = func(ev *types.DKGEvidence) {
-		dkgRunner.evpool.AddEvidence(ev)
+		err := dkgRunner.evpool.AddEvidence(ev)
+		if err != nil {
+			dkgRunner.Logger.Error("Error adding dkg evidence", "err", err)
+		}
 	}
 	// Dispatch off empty keys in case entropy generator has no keys. Keyless offset is required for
 	// app to have sufficient notification time of new aeon start
