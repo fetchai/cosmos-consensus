@@ -613,7 +613,7 @@ func createDKGRunner(
 	if err != nil {
 		return nil, err
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight,
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, state.ChainID, db, privValidator, noiseKeys, state.LastBlockHeight,
 		slotProtocolEnforcer, evpool)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
