@@ -104,10 +104,15 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	if aeon == nil {
 		return
 	}
+
+	dkgRunner.aeonEnd = aeon.End
+	dkgRunner.dkgID = aeon.dkgID
+
 	if aeon.IsKeyless() {
 		// aeonStart is fetched from dkgRunner to be included in the  block and must
 		// always correspond to the start of entropy generation periods, or -1
 		dkgRunner.aeonStart = aeon.validatorHeight
+		dkgRunner.dkgID = aeon.dkgID - 1 // as startNewDKG increments by 1
 		// Special case for genesis.
 		if dkgRunner.aeonStart == 1 {
 			dkgRunner.aeonStart = -1
@@ -115,8 +120,6 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	} else {
 		dkgRunner.aeonStart = aeon.Start
 	}
-	dkgRunner.aeonEnd = aeon.End
-	dkgRunner.dkgID = aeon.dkgID
 }
 
 // setNextAeon sets the new aeon from dkg completion
