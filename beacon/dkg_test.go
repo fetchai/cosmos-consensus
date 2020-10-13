@@ -427,7 +427,11 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestBeaconConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, 1, *state.Validators, 20, 100, nil)
+	entropyParams := types.EntropyParams{
+		AeonLength: 100,
+	}
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, 1, *state.Validators, 20,
+		entropyParams, nil)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -442,8 +446,12 @@ type testNode struct {
 
 func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
+	entropyParams := types.EntropyParams{
+		AeonLength: 100,
+	}
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, 1, *vals, 20, 100, nil),
+		dkg: NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, 1, *vals, 20,
+			entropyParams, nil),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),

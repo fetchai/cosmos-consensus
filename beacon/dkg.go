@@ -87,7 +87,7 @@ type DistributedKeyGeneration struct {
 	validators      types.ValidatorSet
 	threshold       uint
 	currentAeonEnd  int64
-	aeonLength      int64
+	entropyParams   types.EntropyParams
 	stateDuration   int64
 	aeonKeys        *aeonDetails
 	onFailState     func(int64)
@@ -117,7 +117,7 @@ type DistributedKeyGeneration struct {
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, dkgID int64, vals types.ValidatorSet,
-	aeonEnd int64, aeonLength int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
+	aeonEnd int64, entropyParams types.EntropyParams, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
 		config:               beaconConfig,
@@ -129,7 +129,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		valToIndex:           make(map[string]uint),
 		validators:           vals,
 		currentAeonEnd:       aeonEnd,
-		aeonLength:           aeonLength,
+		entropyParams:        entropyParams,
 		threshold:            dkgThreshold,
 		startHeight:          validatorHeight,
 		states:               make(map[dkgState]*state),
@@ -585,7 +585,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, dkg.dkgID, &dkg.validators, aeonExecUnit,
-		nextAeonStart, nextAeonStart+dkg.aeonLength-1)
+		nextAeonStart, nextAeonStart+dkg.entropyParams.AeonLength-1)
 	if err != nil {
 		dkg.Logger.Error("computePublicKeys", "err", err.Error())
 		dkg.aeonKeys = nil
@@ -748,6 +748,8 @@ func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
 		return
 	}
 	pubKey, _ := dkg.privValidator.GetPubKey()
+	slashingFraction := float64(dkg.entropyParams.SlashingThresholdPercentage) * 0.01
+	slashingThreshold := int64(slashingFraction * float64(dkg.validators.Size()))
 
 	for index := 0; index < dkg.validators.Size(); index++ {
 		if index == dkg.index() {
@@ -755,7 +757,9 @@ func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
 		}
 		if dkg.shouldSubmitEvidence(index) {
 			addr, _ := dkg.validators.GetByIndex(index)
-			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, dkg.dkgIteration)
+			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, dkg.dkgIteration,
+				slashingThreshold)
+			ev.ComplaintantSignature = dkg.privValidator.SignEvidence(ev)
 			dkg.evidenceHandler(ev)
 		}
 	}

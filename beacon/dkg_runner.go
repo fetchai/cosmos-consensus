@@ -47,11 +47,13 @@ type DKGRunner struct {
 
 	mtx     sync.Mutex
 	metrics *Metrics
+
+	evpool evidencePool
 }
 
 // NewDKGRunner creates struct for starting new DKGs
 func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
-	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DKGRunner {
+	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer, evpool evidencePool) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		beaconConfig:         config,
 		chainID:              chain,
@@ -66,6 +68,7 @@ func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.P
 		fastSync:             false,
 		encryptionKey:        encryptionKey,
 		slotProtocolEnforcer: slotProtocolEnforcer,
+		evpool:               evpool,
 	}
 	dkgRunner.BaseService = *service.NewBaseService(nil, "DKGRunner", dkgRunner)
 
@@ -213,12 +216,12 @@ func (dkgRunner *DKGRunner) NextAeonStart(height int64) int64 {
 }
 
 // Returns validators for height from state DB
-func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, int64) {
+func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.ValidatorSet, types.EntropyParams) {
 	sleepIterations := 0
 	for {
 		if !dkgRunner.fastSync && !dkgRunner.IsRunning() {
 			dkgRunner.Logger.Debug("findValidators: exiting", "height", dkgRunner.height)
-			return nil, 0
+			return nil, types.EntropyParams{}
 		}
 		if sleepIterations > maxFindValSleepIterations {
 			panic(fmt.Sprintf("findValidatorsAndParams: could not retrieve for height %v", height))
@@ -234,7 +237,7 @@ func (dkgRunner *DKGRunner) findValidatorsAndParams(height int64) (*types.Valida
 				panic(fmt.Sprintf("findValidators returned empty validator set. Height %v", height))
 			}
 			dkgRunner.Logger.Debug("findValidators: vals updated", "height", height)
-			return newVals, newParams.Entropy.AeonLength
+			return newVals, newParams.Entropy
 		}
 	}
 }
@@ -267,13 +270,13 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 }
 
 // Starts new DKG if old one has completed for those in the current validator set
-func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, aeonLength int64) {
+func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, entropyParams types.EntropyParams) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	dkgRunner.dkgID++
 
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
-		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, dkgRunner.dkgID, *validators, dkgRunner.aeonEnd, aeonLength, dkgRunner.slotProtocolEnforcer)
+		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, dkgRunner.dkgID, *validators, dkgRunner.aeonEnd, entropyParams, dkgRunner.slotProtocolEnforcer)
 
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID, "index", dkgRunner.activeDKG.index())
@@ -299,6 +302,10 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			dkgRunner.dkgCompletionCallback(keys)
 		}
 	})
+	// Set evidence handler
+	dkgRunner.activeDKG.evidenceHandler = func(ev *types.DKGEvidence) {
+		dkgRunner.evpool.AddEvidence(ev)
+	}
 	// Dispatch off empty keys in case entropy generator has no keys. Keyless offset is required for
 	// app to have sufficient notification time of new aeon start
 	if dkgRunner.dkgCompletionCallback != nil {

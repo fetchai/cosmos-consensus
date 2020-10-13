@@ -77,10 +77,10 @@ func TestDKGRunnerFindValidators(t *testing.T) {
 	assert.True(t, err == nil)
 	assert.Equal(t, int64(120), savedParams.Entropy.AeonLength)
 
-	vals, aeonLength := dkgRunner[0].findValidatorsAndParams(2)
+	vals, params := dkgRunner[0].findValidatorsAndParams(2)
 	index, _ := vals.GetByAddress(newVals[0].PubKey.Address())
 	assert.True(t, index >= 0)
-	assert.True(t, aeonLength == 120)
+	assert.True(t, params.AeonLength == 120)
 }
 
 func testDKGRunners(nVals int, nSentries int) ([]*DKGRunner, tx_extensions.MessageHandler) {
@@ -93,13 +93,15 @@ func testDKGRunners(nVals int, nSentries int) ([]*DKGRunner, tx_extensions.Messa
 	fakeHandler := tx_extensions.NewFakeMessageHandler()
 	dkgRunners := make([]*DKGRunner, nVals+nSentries)
 	for index := 0; index < nVals; index++ {
-		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], tmnoise.NewEncryptionKey(), 0, nil)
+		dkgRunners[index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVals[index], tmnoise.NewEncryptionKey(), 0, nil,
+			newMockEvidencePool())
 		dkgRunners[index].SetLogger(logger.With("index", index))
 		dkgRunners[index].AttachMessageHandler(fakeHandler)
 	}
 	for index := 0; index < nSentries; index++ {
 		_, privVal := types.RandValidator(false, 10)
-		dkgRunners[nVals+index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVal, tmnoise.NewEncryptionKey(), 0, nil)
+		dkgRunners[nVals+index] = NewDKGRunner(config, "dkg_runner_test", stateDB, privVal, tmnoise.NewEncryptionKey(), 0, nil,
+			newMockEvidencePool())
 		dkgRunners[nVals+index].SetLogger(logger.With("index", -1))
 		dkgRunners[nVals+index].AttachMessageHandler(fakeHandler)
 	}

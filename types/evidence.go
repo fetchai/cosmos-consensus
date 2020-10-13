@@ -693,7 +693,7 @@ type DKGEvidence struct {
 var _ Evidence = &DKGEvidence{}
 
 // NewDKGEvidence creates DKGEvidence
-func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, validatorHeight int64, dkgID int64, dkgIteration int64) *DKGEvidence {
+func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, validatorHeight int64, dkgID int64, dkgIteration int64, threshold int64) *DKGEvidence {
 	return &DKGEvidence{
 		CreationHeight:     height,
 		CreationTime:       time.Now(),
@@ -702,6 +702,7 @@ func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.A
 		ValHeight:          validatorHeight,
 		DKGID:              dkgID,
 		DKGIteration:       dkgIteration,
+		Threshold:          threshold,
 	}
 }
 
