@@ -530,11 +530,9 @@ bool BeaconSetupService::CheckQualComplaints()
   return true;
 }
 
-bool BeaconSetupService::InQual(Identifier index) {
+bool BeaconSetupService::InQual(const Identifier &index) {
   std::lock_guard<std::mutex> lock(mutex_);
-
-  std::set<Identifier> qual{beacon_->qual()};
-  return qual.find(index) != qual.end();  
+ return beacon_->InQual(index);
 }
 
 }  // namespace beacon
