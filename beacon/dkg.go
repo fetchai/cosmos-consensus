@@ -306,9 +306,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
 
-		// Need to collect dry run messages from block to ensure everyone completes DKG at the same
-		// block
-		if dkg.msgFromSelf(msg, index) && msg.Type != types.DKGDryRun {
+		if dkg.msgFromSelf(msg, index) && dkg.skipOwnMsg(msg.Type) {
 			continue
 		}
 
@@ -371,6 +369,16 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 	}
 
 	dkg.checkTransition(blockHeight)
+}
+
+// There are 3 types of messages that the dkg needs to receive through the blocks, including
+// its own. This is to ensure everyone produces evidence at the same block height and
+// finishes the dkg at the same time
+func (dkg *DistributedKeyGeneration) skipOwnMsg(msgType types.DKGMessageType) bool {
+	if msgType == types.DKGEncryptionKey || msgType == types.DKGComplaintAnswer || msgType == types.DKGDryRun {
+		return false
+	}
+	return true
 }
 
 func (dkg *DistributedKeyGeneration) index() int {
@@ -715,13 +723,13 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 }
 
 func (dkg *DistributedKeyGeneration) receivedAllEncryptionKeys() bool {
-	return len(dkg.encryptionPublicKeys)+1 == len(dkg.validators.Validators)
+	return len(dkg.encryptionPublicKeys) == len(dkg.validators.Validators)
 }
 
 // checkEncryptionKeys ensures that the number of validators returning encryption keys is at least
 // the pre-dkg threshold of dkg threshold + 1/3 validators
 func (dkg *DistributedKeyGeneration) checkEncryptionKeys() bool {
-	return len(dkg.encryptionPublicKeys)+1 >= int(dkg.threshold)+(len(dkg.validators.Validators)/3)
+	return len(dkg.encryptionPublicKeys) >= int(dkg.threshold)+(len(dkg.validators.Validators)/3)
 }
 
 func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
@@ -758,8 +766,7 @@ func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
 		}
 		if dkg.shouldSubmitEvidence(index) {
 			addr, _ := dkg.validators.GetByIndex(index)
-			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, dkg.dkgIteration,
-				slashingThreshold)
+			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, slashingThreshold)
 			ev.ComplainantSignature, err = dkg.privValidator.SignEvidence(dkg.chainID, ev)
 			if err != nil {
 				dkg.Logger.Error("Error signing evidence", "err", err)

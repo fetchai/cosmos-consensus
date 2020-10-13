@@ -159,7 +159,6 @@ func EvidenceToProto(evidence Evidence) (*tmproto.Evidence, error) {
 					ComplainantAddress:   evi.ComplainantAddress,
 					ValidatorHeight:      evi.ValHeight,
 					DkgId:                evi.DKGID,
-					DkgIteration:         evi.DKGIteration,
 					Threshold:            evi.Threshold,
 					ComplainantSignature: evi.ComplainantSignature,
 				},
@@ -237,7 +236,6 @@ func EvidenceFromProto(evidence *tmproto.Evidence) (Evidence, error) {
 			ComplainantAddress:   evi.DkgEvidence.GetComplainantAddress(),
 			ValHeight:            evi.DkgEvidence.GetValidatorHeight(),
 			DKGID:                evi.DkgEvidence.GetDkgId(),
-			DKGIteration:         evi.DkgEvidence.GetDkgIteration(),
 			Threshold:            evi.DkgEvidence.GetThreshold(),
 			ComplainantSignature: evi.DkgEvidence.GetComplainantSignature(),
 		}
@@ -685,7 +683,6 @@ type DKGEvidence struct {
 	ComplainantAddress   crypto.Address // Address of validator submitting complaint complaint
 	ValHeight            int64          // Height for obtaining dkg validators
 	DKGID                int64          // Identifier for dkg run
-	DKGIteration         int64          // Iteration of dkg run
 	Threshold            int64          // Threshold of complaints for slashing (depends on validator size)
 	ComplainantSignature []byte
 }
@@ -693,7 +690,7 @@ type DKGEvidence struct {
 var _ Evidence = &DKGEvidence{}
 
 // NewDKGEvidence creates DKGEvidence
-func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, validatorHeight int64, dkgID int64, dkgIteration int64, threshold int64) *DKGEvidence {
+func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, validatorHeight int64, dkgID int64, threshold int64) *DKGEvidence {
 	return &DKGEvidence{
 		CreationHeight:     height,
 		CreationTime:       time.Now(),
@@ -701,16 +698,14 @@ func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.A
 		ComplainantAddress: comAddress,
 		ValHeight:          validatorHeight,
 		DKGID:              dkgID,
-		DKGIteration:       dkgIteration,
 		Threshold:          threshold,
 	}
 }
 
 // String returns a string representation of the evidence.
 func (de *DKGEvidence) String() string {
-	return fmt.Sprintf("DefendantPubKey: %s, ComplainantPubKey: %s, DKGID: %v, DKGIteration: %v", de.DefendantAddress,
-		de.ComplainantAddress, de.DKGID, de.DKGIteration)
-
+	return fmt.Sprintf("CreationHeight: %v, DefendantPubKey: %s, ComplainantPubKey: %s, ValidatorHeight: %v, DKGID: %v",
+		de.CreationHeight, de.DefendantAddress, de.ComplainantAddress, de.ValHeight, de.DKGID)
 }
 
 // Height returns evidence was created
@@ -742,13 +737,13 @@ func (de *DKGEvidence) Bytes() []byte {
 // of multiple evidence by using a different creation time or signature
 func (de *DKGEvidence) Hash() []byte {
 	uniqueInfo := struct {
+		CreationHeight     int64
 		DefendantAddress   []byte
 		ComplainantAddress []byte
 		ValidatorHeight    int64
 		DKGID              int64
-		DKGIteration       int64
 		Threshold          int64
-	}{de.DefendantAddress, de.ComplainantAddress, de.ValHeight, de.DKGID, de.DKGIteration, de.Threshold}
+	}{de.CreationHeight, de.DefendantAddress, de.ComplainantAddress, de.ValHeight, de.DKGID, de.Threshold}
 	return tmhash.Sum(cdcEncode(uniqueInfo))
 }
 
@@ -828,9 +823,6 @@ func (de *DKGEvidence) ValidateBasic() error {
 	}
 	if de.DKGID < 0 {
 		return errors.New("invalid dkg id")
-	}
-	if de.DKGIteration < 0 {
-		return errors.New("invalid dkg iteration")
 	}
 	if len(de.ComplainantSignature) == 0 {
 		return errors.New("empty complainant signature")

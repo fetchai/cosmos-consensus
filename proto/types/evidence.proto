@@ -66,9 +66,8 @@ message DKGEvidence {
   bytes complainant_address = 4;
   int64 validator_height = 5;
   int64 dkg_id = 6;
-  int64 dkg_iteration = 7;
-  bytes complainant_signature = 8;
-  int64 threshold = 9;
+  bytes complainant_signature = 7;
+  int64 threshold = 8;
 }
 
 message Evidence {

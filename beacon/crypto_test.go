@@ -92,9 +92,7 @@ func TestHonestDkg(t *testing.T) {
 	for index := uint(0); index < cabinetSize; index++ {
 		complaintAnswer := beaconManagers[index].GetComplaintAnswers()
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
-			if index != index1 {
-				beaconManagers[index1].OnComplaintAnswers(complaintAnswer, index)
-			}
+			beaconManagers[index1].OnComplaintAnswers(complaintAnswer, index)
 		}
 	}
 
