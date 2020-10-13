@@ -280,7 +280,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 
 	// Set logger with dkgID and node index for debugging
 	dkgLogger := dkgRunner.Logger.With("dkgID", dkgRunner.activeDKG.dkgID, "iteration", dkgRunner.activeDKG.dkgIteration,
-		"index", dkgRunner.dkgRunner.activeDKG.index())
+		"index", dkgRunner.activeDKG.index())
 	dkgRunner.activeDKG.SetLogger(dkgLogger)
 
 	// Set message handler for sending DKG transactions
