@@ -223,7 +223,7 @@ func verifyDuplicateVoteEvidence(stateDB dbm.DB, chainID string, evidence *types
 }
 
 func verifyBeaconInactivityEvidence(stateDB dbm.DB, blockStore BlockStore, chainID string, evidence *types.BeaconInactivityEvidence) (int64, error) {
-	blockMeta := blockStore.LoadBlockMeta(evidence.ValidatorHeight())
+	blockMeta := blockStore.LoadBlockMeta(evidence.AeonStart)
 	if blockMeta == nil {
 		return 0, fmt.Errorf("could not retrieve block header for height %v", evidence.AeonStart)
 	}
