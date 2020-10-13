@@ -55,6 +55,20 @@ message BeaconInactivityEvidence {
   bytes complainant_address = 4;
   int64 aeon_start = 5;
   bytes complainant_signature = 6;
+  int64 threshold = 7;
+}
+
+message DKGEvidence {
+  int64 evidence_height = 1;
+  google.protobuf.Timestamp evidence_time   = 2
+      [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  bytes defendant_address = 3;
+  bytes complainant_address = 4;
+  int64 validator_height = 5;
+  int64 dkg_id = 6;
+  int64 dkg_iteration = 7;
+  bytes complainant_signature = 8;
+  int64 threshold = 9;
 }
 
 message Evidence {
@@ -68,6 +82,7 @@ message Evidence {
     MockRandomEvidence mock_random_evidence = 6;
 
     BeaconInactivityEvidence beacon_inactivity_evidence = 7;
+    DKGEvidence dkg_evidence = 8;
   }
 }
 

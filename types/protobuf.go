@@ -19,6 +19,7 @@ const (
 	ABCIEvidenceTypeDuplicateVote    = "duplicate/vote"
 	ABCIEvidenceTypeMock             = "mock/evidence"
 	ABCIEvidenceTypeBeaconInactivity = "beacon/inactivity"
+	ABCIEvidenceTypeDKG              = "beacon/dkg"
 )
 
 const (
@@ -188,7 +189,14 @@ func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, dkgValSet *ValidatorSet
 	case *BeaconInactivityEvidence:
 		evidence.Type = ABCIEvidenceTypeBeaconInactivity
 		if dkgValSet == nil {
-			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.Height()))
+			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.ValidatorHeight()))
+		}
+		relevantValSet = dkgValSet
+		evidence.Threshold = evType.Threshold
+	case *DKGEvidence:
+		evidence.Type = ABCIEvidenceTypeDKG
+		if dkgValSet == nil {
+			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.ValidatorHeight()))
 		}
 		relevantValSet = dkgValSet
 		evidence.Threshold = evType.Threshold
@@ -197,7 +205,7 @@ func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, dkgValSet *ValidatorSet
 	}
 
 	if relevantValSet == nil {
-		panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", reflect.TypeOf(ev), ev.Height()))
+		panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", reflect.TypeOf(ev), ev.ValidatorHeight()))
 	}
 	_, val := relevantValSet.GetByAddress(ev.Address())
 	if val == nil {
