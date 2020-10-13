@@ -92,6 +92,7 @@ using AeonExecUnit    = BlsAeon;
   bool                    CheckQualComplaints();
   bool                    RunReconstruction();
   AeonExecUnit            ComputePublicKeys();
+  bool                    InQual(Identifier index);
 
 private:
   // Managing complaints

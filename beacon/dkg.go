@@ -110,6 +110,8 @@ type DistributedKeyGeneration struct {
 
 	metrics              *Metrics
 	slotProtocolEnforcer *SlotProtocolEnforcer
+
+	evidenceHandler func(*types.DKGEvidence)
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
@@ -455,6 +457,7 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 				dkg.Stop()
 				dkg.Reset()
 			} else {
+				dkg.submitEvidence(blockHeight)
 				dkg.onFailState(blockHeight)
 			}
 			return
@@ -738,6 +741,38 @@ func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
 		dkg.Logger.Error(fmt.Sprintf("onShares: error decrypting share index %v", index), "error", err.Error())
 	}
 	dkg.beaconService.OnShares(decryptedShares, uint(index))
+}
+
+func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
+	if dkg.evidenceHandler == nil || dkg.index() < 0 {
+		return
+	}
+	pubKey, _ := dkg.privValidator.GetPubKey()
+
+	for index := 0; index < dkg.validators.Size(); index++ {
+		if index == dkg.index() {
+			continue
+		}
+		if dkg.shouldSubmitEvidence(index) {
+			addr, _ := dkg.validators.GetByIndex(index)
+			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, dkg.dkgIteration)
+			dkg.evidenceHandler(ev)
+		}
+	}
+}
+
+// Currently only submit evidence if dkg has failed due to insufficient encryption keys
+// or due to qual failure
+func (dkg *DistributedKeyGeneration) shouldSubmitEvidence(index int) bool {
+	switch dkg.currentState {
+	case waitForEncryptionKeys:
+		_, haveKey := dkg.encryptionPublicKeys[uint(index)]
+		return !haveKey
+	case waitForComplaintAnswers:
+		return !dkg.beaconService.InQual(uint(index))
+	default:
+		return false
+	}
 }
 
 //-------------------------------------------------------------------------------------------
