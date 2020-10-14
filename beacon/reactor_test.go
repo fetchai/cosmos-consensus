@@ -285,11 +285,9 @@ func TestReactorWithDKG(t *testing.T) {
 	// Wait until dkg has completed
 	for nodesFinished := 0; nodesFinished < N; {
 		blockHeight++
-		for index, node := range dkgNodes {
-			for index1, node1 := range dkgNodes {
-				if index1 != index {
-					node1.dkg.OnBlock(blockHeight, node.currentMsgs)
-				}
+		for _, node := range dkgNodes {
+			for _, node1 := range dkgNodes {
+				node1.dkg.OnBlock(blockHeight, node.currentMsgs)
 			}
 		}
 		for _, node := range dkgNodes {

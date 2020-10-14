@@ -606,13 +606,15 @@ func createDKGRunner(
 	logger log.Logger,
 	db dbm.DB,
 	handler tx_extensions.MessageHandler,
-	slotProtocolEnforcer *beacon.SlotProtocolEnforcer) (*beacon.DKGRunner, error) {
+	slotProtocolEnforcer *beacon.SlotProtocolEnforcer,
+	evpool *evidence.Pool) (*beacon.DKGRunner, error) {
 
 	noiseKeys, err := tmnoise.LoadOrGenNoiseKeys(config)
 	if err != nil {
 		return nil, err
 	}
-	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), db, privValidator, noiseKeys, state.LastBlockHeight, slotProtocolEnforcer)
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, state.ChainID, db, privValidator, noiseKeys, state.LastBlockHeight,
+		slotProtocolEnforcer, evpool)
 	dkgRunner.SetLogger(logger.With("module", "dkgRunner"))
 	dkgRunner.AttachMessageHandler(handler)
 	return dkgRunner, nil
@@ -757,7 +759,8 @@ func NewNode(config *cfg.Config,
 
 	if config.Beacon.RunDKG {
 		// Create DKGRunner
-		dkgRunner, err = createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler, slotProtocolEnforcer)
+		dkgRunner, err = createDKGRunner(config, state, privValidator, logger, stateDB, specialTxHandler, slotProtocolEnforcer,
+			evidencePool)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create dkgRunner")
 		}

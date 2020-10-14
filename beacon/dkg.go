@@ -87,7 +87,7 @@ type DistributedKeyGeneration struct {
 	validators      types.ValidatorSet
 	threshold       uint
 	currentAeonEnd  int64
-	aeonLength      int64
+	entropyParams   types.EntropyParams
 	stateDuration   int64
 	aeonKeys        *aeonDetails
 	onFailState     func(int64)
@@ -110,12 +110,14 @@ type DistributedKeyGeneration struct {
 
 	metrics              *Metrics
 	slotProtocolEnforcer *SlotProtocolEnforcer
+
+	evidenceHandler func(*types.DKGEvidence)
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, dkgID int64, vals types.ValidatorSet,
-	aeonEnd int64, aeonLength int64, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
+	aeonEnd int64, entropyParams types.EntropyParams, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
 		config:               beaconConfig,
@@ -127,7 +129,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 		valToIndex:           make(map[string]uint),
 		validators:           vals,
 		currentAeonEnd:       aeonEnd,
-		aeonLength:           aeonLength,
+		entropyParams:        entropyParams,
 		threshold:            dkgThreshold,
 		startHeight:          validatorHeight,
 		states:               make(map[dkgState]*state),
@@ -304,9 +306,7 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 		// Check msg is from validators and verify signature
 		index, val := dkg.validators.GetByAddress(msg.FromAddress)
 
-		// Need to collect dry run messages from block to ensure everyone completes DKG at the same
-		// block
-		if dkg.msgFromSelf(msg, index) && msg.Type != types.DKGDryRun {
+		if dkg.msgFromSelf(msg, index) && dkg.skipOwnMsg(msg.Type) {
 			continue
 		}
 
@@ -369,6 +369,16 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 	}
 
 	dkg.checkTransition(blockHeight)
+}
+
+// There are 2 types of messages that the dkg needs to receive through the blocks, including
+// its own. This is to ensure everyone produces evidence at the same block height and
+// finishes the dkg at the same time
+func (dkg *DistributedKeyGeneration) skipOwnMsg(msgType types.DKGMessageType) bool {
+	if msgType == types.DKGComplaintAnswer || msgType == types.DKGDryRun {
+		return false
+	}
+	return true
 }
 
 func (dkg *DistributedKeyGeneration) index() int {
@@ -455,6 +465,7 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 				dkg.Stop()
 				dkg.Reset()
 			} else {
+				dkg.submitEvidence(blockHeight)
 				dkg.onFailState(blockHeight)
 			}
 			return
@@ -582,7 +593,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 	}
 	var err error
 	dkg.aeonKeys, err = newAeonDetails(dkg.privValidator, dkg.validatorHeight, dkg.dkgID, &dkg.validators, aeonExecUnit,
-		nextAeonStart, nextAeonStart+dkg.aeonLength-1)
+		nextAeonStart, nextAeonStart+dkg.entropyParams.AeonLength-1)
 	if err != nil {
 		dkg.Logger.Error("computePublicKeys", "err", err.Error())
 		dkg.aeonKeys = nil
@@ -738,6 +749,47 @@ func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
 		dkg.Logger.Error(fmt.Sprintf("onShares: error decrypting share index %v", index), "error", err.Error())
 	}
 	dkg.beaconService.OnShares(decryptedShares, uint(index))
+}
+
+func (dkg *DistributedKeyGeneration) submitEvidence(blockHeight int64) {
+	if dkg.evidenceHandler == nil || dkg.index() < 0 {
+		return
+	}
+	pubKey, _ := dkg.privValidator.GetPubKey()
+	slashingFraction := float64(dkg.entropyParams.SlashingThresholdPercentage) * 0.01
+	slashingThreshold := int64(slashingFraction * float64(dkg.validators.Size()))
+
+	var err error
+	for index := 0; index < dkg.validators.Size(); index++ {
+		if index == dkg.index() {
+			continue
+		}
+		if dkg.shouldSubmitEvidence(index) {
+			addr, _ := dkg.validators.GetByIndex(index)
+			ev := types.NewDKGEvidence(blockHeight, addr, pubKey.Address(), dkg.validatorHeight, dkg.dkgID, slashingThreshold)
+			ev.ComplainantSignature, err = dkg.privValidator.SignEvidence(dkg.chainID, ev)
+			if err != nil {
+				dkg.Logger.Error("Error signing evidence", "err", err)
+				return
+			}
+			dkg.Logger.Info("Add evidence for dkg failure", "height", blockHeight, "val", fmt.Sprintf("%X", addr))
+			dkg.evidenceHandler(ev)
+		}
+	}
+}
+
+// Currently only submit evidence if dkg has failed due to insufficient encryption keys
+// or due to qual failure
+func (dkg *DistributedKeyGeneration) shouldSubmitEvidence(index int) bool {
+	switch dkg.currentState {
+	case waitForEncryptionKeys:
+		_, haveKey := dkg.encryptionPublicKeys[uint(index)]
+		return !haveKey
+	case waitForComplaintAnswers:
+		return !dkg.beaconService.InQual(uint(index))
+	default:
+		return false
+	}
 }
 
 //-------------------------------------------------------------------------------------------

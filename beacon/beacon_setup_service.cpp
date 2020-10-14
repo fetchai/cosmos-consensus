@@ -87,7 +87,7 @@ bool BeaconSetupService::ReceivedAllComplaintAnswers() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
   return complaint_answers_manager_.NumComplaintAnswersReceived(valid_dkg_members_) ==
-         (valid_dkg_members_.size() - 1);
+         valid_dkg_members_.size();
 }
 
 bool BeaconSetupService::ReceivedAllQualCoefficients() const
@@ -528,6 +528,11 @@ bool BeaconSetupService::CheckQualComplaints()
     return false;
   }
   return true;
+}
+
+bool BeaconSetupService::InQual(const Identifier &index) {
+  std::lock_guard<std::mutex> lock(mutex_);
+ return beacon_->InQual(index);
 }
 
 }  // namespace beacon

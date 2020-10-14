@@ -27,12 +27,6 @@ const (
 	maxNextAeons         = 5
 )
 
-// interface to the evidence pool
-type evidencePool interface {
-	AddEvidence(types.Evidence) error
-	PendingEvidence(int64) []types.Evidence
-}
-
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
 // and entropy for dispatching along channel. Entropy generation is blocked by arrival of keys for the
 // keys for the current block height from the dkg - including for trivial entropy periods, for which the
