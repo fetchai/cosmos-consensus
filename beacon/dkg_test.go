@@ -8,6 +8,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	cfg "github.com/tendermint/tendermint/config"
+	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/libs/log"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	sm "github.com/tendermint/tendermint/state"
@@ -274,8 +275,8 @@ func TestDKGScenarios(t *testing.T) {
 
 			// Check all outputs of expected completed nodes agree
 			message := "TestMessage"
-			sigShares := NewIntStringMap()
-			defer DeleteIntStringMap(sigShares)
+			sigShares := cpp.NewIntStringMap()
+			defer cpp.DeleteIntStringMap(sigShares)
 			for index := 0; index < tc.completionSize; index++ {
 				node := nodes[index]
 				signature := outputs[index].aeonExecUnit.Sign(message, uint(node.dkg.index()))
@@ -499,7 +500,7 @@ func (node *testNode) mutateMsg(msg *types.DKGMessage) *types.DKGMessage {
 					node.sentBadShare = true
 				}
 			}
-			msg.Data = MutateMsg(msg.Data, FetchBeaconDKGMessageType(msg.Type), FetchBeaconFailure(node.failures[i]))
+			msg.Data = cpp.MutateMsg(msg.Data, cpp.FetchBeaconDKGMessageType(msg.Type), cpp.FetchBeaconFailure(node.failures[i]))
 		}
 	}
 	return msg

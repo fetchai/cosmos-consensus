@@ -11,6 +11,7 @@ import (
 
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
+	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/mock"
@@ -19,7 +20,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	InitialiseMcl()
+	cpp.InitialiseMcl()
 	config = cfg.ResetTestRoot("beacon_reactor_test")
 	code := m.Run()
 	os.RemoveAll(config.RootDir)

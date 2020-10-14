@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tendermint/tendermint/beacon"
-	"github.com/tendermint/tendermint/tx_extensions"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,12 +19,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/beacon"
 	bcv0 "github.com/tendermint/tendermint/blockchain/v0"
 	bcv1 "github.com/tendermint/tendermint/blockchain/v1"
 	bcv2 "github.com/tendermint/tendermint/blockchain/v2"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	cs "github.com/tendermint/tendermint/consensus"
+	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
@@ -48,6 +47,7 @@ import (
 	"github.com/tendermint/tendermint/state/txindex/kv"
 	"github.com/tendermint/tendermint/state/txindex/null"
 	"github.com/tendermint/tendermint/store"
+	"github.com/tendermint/tendermint/tx_extensions"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
@@ -574,7 +574,7 @@ func createBeaconReactor(
 	db dbm.DB,
 	evpool *evidence.Pool) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
-	beacon.InitialiseMcl()
+	cpp.InitialiseMcl()
 	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, config.Beacon, state.LastBlockHeight, evpool, db)
 	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)

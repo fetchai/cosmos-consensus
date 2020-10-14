@@ -9,6 +9,7 @@ import (
 	"github.com/flynn/noise"
 
 	cfg "github.com/tendermint/tendermint/config"
+	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/crypto"
 	bits "github.com/tendermint/tendermint/libs/bits"
 	"github.com/tendermint/tendermint/libs/service"
@@ -95,7 +96,7 @@ type DistributedKeyGeneration struct {
 	startHeight   int64
 	states        map[dkgState]*state
 	currentState  dkgState
-	beaconService BeaconSetupService
+	beaconService cpp.BeaconSetupService
 
 	earlySecretShares map[uint]string
 	dryRunKeys        map[string]DKGOutput
@@ -146,7 +147,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
 	if dkg.index() >= 0 {
-		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
+		dkg.beaconService = cpp.NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
 	}
 	// Set validator address to index
 	for index, val := range dkg.validators.Validators {
@@ -165,7 +166,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	// Free beacon setup service when DKG is garbage collected
 	runtime.SetFinalizer(dkg,
 		func(dkg *DistributedKeyGeneration) {
-			DeleteBeaconSetupService(dkg.beaconService)
+			cpp.DeleteBeaconSetupService(dkg.beaconService)
 		})
 
 	return dkg
@@ -271,8 +272,8 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
-		DeleteBeaconSetupService(dkg.beaconService)
-		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(dkg.index()))
+		cpp.DeleteBeaconSetupService(dkg.beaconService)
+		dkg.beaconService = cpp.NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(dkg.index()))
 		dkg.setStates()
 	}
 	// Reset dkg details
@@ -690,8 +691,8 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	// Check signatures with keys that have over threshold signature shares
-	signatureShares := NewIntStringMap()
-	defer DeleteIntStringMap(signatureShares)
+	signatureShares := cpp.NewIntStringMap()
+	defer cpp.DeleteIntStringMap(signatureShares)
 	aeonFile := &AeonDetailsFile{
 		PublicInfo: dkg.dryRunKeys[encodedOutput],
 	}

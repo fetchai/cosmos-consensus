@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -21,8 +22,8 @@ func TestCryptoSign(t *testing.T) {
 	assert.True(t, aeonExecUnit.Verify(message, signature, uint(0)))
 
 	// Collect signatures in map
-	signatureShares := NewIntStringMap()
-	defer DeleteIntStringMap(signatureShares)
+	signatureShares := cpp.NewIntStringMap()
+	defer cpp.DeleteIntStringMap(signatureShares)
 	signatureShares.Set(0, signature)
 
 	// Create aeon keys for each cabinet member and entropy generators
@@ -52,9 +53,9 @@ func TestHonestDkg(t *testing.T) {
 	threshold := uint(2)
 
 	// Set up two honest beacon managers
-	beaconManagers := make([]BeaconSetupService, cabinetSize)
+	beaconManagers := make([]cpp.BeaconSetupService, cabinetSize)
 	for index := uint(0); index < cabinetSize; index++ {
-		beaconManagers[index] = NewBeaconSetupService(cabinetSize, threshold, index)
+		beaconManagers[index] = cpp.NewBeaconSetupService(cabinetSize, threshold, index)
 	}
 
 	// Distribute shares
@@ -143,7 +144,7 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	outputs := make([]BaseAeon, cabinetSize)
+	outputs := make([]cpp.BaseAeon, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllReconstructionShares())
@@ -153,8 +154,8 @@ func TestHonestDkg(t *testing.T) {
 
 	// Check all group public keys agree with threshold signing
 	message := "TestMessage"
-	sigShares := NewIntStringMap()
-	defer DeleteIntStringMap(sigShares)
+	sigShares := cpp.NewIntStringMap()
+	defer cpp.DeleteIntStringMap(sigShares)
 	for index := uint(0); index < cabinetSize; index++ {
 		signature := outputs[index].Sign(message, index)
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
@@ -171,7 +172,7 @@ func TestHonestDkg(t *testing.T) {
 
 }
 
-func testAeonFromFile(filename string) BaseAeon {
+func testAeonFromFile(filename string) cpp.BaseAeon {
 	//Aeon type here must match those in key files
-	return NewBlsAeon(filename)
+	return cpp.NewBlsAeon(filename)
 }
