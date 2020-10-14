@@ -7,15 +7,16 @@ import (
 
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/tempfile"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	"github.com/tendermint/tendermint/types"
 )
 
-func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, qual IntVector) BaseAeon {
+func newAeonExecUnit(keyType string, generator string, keys mcl_cpp.DKGKeyInformation, qual mcl_cpp.IntVector) mcl_cpp.BaseAeon {
 	switch keyType {
-	case GetBLS_AEON():
-		return NewBlsAeon(generator, keys, qual)
-	case GetGLOW_AEON():
-		return NewGlowAeon(generator, keys, qual)
+	case mcl_cpp.GetBLS_AEON():
+		return mcl_cpp.NewBlsAeon(generator, keys, qual)
+	case mcl_cpp.GetGLOW_AEON():
+		return mcl_cpp.NewGlowAeon(generator, keys, qual)
 	default:
 		panic(fmt.Errorf("Unknown type %v", keyType))
 	}
@@ -28,7 +29,7 @@ type aeonDetails struct {
 	dkgID           int64
 	validators      *types.ValidatorSet
 	threshold       int
-	aeonExecUnit    BaseAeon
+	aeonExecUnit    mcl_cpp.BaseAeon
 	// start and end are inclusive
 	Start int64
 	End   int64
@@ -43,15 +44,15 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 			aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
 	}
 
-	keys := NewDKGKeyInformation()
+	keys := mcl_cpp.NewDKGKeyInformation()
 	keys.SetGroup_public_key(aeonDetailsFile.PublicInfo.GroupPublicKey)
 	keys.SetPrivate_key(aeonDetailsFile.PrivateKey)
-	keyShares := NewStringVector()
+	keyShares := mcl_cpp.NewStringVector()
 	for i := 0; i < len(aeonDetailsFile.PublicInfo.PublicKeyShares); i++ {
 		keyShares.Add(aeonDetailsFile.PublicInfo.PublicKeyShares[i])
 	}
 	keys.SetPublic_key_shares(keyShares)
-	qual := NewIntVector()
+	qual := mcl_cpp.NewIntVector()
 	for i := 0; i < len(aeonDetailsFile.PublicInfo.Qual); i++ {
 		qual.Add(uint(aeonDetailsFile.PublicInfo.Qual[i]))
 	}
@@ -59,7 +60,7 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 	keyType := aeonDetailsFile.PublicInfo.KeyType
 	if len(keyType) == 0 {
 		// If no key type in file, attempt to use the default type specified in beacon_setup_service.hpp
-		keyType = GetAeonType()
+		keyType = mcl_cpp.GetAeonType()
 	}
 
 	aeonExecUnit := newAeonExecUnit(keyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
@@ -70,7 +71,7 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
 func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id int64,
-	validators *types.ValidatorSet, aeonKeys BaseAeon,
+	validators *types.ValidatorSet, aeonKeys mcl_cpp.BaseAeon,
 	startHeight int64, endHeight int64) (*aeonDetails, error) {
 	if valHeight <= 0 {
 		panic(fmt.Errorf("aeonDetails in validator height less than 1"))
@@ -123,7 +124,7 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 
 	runtime.SetFinalizer(ad,
 		func(ad *aeonDetails) {
-			DeleteBaseAeon(ad.aeonExecUnit)
+			mcl_cpp.DeleteBaseAeon(ad.aeonExecUnit)
 		})
 
 	return ad, nil
