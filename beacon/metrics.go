@@ -30,10 +30,6 @@ type Metrics struct {
 	DKGsCompleted metrics.Counter
 	// DKG state gauge
 	DKGState metrics.Gauge
-	// Number of completed DKGs with private key for entropy generation
-	DKGsCompletedWithPrivateKey metrics.Counter
-	// DKG state duration in blocks
-	DKGDuration metrics.Gauge
 	// Number of DKG failures
 	DKGFailures metrics.Counter
 	// Whether block round contains entropy or not
@@ -50,6 +46,14 @@ type Metrics struct {
 	NextAeonEnd metrics.Gauge
 	// Time between key arrival and aeon start
 	AeonKeyBuffer metrics.Gauge
+	// The ID of the current DKG
+	DKGId                      metrics.Gauge
+	// On successful completion, the members in qual
+	DKGMembersInQual              metrics.Gauge
+	// Number of completed DKGs with private key for entropy generation
+	DKGsCompletedWithPrivateKey metrics.Counter
+	// DKG state duration in blocks
+	DKGDuration metrics.Gauge
 }
 
 // PrometheusMetrics returns Metrics build using Prometheus client library.
@@ -102,6 +106,18 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "dkg_state",
 			Help:      "State the current DKG is at",
+		}, labels).With(labelsAndValues...),
+		DKGId: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "dkg_id",
+			Help:      "The current dkg id",
+		}, labels).With(labelsAndValues...),
+		DKGMembersInQual: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "dkg_members_in_qual",
+			Help:      "The size of qual after dkg",
 		}, labels).With(labelsAndValues...),
 		DKGsCompletedWithPrivateKey: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
@@ -184,6 +200,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	metrics.NextAeonStart.Add(0)
 	metrics.NextAeonEnd.Add(0)
 	metrics.AeonKeyBuffer.Add(0)
+	metrics.DKGId.Add(0)
 
 	return &metrics
 }

@@ -160,6 +160,16 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 	return &output
 }
 
+
+func (aeon *aeonDetails) HasValidatorInQual(val Validator) bool {
+
+	if aeon.validators == nil {
+		return false
+	}
+
+	return aeon.validators.HasAddress(val.Address())
+}
+
 func (aeon *aeonDetails) IsKeyless() bool {
 	return aeon.aeonExecUnit == nil
 }
