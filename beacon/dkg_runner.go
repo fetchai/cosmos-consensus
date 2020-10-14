@@ -276,7 +276,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, entropyParams types.EntropyParams) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	dkgRunner.dkgID++
-	dkgRunner.metrics.DKGId.Set(dkgRunner.dkgID)
+	dkgRunner.metrics.DKGId.Set(float64(dkgRunner.dkgID))
 
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
@@ -297,9 +297,10 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		if keys.aeonExecUnit != nil {
 			dkgRunner.completedDKG = true
 			dkgRunner.metrics.DKGsCompleted.Add(1)
+			ourPubKey, _ := dkgRunner.privVal.GetPubKey()
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
-			} else if keys.HasValidatorInQual(dkgRunner.privVal.GetPubKey()) {
+			} else if keys.HasValidatorInQual(ourPubKey.Address()) {
 				dkgRunner.Logger.Error("We were found to be in qual and yet cannot sign most recent DKG")
 			}
 			dkgRunner.setNextAeon(keys)

@@ -160,14 +160,14 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 	return &output
 }
 
-
-func (aeon *aeonDetails) HasValidatorInQual(val Validator) bool {
+// Function to return whether the specified validator is in qual
+func (aeon *aeonDetails) HasValidatorInQual(addr types.Address) bool {
 
 	if aeon.validators == nil {
 		return false
 	}
 
-	return aeon.validators.HasAddress(val.Address())
+	return aeon.validators.HasAddress(addr)
 }
 
 func (aeon *aeonDetails) IsKeyless() bool {
