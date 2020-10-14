@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/mcl_cpp"
 )
 
 type bufferedLogMessage struct {
@@ -67,36 +68,36 @@ func (l *bufferedLogger) numMessages() int {
 }
 
 func TestNativeSinkCollection(t *testing.T) {
-	assert.False(t, HasPendingLogs())
+	assert.False(t, mcl_cpp.HasPendingLogs())
 
 	// use test binding to emulate the native code generating a log message (this is always an error message)
-	SendTestLogMessage("foo bar is a baz")
+	mcl_cpp.SendTestLogMessage("foo bar is a baz")
 
 	// check that the logs are valid
-	assert.True(t, HasPendingLogs())
-	assert.Equal(t, LevelError, PeekNextLogLevel())
-	assert.Equal(t, "test", PeekNextLogModule())
-	assert.Equal(t, "foo bar is a baz", PeekNextLogMessage())
+	assert.True(t, mcl_cpp.HasPendingLogs())
+	assert.Equal(t, LevelError, mcl_cpp.PeekNextLogLevel())
+	assert.Equal(t, "test", mcl_cpp.PeekNextLogModule())
+	assert.Equal(t, "foo bar is a baz", mcl_cpp.PeekNextLogMessage())
 
 	// check the final state of the logging queue
-	PopNextLog()
+	mcl_cpp.PopNextLog()
 
 	// check invalid calls
-	assert.False(t, HasPendingLogs())
-	assert.Equal(t, -1, PeekNextLogLevel())
-	assert.Equal(t, "", PeekNextLogModule())
-	assert.Equal(t, "", PeekNextLogMessage())
+	assert.False(t, mcl_cpp.HasPendingLogs())
+	assert.Equal(t, -1, mcl_cpp.PeekNextLogLevel())
+	assert.Equal(t, "", mcl_cpp.PeekNextLogModule())
+	assert.Equal(t, "", mcl_cpp.PeekNextLogMessage())
 }
 
 func TestLoggingSink(t *testing.T) {
-	assert.False(t, HasPendingLogs())
+	assert.False(t, mcl_cpp.HasPendingLogs())
 
 	// create the logger and the sink
 	sink := NewBufferedLogger()
 	collector := NewNativeLoggingCollector(sink)
 
 	// use test binding to emulate the native code generating a log message (this is always an error message)
-	SendTestLogMessage("foo bar is a baz")
+	mcl_cpp.SendTestLogMessage("foo bar is a baz")
 
 	// start the logger
 	collector.Start()

@@ -17,6 +17,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 )
@@ -601,8 +602,8 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-		signatureShares := NewIntStringMap()
-		defer DeleteIntStringMap(signatureShares)
+		signatureShares := mcl_cpp.NewIntStringMap()
+		defer mcl_cpp.DeleteIntStringMap(signatureShares)
 
 		for key, share := range entropyGenerator.entropyShares[height] {
 			signatureShares.Set(key, share.SignatureShare)
