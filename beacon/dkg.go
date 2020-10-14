@@ -253,8 +253,9 @@ func (dkg *DistributedKeyGeneration) setStates() {
 //OnReset overrides BaseService
 func (dkg *DistributedKeyGeneration) OnReset() error {
 	dkg.currentState = dkgStart
-	dkg.metrics.DKGState.Set(float64(dkg.currentState))
 	dkg.dkgIteration++
+	dkg.metrics.DKGState.Set(float64(dkg.currentState))
+	dkg.metrics.DKGIteration.Set(float64(dkg.dkgIteration))
 	dkg.metrics.DKGFailures.Add(1)
 	// Reset start time. +1 to ensure start is after the previous aeon end
 	dkg.startHeight = dkg.startHeight + dkg.duration() + keylessOffset + 1

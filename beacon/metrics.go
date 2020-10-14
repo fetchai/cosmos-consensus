@@ -48,6 +48,8 @@ type Metrics struct {
 	AeonKeyBuffer metrics.Gauge
 	// The ID of the current DKG
 	DKGId                      metrics.Gauge
+	// The iteration of the current DKG
+	DKGIteration                  metrics.Gauge
 	// On successful completion, the members in qual
 	DKGMembersInQual              metrics.Gauge
 	// Number of completed DKGs with private key for entropy generation
@@ -111,6 +113,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "dkg_id",
+			Help:      "The current dkg id",
+		}, labels).With(labelsAndValues...),
+		DKGIteration: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "dkg_iteratoin",
 			Help:      "The current dkg id",
 		}, labels).With(labelsAndValues...),
 		DKGMembersInQual: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
@@ -201,6 +209,8 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 	metrics.NextAeonEnd.Add(0)
 	metrics.AeonKeyBuffer.Add(0)
 	metrics.DKGId.Add(0)
+	metrics.DKGMembersInQual.Add(0)
+	metrics.DKGIteration.Add(0)
 
 	return &metrics
 }
@@ -225,5 +235,8 @@ func NopMetrics() *Metrics {
 		NextAeonStart:               discard.NewGauge(),
 		NextAeonEnd:                 discard.NewGauge(),
 		AeonKeyBuffer:               discard.NewGauge(),
+		DKGId:                       discard.NewGauge(),
+		DKGMembersInQual:            discard.NewGauge(),
+		DKGIteration:                discard.NewGauge(),
 	}
 }

@@ -276,6 +276,7 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, entropyParams types.EntropyParams) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	dkgRunner.dkgID++
+	dkgRunner.metrics.DKGId.Set(dkgRunner.dkgID)
 
 	// Create new dkg that starts DKGResetDelay after most recent block height
 	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
