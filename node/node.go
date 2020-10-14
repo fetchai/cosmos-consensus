@@ -26,12 +26,12 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	cs "github.com/tendermint/tendermint/consensus"
-	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/evidence"
 	"github.com/tendermint/tendermint/libs/log"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	mempl "github.com/tendermint/tendermint/mempool"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/p2p"
@@ -574,7 +574,7 @@ func createBeaconReactor(
 	db dbm.DB,
 	evpool *evidence.Pool) (chan types.ChannelEntropy, *beacon.EntropyGenerator, *beacon.Reactor, error) {
 
-	cpp.InitialiseMcl()
+	mcl_cpp.InitialiseMcl()
 	entropyGenerator := beacon.NewEntropyGenerator(state.ChainID, &config.BaseConfig, config.Beacon, state.LastBlockHeight, evpool, db)
 	entropyChannel := make(chan types.ChannelEntropy, config.Beacon.EntropyChannelCapacity)
 	entropyGenerator.SetLogger(beaconLogger)

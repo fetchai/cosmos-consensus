@@ -1,5 +1,5 @@
-/* cpp.i */
-%module cpp
+/* mcl_cpp.i */
+%module mcl_cpp
 %{
 #include "aeon_exec_unit.hpp"
 #include "beacon_setup_service.hpp"

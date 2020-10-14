@@ -11,13 +11,13 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmevents "github.com/tendermint/tendermint/libs/events"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 )
@@ -602,8 +602,8 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-		signatureShares := cpp.NewIntStringMap()
-		defer cpp.DeleteIntStringMap(signatureShares)
+		signatureShares := mcl_cpp.NewIntStringMap()
+		defer mcl_cpp.DeleteIntStringMap(signatureShares)
 
 		for key, share := range entropyGenerator.entropyShares[height] {
 			signatureShares.Set(key, share.SignatureShare)

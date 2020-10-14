@@ -3,8 +3,8 @@ package beacon
 import (
 	"time"
 
-	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/mcl_cpp"
 )
 
 const (
@@ -64,17 +64,17 @@ func processNativeLogMessages(c *NativeLoggingCollector) bool {
 }
 
 func getNextNativeLogMessage() *nativeLogMessage {
-	if !cpp.HasPendingLogs() {
+	if !mcl_cpp.HasPendingLogs() {
 		return nil
 	}
 
 	msg := &nativeLogMessage{
-		Level:  cpp.PeekNextLogLevel(),
-		Module: cpp.PeekNextLogModule(),
-		Text:   cpp.PeekNextLogMessage(),
+		Level:  mcl_cpp.PeekNextLogLevel(),
+		Module: mcl_cpp.PeekNextLogModule(),
+		Text:   mcl_cpp.PeekNextLogMessage(),
 	}
 
-	cpp.PopNextLog()
+	mcl_cpp.PopNextLog()
 
 	return msg
 }

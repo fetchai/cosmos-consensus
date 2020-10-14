@@ -16,9 +16,9 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
-	"github.com/tendermint/tendermint/cpp"
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	"github.com/tendermint/tendermint/mempool"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
@@ -53,10 +53,10 @@ func beaconLogger() log.Logger {
 	}).With("module", "beacon")
 }
 
-func setCrypto(nValidators int) []cpp.BaseAeon {
-	cpp.InitialiseMcl()
+func setCrypto(nValidators int) []mcl_cpp.BaseAeon {
+	mcl_cpp.InitialiseMcl()
 
-	aeonExecUnits := make([]cpp.BaseAeon, nValidators)
+	aeonExecUnits := make([]mcl_cpp.BaseAeon, nValidators)
 	for i := 0; i < nValidators; i++ {
 		aeonExecUnits[i] = testAeonFromFile("test_keys/validator_" + strconv.Itoa(int(i)) + "_of_4.txt")
 	}
@@ -104,7 +104,7 @@ func randBeaconAndConsensusNet(nValidators int, testName string, withConsensus b
 	blockStores = make([]*store.BlockStore, nValidators)
 	logger := beaconLogger()
 	configRootDirs := make([]string, 0, nValidators)
-	aeonExecUnits := make([]cpp.BaseAeon, nValidators)
+	aeonExecUnits := make([]mcl_cpp.BaseAeon, nValidators)
 
 	if nValidators == 4 {
 		aeonExecUnits = setCrypto(nValidators)
