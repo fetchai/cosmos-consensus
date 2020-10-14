@@ -185,6 +185,8 @@ func VerifyEvidence(stateDB dbm.DB, blockStore BlockStore, state State, evidence
 		return verifyDuplicateVoteEvidence(stateDB, state.ChainID, evType)
 	case *types.BeaconInactivityEvidence:
 		return verifyBeaconInactivityEvidence(stateDB, blockStore, state.ChainID, evType)
+	case *types.DKGEvidence:
+		return verifyDKGEvidence(stateDB, blockStore, state.ChainID, evType)
 	case types.MockEvidence:
 		return verifyMockEvidence(stateDB, evidence)
 	case types.MockRandomEvidence:
@@ -222,6 +224,26 @@ func verifyDuplicateVoteEvidence(stateDB dbm.DB, chainID string, evidence *types
 
 func verifyBeaconInactivityEvidence(stateDB dbm.DB, blockStore BlockStore, chainID string, evidence *types.BeaconInactivityEvidence) (int64, error) {
 	blockMeta := blockStore.LoadBlockMeta(evidence.AeonStart)
+	if blockMeta == nil {
+		return 0, fmt.Errorf("could not retrieve block header for height %v", evidence.AeonStart)
+	}
+	valset, err := LoadDKGValidators(stateDB, evidence.ValidatorHeight())
+	if err != nil {
+		return 0, err
+	}
+	params, err := LoadConsensusParams(stateDB, evidence.ValidatorHeight())
+	if err != nil {
+		return 0, err
+	}
+	if err := evidence.Verify(chainID, blockMeta.Header.Entropy, valset, params.Entropy); err != nil {
+		return 0, err
+	}
+	_, val := valset.GetByAddress(evidence.Address())
+	return val.VotingPower, nil
+}
+
+func verifyDKGEvidence(stateDB dbm.DB, blockStore BlockStore, chainID string, evidence *types.DKGEvidence) (int64, error) {
+	blockMeta := blockStore.LoadBlockMeta(evidence.ValidatorHeight())
 	if blockMeta == nil {
 		return 0, fmt.Errorf("could not retrieve block header for height %v", evidence.ValidatorHeight())
 	}

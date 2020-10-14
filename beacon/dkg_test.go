@@ -27,6 +27,7 @@ const (
 	falseQualComplaint
 	withholdReconstructionShare
 	mutateData
+	withholdEncryptionKey
 )
 
 func TestDKGHelpers(t *testing.T) {
@@ -295,6 +296,98 @@ func TestDKGScenarios(t *testing.T) {
 	}
 }
 
+// Test dkg submits evidence on failing at encryption and qual stage
+func TestDKGEvidenceHandling(t *testing.T) {
+	testCases := []struct {
+		testName    string
+		failures    func([]*testNode)
+		nVals       int
+		nSentries   int
+		numEvidence int
+	}{
+		{"All honest", func([]*testNode) {}, 4, 1, 0},
+		{"Fail encryption keys", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, withholdEncryptionKey)
+		}, 4, 0, 1},
+		{"Fail qual", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badCoefficient)
+			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badCoefficient)
+		}, 4, 0, 2},
+	}
+	for _, tc := range testCases {
+
+		t.Run(tc.testName, func(t *testing.T) {
+			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, false)
+			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
+			cppLogger.Start()
+
+			nTotal := tc.nVals + tc.nSentries
+			honestEvidenceCount := 0
+			nodes[0].dkg.evidenceHandler = func(*types.DKGEvidence) {
+				honestEvidenceCount++
+			}
+			// Stop after first dkg failure
+			for index := 0; index < nTotal; index++ {
+				node := nodes[index]
+				node.dkg.onFailState = func(blockHeight int64) {
+					node.dkg.proceedToNextState(dkgFinish, true, blockHeight)
+				}
+			}
+
+			// Set node failures
+			tc.failures(nodes)
+
+			// Start all nodes
+			blockHeight := int64(10)
+			for _, node := range nodes {
+				assert.True(t, !node.dkg.IsRunning())
+				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+				assert.True(t, node.dkg.IsRunning())
+				node.clearMsgs()
+			}
+
+			for nodesFinished := 0; nodesFinished < nTotal; {
+				blockHeight++
+				currentMsgs := make([]*types.DKGMessage, 0)
+				for _, node := range nodes {
+					currentMsgs = append(currentMsgs, node.currentMsgs...)
+				}
+				for _, node := range nodes {
+					node.dkg.OnBlock(blockHeight, currentMsgs)
+					node.clearMsgs()
+				}
+
+				nodesFinished = 0
+				for _, node := range nodes {
+					if node.dkg.dkgIteration >= 1 {
+						t.Log("Test failed: dkg iteration exceeded 1")
+						t.FailNow()
+					}
+					if node.dkg.currentState == dkgFinish {
+						nodesFinished++
+					}
+				}
+			}
+
+			// Wait for all dkgs to stop running
+			assert.Eventually(t, func() bool {
+				running := 0
+				for index := 0; index < nTotal; index++ {
+					if nodes[index].dkg.IsRunning() {
+						running++
+					}
+				}
+				return running == 0
+			}, 1*time.Second, 100*time.Millisecond)
+
+			// Check correct number of evidence was generated
+			assert.Equal(t, tc.numEvidence, honestEvidenceCount)
+
+			cppLogger.Stop()
+		})
+	}
+}
+
 // Test MaxDKGDataSize is large enough for the dry run messages for committee of size 200
 func TestDKGMessageMaxDataSize(t *testing.T) {
 	_, privVal := types.RandValidator(false, 10)
@@ -334,7 +427,11 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestBeaconConfig()
 
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, 1, *state.Validators, 20, 100, nil)
+	entropyParams := types.EntropyParams{
+		AeonLength: 100,
+	}
+	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, 1, *state.Validators, 20,
+		entropyParams, nil)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
 }
@@ -349,8 +446,12 @@ type testNode struct {
 
 func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
+	entropyParams := types.EntropyParams{
+		AeonLength: 100,
+	}
 	node := &testNode{
-		dkg:          NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, 1, *vals, 20, 100, nil),
+		dkg: NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, 1, *vals, 20,
+			entropyParams, nil),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
 		failures:     make([]dkgFailure, 0),
@@ -363,7 +464,11 @@ func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivVal
 	node.dkg.SetLogger(log.TestingLogger().With("dkgIndex", index))
 
 	node.dkg.SetSendMsgCallback(func(msg *types.DKGMessage) {
-		node.mutateMsg(msg)
+		msg = node.mutateMsg(msg)
+		if msg == nil {
+			return
+		}
+		node.dkg.privValidator.SignDKGMessage(node.dkg.chainID, msg)
 		node.nextMsgs = append(node.nextMsgs, msg)
 		if sendDuplicates {
 			node.nextMsgs = append(node.nextMsgs, msg)
@@ -377,12 +482,15 @@ func (node *testNode) clearMsgs() {
 	node.nextMsgs = make([]*types.DKGMessage, 0)
 }
 
-func (node *testNode) mutateMsg(msg *types.DKGMessage) {
+func (node *testNode) mutateMsg(msg *types.DKGMessage) *types.DKGMessage {
 	if len(node.failures) != 0 {
 		for i := 0; i < len(node.failures); i++ {
 			if node.failures[i] == mutateData {
 				msg.Data = "garbage"
 				break
+			}
+			if node.failures[i] == withholdEncryptionKey && msg.Type == types.DKGEncryptionKey {
+				return nil
 			}
 			if node.failures[i] == badShare && msg.Type == types.DKGShare {
 				if node.sentBadShare {
@@ -393,8 +501,8 @@ func (node *testNode) mutateMsg(msg *types.DKGMessage) {
 			}
 			msg.Data = MutateMsg(msg.Data, FetchBeaconDKGMessageType(msg.Type), FetchBeaconFailure(node.failures[i]))
 		}
-		node.dkg.privValidator.SignDKGMessage(node.dkg.chainID, msg)
 	}
+	return msg
 }
 
 func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNode {
