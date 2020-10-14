@@ -374,10 +374,10 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 // There are 3 types of messages that the dkg needs to receive through the blocks, including
 // its own. This is to ensure the following
 // Encryption key : all nodes fail at the same DKG stage and evidence generated is accurate
-// Complaint answer: everyone produces evidence at the same block height 
+// Complaint answer: everyone produces evidence at the same block height
 // Dry run: all nodes finishes the dkg at the same time
 func (dkg *DistributedKeyGeneration) skipOwnMsg(msgType types.DKGMessageType) bool {
-	if msgType = types.DKGEncryptionKey || msgType == types.DKGComplaintAnswer || msgType == types.DKGDryRun {
+	if msgType == types.DKGEncryptionKey || msgType == types.DKGComplaintAnswer || msgType == types.DKGDryRun {
 		return false
 	}
 	return true
