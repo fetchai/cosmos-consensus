@@ -371,11 +371,13 @@ func (dkg *DistributedKeyGeneration) OnBlock(blockHeight int64, trxs []*types.DK
 	dkg.checkTransition(blockHeight)
 }
 
-// There are 2 types of messages that the dkg needs to receive through the blocks, including
-// its own. This is to ensure everyone produces evidence at the same block height and
-// finishes the dkg at the same time
+// There are 3 types of messages that the dkg needs to receive through the blocks, including
+// its own. This is to ensure the following
+// Encryption key : all nodes fail at the same DKG stage and evidence generated is accurate
+// Complaint answer: everyone produces evidence at the same block height
+// Dry run: all nodes finishes the dkg at the same time
 func (dkg *DistributedKeyGeneration) skipOwnMsg(msgType types.DKGMessageType) bool {
-	if msgType == types.DKGComplaintAnswer || msgType == types.DKGDryRun {
+	if msgType == types.DKGEncryptionKey || msgType == types.DKGComplaintAnswer || msgType == types.DKGDryRun {
 		return false
 	}
 	return true
@@ -723,13 +725,13 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 }
 
 func (dkg *DistributedKeyGeneration) receivedAllEncryptionKeys() bool {
-	return len(dkg.encryptionPublicKeys)+1 == len(dkg.validators.Validators)
+	return len(dkg.encryptionPublicKeys) == len(dkg.validators.Validators)
 }
 
 // checkEncryptionKeys ensures that the number of validators returning encryption keys is at least
 // the pre-dkg threshold of dkg threshold + 1/3 validators
 func (dkg *DistributedKeyGeneration) checkEncryptionKeys() bool {
-	return len(dkg.encryptionPublicKeys)+1 >= int(dkg.threshold)+(len(dkg.validators.Validators)/3)
+	return len(dkg.encryptionPublicKeys) >= int(dkg.threshold)+(len(dkg.validators.Validators)/3)
 }
 
 func (dkg *DistributedKeyGeneration) onShares(msg string, index uint) {
