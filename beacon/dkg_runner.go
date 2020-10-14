@@ -297,7 +297,9 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		if keys.aeonExecUnit != nil {
 			dkgRunner.completedDKG = true
 			dkgRunner.metrics.DKGsCompleted.Add(1)
+			dkgRunner.metrics.DKGMembersInQual.Set(float64(keys.validators.Size()))
 			ourPubKey, _ := dkgRunner.privVal.GetPubKey()
+
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
 			} else if keys.HasValidatorInQual(ourPubKey.Address()) {
