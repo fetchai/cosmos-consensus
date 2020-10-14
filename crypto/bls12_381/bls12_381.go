@@ -101,6 +101,7 @@ type PubKeyBls [PubKeyBlsSize]byte
 
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
+	fmt.Printf("Verifying bytes! Always return true though")
 	return true
 }
 
