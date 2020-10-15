@@ -18,6 +18,7 @@
 
 #include "dkg_test_helper.hpp"
 #include "mcl_crypto.hpp"
+#include "aeon_exec_unit.hpp"
 #include "serialisers.hpp"
 
 namespace fetch {
@@ -197,6 +198,58 @@ std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure)
     assert(false);  
   }  
   return msg;
+}
+
+void TrustedDealer(uint32_t cabinet_size, uint32_t threshold, std::string const &output_dir) {
+  DKGKeyInformation output;
+  mcl::GroupPublicKey generator;
+  mcl::SetGenerator(generator);
+
+  // Construct polynomial of degree threshold - 1
+  std::vector<mcl::PrivateKey> vec_a;
+  vec_a.resize(threshold);
+  for (CabinetIndex ii = 0; ii < threshold; ++ii)
+  {
+    vec_a[ii].Random();
+  }
+
+  // Group secret key is polynomial evaluated at 0
+  mcl::GroupPublicKey  group_public_key;
+  mcl::PrivateKey group_private_key = vec_a[0];
+  group_public_key.Mult(generator, group_private_key);
+  output.group_public_key = group_public_key.ToString();
+
+  std::vector<CabinetIndex> qual;
+  std::vector<std::string> private_keys;
+  // Generate cabinet public keys from their private key contributions
+  for (CabinetIndex i = 0; i < cabinet_size; ++i)
+  {
+    mcl::PrivateKey pow{i+1};
+    mcl::PrivateKey tmpF;
+    mcl::PrivateKey crypto_rank{i+1};
+    // Private key is polynomial evaluated at index i
+    mcl::PrivateKey private_key{vec_a[0]};
+    for (CabinetIndex k = 1; k < vec_a.size(); k++)
+    {
+      tmpF.Mult(pow, vec_a[k]);  // j^k * a_i[k]
+      private_key.Add(private_key, tmpF);
+      pow.Mult(pow, crypto_rank);
+    }
+    // Public key from private
+    mcl::GroupPublicKey public_key;
+    public_key.Mult(generator, private_key);
+    output.public_key_shares.push_back(public_key.ToString());
+
+    qual.push_back(i);
+    private_keys.push_back(private_key.ToString());
+  }
+
+  for (CabinetIndex i = 0; i < cabinet_size; ++i)
+  {
+    output.private_key = private_keys[i];
+    auto keyInfo = BlsAeon(generator.ToString(), output, qual);
+    keyInfo.WriteToFile(output_dir+"/validator"+std::to_string(i)+"of"+std::to_string(cabinet_size)+".txt");
+  }
 }
 
 }  // beacon
