@@ -17,6 +17,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 )
@@ -26,12 +27,6 @@ const (
 	entropyHistoryLength = 10
 	maxNextAeons         = 5
 )
-
-// interface to the evidence pool
-type evidencePool interface {
-	AddEvidence(types.Evidence) error
-	PendingEvidence(int64) []types.Evidence
-}
 
 // EntropyGenerator holds DKG keys for computing entropy and computes entropy shares
 // and entropy for dispatching along channel. Entropy generation is blocked by arrival of keys for the
@@ -607,8 +602,8 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-		signatureShares := NewIntStringMap()
-		defer DeleteIntStringMap(signatureShares)
+		signatureShares := mcl_cpp.NewIntStringMap()
+		defer mcl_cpp.DeleteIntStringMap(signatureShares)
 
 		for key, share := range entropyGenerator.entropyShares[height] {
 			signatureShares.Set(key, share.SignatureShare)
@@ -740,8 +735,19 @@ func (entropyGenerator *EntropyGenerator) updateActivityTracking(entropy *types.
 				entropyGenerator.Logger.Error("updateActivityTracking: error getting pub key", "err", err)
 				continue
 			}
-			evidence := types.NewBeaconInactivityEvidence(entropy.Height, defAddress, pubKey.Address(),
-				entropyGenerator.aeon.Start)
+
+			// Calculate threshold for slashing
+			slashingFraction := float64(entropyGenerator.aeonEntropyParams.SlashingThresholdPercentage) * 0.01
+			slashingThreshold := int64(slashingFraction * float64(entropyGenerator.aeon.validators.Size()))
+
+			// Subtract off entropy channel capacity to obtain current working block height
+			infractionHeight := entropy.Height - entropyGenerator.beaconConfig.EntropyChannelCapacity
+			if infractionHeight <= 0 {
+				// Just in case window gets set to something smaller than the channel capacity
+				continue
+			}
+			evidence := types.NewBeaconInactivityEvidence(infractionHeight, defAddress, pubKey.Address(),
+				entropyGenerator.aeon.Start, slashingThreshold)
 			sig, err := entropyGenerator.aeon.privValidator.SignEvidence(entropyGenerator.chainID, evidence)
 			if err != nil {
 				entropyGenerator.Logger.Error("updateActivityTracking: error signing evidence", "err", err)

@@ -12,6 +12,7 @@ import (
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/consensus"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/p2p/mock"
 	"github.com/tendermint/tendermint/store"
@@ -19,7 +20,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	InitialiseMcl()
+	mcl_cpp.InitialiseMcl()
 	config = cfg.ResetTestRoot("beacon_reactor_test")
 	code := m.Run()
 	os.RemoveAll(config.RootDir)
@@ -115,7 +116,7 @@ func TestReactorEntropy(t *testing.T) {
 		existingAeon := entropyGenerators[i].nextAeons[0]
 		newKeys, _ := newAeonDetails(existingAeon.privValidator, 1, 1, existingAeon.validators, aeonKeys[i], 20, 29)
 		// Insert in empty keys for gap in entropy generation
-		entropyGenerators[i].SetNextAeonDetails(keylessAeonDetails(10, 19))
+		entropyGenerators[i].SetNextAeonDetails(keylessAeonDetails(1, 10, 10, 19))
 		entropyGenerators[i].SetNextAeonDetails(newKeys)
 	}
 
@@ -285,11 +286,9 @@ func TestReactorWithDKG(t *testing.T) {
 	// Wait until dkg has completed
 	for nodesFinished := 0; nodesFinished < N; {
 		blockHeight++
-		for index, node := range dkgNodes {
-			for index1, node1 := range dkgNodes {
-				if index1 != index {
-					node1.dkg.OnBlock(blockHeight, node.currentMsgs)
-				}
+		for _, node := range dkgNodes {
+			for _, node1 := range dkgNodes {
+				node1.dkg.OnBlock(blockHeight, node.currentMsgs)
 			}
 		}
 		for _, node := range dkgNodes {

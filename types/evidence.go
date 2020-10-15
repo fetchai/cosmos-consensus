@@ -140,6 +140,27 @@ func EvidenceToProto(evidence Evidence) (*tmproto.Evidence, error) {
 					ComplainantAddress:   evi.ComplainantAddress,
 					AeonStart:            evi.AeonStart,
 					ComplainantSignature: evi.ComplainantSignature,
+					Threshold:            evi.Threshold,
+				},
+			},
+		}
+		return tp, nil
+	case *DKGEvidence:
+		if err := evi.ValidateBasic(); err != nil {
+			return nil, err
+		}
+
+		tp := &tmproto.Evidence{
+			Sum: &tmproto.Evidence_DkgEvidence{
+				DkgEvidence: &tmproto.DKGEvidence{
+					EvidenceHeight:       evi.Height(),
+					EvidenceTime:         evi.Time(),
+					DefendantAddress:     evi.DefendantAddress,
+					ComplainantAddress:   evi.ComplainantAddress,
+					ValidatorHeight:      evi.ValHeight,
+					DkgId:                evi.DKGID,
+					Threshold:            evi.Threshold,
+					ComplainantSignature: evi.ComplainantSignature,
 				},
 			},
 		}
@@ -203,9 +224,22 @@ func EvidenceFromProto(evidence *tmproto.Evidence) (Evidence, error) {
 			DefendantAddress:     evi.BeaconInactivityEvidence.GetDefendantAddress(),
 			ComplainantAddress:   evi.BeaconInactivityEvidence.GetComplainantAddress(),
 			AeonStart:            evi.BeaconInactivityEvidence.GetAeonStart(),
+			Threshold:            evi.BeaconInactivityEvidence.GetThreshold(),
 			ComplainantSignature: evi.BeaconInactivityEvidence.GetComplainantSignature(),
 		}
 		return &bie, bie.ValidateBasic()
+	case *tmproto.Evidence_DkgEvidence:
+		de := DKGEvidence{
+			CreationHeight:       evi.DkgEvidence.GetEvidenceHeight(),
+			CreationTime:         evi.DkgEvidence.GetEvidenceTime(),
+			DefendantAddress:     evi.DkgEvidence.GetDefendantAddress(),
+			ComplainantAddress:   evi.DkgEvidence.GetComplainantAddress(),
+			ValHeight:            evi.DkgEvidence.GetValidatorHeight(),
+			DKGID:                evi.DkgEvidence.GetDkgId(),
+			Threshold:            evi.DkgEvidence.GetThreshold(),
+			ComplainantSignature: evi.DkgEvidence.GetComplainantSignature(),
+		}
+		return &de, de.ValidateBasic()
 	default:
 		return nil, errors.New("evidence is not recognized")
 	}
@@ -215,6 +249,7 @@ func RegisterEvidences(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Evidence)(nil), nil)
 	cdc.RegisterConcrete(&DuplicateVoteEvidence{}, "tendermint/DuplicateVoteEvidence", nil)
 	cdc.RegisterConcrete(&BeaconInactivityEvidence{}, "tendermint/BeaconInactivityEvidence", nil)
+	cdc.RegisterConcrete(&DKGEvidence{}, "tendermint/DKGEvidence", nil)
 }
 
 func RegisterMockEvidences(cdc *amino.Codec) {
@@ -475,26 +510,29 @@ func (e MockEvidence) SignBytes(chainID string) []byte {
 
 //-------------------------------------------
 
-// BeaconInactivityEvidence contains evidence a validator was did not
+// BeaconInactivityEvidence contains evidence a validator was not sufficiently active
+// in the random beacon
 type BeaconInactivityEvidence struct {
 	CreationHeight       int64          // Height evidence was created
 	CreationTime         time.Time      // Time evidence was created
 	DefendantAddress     crypto.Address // Address of validator accused of inactivity
 	ComplainantAddress   crypto.Address // Address of validator submitting complaint complaint
 	AeonStart            int64          // Height for fetching validators
+	Threshold            int64          // Threshold of complaints for slashing (depends on validator size)
 	ComplainantSignature []byte
 }
 
 var _ Evidence = &BeaconInactivityEvidence{}
 
 // NewBeaconInactivityEvidence creates BeaconInactivityEvidence
-func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64) *BeaconInactivityEvidence {
+func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64, threshold int64) *BeaconInactivityEvidence {
 	return &BeaconInactivityEvidence{
 		CreationHeight:     height,
 		CreationTime:       time.Now(),
 		DefendantAddress:   defAddress,
 		ComplainantAddress: comAddress,
 		AeonStart:          aeon,
+		Threshold:          threshold,
 	}
 }
 
@@ -510,9 +548,10 @@ func (bie *BeaconInactivityEvidence) Height() int64 {
 	return bie.CreationHeight
 }
 
-// Height returns validator height
+// ValidatorHeight returns validator height. Validators running DRB at aeon start
+// correspond to the DKG validators at aeon start -1
 func (bie *BeaconInactivityEvidence) ValidatorHeight() int64 {
-	return bie.AeonStart
+	return bie.AeonStart - 1
 }
 
 // Time return
@@ -530,20 +569,36 @@ func (bie *BeaconInactivityEvidence) Bytes() []byte {
 	return cdcEncode(bie)
 }
 
-// Hash returns the hash of the evidence.
+// Hash returns the hash of the unique fields in evidence. Prevents submission
+// of multiple evidence by using a different creation time or signature
 func (bie *BeaconInactivityEvidence) Hash() []byte {
-	return tmhash.Sum(cdcEncode(bie))
+	uniqueInfo := struct {
+		AeonStart          int64
+		DefendantAddress   []byte
+		ComplainantAddress []byte
+		Threshold          int64
+	}{bie.AeonStart, bie.DefendantAddress, bie.ComplainantAddress, bie.Threshold}
+	return tmhash.Sum(cdcEncode(uniqueInfo))
 }
 
 // Verify validates information contained in Evidence. Ensures signature verifies with complainant address, valid aeon start and
 // that the evidence was created after the aeon start
-func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet) error {
+func (bie *BeaconInactivityEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet,
+	params EntropyParams) error {
 	// Check aeon start is correct
-	if blockEntropy.NextAeonStart != bie.ValidatorHeight() {
+	if blockEntropy.NextAeonStart != bie.AeonStart {
 		return fmt.Errorf("incorrect aeon start. Got %v, expected %v", bie.ValidatorHeight(), blockEntropy.NextAeonStart)
 	}
-	if bie.CreationHeight <= bie.AeonStart {
-		return fmt.Errorf("CreationHeight %v before AeonStart %v", bie.CreationHeight, bie.AeonStart)
+	// Creation height of evidence needs to be during the entropy generation aeon
+	if bie.CreationHeight <= bie.AeonStart || bie.CreationHeight > bie.AeonStart+params.AeonLength {
+		return fmt.Errorf("invalid creation height %v for aeon start %v", bie.CreationHeight, bie.AeonStart)
+	}
+
+	// Check theshold is correct
+	slashingFraction := float64(params.SlashingThresholdPercentage) * 0.01
+	slashingThreshold := int64(slashingFraction * float64(valset.Size()))
+	if slashingThreshold != bie.Threshold {
+		return fmt.Errorf("incorrect Threshold. Got %v, expected %v", bie.Threshold, slashingThreshold)
 	}
 
 	// Check both complainant and defendant addresses are in DKG validator set at aeon start - 1, and that they are in qual
@@ -613,6 +668,167 @@ func (bie *BeaconInactivityEvidence) ValidateBasic() error {
 		return errors.New("invalid aeon start")
 	}
 	if len(bie.ComplainantSignature) == 0 {
+		return errors.New("empty complainant signature")
+	}
+	return nil
+}
+
+//-------------------------------------------
+
+// DKGEvidence contains evidence a validator caused the DKG to fail
+type DKGEvidence struct {
+	CreationHeight       int64          // Height evidence was created
+	CreationTime         time.Time      // Time evidence was created
+	DefendantAddress     crypto.Address // Address of validator accused of inactivity
+	ComplainantAddress   crypto.Address // Address of validator submitting complaint complaint
+	ValHeight            int64          // Height for obtaining dkg validators
+	DKGID                int64          // Identifier for dkg run
+	Threshold            int64          // Threshold of complaints for slashing (depends on validator size)
+	ComplainantSignature []byte
+}
+
+var _ Evidence = &DKGEvidence{}
+
+// NewDKGEvidence creates DKGEvidence
+func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, validatorHeight int64, dkgID int64, threshold int64) *DKGEvidence {
+	return &DKGEvidence{
+		CreationHeight:     height,
+		CreationTime:       time.Now(),
+		DefendantAddress:   defAddress,
+		ComplainantAddress: comAddress,
+		ValHeight:          validatorHeight,
+		DKGID:              dkgID,
+		Threshold:          threshold,
+	}
+}
+
+// String returns a string representation of the evidence.
+func (de *DKGEvidence) String() string {
+	return fmt.Sprintf("CreationHeight: %v, DefendantPubKey: %s, ComplainantPubKey: %s, ValidatorHeight: %v, DKGID: %v",
+		de.CreationHeight, de.DefendantAddress, de.ComplainantAddress, de.ValHeight, de.DKGID)
+}
+
+// Height returns evidence was created
+func (de *DKGEvidence) Height() int64 {
+	return de.CreationHeight
+}
+
+// ValidatorHeight returns validator height
+func (de *DKGEvidence) ValidatorHeight() int64 {
+	return de.ValHeight
+}
+
+// Time return
+func (de *DKGEvidence) Time() time.Time {
+	return de.CreationTime
+}
+
+// Address returns the address of the validator.
+func (de *DKGEvidence) Address() []byte {
+	return de.DefendantAddress
+}
+
+// Bytes returns the evidence as byte slice
+func (de *DKGEvidence) Bytes() []byte {
+	return cdcEncode(de)
+}
+
+// Hash returns the hash of the unique fields in evidence. Prevents submission
+// of multiple evidence by using a different creation time or signature
+func (de *DKGEvidence) Hash() []byte {
+	uniqueInfo := struct {
+		CreationHeight     int64
+		DefendantAddress   []byte
+		ComplainantAddress []byte
+		ValidatorHeight    int64
+		DKGID              int64
+		Threshold          int64
+	}{de.CreationHeight, de.DefendantAddress, de.ComplainantAddress, de.ValHeight, de.DKGID, de.Threshold}
+	return tmhash.Sum(cdcEncode(uniqueInfo))
+}
+
+// Verify validates information contained in Evidence. Ensures signature verifies with complainant address, valid validator height and
+// that the evidence was created after the aeon start
+func (de *DKGEvidence) Verify(chainID string, blockEntropy BlockEntropy, valset *ValidatorSet,
+	params EntropyParams) error {
+	// Check dkg id is correct
+	if blockEntropy.DKGID+1 != de.DKGID {
+		return fmt.Errorf("incorrect dkg id. Got %v, expected %v", de.DKGID, blockEntropy.DKGID+1)
+	}
+	// Check val height corresponds to last aeon start (except at genesis)
+	valHeight := blockEntropy.NextAeonStart
+	if valHeight < 0 {
+		valHeight = 1
+	}
+	if valHeight != de.ValHeight {
+		return fmt.Errorf("incorrect validator height. Got %v, expected %v", de.ValHeight, valHeight)
+	}
+	// Creation height of evidence after dkg has started
+	if de.CreationHeight <= de.ValHeight {
+		return fmt.Errorf("invalid creation height %v for validator height %v", de.CreationHeight, de.ValHeight)
+	}
+
+	// Check theshold is correct
+	slashingFraction := float64(params.SlashingThresholdPercentage) * 0.01
+	slashingThreshold := int64(slashingFraction * float64(valset.Size()))
+	if slashingThreshold != de.Threshold {
+		return fmt.Errorf("incorrect Threshold. Got %v, expected %v", de.Threshold, slashingThreshold)
+	}
+
+	// Check both complainant and defendant addresses are in DKG validator set at validator height
+	_, val := valset.GetByAddress(de.DefendantAddress)
+	if val == nil {
+		return fmt.Errorf("defendant address %X was not a validator at height %v", de.DefendantAddress, de.ValidatorHeight())
+	}
+	_, val = valset.GetByAddress(de.ComplainantAddress)
+	if val == nil {
+		return fmt.Errorf("complainant address %X was not a validator at height %v", de.ComplainantAddress, de.ValidatorHeight())
+	}
+
+	if !val.PubKey.VerifyBytes(de.SignBytes(chainID), de.ComplainantSignature) {
+		return fmt.Errorf("ComplainantSignature invalid")
+	}
+
+	return nil
+}
+
+// For signing with private key
+func (de DKGEvidence) SignBytes(chainID string) []byte {
+	de.ComplainantSignature = nil
+	bz, err := cdc.MarshalBinaryLengthPrefixed(de)
+	if err != nil {
+		panic(err)
+	}
+	return append([]byte(chainID), bz...)
+}
+
+// Equal checks if two pieces of evidence are equal.
+func (de *DKGEvidence) Equal(ev Evidence) bool {
+	if _, ok := ev.(*DKGEvidence); !ok {
+		return false
+	}
+
+	// just check their hashes
+	deHash := tmhash.Sum(cdcEncode(de))
+	evHash := tmhash.Sum(cdcEncode(ev))
+	return bytes.Equal(deHash, evHash)
+}
+
+// ValidateBasic performs basic validation.
+func (de *DKGEvidence) ValidateBasic() error {
+	if len(de.ComplainantAddress) == 0 {
+		return errors.New("empty ComplainantAddress")
+	}
+	if len(de.DefendantAddress) == 0 {
+		return errors.New("empty DefendantAddress")
+	}
+	if de.ValHeight <= 0 {
+		return errors.New("invalid validator height")
+	}
+	if de.DKGID < 0 {
+		return errors.New("invalid dkg id")
+	}
+	if len(de.ComplainantSignature) == 0 {
 		return errors.New("empty complainant signature")
 	}
 	return nil

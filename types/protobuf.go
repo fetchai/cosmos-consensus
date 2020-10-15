@@ -19,6 +19,7 @@ const (
 	ABCIEvidenceTypeDuplicateVote    = "duplicate/vote"
 	ABCIEvidenceTypeMock             = "mock/evidence"
 	ABCIEvidenceTypeBeaconInactivity = "beacon/inactivity"
+	ABCIEvidenceTypeDKG              = "beacon/dkg"
 )
 
 const (
@@ -92,6 +93,7 @@ func (tm2pb) BlockEntropy(entropy BlockEntropy) abci.BlockEntropy {
 		AeonLength:     entropy.AeonLength,
 		DkgId:          entropy.DKGID,
 		NextAeonStart:  entropy.NextAeonStart,
+		SuccessfulVals: entropy.Qual,
 	}
 }
 
@@ -157,9 +159,10 @@ func (tm2pb) ConsensusParams(params *ConsensusParams) *abci.ConsensusParams {
 			PubKeyTypes: params.Validator.PubKeyTypes,
 		},
 		Entropy: &abci.EntropyParams{
-			AeonLength:                 params.Entropy.AeonLength,
-			InactivityWindowSize:       params.Entropy.InactivityWindowSize,
-			RequiredActivityPercentage: params.Entropy.RequiredActivityPercentage,
+			AeonLength:                  params.Entropy.AeonLength,
+			InactivityWindowSize:        params.Entropy.InactivityWindowSize,
+			RequiredActivityPercentage:  params.Entropy.RequiredActivityPercentage,
+			SlashingThresholdPercentage: params.Entropy.SlashingThresholdPercentage,
 		},
 	}
 }
@@ -186,23 +189,23 @@ func (tm2pb) Evidence(ev Evidence, valSet *ValidatorSet, dkgValSet *ValidatorSet
 	case *BeaconInactivityEvidence:
 		evidence.Type = ABCIEvidenceTypeBeaconInactivity
 		if dkgValSet == nil {
-			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.Height()))
+			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.ValidatorHeight()))
 		}
 		relevantValSet = dkgValSet
-		_, com := relevantValSet.GetByAddress(evType.ComplainantAddress)
-		if com == nil {
-			panic(com)
+		evidence.Threshold = evType.Threshold
+	case *DKGEvidence:
+		evidence.Type = ABCIEvidenceTypeDKG
+		if dkgValSet == nil {
+			panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", evType, ev.ValidatorHeight()))
 		}
-		evidence.Complainant = &abci.Validator{
-			Address: com.PubKey.Address(),
-			Power:   com.VotingPower,
-		}
+		relevantValSet = dkgValSet
+		evidence.Threshold = evType.Threshold
 	default:
 		panic(fmt.Sprintf("Unknown evidence type: %v %v", ev, reflect.TypeOf(ev)))
 	}
 
 	if relevantValSet == nil {
-		panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", reflect.TypeOf(ev), ev.Height()))
+		panic(fmt.Sprintf("TM2PB Evidence: received nil relevant val set: evType %v, height %v", reflect.TypeOf(ev), ev.ValidatorHeight()))
 	}
 	_, val := relevantValSet.GetByAddress(ev.Address())
 	if val == nil {

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"math"
 	"testing"
 	"time"
@@ -219,6 +220,40 @@ func TestEvidenceProto(t *testing.T) {
 				return
 			}
 			require.Equal(t, tt.evidence, evi, tt.testName)
+		})
+	}
+}
+
+func TestUniqueBeaconInactivityEvidence(t *testing.T) {
+	defPubKey, _ := NewMockPV().GetPubKey()
+	comPV := NewMockPV()
+	comPubKey, _ := comPV.GetPubKey()
+	bie1 := *NewBeaconInactivityEvidence(10, defPubKey.Address(), comPubKey.Address(), 1, 5)
+
+	tests := []struct {
+		testName       string
+		modifyEvidence func(*BeaconInactivityEvidence)
+		expectSameHash bool
+	}{
+		{"Different creation height", func(ev *BeaconInactivityEvidence) { ev.CreationHeight = 1 }, true},
+		{"Different time", func(ev *BeaconInactivityEvidence) { ev.CreationTime = time.Now() }, true},
+		{"Different threshold", func(ev *BeaconInactivityEvidence) { ev.Threshold++ }, false},
+		{"Different defendant address", func(ev *BeaconInactivityEvidence) {
+			tempPubKey, _ := NewMockPV().GetPubKey()
+			ev.DefendantAddress = tempPubKey.Address()
+		}, false},
+		{"Different complainant address", func(ev *BeaconInactivityEvidence) {
+			tempPubKey, _ := NewMockPV().GetPubKey()
+			ev.ComplainantAddress = tempPubKey.Address()
+		}, false},
+		{"Different aeon start", func(ev *BeaconInactivityEvidence) { ev.AeonStart++ }, false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.testName, func(t *testing.T) {
+			modifiedEvidence := bie1
+			tt.modifyEvidence(&modifiedEvidence)
+			require.Equal(t, tt.expectSameHash, bytes.Equal(bie1.Hash(), modifiedEvidence.Hash()))
 		})
 	}
 }

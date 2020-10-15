@@ -16,26 +16,6 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-// Mock evidence pool for inactivity tracking
-type mockEvidencePool struct {
-	receivedEvidence []types.Evidence
-}
-
-func newMockEvidencePool() *mockEvidencePool {
-	return &mockEvidencePool{
-		receivedEvidence: make([]types.Evidence, 0),
-	}
-}
-
-func (mep *mockEvidencePool) AddEvidence(ev types.Evidence) error {
-	mep.receivedEvidence = append(mep.receivedEvidence, ev)
-	return nil
-}
-
-func (mep *mockEvidencePool) PendingEvidence(int64) []types.Evidence {
-	return mep.receivedEvidence
-}
-
 func TestEntropyGeneratorStart(t *testing.T) {
 	testCases := []struct {
 		testName string
@@ -321,7 +301,7 @@ func TestEntropyGeneratorApplyComputedEntropy(t *testing.T) {
 func TestEntropyGeneratorChangeKeys(t *testing.T) {
 	newGen := testEntropyGenerator("TestChain")
 	newGen.SetLogger(log.TestingLogger())
-	newGen.SetNextAeonDetails(keylessAeonDetails(0, 4))
+	newGen.SetNextAeonDetails(keylessAeonDetails(1, 1, 0, 4))
 
 	assert.True(t, !newGen.isSigningEntropy())
 
@@ -415,7 +395,7 @@ func TestEntropyActivityTracking(t *testing.T) {
 			for _, ev := range evidence {
 				beaconInactivityEvidence, err := ev.(*types.BeaconInactivityEvidence)
 				assert.True(t, err)
-				assert.Nil(t, beaconInactivityEvidence.Verify(state.ChainID, blockEntropy, state.Validators))
+				assert.Nil(t, beaconInactivityEvidence.Verify(state.ChainID, blockEntropy, state.Validators, state.ConsensusParams.Entropy))
 			}
 		})
 	}

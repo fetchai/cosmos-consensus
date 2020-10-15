@@ -1,4 +1,4 @@
-package beacon
+package mcl_cpp
 
 /*
 #cgo LDFLAGS: -lmcl -lgmp -lboost_serialization
