@@ -304,7 +304,6 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 
 			dkgRunner.Logger.Error(fmt.Sprintf("We are in qual: %v", inQual))
 			fmt.Printf("we are in qual %v\n", inQual) // DELETEME_NH
-			argh
 
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
