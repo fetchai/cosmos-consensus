@@ -181,14 +181,6 @@ void ComputeShares(PrivateKey &s_i, PrivateKey &sprime_i, std::vector<PrivateKey
 std::vector<PrivateKey> InterpolatePolynom(std::vector<PrivateKey> const &a,
                                            std::vector<PrivateKey> const &b);
 
-struct DkgKeyInformation
-{
-  std::string              group_public_key;
-  std::vector<std::string> public_key_shares;
-  std::vector<std::string> private_key_shares;
-  std::string              generator;
-};
-
 template<class VerificationKey>
 VerificationKey ComputeLHS(VerificationKey &tmpG, VerificationKey const &G, VerificationKey const &H,
                      PrivateKey const &share1, PrivateKey const &share2)
@@ -230,60 +222,6 @@ VerificationKey ComputeRHS(CabinetIndex rank, std::vector<VerificationKey> const
   assert(!input.empty());
   UpdateRHS(rank, rhsG, input);
   return rhsG;
-}
-
-template<class VerificationKey>
-DkgKeyInformation TrustedDealerGenerateKeys(CabinetIndex cabinet_size, CabinetIndex threshold)
-{
-  DkgKeyInformation output;
-  VerificationKey generator;
-  GroupPublicKey generator2;
-  SetGenerator(generator);
-  SetGenerator(generator2);
-
-  if (generator == generator2) {
-    output.generator = generator2.ToString();
-  } else {
-    std::pair<std::string, std::string> generators{generator2, generator};
-    output.generator = serialisers::Serialise(generators);
-  }
-
-  // Construct polynomial of degree threshold - 1
-  std::vector<PrivateKey> vec_a;
-  vec_a.resize(threshold);
-  for (CabinetIndex ii = 0; ii < threshold; ++ii)
-  {
-    vec_a[ii].Random();
-  }
-
-  // Group secret key is polynomial evaluated at 0
-  GroupPublicKey  group_public_key;
-  PrivateKey group_private_key = vec_a[0];
-  group_public_key.Mult(generator2, group_private_key);
-  output.group_public_key = group_public_key.ToString();
-
-  // Generate cabinet public keys from their private key contributions
-  for (CabinetIndex i = 0; i < cabinet_size; ++i)
-  {
-    PrivateKey pow{i+1};
-    PrivateKey tmpF;
-    PrivateKey crypto_rank{i+1};
-    // Private key is polynomial evaluated at index i
-    PrivateKey private_key{vec_a[0]};
-    for (CabinetIndex k = 1; k < vec_a.size(); k++)
-    {
-      tmpF.Mult(pow, vec_a[k]);  // j^k * a_i[k]
-      private_key.Add(private_key, tmpF);
-      pow.Mult(pow, crypto_rank);
-    }
-    // Public key from private
-    VerificationKey public_key;
-    public_key.Mult(generator, private_key);
-    output.public_key_shares.push_back(public_key.ToString());
-    output.private_key_shares.push_back(private_key.ToString());
-  }
-
-  return output;
 }
 
 }  // namespace mcl
