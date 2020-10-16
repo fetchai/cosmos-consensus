@@ -84,7 +84,8 @@ func newValidatorStub(privValidator types.PrivValidator, valIndex int) *validato
 func (vs *validatorStub) signVote(
 	voteType types.SignedMsgType,
 	hash []byte,
-	header types.PartSetHeader) (*types.Vote, error) {
+	header types.PartSetHeader,
+	validatorsHash []byte) (*types.Vote, error) {
 
 	pubKey, err := vs.PrivValidator.GetPubKey()
 	if err != nil {
@@ -101,13 +102,13 @@ func (vs *validatorStub) signVote(
 		BlockID:          types.BlockID{Hash: hash, PartsHeader: header},
 	}
 
-	err = vs.PrivValidator.SignVote(config.ChainID(), vote)
+	err = vs.PrivValidator.SignVote(types.VotePrefix(config.ChainID(), validatorsHash), vote)
 	return vote, err
 }
 
 // Sign vote for type/hash/header
-func signVote(vs *validatorStub, voteType types.SignedMsgType, hash []byte, header types.PartSetHeader) *types.Vote {
-	v, err := vs.signVote(voteType, hash, header)
+func signVote(vs *validatorStub, voteType types.SignedMsgType, hash []byte, header types.PartSetHeader, validatorsHash []byte) *types.Vote {
+	v, err := vs.signVote(voteType, hash, header, validatorsHash)
 	if err != nil {
 		panic(fmt.Errorf("failed to sign vote: %v", err))
 	}
@@ -118,10 +119,11 @@ func signVotes(
 	voteType types.SignedMsgType,
 	hash []byte,
 	header types.PartSetHeader,
+	validatorsHash []byte,
 	vss ...*validatorStub) []*types.Vote {
 	votes := make([]*types.Vote, len(vss))
 	for i, vs := range vss {
-		votes[i] = signVote(vs, voteType, hash, header)
+		votes[i] = signVote(vs, voteType, hash, header, validatorsHash)
 	}
 	return votes
 }
@@ -211,7 +213,7 @@ func signAddVotes(
 	header types.PartSetHeader,
 	vss ...*validatorStub,
 ) {
-	votes := signVotes(voteType, hash, header, vss...)
+	votes := signVotes(voteType, hash, header, to.Validators.Hash(), vss...)
 	addVotes(to, votes...)
 }
 

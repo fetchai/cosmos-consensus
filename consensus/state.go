@@ -2316,7 +2316,7 @@ func (cs *State) signVote(
 		BlockID:          types.BlockID{Hash: hash, PartsHeader: header},
 	}
 
-	err = cs.privValidator.SignVote(cs.state.ChainID, vote)
+	err = cs.privValidator.SignVote(types.VotePrefix(cs.state.ChainID, cs.Validators.Hash()), vote)
 	return vote, err
 }
 

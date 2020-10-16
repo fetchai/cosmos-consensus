@@ -24,19 +24,19 @@ func TestPeerCatchupRounds(t *testing.T) {
 
 	hvs := NewHeightVoteSet(config.ChainID(), 1, valSet)
 
-	vote999_0 := makeVoteHR(t, 1, 999, privVals, 0)
+	vote999_0 := makeVoteHR(t, 1, 999, privVals, 0, valSet)
 	added, err := hvs.AddVote(vote999_0, "peer1")
 	if !added || err != nil {
 		t.Error("Expected to successfully add vote from peer", added, err)
 	}
 
-	vote1000_0 := makeVoteHR(t, 1, 1000, privVals, 0)
+	vote1000_0 := makeVoteHR(t, 1, 1000, privVals, 0, valSet)
 	added, err = hvs.AddVote(vote1000_0, "peer1")
 	if !added || err != nil {
 		t.Error("Expected to successfully add vote from peer", added, err)
 	}
 
-	vote1001_0 := makeVoteHR(t, 1, 1001, privVals, 0)
+	vote1001_0 := makeVoteHR(t, 1, 1001, privVals, 0, valSet)
 	added, err = hvs.AddVote(vote1001_0, "peer1")
 	if err != ErrGotVoteFromUnwantedRound {
 		t.Errorf("expected GotVoteFromUnwantedRoundError, but got %v", err)
@@ -52,7 +52,8 @@ func TestPeerCatchupRounds(t *testing.T) {
 
 }
 
-func makeVoteHR(t *testing.T, height int64, round int, privVals []types.PrivValidator, valIndex int) *types.Vote {
+func makeVoteHR(t *testing.T, height int64, round int, privVals []types.PrivValidator, valIndex int,
+	valSet *types.ValidatorSet) *types.Vote {
 	privVal := privVals[valIndex]
 	pubKey, err := privVal.GetPubKey()
 	if err != nil {
@@ -69,7 +70,7 @@ func makeVoteHR(t *testing.T, height int64, round int, privVals []types.PrivVali
 		BlockID:          types.BlockID{Hash: []byte("fakehash"), PartsHeader: types.PartSetHeader{}},
 	}
 	chainID := config.ChainID()
-	err = privVal.SignVote(chainID, vote)
+	err = privVal.SignVote(types.VotePrefix(chainID, valSet.Hash()), vote)
 	if err != nil {
 		panic(fmt.Sprintf("Error signing vote: %v", err))
 	}

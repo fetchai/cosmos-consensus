@@ -892,7 +892,7 @@ func TestStateLockPOLSafety1(t *testing.T) {
 	validatePrevote(t, cs1, round, vss[0], propBlock.Hash())
 
 	// the others sign a polka but we don't see it
-	prevotes := signVotes(types.PrevoteType, propBlock.Hash(), propBlock.MakePartSet(partSize).Header(), vs2, vs3, vs4)
+	prevotes := signVotes(types.PrevoteType, propBlock.Hash(), propBlock.MakePartSet(partSize).Header(), cs1.Validators.Hash(), vs2, vs3, vs4)
 
 	t.Logf("old prop hash %v", fmt.Sprintf("%X", propBlock.Hash()))
 
@@ -1007,7 +1007,7 @@ func TestStateLockPOLSafety2(t *testing.T) {
 	propBlockID0 := types.BlockID{Hash: propBlockHash0, PartsHeader: propBlockParts0.Header()}
 
 	// the others sign a polka but we don't see it
-	prevotes := signVotes(types.PrevoteType, propBlockHash0, propBlockParts0.Header(), vs2, vs3, vs4)
+	prevotes := signVotes(types.PrevoteType, propBlockHash0, propBlockParts0.Header(), cs1.Validators.Hash(), vs2, vs3, vs4)
 
 	// the block for round 1
 	prop1, propBlock1 := decideProposal(cs1, vs2, vs2.Height, vs2.Round+1)
@@ -1723,7 +1723,7 @@ func TestStateHalt1(t *testing.T) {
 	signAddVotes(cs1, types.PrecommitType, nil, types.PartSetHeader{}, vs2) // didnt receive proposal
 	signAddVotes(cs1, types.PrecommitType, propBlock.Hash(), propBlockParts.Header(), vs3)
 	// we receive this later, but vs3 might receive it earlier and with ours will go to commit!
-	precommit4 := signVote(vs4, types.PrecommitType, propBlock.Hash(), propBlockParts.Header())
+	precommit4 := signVote(vs4, types.PrecommitType, propBlock.Hash(), propBlockParts.Header(), cs1.Validators.Hash())
 
 	incrementRound(vs2, vs3, vs4)
 
@@ -1802,7 +1802,7 @@ func TestStateOutputVoteStats(t *testing.T) {
 	// create dummy peer
 	peer := p2pmock.NewPeer(nil)
 
-	vote := signVote(vss[1], types.PrecommitType, []byte("test"), types.PartSetHeader{})
+	vote := signVote(vss[1], types.PrecommitType, []byte("test"), types.PartSetHeader{}, cs.Validators.Hash())
 
 	voteMessage := &VoteMessage{vote}
 	cs.handleMsg(msgInfo{voteMessage, peer.ID()})
@@ -1816,7 +1816,7 @@ func TestStateOutputVoteStats(t *testing.T) {
 
 	// sending the vote for the bigger height
 	incrementHeight(vss[1])
-	vote = signVote(vss[1], types.PrecommitType, []byte("test"), types.PartSetHeader{})
+	vote = signVote(vss[1], types.PrecommitType, []byte("test"), types.PartSetHeader{}, cs.Validators.Hash())
 
 	cs.handleMsg(msgInfo{&VoteMessage{vote}, peer.ID()})
 

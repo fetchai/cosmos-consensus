@@ -216,3 +216,9 @@ func VoteFromProto(pv *tmproto.Vote) (*Vote, error) {
 
 	return vote, vote.ValidateBasic()
 }
+
+// VotePrefix returns string appended onto votes before signing consisting
+// of the chain ID and validator set hash
+func VotePrefix(chainID string, valHash []byte) string {
+	return chainID + string(valHash)
+}
