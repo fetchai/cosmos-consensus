@@ -696,7 +696,11 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	aeonFile := &AeonDetailsFile{
 		PublicInfo: dkg.dryRunKeys[encodedOutput],
 	}
-	tempKeys := loadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
+	tempKeys, err := loadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
+	if err != nil {
+		dkg.Logger.Error("checkDryRuns: error loading dry run aeon", "err", err)
+		return false
+	}
 	for address, signature := range dkg.dryRunSignatures[encodedOutput] {
 		index, _ := tempKeys.validators.GetByAddress(crypto.Address(address))
 		if index < 0 {
@@ -793,6 +797,43 @@ func (dkg *DistributedKeyGeneration) shouldSubmitEvidence(index int) bool {
 	default:
 		return false
 	}
+}
+
+//-------------------------------------------------------------------------------------------
+
+// DKGOutput is struct for broadcasting dkg completion info
+type DKGOutput struct {
+	KeyType         string   `json:"key_type"`
+	GroupPublicKey  string   `json:"group_public_key"`
+	PublicKeyShares []string `json:"public_key_shares"`
+	Generator       string   `json:"generator"`
+	ValidatorHeight int64    `json:"validator_height"`
+	DKGID           int64    `json:"dkg_id"`
+	Qual            []int64  `json:"qual"`
+	Start           int64    `json:"start"`
+	End             int64    `json:"end"`
+}
+
+// ValidateBasic for basic validity checking of dkg output
+func (output *DKGOutput) ValidateBasic() error {
+	if len(output.GroupPublicKey) != 0 {
+		if len(output.Generator) == 0 {
+			return fmt.Errorf("Empty generator")
+		}
+		if len(output.Qual) == 0 || len(output.Qual) > len(output.PublicKeyShares) {
+			return fmt.Errorf("Qual size %v invalid. Expected non-zero qual less than public key shares %v", len(output.Qual), len(output.PublicKeyShares))
+		}
+	}
+	if output.ValidatorHeight <= 0 {
+		return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
+	}
+	if output.DKGID < 0 {
+		return fmt.Errorf("Invalid dkg id %v", output.DKGID)
+	}
+	if output.Start <= 0 || output.End < output.Start {
+		return fmt.Errorf("Invalid start %v or end %v", output.Start, output.End)
+	}
+	return nil
 }
 
 //-------------------------------------------------------------------------------------------

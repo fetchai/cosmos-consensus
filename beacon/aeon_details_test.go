@@ -17,54 +17,46 @@ func TestAeonDetailsNew(t *testing.T) {
 	aeonSigning := testAeonFromFile("test_keys/validator_0_of_4.txt")
 	assert.True(t, aeonSigning.CanSign())
 
-	// Panic with no validator set
-	assert.Panics(t, func() {
-		newAeonDetails(privVals[0], 1, 1, nil, aeonSigning, 1, 10)
-	})
+	// Error if no validator set
+	_, err := newAeonDetails(privVals[0], 1, 1, nil, aeonSigning, 1, 10)
+	assert.NotNil(t, err)
 
-	// Panic with no aeon execution unit
-	assert.Panics(t, func() {
-		newAeonDetails(privVals[0], 1, 1, state.Validators, nil, 1, 10)
-	})
+	// Error if no aeon execution unit
+	_, err = newAeonDetails(privVals[0], 1, 1, state.Validators, nil, 1, 10)
+	assert.NotNil(t, err)
 
-	// Panic if can sign and no priv validator
-	assert.Panics(t, func() {
-		newAeonDetails(nil, 1, 1, state.Validators, aeonSigning, 1, 10)
-	})
+	// Error if can sign and no priv validator
+	_, err = newAeonDetails(nil, 1, 1, state.Validators, aeonSigning, 1, 10)
+	assert.NotNil(t, err)
 
-	// Panic if can sign and not in validators
+	// Error if can sign and not in validators
 	_, privVal := types.RandValidator(false, 30)
-	assert.Panics(t, func() {
-		newAeonDetails(privVal, 1, 1, state.Validators, aeonSigning, 1, 10)
-	})
+	_, err = newAeonDetails(privVal, 1, 1, state.Validators, aeonSigning, 1, 10)
+	assert.NotNil(t, err)
 
-	// Panic if validator index does not match dkg index
+	// Error if validator index does not match dkg index
 	for _, val := range privVals {
 		pubKey, _ := val.GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index != 0 {
-			assert.Panics(t, func() {
-				newAeonDetails(val, 1, 1, state.Validators, aeonSigning, 1, 10)
-			})
+			_, err = newAeonDetails(val, 1, 1, state.Validators, aeonSigning, 1, 10)
+			assert.NotNil(t, err)
 			break
 		}
 	}
 
-	// Does not panic if priv validator is invalid if can not sign
-	var newAeon *aeonDetails
-	assert.NotPanics(t, func() {
-		newAeon, _ = newAeonDetails(nil, 1, 1, state.Validators, aeonNonSigning, 1, 10)
-	})
+	// No error if priv validator is invalid if can not sign
+	newAeon, err := newAeonDetails(nil, 1, 1, state.Validators, aeonNonSigning, 1, 10)
+	assert.Nil(t, err)
 	assert.True(t, newAeon.threshold == nValidators/2+1)
 
-	// Does not panic for all valid inputs
+	// No error for all valid inputs
 	for _, val := range privVals {
 		pubKey, _ := val.GetPubKey()
 		index, _ := state.Validators.GetByAddress(pubKey.Address())
 		if index == 0 {
-			assert.NotPanics(t, func() {
-				newAeonDetails(val, 1, 1, state.Validators, aeonSigning, 1, 10)
-			})
+			_, err = newAeonDetails(val, 1, 1, state.Validators, aeonSigning, 1, 10)
+			assert.Nil(t, err)
 			break
 		}
 	}
@@ -82,7 +74,8 @@ func TestAeonDetailsSaveLoad(t *testing.T) {
 
 	aeonDetailsFiles, err := loadAeonDetailsFiles(config.EntropyKeyFile())
 	assert.Equal(t, nil, err)
-	duplicateAeon := loadAeonDetails(aeonDetailsFiles[0], state.Validators, privVals[0])
+	duplicateAeon, err := loadAeonDetails(aeonDetailsFiles[0], state.Validators, privVals[0])
+	assert.Nil(t, err)
 	assert.Equal(t, newAeon.validatorHeight, duplicateAeon.validatorHeight)
 	assert.Equal(t, newAeon.Start, duplicateAeon.Start)
 	assert.Equal(t, newAeon.End, duplicateAeon.End)
