@@ -30,10 +30,11 @@ class CombinedSignature {
 public:
     CombinedSignature() = default;
 
-    void Add(std::string const &signature);
+    bool Add(std::string const &signature);
     std::string Finish() const;
 private:
     std::string combined_signature_;
+    static constexpr char const *LOGGING_NAME = "CombinedSignatures";
 };
 
 // Aggregate public key class for combining public keys for verifying combined signatures
@@ -41,10 +42,11 @@ class CombinedPublicKey {
 public:
     CombinedPublicKey() = default;
 
-    void Add(std::string const &public_key);
+    bool Add(std::string const &public_key);
     std::string Finish() const;
 private:
     std::string combined_key_;
+    static constexpr char const *LOGGING_NAME = "CombinedPublicKey";
 };
 
 std::string GenPrivKey();
