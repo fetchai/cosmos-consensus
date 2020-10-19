@@ -76,7 +76,6 @@ func invalidDoPrevoteFunc(t *testing.T, height int64, round int, cs *State, sw *
 			ValidatorIndex:   valIndex,
 			Height:           cs.Height,
 			Round:            cs.Round,
-			Timestamp:        cs.voteTime(),
 			Type:             types.PrecommitType,
 			BlockID: types.BlockID{
 				Hash:        blockHash,

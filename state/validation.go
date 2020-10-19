@@ -105,13 +105,7 @@ func validateBlock(evidencePool EvidencePool, stateDB dbm.DB, blockStore BlockSt
 			)
 		}
 
-		medianTime := MedianTime(block.LastCommit, state.LastValidators)
-		if !block.Time.Equal(medianTime) {
-			return fmt.Errorf("invalid block time. Expected %v, got %v",
-				medianTime,
-				block.Time,
-			)
-		}
+		// TODO: Insert validation on block time
 	} else if block.Height == 1 {
 		genesisTime := state.LastBlockTime
 		if !block.Time.Equal(genesisTime) {

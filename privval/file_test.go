@@ -13,7 +13,6 @@ import (
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 func TestGenLoadValidator(t *testing.T) {
@@ -193,7 +192,6 @@ func TestSignVote(t *testing.T) {
 
 	// try signing a vote with a different time stamp
 	sig := vote.Signature
-	vote.Timestamp = vote.Timestamp.Add(time.Duration(1000))
 	err = privVal.SignVote("mychainid", vote)
 	assert.NoError(err)
 	assert.Equal(sig, vote.Signature)
@@ -286,16 +284,12 @@ func TestDifferByTimestamp(t *testing.T) {
 
 		signBytes := vote.SignBytes(chainID)
 		sig := vote.Signature
-		timeStamp := vote.Timestamp
 
-		// manipulate the timestamp. should get changed back
-		vote.Timestamp = vote.Timestamp.Add(time.Millisecond)
 		var emptySig []byte
 		vote.Signature = emptySig
 		err = privVal.SignVote("mychainid", vote)
 		assert.NoError(t, err, "expected no error on signing same vote")
 
-		assert.Equal(t, timeStamp, vote.Timestamp)
 		assert.Equal(t, signBytes, vote.SignBytes(chainID))
 		assert.Equal(t, sig, vote.Signature)
 	}
@@ -308,16 +302,14 @@ func newVote(addr types.Address, idx int, height int64, round int, typ byte, blo
 		Height:           height,
 		Round:            round,
 		Type:             types.SignedMsgType(typ),
-		Timestamp:        tmtime.Now(),
 		BlockID:          blockID,
 	}
 }
 
 func newProposal(height int64, round int, blockID types.BlockID) *types.Proposal {
 	return &types.Proposal{
-		Height:    height,
-		Round:     round,
-		BlockID:   blockID,
-		Timestamp: tmtime.Now(),
+		Height:  height,
+		Round:   round,
+		BlockID: blockID,
 	}
 }

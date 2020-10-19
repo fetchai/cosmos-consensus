@@ -100,7 +100,6 @@ func makeVote(header *types.Header, valset *types.ValidatorSet, key crypto.PrivK
 		ValidatorIndex:   idx,
 		Height:           header.Height,
 		Round:            1,
-		Timestamp:        tmtime.Now(),
 		Type:             types.PrecommitType,
 		BlockID:          blockID,
 	}

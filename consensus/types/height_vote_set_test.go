@@ -7,7 +7,6 @@ import (
 
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 var config *cfg.Config // NOTE: must be reset for each _test.go file
@@ -65,7 +64,6 @@ func makeVoteHR(t *testing.T, height int64, round int, privVals []types.PrivVali
 		ValidatorIndex:   valIndex,
 		Height:           height,
 		Round:            round,
-		Timestamp:        tmtime.Now(),
 		Type:             types.PrecommitType,
 		BlockID:          types.BlockID{Hash: []byte("fakehash"), PartsHeader: types.PartSetHeader{}},
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/tendermint/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 // privKeys is a helper type for testing.
@@ -104,7 +103,6 @@ func makeVote(header *types.Header, valset *types.ValidatorSet,
 		ValidatorIndex:   idx,
 		Height:           header.Height,
 		Round:            1,
-		Timestamp:        tmtime.Now(),
 		Type:             types.PrecommitType,
 		BlockID:          blockID,
 	}

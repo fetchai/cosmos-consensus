@@ -30,7 +30,6 @@ func BenchmarkRoundStateDeepCopy(b *testing.B) {
 	for i := 0; i < nval; i++ {
 		commitSigs[i] = (&types.Vote{
 			ValidatorAddress: types.Address(tmrand.Bytes(20)),
-			Timestamp:        tmtime.Now(),
 			BlockID:          blockID,
 			Signature:        sig,
 		}).CommitSig()

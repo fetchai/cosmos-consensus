@@ -64,7 +64,6 @@ func makeVote(
 		ValidatorIndex:   valIdx,
 		Height:           header.Height,
 		Round:            1,
-		Timestamp:        tmtime.Now(),
 		Type:             types.PrecommitType,
 		BlockID:          blockID,
 	}
