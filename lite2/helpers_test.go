@@ -109,7 +109,7 @@ func makeVote(header *types.Header, valset *types.ValidatorSet,
 		BlockID:          blockID,
 	}
 	// Sign it
-	signBytes := vote.SignBytes(header.ChainID)
+	signBytes := vote.SignBytes(types.VotePrefix(header.ChainID, header.ValidatorsHash))
 	// TODO Consider reworking makeVote API to return an error
 	sig, err := key.Sign(signBytes)
 	if err != nil {

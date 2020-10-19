@@ -69,7 +69,7 @@ func makeVote(
 		BlockID:          blockID,
 	}
 
-	_ = privVal.SignVote(header.ChainID, vote)
+	_ = privVal.SignVote(types.VotePrefix(header.ChainID, valset.Hash()), vote)
 
 	return vote
 }

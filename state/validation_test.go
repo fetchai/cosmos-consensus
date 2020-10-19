@@ -192,9 +192,9 @@ func TestValidateBlockCommit(t *testing.T) {
 			Type:             types.PrecommitType,
 			BlockID:          blockID,
 		}
-		err = badPrivVal.SignVote(chainID, goodVote)
+		err = badPrivVal.SignVote(types.VotePrefix(chainID, state.Validators.Hash()), goodVote)
 		require.NoError(t, err, "height %d", height)
-		err = badPrivVal.SignVote(chainID, badVote)
+		err = badPrivVal.SignVote(types.VotePrefix(chainID, state.Validators.Hash()), badVote)
 		require.NoError(t, err, "height %d", height)
 
 		wrongSigsCommit = types.NewCommit(goodVote.Height, goodVote.Round,

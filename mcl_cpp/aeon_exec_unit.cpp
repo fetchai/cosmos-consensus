@@ -17,6 +17,7 @@
 //------------------------------------------------------------------------------
 
 #include "aeon_exec_unit.hpp"
+#include "logging.hpp"
 #include "mcl_crypto.hpp"
 #include "serialisers.hpp"
 #include <fstream>
@@ -24,10 +25,11 @@
 namespace fetch {
 namespace beacon {
 
+static constexpr char const *LOGGING_NAME = "AeonExecUnit";
+
 void InitialiseMcl() {
   mcl::details::MCLInitialiser();
 }
-
 
 BaseAeon::BaseAeon(std::string const &filename) {
    std::string line;
@@ -143,12 +145,10 @@ BlsAeon::BlsAeon(std::string const &filename): BaseAeon{filename}{
 BlsAeon::BlsAeon(std::string const &generator, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual)
 : BaseAeon{keys, qual} {
   generator_ = generator;
-  CheckKeys();
 }
 // Constructor used beacon manager
 BlsAeon::BlsAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual)
 : BaseAeon{generator, keys, qual} {
-  CheckKeys();
 }
 
 bool BlsAeon::CheckIndex(CabinetIndex index) const {
@@ -173,19 +173,32 @@ bool BlsAeon::CheckIndex(CabinetIndex index) const {
  * 
  * @return Whether check succeeded or failed
  */
-void BlsAeon::CheckKeys() const {
+bool BlsAeon::CheckKeys() const {
   if (CanSign()) {
     mcl::PrivateKey temp_private_key;
-    assert(temp_private_key.FromString(aeon_keys_.private_key));
+    if (!temp_private_key.FromString(aeon_keys_.private_key)) {
+      Log(LogLevel::ERROR, LOGGING_NAME, "BlsAeon can not deserialise private key "+aeon_keys_.private_key);
+      return false;
+    }
   }
   mcl::GroupPublicKey temp_group_key;
-  assert(temp_group_key.FromString(aeon_keys_.group_public_key));
+  if (!temp_group_key.FromString(aeon_keys_.group_public_key)) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "BlsAeon can not deserialise group public key "+aeon_keys_.group_public_key);
+    return false;
+  }
   for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
      mcl::GroupPublicKey temp_key_share;
-     assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
+     if (!temp_key_share.FromString(aeon_keys_.public_key_shares[i])) {
+       Log(LogLevel::ERROR, LOGGING_NAME, "BlsAeon can not deserialise index "+std::to_string(i)+" public key share "+aeon_keys_.public_key_shares[i]);
+       return false;
+     }
   }
   mcl::GroupPublicKey generator;
-  assert(generator.FromString(generator_));
+  if (!generator.FromString(generator_)) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "BlsAeon can not deserialise generator "+generator_);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -197,7 +210,6 @@ void BlsAeon::CheckKeys() const {
  */
 BlsAeon::Signature BlsAeon::Sign(MessagePayload const &message, CabinetIndex) const {
   if (!CanSign()) {
-     assert(CanSign());
      return Signature{};
   }
   mcl::PrivateKey x_i;
@@ -216,7 +228,10 @@ BlsAeon::Signature BlsAeon::Sign(MessagePayload const &message, CabinetIndex) co
  */
 bool
 BlsAeon::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
-  assert(sender < aeon_keys_.public_key_shares.size());
+  if (sender >= aeon_keys_.public_key_shares.size()) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "Verify received invalid index "+std::to_string(sender));
+    return false;
+  }
   mcl::Signature signature;
   mcl::GroupPublicKey public_key{};
   mcl::GroupPublicKey generator;
@@ -231,7 +246,10 @@ BlsAeon::Signature
 BlsAeon::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &shares) const {
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
-    assert(share.first < aeon_keys_.public_key_shares.size());
+    if (share.first >= aeon_keys_.public_key_shares.size()) {
+      Log(LogLevel::ERROR, LOGGING_NAME, "ComputeGroupSignature received invalid index "+std::to_string(share.first));
+      continue;
+    }
     mcl::Signature sig;
     sig.FromString(share.second);
     signature_shares.insert({share.first, sig});
@@ -249,18 +267,17 @@ GlowAeon::GlowAeon(std::string const &generator_strs, DKGKeyInformation const &k
 : BaseAeon{keys, qual}
 {
   std::pair<std::string, std::string> generators;
-  bool ok = serialisers::Deserialise(generator_strs, generators);
-  assert(ok);
+  if (!serialisers::Deserialise(generator_strs, generators)) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "GlowAeon can not deserialise generator pair");
+    return;
+  }
 
   generator_ = generators.first;
   generator_g1_ = generators.second;
-  CheckKeys();
 }
 
 GlowAeon::GlowAeon(std::string generator, std::string generator_g1, DKGKeyInformation keys, std::set<CabinetIndex> qual)
-: BaseAeon{generator, keys, qual}, generator_g1_{std::move(generator_g1)} {
-  CheckKeys();
-}
+: BaseAeon{generator, keys, qual}, generator_g1_{std::move(generator_g1)} {}
 
 /**
  * Check strings from file are correct for initialising the corresponding 
@@ -268,22 +285,37 @@ GlowAeon::GlowAeon(std::string generator, std::string generator_g1, DKGKeyInform
  * 
  * @return Whether check succeeded or failed
  */
-void GlowAeon::CheckKeys() const {
+bool GlowAeon::CheckKeys() const {
   if (CanSign()) {
     mcl::PrivateKey temp_private_key;
-    assert(temp_private_key.FromString(aeon_keys_.private_key));
+    if (!temp_private_key.FromString(aeon_keys_.private_key)) {
+      Log(LogLevel::ERROR, LOGGING_NAME, "GlowAeon can not deserialise private key "+aeon_keys_.private_key);
+      return false;
+    }
   }
   mcl::GroupPublicKey temp_group_key;
-  assert(temp_group_key.FromString(aeon_keys_.group_public_key));
+  if (!temp_group_key.FromString(aeon_keys_.group_public_key)) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "GlowAeon can not deserialise group public key "+aeon_keys_.group_public_key);
+    return false;
+  }
   for (auto i = 0; i < aeon_keys_.public_key_shares.size(); i++) {
      mcl::Signature temp_key_share;
-     assert(temp_key_share.FromString(aeon_keys_.public_key_shares[i]));
+     if (!temp_key_share.FromString(aeon_keys_.public_key_shares[i])) {
+       Log(LogLevel::ERROR, LOGGING_NAME, "GlowAeon can not deserialise index "+std::to_string(i)+" public key share "+aeon_keys_.public_key_shares[i]);
+       return false;
+     }
   }
   mcl::GroupPublicKey generator;
-  assert(generator.FromString(generator_));
-
+  if (!generator.FromString(generator_)) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "GlowAeon can not deserialise G2 generator "+generator_);
+    return false;
+  }
   mcl::Signature gen_g1;
-  assert(gen_g1.FromString(generator_g1_));
+  if (!gen_g1.FromString(generator_g1_)) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "GlowAeon can not deserialise G1 generator "+generator_g1_);
+    return false;
+  }
+  return true;
 }
 
 
@@ -312,7 +344,6 @@ bool GlowAeon::CheckIndex(CabinetIndex index) const {
  */
 GlowAeon::Signature GlowAeon::Sign(MessagePayload const &message, CabinetIndex index) const {
   if (!CanSign()) {
-     assert(CanSign());
      return Signature{};
   }
   mcl::PrivateKey x_i;
@@ -338,7 +369,10 @@ GlowAeon::Signature GlowAeon::Sign(MessagePayload const &message, CabinetIndex i
  */
 bool
 GlowAeon::Verify(MessagePayload const &message, Signature const &sign, CabinetIndex const &sender) const{
-  assert(sender < aeon_keys_.public_key_shares.size());
+  if (sender >= aeon_keys_.public_key_shares.size()) {
+    Log(LogLevel::ERROR, LOGGING_NAME, "Verify received invalid index "+std::to_string(sender));
+    return false;
+  }
   std::vector<std::string> sig_and_proof;
   if (!serialisers::Deserialise(sign, sig_and_proof) || sig_and_proof.size() != 3) {
     return false;
@@ -361,9 +395,15 @@ GlowAeon::Signature
 GlowAeon::ComputeGroupSignature(std::map <CabinetIndex, Signature> const &shares) const {
   std::unordered_map <CabinetIndex, mcl::Signature> signature_shares;
   for (auto const &share : shares) {
-    assert(share.first < aeon_keys_.public_key_shares.size());
+    if (share.first >= aeon_keys_.public_key_shares.size()) {
+      Log(LogLevel::ERROR, LOGGING_NAME, "ComputeGroupSignature received invalid index "+std::to_string(share.first));
+      continue;
+    }
     std::vector<std::string> sig_and_proof;
-    assert(serialisers::Deserialise(share.second, sig_and_proof));
+    if (!serialisers::Deserialise(share.second, sig_and_proof)) {
+      Log(LogLevel::ERROR, LOGGING_NAME, "ComputeGroupSignature can not deserialise signature and proof");
+      continue;
+    }
     mcl::Signature sig;
     sig.FromString(sig_and_proof[0]);
     signature_shares.insert({share.first, sig});
