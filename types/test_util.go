@@ -22,7 +22,6 @@ func MakeCommit(blockID BlockID, height int64, round int,
 			Round:            round,
 			Type:             PrecommitType,
 			BlockID:          blockID,
-			Timestamp:        now,
 		}
 
 		_, err = signAddVote(validators[i], vote, voteSet)
@@ -61,7 +60,6 @@ func MakeVote(
 		ValidatorIndex:   idx,
 		Height:           height,
 		Round:            0,
-		Timestamp:        now,
 		Type:             PrecommitType,
 		BlockID:          blockID,
 	}

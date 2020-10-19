@@ -20,7 +20,6 @@ import (
 	"github.com/tendermint/tendermint/libs/bits"
 	"github.com/tendermint/tendermint/libs/bytes"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
-	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 )
 
@@ -382,9 +381,9 @@ func TestBlockMaxDataBytes(t *testing.T) {
 	}{
 		0: {-10, 1, 0, true, 0},
 		1: {10, 1, 0, true, 0},
-		2: {865, 1, 0, true, 0},
-		3: {866, 1, 0, false, 0},
-		4: {867, 1, 0, false, 1},
+		2: {846, 1, 0, true, 0},
+		3: {847, 1, 0, false, 0},
+		4: {848, 1, 0, false, 1},
 	}
 
 	for i, tc := range testCases {
@@ -411,9 +410,9 @@ func TestBlockMaxDataBytesUnknownEvidence(t *testing.T) {
 	}{
 		0: {-10, 1, true, 0},
 		1: {10, 1, true, 0},
-		2: {961, 1, true, 0},
-		3: {962, 1, false, 0},
-		4: {963, 1, false, 1},
+		2: {940, 1, true, 0},
+		3: {941, 1, false, 0},
+		4: {942, 1, false, 1},
 	}
 
 	for i, tc := range testCases {
@@ -489,7 +488,6 @@ func TestCommitToVoteSetWithVotesForNilBlock(t *testing.T) {
 					Round:            round,
 					Type:             PrecommitType,
 					BlockID:          tc.blockIDs[n],
-					Timestamp:        tmtime.Now(),
 				}
 
 				added, err := signAddVote(vals[vi], vote, voteSet)

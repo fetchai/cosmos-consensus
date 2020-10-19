@@ -3,7 +3,6 @@ package types
 import (
 	"math"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,16 +21,10 @@ func examplePrecommit() *Vote {
 }
 
 func exampleVote(t byte) *Vote {
-	var stamp, err = time.Parse(TimeFormat, "2017-12-25T03:00:01.234Z")
-	if err != nil {
-		panic(err)
-	}
-
 	return &Vote{
-		Type:      SignedMsgType(t),
-		Height:    12345,
-		Round:     2,
-		Timestamp: stamp,
+		Type:   SignedMsgType(t),
+		Height: 12345,
+		Round:  2,
 		BlockID: BlockID{
 			Hash: tmhash.Sum([]byte("blockID_hash")),
 			PartsHeader: PartSetHeader{
@@ -212,16 +205,12 @@ func TestVoteVerify(t *testing.T) {
 }
 
 func TestMaxVoteBytes(t *testing.T) {
-	// time is varint encoded so need to pick the max.
-	// year int, month Month, day, hour, min, sec, nsec int, loc *Location
-	timestamp := time.Date(math.MaxInt64, 0, 0, 0, 0, 0, math.MaxInt64, time.UTC)
 
 	vote := &Vote{
 		ValidatorAddress: crypto.AddressHash([]byte("validator_address")),
 		ValidatorIndex:   math.MaxInt64,
 		Height:           math.MaxInt64,
 		Round:            math.MaxInt64,
-		Timestamp:        timestamp,
 		Type:             PrevoteType,
 		BlockID: BlockID{
 			Hash: tmhash.Sum([]byte("blockID_hash")),
@@ -244,13 +233,13 @@ func TestMaxVoteBytes(t *testing.T) {
 
 func TestVoteString(t *testing.T) {
 	str := examplePrecommit().String()
-	expected := `Vote{56789:6AF1F4111082 12345/02/2(Precommit) 8B01023386C3 000000000000 @ 2017-12-25T03:00:01.234Z}`
+	expected := `Vote{56789:6AF1F4111082 12345/02/2(Precommit) 8B01023386C3 000000000000}`
 	if str != expected {
 		t.Errorf("got unexpected string for Vote. Expected:\n%v\nGot:\n%v", expected, str)
 	}
 
 	str2 := examplePrevote().String()
-	expected = `Vote{56789:6AF1F4111082 12345/02/1(Prevote) 8B01023386C3 000000000000 @ 2017-12-25T03:00:01.234Z}`
+	expected = `Vote{56789:6AF1F4111082 12345/02/1(Prevote) 8B01023386C3 000000000000}`
 	if str2 != expected {
 		t.Errorf("got unexpected string for Vote. Expected:\n%v\nGot:\n%v", expected, str2)
 	}

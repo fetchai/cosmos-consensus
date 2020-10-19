@@ -719,7 +719,6 @@ func (commit *Commit) GetVote(valIdx int) *Vote {
 		Height:           commit.Height,
 		Round:            commit.Round,
 		BlockID:          commitSig.BlockID(commit.BlockID),
-		Timestamp:        commitSig.Timestamp,
 		ValidatorAddress: commitSig.ValidatorAddress,
 		ValidatorIndex:   valIdx,
 		Signature:        commitSig.Signature,

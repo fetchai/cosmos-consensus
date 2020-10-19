@@ -18,7 +18,7 @@ import (
 
 const (
 	// MaxEvidenceBytes is a maximum size of any evidence (including amino overhead).
-	MaxEvidenceBytes int64 = 484
+	MaxEvidenceBytes int64 = 471
 )
 
 // ErrEvidenceInvalid wraps a piece of evidence and the error denoting how or why it is invalid.
@@ -277,9 +277,10 @@ func MaxEvidencePerBlock(blockMaxBytes int64) (int64, int64) {
 // DuplicateVoteEvidence contains evidence a validator signed two conflicting
 // votes.
 type DuplicateVoteEvidence struct {
-	PubKey crypto.PubKey
-	VoteA  *Vote
-	VoteB  *Vote
+	PubKey       crypto.PubKey
+	CreationTime time.Time // Time evidence was created
+	VoteA        *Vote
+	VoteB        *Vote
 }
 
 var _ Evidence = &DuplicateVoteEvidence{}
@@ -299,9 +300,10 @@ func NewDuplicateVoteEvidence(pubkey crypto.PubKey, vote1 *Vote, vote2 *Vote) *D
 		voteB = vote1
 	}
 	return &DuplicateVoteEvidence{
-		PubKey: pubkey,
-		VoteA:  voteA,
-		VoteB:  voteB,
+		PubKey:       pubkey,
+		CreationTime: time.Now(),
+		VoteA:        voteA,
+		VoteB:        voteB,
 	}
 }
 
@@ -323,7 +325,7 @@ func (dve *DuplicateVoteEvidence) ValidatorHeight() int64 {
 
 // Time return the time the evidence was created
 func (dve *DuplicateVoteEvidence) Time() time.Time {
-	return dve.VoteA.Timestamp
+	return dve.CreationTime
 }
 
 // Address returns the address of the validator.

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/tendermint/tendermint/crypto"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
@@ -13,7 +12,7 @@ import (
 
 const (
 	// MaxVoteBytes is a maximum vote size (including amino overhead).
-	MaxVoteBytes int64  = 223
+	MaxVoteBytes int64  = 204
 	nilVoteStr   string = "nil-Vote"
 )
 
@@ -51,7 +50,6 @@ type Vote struct {
 	Height           int64         `json:"height"`
 	Round            int           `json:"round"`
 	BlockID          BlockID       `json:"block_id"` // zero if vote is nil.
-	Timestamp        time.Time     `json:"timestamp"`
 	ValidatorAddress Address       `json:"validator_address"`
 	ValidatorIndex   int           `json:"validator_index"`
 	Signature        []byte        `json:"signature"`
@@ -76,7 +74,6 @@ func (vote *Vote) CommitSig() CommitSig {
 	return CommitSig{
 		BlockIDFlag:      blockIDFlag,
 		ValidatorAddress: vote.ValidatorAddress,
-		Timestamp:        vote.Timestamp,
 		Signature:        vote.Signature,
 	}
 }
@@ -109,7 +106,7 @@ func (vote *Vote) String() string {
 		panic("Unknown vote type")
 	}
 
-	return fmt.Sprintf("Vote{%v:%X %v/%02d/%v(%v) %X %X @ %s}",
+	return fmt.Sprintf("Vote{%v:%X %v/%02d/%v(%v) %X %X}",
 		vote.ValidatorIndex,
 		tmbytes.Fingerprint(vote.ValidatorAddress),
 		vote.Height,
@@ -118,7 +115,6 @@ func (vote *Vote) String() string {
 		typeString,
 		tmbytes.Fingerprint(vote.BlockID.Hash),
 		tmbytes.Fingerprint(vote.Signature),
-		CanonicalTime(vote.Timestamp),
 	)
 }
 
@@ -144,8 +140,6 @@ func (vote *Vote) ValidateBasic() error {
 	if vote.Round < 0 {
 		return errors.New("negative Round")
 	}
-
-	// NOTE: Timestamp validation is subtle and handled elsewhere.
 
 	if err := vote.BlockID.ValidateBasic(); err != nil {
 		return fmt.Errorf("wrong BlockID: %v", err)
@@ -185,7 +179,6 @@ func (vote *Vote) ToProto() *tmproto.Vote {
 		Height:           vote.Height,
 		Round:            int64(vote.Round),
 		BlockID:          vote.BlockID.ToProto(),
-		Timestamp:        vote.Timestamp,
 		ValidatorAddress: vote.ValidatorAddress,
 		ValidatorIndex:   int64(vote.ValidatorIndex),
 		Signature:        vote.Signature,
@@ -209,7 +202,6 @@ func VoteFromProto(pv *tmproto.Vote) (*Vote, error) {
 	vote.Height = pv.Height
 	vote.Round = int(pv.Round)
 	vote.BlockID = *blockID
-	vote.Timestamp = pv.Timestamp
 	vote.ValidatorAddress = pv.ValidatorAddress
 	vote.ValidatorIndex = int(pv.ValidatorIndex)
 	vote.Signature = pv.Signature

@@ -9,7 +9,6 @@ import (
 
 	"github.com/tendermint/tendermint/crypto"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
-	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 // NOTE: privValidators are in order
@@ -95,7 +94,6 @@ func TestAddVote(t *testing.T) {
 		Height:           height,
 		Round:            round,
 		Type:             PrevoteType,
-		Timestamp:        tmtime.Now(),
 		BlockID:          BlockID{nil, PartSetHeader{}},
 	}
 	_, err = signAddVote(val0, vote, voteSet)
@@ -125,7 +123,6 @@ func Test2_3Majority(t *testing.T) {
 		Height:           height,
 		Round:            round,
 		Type:             PrevoteType,
-		Timestamp:        tmtime.Now(),
 		BlockID:          BlockID{nil, PartSetHeader{}},
 	}
 	// 6 out of 10 voted for nil.
@@ -190,7 +187,6 @@ func Test2_3MajorityRedux(t *testing.T) {
 		ValidatorIndex:   -1,  // NOTE: must fill in
 		Height:           height,
 		Round:            round,
-		Timestamp:        tmtime.Now(),
 		Type:             PrevoteType,
 		BlockID:          BlockID{blockHash, blockPartsHeader},
 	}
@@ -303,7 +299,6 @@ func TestBadVotes(t *testing.T) {
 		ValidatorIndex:   -1,
 		Height:           height,
 		Round:            round,
-		Timestamp:        tmtime.Now(),
 		Type:             PrevoteType,
 		BlockID:          BlockID{nil, PartSetHeader{}},
 	}
@@ -380,7 +375,6 @@ func TestConflicts(t *testing.T) {
 		ValidatorIndex:   -1,
 		Height:           height,
 		Round:            round,
-		Timestamp:        tmtime.Now(),
 		Type:             PrevoteType,
 		BlockID:          BlockID{nil, PartSetHeader{}},
 	}
@@ -522,7 +516,6 @@ func TestMakeCommit(t *testing.T) {
 		ValidatorIndex:   -1,
 		Height:           height,
 		Round:            round,
-		Timestamp:        tmtime.Now(),
 		Type:             PrecommitType,
 		BlockID:          BlockID{blockHash, blockPartsHeader},
 	}
