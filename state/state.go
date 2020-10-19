@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tendermint/tendermint/types"
+	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 )
 
@@ -151,7 +152,7 @@ func (state State) MakeBlock(
 	if height == 1 {
 		timestamp = state.LastBlockTime // genesis time
 	} else {
-		timestamp = time.Now()
+		timestamp = tmtime.Now()
 	}
 
 	// Fill rest of header with state data.
