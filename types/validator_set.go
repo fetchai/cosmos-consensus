@@ -655,7 +655,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		val := vals.Validators[idx]
 
 		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(chainID, idx)
+		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
 		if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
 			return fmt.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
 		}
@@ -713,7 +713,7 @@ func (vals *ValidatorSet) VerifyCommitLight(chainID string, blockID BlockID,
 		val := vals.Validators[idx]
 
 		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(chainID, idx)
+		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
 		if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
 			return fmt.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
 		}
@@ -763,7 +763,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 	oldVals := vals
 
 	// Commit must be a valid commit for newSet.
-	err := newSet.VerifyCommit(chainID, blockID, height, commit)
+	err := newSet.VerifyCommit(VotePrefix(chainID, vals.Hash()), blockID, height, commit)
 	if err != nil {
 		return err
 	}
@@ -785,7 +785,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 		seen[oldIdx] = true
 
 		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(chainID, idx)
+		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
 		if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
 			return errors.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
 		}
@@ -815,7 +815,11 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 // for this commit, but there may be some intersection.
 //
 // Panics if trustLevel is invalid.
-func (vals *ValidatorSet) VerifyCommitLightTrusting(chainID string, blockID BlockID,
+//
+// Since validators may not correspond to validator set for the commit, the vote prefix
+// consisting of the chain ID concatenated with the commit validator set hash must be
+// passed into this function
+func (vals *ValidatorSet) VerifyCommitLightTrusting(votePrefix string, blockID BlockID,
 	height int64, commit *Commit, trustLevel tmmath.Fraction) error {
 
 	// sanity check
@@ -859,7 +863,7 @@ func (vals *ValidatorSet) VerifyCommitLightTrusting(chainID string, blockID Bloc
 			seenVals[valIdx] = idx
 
 			// Validate signature.
-			voteSignBytes := commit.VoteSignBytes(chainID, idx)
+			voteSignBytes := commit.VoteSignBytes(votePrefix, idx)
 			if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
 				return errors.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
 			}
