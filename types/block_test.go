@@ -132,7 +132,7 @@ func TestBlockMakePartSetWithEvidence(t *testing.T) {
 
 	partSet := MakeBlock(h, []Tx{Tx("Hello World")}, commit, evList).MakePartSet(512)
 	assert.NotNil(t, partSet)
-	assert.Equal(t, 4, partSet.Total())
+	assert.Equal(t, 3, partSet.Total())
 }
 
 func TestBlockHashesTo(t *testing.T) {
@@ -382,9 +382,9 @@ func TestBlockMaxDataBytes(t *testing.T) {
 	}{
 		0: {-10, 1, 0, true, 0},
 		1: {10, 1, 0, true, 0},
-		2: {931, 1, 0, true, 0},
-		3: {932, 1, 0, false, 0},
-		4: {933, 1, 0, false, 1},
+		2: {865, 1, 0, true, 0},
+		3: {866, 1, 0, false, 0},
+		4: {867, 1, 0, false, 1},
 	}
 
 	for i, tc := range testCases {

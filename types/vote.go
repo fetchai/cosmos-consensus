@@ -13,8 +13,9 @@ import (
 
 const (
 	// MaxVoteBytes is a maximum vote size (including amino overhead).
-	MaxVoteBytes int64  = 289
-	nilVoteStr   string = "nil-Vote"
+	MaxVoteBytes      int64  = 289
+	MaxBlockVoteBytes int64  = 223
+	nilVoteStr        string = "nil-Vote"
 )
 
 var (

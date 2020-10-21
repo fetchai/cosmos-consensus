@@ -86,6 +86,12 @@ func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) 
 		Evidence:   EvidenceData{Evidence: evidence},
 		LastCommit: lastCommit,
 	}
+	// Remove timestamp signatures from commit when making block
+	if block.LastCommit != nil {
+		for index := range block.LastCommit.Signatures {
+			block.LastCommit.Signatures[index].TimestampSignature = nil
+		}
+	}
 	block.fillHeader()
 	return block
 }

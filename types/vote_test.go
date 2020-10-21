@@ -232,6 +232,14 @@ func TestMaxVoteBytes(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.EqualValues(t, MaxVoteBytes, len(bz))
+
+	// MaxBlockVoteBytes does not take into account timestamp signature as this is
+	// not included in the block itself
+	vote.TimestampSignature = nil
+	bz, err = cdc.MarshalBinaryLengthPrefixed(vote)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, MaxBlockVoteBytes, len(bz))
 }
 
 func TestVoteString(t *testing.T) {

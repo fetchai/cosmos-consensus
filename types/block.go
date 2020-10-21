@@ -243,7 +243,7 @@ func MaxDataBytes(maxBytes int64, valsCount, evidenceCount int) int64 {
 	maxDataBytes := maxBytes -
 		MaxAminoOverheadForBlock -
 		MaxHeaderBytes -
-		int64(valsCount)*MaxVoteBytes -
+		int64(valsCount)*MaxBlockVoteBytes -
 		int64(evidenceCount)*MaxEvidenceBytes
 
 	if maxDataBytes < 0 {
@@ -823,7 +823,8 @@ func (commit *Commit) ValidateBasic() error {
 	return nil
 }
 
-// Hash returns the hash of the commit
+// Hash returns the hash of the commit. Don't include timestamp signature in
+// hash as this signature is not included in the block
 func (commit *Commit) Hash() tmbytes.HexBytes {
 	if commit == nil {
 		return nil
@@ -831,6 +832,7 @@ func (commit *Commit) Hash() tmbytes.HexBytes {
 	if commit.hash == nil {
 		bs := make([][]byte, len(commit.Signatures))
 		for i, commitSig := range commit.Signatures {
+			commitSig.TimestampSignature = nil
 			bs[i] = cdcEncode(commitSig)
 		}
 		commit.hash = merkle.SimpleHashFromByteSlices(bs)
