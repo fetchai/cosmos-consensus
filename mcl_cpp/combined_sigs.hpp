@@ -28,7 +28,7 @@ namespace beacon {
 // Combined signature class for combined signatures and outputting result
 class CombinedSignature {
 public:
-    CombinedSignature() = default;
+    CombinedSignature();
 
     bool Add(std::string const &signature);
     std::string Finish() const;
@@ -40,7 +40,7 @@ private:
 // Aggregate public key class for combining public keys for verifying combined signatures
 class CombinedPublicKey {
 public:
-    CombinedPublicKey() = default;
+    CombinedPublicKey();
 
     bool Add(std::string const &public_key);
     std::string Finish() const;
