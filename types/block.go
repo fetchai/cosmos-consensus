@@ -243,7 +243,7 @@ func MaxDataBytes(maxBytes int64, valsCount, evidenceCount int) int64 {
 	maxDataBytes := maxBytes -
 		MaxAminoOverheadForBlock -
 		MaxHeaderBytes -
-		int64(valsCount)*MaxVoteBytes -
+		int64(valsCount)*MaxBlockVoteBytes -
 		int64(evidenceCount)*MaxEvidenceBytes
 
 	if maxDataBytes < 0 {
@@ -536,10 +536,11 @@ const (
 
 // CommitSig is a part of the Vote included in a Commit.
 type CommitSig struct {
-	BlockIDFlag      BlockIDFlag `json:"block_id_flag"`
-	ValidatorAddress Address     `json:"validator_address"`
-	Timestamp        time.Time   `json:"timestamp"`
-	Signature        []byte      `json:"signature"`
+	BlockIDFlag        BlockIDFlag `json:"block_id_flag"`
+	ValidatorAddress   Address     `json:"validator_address"`
+	Timestamp          time.Time   `json:"timestamp"`
+	Signature          []byte      `json:"signature"`
+	TimestampSignature []byte      `json:"timestamp_signature"`
 }
 
 // NewCommitSigForBlock returns new CommitSig with BlockIDFlagCommit.
@@ -571,11 +572,12 @@ func (cs CommitSig) Absent() bool {
 }
 
 func (cs CommitSig) String() string {
-	return fmt.Sprintf("CommitSig{%X by %X on %v @ %s}",
+	return fmt.Sprintf("CommitSig{%X by %X on %v @ %s %X}",
 		tmbytes.Fingerprint(cs.Signature),
 		tmbytes.Fingerprint(cs.ValidatorAddress),
 		cs.BlockIDFlag,
-		CanonicalTime(cs.Timestamp))
+		CanonicalTime(cs.Timestamp),
+		cs.TimestampSignature)
 }
 
 // BlockID returns the Commit's BlockID if CommitSig indicates signing,
@@ -630,6 +632,9 @@ func (cs CommitSig) ValidateBasic() error {
 		if len(cs.Signature) > MaxSignatureSize {
 			return fmt.Errorf("signature is too big (max: %d)", MaxSignatureSize)
 		}
+		if len(cs.TimestampSignature) > MaxSignatureSize {
+			return fmt.Errorf("timestamp signature is too big (max: %d)", MaxSignatureSize)
+		}
 	}
 
 	return nil
@@ -642,10 +647,11 @@ func (cs *CommitSig) ToProto() *tmproto.CommitSig {
 	}
 
 	return &tmproto.CommitSig{
-		BlockIdFlag:      tmproto.BlockIDFlag(cs.BlockIDFlag),
-		ValidatorAddress: cs.ValidatorAddress,
-		Timestamp:        cs.Timestamp,
-		Signature:        cs.Signature,
+		BlockIdFlag:        tmproto.BlockIDFlag(cs.BlockIDFlag),
+		ValidatorAddress:   cs.ValidatorAddress,
+		Timestamp:          cs.Timestamp,
+		Signature:          cs.Signature,
+		TimestampSignature: cs.TimestampSignature,
 	}
 }
 
@@ -657,6 +663,7 @@ func (cs *CommitSig) FromProto(csp tmproto.CommitSig) error {
 	cs.ValidatorAddress = csp.ValidatorAddress
 	cs.Timestamp = csp.Timestamp
 	cs.Signature = csp.Signature
+	cs.TimestampSignature = csp.TimestampSignature
 
 	return cs.ValidateBasic()
 }
@@ -715,14 +722,15 @@ func CommitToVoteSet(chainID string, commit *Commit, vals *ValidatorSet) *VoteSe
 func (commit *Commit) GetVote(valIdx int) *Vote {
 	commitSig := commit.Signatures[valIdx]
 	return &Vote{
-		Type:             PrecommitType,
-		Height:           commit.Height,
-		Round:            commit.Round,
-		BlockID:          commitSig.BlockID(commit.BlockID),
-		Timestamp:        commitSig.Timestamp,
-		ValidatorAddress: commitSig.ValidatorAddress,
-		ValidatorIndex:   valIdx,
-		Signature:        commitSig.Signature,
+		Type:               PrecommitType,
+		Height:             commit.Height,
+		Round:              commit.Round,
+		BlockID:            commitSig.BlockID(commit.BlockID),
+		Timestamp:          commitSig.Timestamp,
+		ValidatorAddress:   commitSig.ValidatorAddress,
+		ValidatorIndex:     valIdx,
+		Signature:          commitSig.Signature,
+		TimestampSignature: commitSig.TimestampSignature,
 	}
 }
 
@@ -815,7 +823,8 @@ func (commit *Commit) ValidateBasic() error {
 	return nil
 }
 
-// Hash returns the hash of the commit
+// Hash returns the hash of the commit. Don't include timestamp signature in
+// hash as this signature is not included in the block
 func (commit *Commit) Hash() tmbytes.HexBytes {
 	if commit == nil {
 		return nil
@@ -823,6 +832,7 @@ func (commit *Commit) Hash() tmbytes.HexBytes {
 	if commit.hash == nil {
 		bs := make([][]byte, len(commit.Signatures))
 		for i, commitSig := range commit.Signatures {
+			commitSig.TimestampSignature = nil
 			bs[i] = cdcEncode(commitSig)
 		}
 		commit.hash = merkle.SimpleHashFromByteSlices(bs)

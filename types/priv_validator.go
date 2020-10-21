@@ -88,6 +88,13 @@ func (pv MockPV) SignVote(chainID string, vote *Vote) error {
 		return err
 	}
 	vote.Signature = sig
+	// Sign timestamp
+	signBytes = vote.SignTimestamp(useChainID)
+	timestampSig, err := pv.PrivKey.Sign(signBytes)
+	if err != nil {
+		return err
+	}
+	vote.TimestampSignature = timestampSig
 	return nil
 }
 
