@@ -134,14 +134,14 @@ func GenPrivKey() (ret PrivKeyBls) {
 
 	//fmt.Printf("Starting test.\n") // DELETEME_NH
 
-	pubKey := ret.PubKey()
+	//pubKey := ret.PubKey()
 
 	//fmt.Printf("pubkey %v\n", pubKey) // DELETEME_NH
 
-	msg := []byte("one two")
+	//msg := []byte("one two")
 
-	sig, _ := ret.Sign(msg)
-
+	//sig, _ := ret.Sign(msg)
+//
 	//fmt.Printf("response after test: %v\n", pubKey.VerifyBytes(msg, sig)) // DELETEME_NH
 
 	return
