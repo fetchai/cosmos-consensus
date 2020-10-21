@@ -168,6 +168,7 @@ func (vote *Vote) ValidateBasic() error {
 		return errors.New("signature is missing")
 	}
 	if len(vote.Signature) > MaxSignatureSize {
+		//fmt.Printf("gotb %v\n", vote.Signature) // DELETEME_NH
 		return fmt.Errorf("signature is too big (max: %d)", MaxSignatureSize)
 	}
 	return nil

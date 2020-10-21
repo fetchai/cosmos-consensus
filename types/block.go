@@ -628,6 +628,7 @@ func (cs CommitSig) ValidateBasic() error {
 			return errors.New("signature is missing")
 		}
 		if len(cs.Signature) > MaxSignatureSize {
+			//fmt.Printf("gotc %v\n", len(cs.Signature)) // DELETEME_NH
 			return fmt.Errorf("signature is too big (max: %d)", MaxSignatureSize)
 		}
 	}
