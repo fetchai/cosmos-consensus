@@ -566,11 +566,13 @@ func deepcpVote(vote *types.Vote) (res *types.Vote) {
 			Hash:        make([]byte, len(vote.BlockID.Hash)),
 			PartsHeader: vote.BlockID.PartsHeader,
 		},
-		Signature: make([]byte, len(vote.Signature)),
+		Signature:          make([]byte, len(vote.Signature)),
+		TimestampSignature: make([]byte, len(vote.TimestampSignature)),
 	}
 	copy(res.ValidatorAddress, vote.ValidatorAddress)
 	copy(res.BlockID.Hash, vote.BlockID.Hash)
 	copy(res.Signature, vote.Signature)
+	copy(res.TimestampSignature, vote.TimestampSignature)
 	return
 }
 
@@ -612,6 +614,7 @@ func makeEvidences(
 
 	var err error
 	vote.Signature, err = val.Key.PrivKey.Sign(vote.SignBytes(chainID))
+	vote.TimestampSignature, err = val.Key.PrivKey.Sign(vote.SignTimestamp(chainID))
 	require.NoError(t, err)
 
 	vote2 := deepcpVote(vote)

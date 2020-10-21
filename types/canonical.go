@@ -33,10 +33,14 @@ type CanonicalProposal struct {
 }
 
 type CanonicalVote struct {
-	Type      SignedMsgType // type alias for byte
-	Height    int64         `binary:"fixed64"`
-	Round     int64         `binary:"fixed64"`
-	BlockID   CanonicalBlockID
+	Type    SignedMsgType // type alias for byte
+	Height  int64         `binary:"fixed64"`
+	Round   int64         `binary:"fixed64"`
+	BlockID CanonicalBlockID
+	ChainID string
+}
+
+type CanonicalTimestamp struct {
 	Timestamp time.Time
 	ChainID   string
 }
@@ -72,11 +76,17 @@ func CanonicalizeProposal(chainID string, proposal *Proposal) CanonicalProposal 
 
 func CanonicalizeVote(chainID string, vote *Vote) CanonicalVote {
 	return CanonicalVote{
-		Type:      vote.Type,
-		Height:    vote.Height,
-		Round:     int64(vote.Round), // cast int->int64 to make amino encode it fixed64 (does not work for int)
-		BlockID:   CanonicalizeBlockID(vote.BlockID),
-		Timestamp: vote.Timestamp,
+		Type:    vote.Type,
+		Height:  vote.Height,
+		Round:   int64(vote.Round), // cast int->int64 to make amino encode it fixed64 (does not work for int)
+		BlockID: CanonicalizeBlockID(vote.BlockID),
+		ChainID: chainID,
+	}
+}
+
+func CanonicalizeTimestamp(chainID string, timestamp time.Time) CanonicalTimestamp {
+	return CanonicalTimestamp{
+		Timestamp: timestamp,
 		ChainID:   chainID,
 	}
 }
