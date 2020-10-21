@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	bits "github.com/tendermint/tendermint/libs/bits"
 	"github.com/tendermint/tendermint/mcl_cpp"
 	"github.com/tendermint/tendermint/types"
 )
@@ -170,6 +171,67 @@ func TestHonestDkg(t *testing.T) {
 		assert.True(t, outputs[index].VerifyGroupSignature(message, groupSig))
 	}
 
+}
+
+func TestSign(t *testing.T) {
+	privKeyString := mcl_cpp.GenPrivKey()
+
+	generator := "Test Generator"
+	pubKey := mcl_cpp.PubKeyFromPrivate(privKeyString, generator)
+	assert.True(t, len(pubKey) != 0)
+
+	message := "Test Message"
+	sign := mcl_cpp.Sign(message, privKeyString)
+	assert.True(t, len(sign) != 0)
+	assert.True(t, mcl_cpp.PairingVerify(message, sign, pubKey, generator))
+}
+
+// Verify proof of posession generated is valid
+func TestProofOfPossession(t *testing.T) {
+	privKeyString := mcl_cpp.GenPrivKey()
+
+	generator := "Test Generator"
+	pubKeyWithPoP := mcl_cpp.NewStringPair()
+	defer mcl_cpp.DeleteStringPair(pubKeyWithPoP)
+	pubKeyWithPoP = mcl_cpp.PubKeyFromPrivateWithPoP(privKeyString, generator)
+
+	assert.True(t, mcl_cpp.PairingVerify(pubKeyWithPoP.GetFirst(), pubKeyWithPoP.GetSecond(), pubKeyWithPoP.GetFirst(),
+		generator))
+}
+
+func TestCombinedSignatures(t *testing.T) {
+	nVals := 10
+	signerRecord := bits.NewBitArray(nVals)
+	generator := "Test Generator"
+
+	privKeyStrs := make([]string, nVals)
+	publicKeyStrs := make([]string, nVals)
+	for i := 0; i < nVals; i++ {
+		privKeyStrs[i] = mcl_cpp.GenPrivKey()
+		publicKeyStrs[i] = mcl_cpp.PubKeyFromPrivate(privKeyStrs[i], generator)
+	}
+
+	message := "Test Message"
+	signatureStrs := make(map[int]string, 0)
+	for i := 0; i < nVals; i++ {
+		if i == 0 {
+			signerRecord.SetIndex(i, true)
+			signatureStrs[i] = mcl_cpp.Sign(message, privKeyStrs[i])
+			assert.True(t, len(signatureStrs[i]) != 0)
+			assert.True(t, mcl_cpp.PairingVerify(message, signatureStrs[i], publicKeyStrs[i], generator))
+		}
+	}
+
+	combinedSig := mcl_cpp.NewCombinedSignature()
+	combinedPubKey := mcl_cpp.NewCombinedPublicKey()
+	for i := 0; i < nVals; i++ {
+		if signerRecord.GetIndex(i) {
+			assert.True(t, combinedSig.Add(signatureStrs[i]))
+			assert.True(t, combinedPubKey.Add(publicKeyStrs[i]))
+		}
+	}
+
+	assert.True(t, mcl_cpp.PairingVerify(message, combinedSig.Finish(), combinedPubKey.Finish(), generator))
 }
 
 func testAeonFromFile(filename string) mcl_cpp.BaseAeon {

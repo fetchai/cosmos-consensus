@@ -25,6 +25,13 @@
 namespace fetch {
 namespace beacon {
 
+// Constructor for combined signature should set the string to the serialisation
+// of the zero of signature element
+CombinedSignature::CombinedSignature() {
+    mcl::Signature sig;
+    combined_signature_ = sig.ToString();
+}
+
 // Adds a signature to the saved combined signature string. Returns whether the signature
 // was added or not.
 bool CombinedSignature::Add(std::string const &signature) {
@@ -46,6 +53,13 @@ bool CombinedSignature::Add(std::string const &signature) {
 
 std::string CombinedSignature::Finish() const {
     return combined_signature_;
+}
+
+// Constructor for combined public key should set the string to the serialisation
+// of the zero of public key element
+CombinedPublicKey::CombinedPublicKey() {
+    mcl::GroupPublicKey pub_key;
+    combined_key_ = pub_key.ToString();
 }
 
 // Adds a signature to the saved combined public key string. Returns whether the public key
