@@ -81,7 +81,7 @@ func (privKey PrivKeyBls) Sign(msg []byte) (ret []byte, err error) {
 		return ret, errors.New("Attempt to sign an empty message is invalid")
 	}
 
-	fmt.Printf("Signing: msg %v res: %v priv: %v \n", msg, []byte(sig), privKey) // DELETEME_NH
+	//fmt.Printf("Signing: msg %v res: %v priv: %v \n", msg, []byte(sig), privKey) // DELETEME_NH
 
 	return []byte(sig), nil
 }
@@ -102,7 +102,7 @@ func (privKey PrivKeyBls) PubKey() (ret crypto.PubKey) {
 
 	copy(newKey[:], pubKey[:])
 
-	fmt.Printf("inferred pub key from priv. recvd: %v \n =%v=\nY%vY\n", newKey, pubKey, privKey) // DELETEME_NH
+	//fmt.Printf("inferred pub key from priv. recvd: %v \n =%v=\nY%vY\n", newKey, pubKey, privKey) // DELETEME_NH
 
 	return newKey
 }
@@ -128,21 +128,21 @@ func GenPrivKey() (ret PrivKeyBls) {
 
 	copy(ret[:], privKey)
 
-	fmt.Printf("Generating new private key!\n%v\n%v\n", privKey, ret.String()) // DELETEME_NH
+	//fmt.Printf("Generating new private key!\n%v\n%v\n", privKey, ret.String()) // DELETEME_NH
 
-	fmt.Printf("len is %v key: %v\n", len(privKey), len(ret)) // DELETEME_NH
+	//fmt.Printf("len is %v key: %v\n", len(privKey), len(ret)) // DELETEME_NH
 
-	fmt.Printf("Starting test.\n") // DELETEME_NH
+	//fmt.Printf("Starting test.\n") // DELETEME_NH
 
 	pubKey := ret.PubKey()
 
-	fmt.Printf("pubkey %v\n", pubKey) // DELETEME_NH
+	//fmt.Printf("pubkey %v\n", pubKey) // DELETEME_NH
 
 	msg := []byte("one two")
 
 	sig, _ := ret.Sign(msg)
 
-	fmt.Printf("response after test: %v\n", pubKey.VerifyBytes(msg, sig)) // DELETEME_NH
+	//fmt.Printf("response after test: %v\n", pubKey.VerifyBytes(msg, sig)) // DELETEME_NH
 
 	return
 }
@@ -173,9 +173,9 @@ type PubKeyBls [PubKeyBlsSize]byte
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
 	result := mcl_cpp.PairingVerify(string(msg), string(sig), pubKey.RawString(), fetchGenerator)
-	fmt.Printf("verifying bytes. Returning true, answer would have been : %v\n", result) // DELETEME_NH
-	fmt.Printf("Inputs: msg %v sig %v \n", msg, sig) // DELETEME_NH
-	return true
+	//fmt.Printf("verifying bytes. Returning true, answer would have been : %v\n", result) // DELETEME_NH
+	//fmt.Printf("Inputs: msg %v sig %v \n", msg, sig) // DELETEME_NH
+	return result
 }
 
 // Address returns a Bitcoin style addresses: RIPEMD160(SHA256(pubkey))
