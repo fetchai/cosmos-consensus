@@ -51,6 +51,8 @@ enum class DKGMessageType : uint8_t
 
 std::string MutateMsg(std::string msg, DKGMessageType type, Failure failure);
 
+// Used for generate test keys of BLS type
+void TrustedDealer(uint32_t cabinet_size, uint32_t threshold, std::string const &output_dir);
 
 }  // beacon
 }  // fetch

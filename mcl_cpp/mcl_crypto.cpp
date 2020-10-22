@@ -18,10 +18,19 @@
 
 #include "mcl_crypto.hpp"
 
+#include <iostream>
+
 namespace fetch {
 namespace beacon {
 namespace mcl {
 
+// IOMODE 2048 corresponds to printable hex string, seems to be the most stable
+// of the more compact modes. 0 is the default corresponding dec representation.
+const int PRIVATE_KEY_IOMODE = 2048; // Choose 32 for more compact private key
+const int EC_IOMODE = 2048; // Choose 512 for compressed public key and sigs
+const size_t PRIVATE_KEY_SIZE = 64;  // If more compact then should be 32
+const size_t PUBLIC_KEY_SIZE  = 192; // If compressed then should be 96
+const size_t SIGNATURE_SIZE   = 96;  // If compressed then should be 48
 std::atomic<bool> details::MCLInitialiser::was_initialised{false};
 
 PrivateKey::PrivateKey() {
@@ -42,12 +51,15 @@ void PrivateKey::Increment() {
 }
 
 std::string PrivateKey::ToString() const {
-  return getStr();
+  std::string ret;
+  ret.resize(PRIVATE_KEY_SIZE);
+  auto n = getStr(&ret[0], PRIVATE_KEY_SIZE, PRIVATE_KEY_IOMODE);
+  return ret;
 }
 
 bool PrivateKey::FromString(const std::string &s) {
   bool set{false};
-  setStr(&set, s.data());
+  setStr(&set, s.data(), PRIVATE_KEY_IOMODE);
   return set;
 }
 
@@ -100,7 +112,7 @@ void Signature::SetZero() {
 
 bool Signature::FromString(const std::string &s) {
   bool set{false};
-  setStr(&set, s.data());
+  setStr(&set, s.data(), EC_IOMODE);
   return set;
 }
 
@@ -119,7 +131,10 @@ void Signature::HashAndMap(const std::string &payload) {
 }
 
 std::string Signature::ToString() const {
-  return getStr();
+  std::string ret;
+  ret.resize(SIGNATURE_SIZE);
+  auto n = getStr(&ret[0], SIGNATURE_SIZE, EC_IOMODE);
+  return ret;
 }
 
 GroupPublicKey::GroupPublicKey() {
@@ -132,7 +147,7 @@ void GroupPublicKey::SetZero() {
 
 bool GroupPublicKey::FromString(const std::string &s) {
   bool set{false};
-  setStr(&set, s.data());
+  setStr(&set, s.data(), EC_IOMODE);
   return set;
 }
 
@@ -149,7 +164,10 @@ void GroupPublicKey::HashAndMap(const std::string &payload) {
 }
 
 std::string GroupPublicKey::ToString() const {
-  return getStr();
+  std::string ret;
+  ret.resize(PUBLIC_KEY_SIZE);
+  auto n = getStr(&ret[0], PUBLIC_KEY_SIZE, EC_IOMODE);
+  return ret;
 }
 
 Pairing::Pairing() {

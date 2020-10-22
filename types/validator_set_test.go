@@ -597,7 +597,7 @@ func TestValidatorSet_VerifyCommit_All(t *testing.T) {
 
 	vote := examplePrecommit()
 	vote.ValidatorAddress = pubKey.Address()
-	sig, err := privKey.Sign(vote.SignBytes(chainID))
+	sig, err := privKey.Sign(vote.SignBytes(VotePrefix(chainID, vset.Hash())))
 	assert.NoError(t, err)
 	vote.Signature = sig
 
@@ -674,7 +674,7 @@ func TestValidatorSet_VerifyCommit_CheckAllSignatures(t *testing.T) {
 
 	// malleate 4th signature
 	vote := voteSet.GetByIndex(3)
-	err = vals[3].SignVote("CentaurusA", vote)
+	err = vals[3].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
 	commit.Signatures[3] = vote.CommitSig()
 
@@ -697,7 +697,7 @@ func TestValidatorSet_VerifyCommitLight_ReturnsAsSoonAsMajorityOfVotingPowerSign
 
 	// malleate 4th signature (3 signatures are enough for 2/3+)
 	vote := voteSet.GetByIndex(3)
-	err = vals[3].SignVote("CentaurusA", vote)
+	err = vals[3].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
 	commit.Signatures[3] = vote.CommitSig()
 
@@ -718,11 +718,11 @@ func TestValidatorSet_VerifyCommitLightTrusting_ReturnsAsSoonAsTrustLevelOfVotin
 
 	// malleate 3rd signature (2 signatures are enough for 1/3+ trust level)
 	vote := voteSet.GetByIndex(2)
-	err = vals[2].SignVote("CentaurusA", vote)
+	err = vals[2].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
 	commit.Signatures[2] = vote.CommitSig()
 
-	err = valSet.VerifyCommitLightTrusting(chainID, blockID, h, commit, tmmath.Fraction{Numerator: 1, Denominator: 3})
+	err = valSet.VerifyCommitLightTrusting(VotePrefix(chainID, valSet.Hash()), blockID, h, commit, tmmath.Fraction{Numerator: 1, Denominator: 3})
 	assert.NoError(t, err)
 }
 
@@ -1441,7 +1441,7 @@ func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err = tc.valSet.VerifyCommitLightTrusting("test_chain_id", blockID, commit.Height, commit,
+		err = tc.valSet.VerifyCommitLightTrusting(VotePrefix("test_chain_id", originalValset.Hash()), blockID, commit.Height, commit,
 			tmmath.Fraction{Numerator: 1, Denominator: 3})
 		if tc.err {
 			assert.Error(t, err)

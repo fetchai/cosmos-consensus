@@ -12,6 +12,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	bits "github.com/tendermint/tendermint/libs/bits"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/types"
 )
@@ -95,7 +96,7 @@ type DistributedKeyGeneration struct {
 	startHeight   int64
 	states        map[dkgState]*state
 	currentState  dkgState
-	beaconService BeaconSetupService
+	beaconService mcl_cpp.BeaconSetupService
 
 	earlySecretShares map[uint]string
 	dryRunKeys        map[string]DKGOutput
@@ -146,7 +147,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	dkg.BaseService = *service.NewBaseService(nil, "DKG", dkg)
 
 	if dkg.index() >= 0 {
-		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
+		dkg.beaconService = mcl_cpp.NewBeaconSetupService(uint(len(dkg.validators.Validators)), uint(dkg.threshold), uint(dkg.index()))
 	}
 	// Set validator address to index
 	for index, val := range dkg.validators.Validators {
@@ -165,7 +166,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
 	// Free beacon setup service when DKG is garbage collected
 	runtime.SetFinalizer(dkg,
 		func(dkg *DistributedKeyGeneration) {
-			DeleteBeaconSetupService(dkg.beaconService)
+			mcl_cpp.DeleteBeaconSetupService(dkg.beaconService)
 		})
 
 	return dkg
@@ -272,8 +273,8 @@ func (dkg *DistributedKeyGeneration) OnReset() error {
 	}
 	// Reset beaconService
 	if dkg.index() >= 0 {
-		DeleteBeaconSetupService(dkg.beaconService)
-		dkg.beaconService = NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(dkg.index()))
+		mcl_cpp.DeleteBeaconSetupService(dkg.beaconService)
+		dkg.beaconService = mcl_cpp.NewBeaconSetupService(uint(len(dkg.valToIndex)), dkg.threshold, uint(dkg.index()))
 		dkg.setStates()
 	}
 	// Reset dkg details
@@ -691,12 +692,16 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	// Check signatures with keys that have over threshold signature shares
-	signatureShares := NewIntStringMap()
-	defer DeleteIntStringMap(signatureShares)
+	signatureShares := mcl_cpp.NewIntStringMap()
+	defer mcl_cpp.DeleteIntStringMap(signatureShares)
 	aeonFile := &AeonDetailsFile{
 		PublicInfo: dkg.dryRunKeys[encodedOutput],
 	}
-	tempKeys := loadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
+	tempKeys, err := loadAeonDetails(aeonFile, &dkg.validators, dkg.privValidator)
+	if err != nil {
+		dkg.Logger.Error("checkDryRuns: error loading dry run aeon", "err", err)
+		return false
+	}
 	for address, signature := range dkg.dryRunSignatures[encodedOutput] {
 		index, _ := tempKeys.validators.GetByAddress(crypto.Address(address))
 		if index < 0 {
@@ -793,6 +798,43 @@ func (dkg *DistributedKeyGeneration) shouldSubmitEvidence(index int) bool {
 	default:
 		return false
 	}
+}
+
+//-------------------------------------------------------------------------------------------
+
+// DKGOutput is struct for broadcasting dkg completion info
+type DKGOutput struct {
+	KeyType         string   `json:"key_type"`
+	GroupPublicKey  string   `json:"group_public_key"`
+	PublicKeyShares []string `json:"public_key_shares"`
+	Generator       string   `json:"generator"`
+	ValidatorHeight int64    `json:"validator_height"`
+	DKGID           int64    `json:"dkg_id"`
+	Qual            []int64  `json:"qual"`
+	Start           int64    `json:"start"`
+	End             int64    `json:"end"`
+}
+
+// ValidateBasic for basic validity checking of dkg output
+func (output *DKGOutput) ValidateBasic() error {
+	if len(output.GroupPublicKey) != 0 {
+		if len(output.Generator) == 0 {
+			return fmt.Errorf("Empty generator")
+		}
+		if len(output.Qual) == 0 || len(output.Qual) > len(output.PublicKeyShares) {
+			return fmt.Errorf("Qual size %v invalid. Expected non-zero qual less than public key shares %v", len(output.Qual), len(output.PublicKeyShares))
+		}
+	}
+	if output.ValidatorHeight <= 0 {
+		return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
+	}
+	if output.DKGID < 0 {
+		return fmt.Errorf("Invalid dkg id %v", output.DKGID)
+	}
+	if output.Start <= 0 || output.End < output.Start {
+		return fmt.Errorf("Invalid start %v or end %v", output.Start, output.End)
+	}
+	return nil
 }
 
 //-------------------------------------------------------------------------------------------

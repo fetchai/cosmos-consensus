@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	bits "github.com/tendermint/tendermint/libs/bits"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -21,8 +23,8 @@ func TestCryptoSign(t *testing.T) {
 	assert.True(t, aeonExecUnit.Verify(message, signature, uint(0)))
 
 	// Collect signatures in map
-	signatureShares := NewIntStringMap()
-	defer DeleteIntStringMap(signatureShares)
+	signatureShares := mcl_cpp.NewIntStringMap()
+	defer mcl_cpp.DeleteIntStringMap(signatureShares)
 	signatureShares.Set(0, signature)
 
 	// Create aeon keys for each cabinet member and entropy generators
@@ -52,9 +54,9 @@ func TestHonestDkg(t *testing.T) {
 	threshold := uint(2)
 
 	// Set up two honest beacon managers
-	beaconManagers := make([]BeaconSetupService, cabinetSize)
+	beaconManagers := make([]mcl_cpp.BeaconSetupService, cabinetSize)
 	for index := uint(0); index < cabinetSize; index++ {
-		beaconManagers[index] = NewBeaconSetupService(cabinetSize, threshold, index)
+		beaconManagers[index] = mcl_cpp.NewBeaconSetupService(cabinetSize, threshold, index)
 	}
 
 	// Distribute shares
@@ -143,7 +145,7 @@ func TestHonestDkg(t *testing.T) {
 		}
 	}
 
-	outputs := make([]BaseAeon, cabinetSize)
+	outputs := make([]mcl_cpp.BaseAeon, cabinetSize)
 	// Check every one has received all required coefficients and shares
 	for index := uint(0); index < cabinetSize; index++ {
 		assert.True(t, beaconManagers[index].ReceivedAllReconstructionShares())
@@ -153,8 +155,8 @@ func TestHonestDkg(t *testing.T) {
 
 	// Check all group public keys agree with threshold signing
 	message := "TestMessage"
-	sigShares := NewIntStringMap()
-	defer DeleteIntStringMap(sigShares)
+	sigShares := mcl_cpp.NewIntStringMap()
+	defer mcl_cpp.DeleteIntStringMap(sigShares)
 	for index := uint(0); index < cabinetSize; index++ {
 		signature := outputs[index].Sign(message, index)
 		for index1 := uint(0); index1 < cabinetSize; index1++ {
@@ -171,7 +173,68 @@ func TestHonestDkg(t *testing.T) {
 
 }
 
-func testAeonFromFile(filename string) BaseAeon {
+func TestSign(t *testing.T) {
+	privKeyString := mcl_cpp.GenPrivKey()
+
+	generator := "Test Generator"
+	pubKey := mcl_cpp.PubKeyFromPrivate(privKeyString, generator)
+	assert.True(t, len(pubKey) != 0)
+
+	message := "Test Message"
+	sign := mcl_cpp.Sign(message, privKeyString)
+	assert.True(t, len(sign) != 0)
+	assert.True(t, mcl_cpp.PairingVerify(message, sign, pubKey, generator))
+}
+
+// Verify proof of posession generated is valid
+func TestProofOfPossession(t *testing.T) {
+	privKeyString := mcl_cpp.GenPrivKey()
+
+	generator := "Test Generator"
+	pubKeyWithPoP := mcl_cpp.NewStringPair()
+	defer mcl_cpp.DeleteStringPair(pubKeyWithPoP)
+	pubKeyWithPoP = mcl_cpp.PubKeyFromPrivateWithPoP(privKeyString, generator)
+
+	assert.True(t, mcl_cpp.PairingVerify(pubKeyWithPoP.GetFirst(), pubKeyWithPoP.GetSecond(), pubKeyWithPoP.GetFirst(),
+		generator))
+}
+
+func TestCombinedSignatures(t *testing.T) {
+	nVals := 10
+	signerRecord := bits.NewBitArray(nVals)
+	generator := "Test Generator"
+
+	privKeyStrs := make([]string, nVals)
+	publicKeyStrs := make([]string, nVals)
+	for i := 0; i < nVals; i++ {
+		privKeyStrs[i] = mcl_cpp.GenPrivKey()
+		publicKeyStrs[i] = mcl_cpp.PubKeyFromPrivate(privKeyStrs[i], generator)
+	}
+
+	message := "Test Message"
+	signatureStrs := make(map[int]string, 0)
+	for i := 0; i < nVals; i++ {
+		if i == 0 {
+			signerRecord.SetIndex(i, true)
+			signatureStrs[i] = mcl_cpp.Sign(message, privKeyStrs[i])
+			assert.True(t, len(signatureStrs[i]) != 0)
+			assert.True(t, mcl_cpp.PairingVerify(message, signatureStrs[i], publicKeyStrs[i], generator))
+		}
+	}
+
+	combinedSig := mcl_cpp.NewCombinedSignature()
+	combinedPubKey := mcl_cpp.NewCombinedPublicKey()
+	for i := 0; i < nVals; i++ {
+		if signerRecord.GetIndex(i) {
+			assert.True(t, combinedSig.Add(signatureStrs[i]))
+			assert.True(t, combinedPubKey.Add(publicKeyStrs[i]))
+		}
+	}
+
+	assert.True(t, mcl_cpp.PairingVerify(message, combinedSig.Finish(), combinedPubKey.Finish(), generator))
+}
+
+func testAeonFromFile(filename string) mcl_cpp.BaseAeon {
 	//Aeon type here must match those in key files
-	return NewBlsAeon(filename)
+	return mcl_cpp.NewBlsAeon(filename)
 }

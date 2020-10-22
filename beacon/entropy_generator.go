@@ -17,6 +17,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 )
@@ -191,7 +192,10 @@ func (entropyGenerator *EntropyGenerator) LoadEntropyKeyFiles(db dbm.DB, privVal
 
 					if err1 == nil {
 						// Push the complete aeon into the entropy generator
-						nextAeonDetails := loadAeonDetails(aeonFile, vals, privValidator)
+						nextAeonDetails, err := loadAeonDetails(aeonFile, vals, privValidator)
+						if err != nil {
+							return nil, errors.Wrap(err, fmt.Sprintf("error loading aeon file %v", aeonFile))
+						}
 						if aeonDetails != nil && aeonDetails.End > nextAeonDetails.End {
 							return nil, fmt.Errorf("File %v contains out of order aeon keys. Previous aeon end %v, next aeon end %v",
 								fileToLoad, aeonDetails.End, nextAeonDetails.End)
@@ -609,8 +613,8 @@ func (entropyGenerator *EntropyGenerator) checkForNewEntropy() (bool, *types.Cha
 	}
 	if len(entropyGenerator.entropyShares[height]) >= entropyGenerator.aeon.threshold {
 		message := string(tmhash.Sum(entropyGenerator.entropyComputed[entropyGenerator.lastComputedEntropyHeight]))
-		signatureShares := NewIntStringMap()
-		defer DeleteIntStringMap(signatureShares)
+		signatureShares := mcl_cpp.NewIntStringMap()
+		defer mcl_cpp.DeleteIntStringMap(signatureShares)
 
 		for key, share := range entropyGenerator.entropyShares[height] {
 			signatureShares.Set(key, share.SignatureShare)
