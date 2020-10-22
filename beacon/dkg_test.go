@@ -297,97 +297,97 @@ func TestDKGScenarios(t *testing.T) {
 	}
 }
 
-// Test dkg submits evidence on failing at encryption and qual stage
-func TestDKGEvidenceHandling(t *testing.T) {
-	testCases := []struct {
-		testName    string
-		failures    func([]*testNode)
-		nVals       int
-		nSentries   int
-		numEvidence int
-	}{
-		{"All honest", func([]*testNode) {}, 4, 1, 0},
-		{"Fail encryption keys", func(nodes []*testNode) {
-			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, withholdEncryptionKey)
-		}, 4, 0, 1},
-		{"Fail qual", func(nodes []*testNode) {
-			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badCoefficient)
-			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badCoefficient)
-		}, 4, 0, 2},
-	}
-	for _, tc := range testCases {
-
-		t.Run(tc.testName, func(t *testing.T) {
-			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, false)
-			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
-			cppLogger.Start()
-
-			nTotal := tc.nVals + tc.nSentries
-			honestEvidenceCount := 0
-			nodes[0].dkg.evidenceHandler = func(*types.DKGEvidence) {
-				honestEvidenceCount++
-			}
-			// Stop after first dkg failure
-			for index := 0; index < nTotal; index++ {
-				node := nodes[index]
-				node.dkg.onFailState = func(blockHeight int64) {
-					node.dkg.proceedToNextState(dkgFinish, true, blockHeight)
-				}
-			}
-
-			// Set node failures
-			tc.failures(nodes)
-
-			// Start all nodes
-			blockHeight := int64(10)
-			for _, node := range nodes {
-				assert.True(t, !node.dkg.IsRunning())
-				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
-				assert.True(t, node.dkg.IsRunning())
-				node.clearMsgs()
-			}
-
-			for nodesFinished := 0; nodesFinished < nTotal; {
-				blockHeight++
-				currentMsgs := make([]*types.DKGMessage, 0)
-				for _, node := range nodes {
-					currentMsgs = append(currentMsgs, node.currentMsgs...)
-				}
-				for _, node := range nodes {
-					node.dkg.OnBlock(blockHeight, currentMsgs)
-					node.clearMsgs()
-				}
-
-				nodesFinished = 0
-				for _, node := range nodes {
-					if node.dkg.dkgIteration >= 1 {
-						t.Log("Test failed: dkg iteration exceeded 1")
-						t.FailNow()
-					}
-					if node.dkg.currentState == dkgFinish {
-						nodesFinished++
-					}
-				}
-			}
-
-			// Wait for all dkgs to stop running
-			assert.Eventually(t, func() bool {
-				running := 0
-				for index := 0; index < nTotal; index++ {
-					if nodes[index].dkg.IsRunning() {
-						running++
-					}
-				}
-				return running == 0
-			}, 1*time.Second, 100*time.Millisecond)
-
-			// Check correct number of evidence was generated
-			assert.Equal(t, tc.numEvidence, honestEvidenceCount)
-
-			cppLogger.Stop()
-		})
-	}
-}
+//// Test dkg submits evidence on failing at encryption and qual stage
+//func TestDKGEvidenceHandling(t *testing.T) {
+//	testCases := []struct {
+//		testName    string
+//		failures    func([]*testNode)
+//		nVals       int
+//		nSentries   int
+//		numEvidence int
+//	}{
+//		{"All honest", func([]*testNode) {}, 4, 1, 0},
+//		{"Fail encryption keys", func(nodes []*testNode) {
+//			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, withholdEncryptionKey)
+//		}, 4, 0, 1},
+//		{"Fail qual", func(nodes []*testNode) {
+//			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badCoefficient)
+//			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badCoefficient)
+//		}, 4, 0, 2},
+//	}
+//	for _, tc := range testCases {
+//
+//		t.Run(tc.testName, func(t *testing.T) {
+//			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, false)
+//			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
+//			cppLogger.Start()
+//
+//			nTotal := tc.nVals + tc.nSentries
+//			honestEvidenceCount := 0
+//			nodes[0].dkg.evidenceHandler = func(*types.DKGEvidence) {
+//				honestEvidenceCount++
+//			}
+//			// Stop after first dkg failure
+//			for index := 0; index < nTotal; index++ {
+//				node := nodes[index]
+//				node.dkg.onFailState = func(blockHeight int64) {
+//					node.dkg.proceedToNextState(dkgFinish, true, blockHeight)
+//				}
+//			}
+//
+//			// Set node failures
+//			tc.failures(nodes)
+//
+//			// Start all nodes
+//			blockHeight := int64(10)
+//			for _, node := range nodes {
+//				assert.True(t, !node.dkg.IsRunning())
+//				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+//				assert.True(t, node.dkg.IsRunning())
+//				node.clearMsgs()
+//			}
+//
+//			for nodesFinished := 0; nodesFinished < nTotal; {
+//				blockHeight++
+//				currentMsgs := make([]*types.DKGMessage, 0)
+//				for _, node := range nodes {
+//					currentMsgs = append(currentMsgs, node.currentMsgs...)
+//				}
+//				for _, node := range nodes {
+//					node.dkg.OnBlock(blockHeight, currentMsgs)
+//					node.clearMsgs()
+//				}
+//
+//				nodesFinished = 0
+//				for _, node := range nodes {
+//					if node.dkg.dkgIteration >= 1 {
+//						t.Log("Test failed: dkg iteration exceeded 1")
+//						t.FailNow()
+//					}
+//					if node.dkg.currentState == dkgFinish {
+//						nodesFinished++
+//					}
+//				}
+//			}
+//
+//			// Wait for all dkgs to stop running
+//			assert.Eventually(t, func() bool {
+//				running := 0
+//				for index := 0; index < nTotal; index++ {
+//					if nodes[index].dkg.IsRunning() {
+//						running++
+//					}
+//				}
+//				return running == 0
+//			}, 1*time.Second, 100*time.Millisecond)
+//
+//			// Check correct number of evidence was generated
+//			assert.Equal(t, tc.numEvidence, honestEvidenceCount)
+//
+//			cppLogger.Stop()
+//		})
+//	}
+//}
 
 // Test MaxDKGDataSize is large enough for the dry run messages for committee of size 200
 func TestDKGMessageMaxDataSize(t *testing.T) {
