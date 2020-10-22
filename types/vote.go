@@ -146,9 +146,9 @@ func (vote *Vote) Verify(chainID string, pubKey crypto.PubKey) error {
 		return ErrVoteInvalidSignature
 	}
 
-	if !pubKey.VerifyBytes(vote.SignTimestamp(chainID), vote.TimestampSignature) {
-		return ErrVoteInvalidTimestampSignature
-	}
+	//if !pubKey.VerifyBytes(vote.SignTimestamp(chainID), vote.TimestampSignature) {
+	//	return ErrVoteInvalidTimestampSignature
+	//}
 	return nil
 }
 
