@@ -7,19 +7,9 @@ import (
 
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/libs/tempfile"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	"github.com/tendermint/tendermint/types"
 )
-
-func newAeonExecUnit(keyType string, generator string, keys DKGKeyInformation, qual IntVector) BaseAeon {
-	switch keyType {
-	case GetBLS_AEON():
-		return NewBlsAeon(generator, keys, qual)
-	case GetGLOW_AEON():
-		return NewGlowAeon(generator, keys, qual)
-	default:
-		panic(fmt.Errorf("Unknown type %v", keyType))
-	}
-}
 
 // aeonDetails stores entropy generation details for each aeon
 type aeonDetails struct {
@@ -28,7 +18,7 @@ type aeonDetails struct {
 	dkgID           int64
 	validators      *types.ValidatorSet
 	threshold       int
-	aeonExecUnit    BaseAeon
+	aeonExecUnit    mcl_cpp.BaseAeon
 	// start and end are inclusive
 	Start int64
 	End   int64
@@ -36,76 +26,14 @@ type aeonDetails struct {
 	qual []int64
 }
 
-// LoadAeonDetails creates aeonDetails from keys saved in file
-func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.ValidatorSet, privVal types.PrivValidator) *aeonDetails {
-	if len(aeonDetailsFile.PublicInfo.GroupPublicKey) == 0 {
-		return keylessAeonDetails(aeonDetailsFile.PublicInfo.DKGID, aeonDetailsFile.PublicInfo.ValidatorHeight,
-			aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
-	}
-
-	keys := NewDKGKeyInformation()
-	keys.SetGroup_public_key(aeonDetailsFile.PublicInfo.GroupPublicKey)
-	keys.SetPrivate_key(aeonDetailsFile.PrivateKey)
-	keyShares := NewStringVector()
-	for i := 0; i < len(aeonDetailsFile.PublicInfo.PublicKeyShares); i++ {
-		keyShares.Add(aeonDetailsFile.PublicInfo.PublicKeyShares[i])
-	}
-	keys.SetPublic_key_shares(keyShares)
-	qual := NewIntVector()
-	for i := 0; i < len(aeonDetailsFile.PublicInfo.Qual); i++ {
-		qual.Add(uint(aeonDetailsFile.PublicInfo.Qual[i]))
-	}
-
-	keyType := aeonDetailsFile.PublicInfo.KeyType
-	if len(keyType) == 0 {
-		// If no key type in file, attempt to use the default type specified in beacon_setup_service.hpp
-		keyType = GetAeonType()
-	}
-
-	aeonExecUnit := newAeonExecUnit(keyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
-	aeonDetails, _ := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, aeonDetailsFile.PublicInfo.DKGID, validators, aeonExecUnit,
-		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
-	return aeonDetails
-}
-
 // newAeonDetails creates new aeonDetails, checking validity of inputs. Can only be used within this package
 func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id int64,
-	validators *types.ValidatorSet, aeonKeys BaseAeon,
+	validators *types.ValidatorSet, aeonKeys mcl_cpp.BaseAeon,
 	startHeight int64, endHeight int64) (*aeonDetails, error) {
-	if valHeight <= 0 {
-		panic(fmt.Errorf("aeonDetails in validator height less than 1"))
+	if validators == nil || aeonKeys == nil {
+		return nil, fmt.Errorf("aeonDetails with invalid vals %v and/or active execution unit %v", validators, aeonKeys)
 	}
-	if validators == nil {
-		panic(fmt.Sprintf("aeonDetails with nil validator set"))
-	}
-	if aeonKeys == nil {
-		panic(fmt.Errorf("aeonDetails with nil active execution unit"))
-	}
-	if startHeight <= 0 || endHeight < startHeight {
-		panic(fmt.Errorf("aeonDetails invalid start/end height"))
-	}
-	if aeonKeys.CanSign() {
-		if newPrivValidator == nil {
-			panic(fmt.Errorf("aeonDetails has DKG keys but no privValidator"))
-		}
-		pubKey, err := newPrivValidator.GetPubKey()
-		if err == nil {
-			index, _ := validators.GetByAddress(pubKey.Address())
-			if index < 0 || !aeonKeys.InQual(uint(index)) {
-				panic(fmt.Errorf("aeonDetails has DKG keys but not in validators or qual"))
-			}
-			if !aeonKeys.CheckIndex(uint(index)) {
-				i := 0
-				for !aeonKeys.CheckIndex(uint(i)) && i < validators.Size() {
-					i++
-				}
-				panic(fmt.Errorf("aeonDetails has DKG keys index %v not matching validator index %v", i, index))
-			}
-		}
-
-	}
-	qual := aeonKeys.Qual()
-
+	qualSize := int(aeonKeys.Qual().Size())
 	ad := &aeonDetails{
 		privValidator:   newPrivValidator,
 		validatorHeight: valHeight,
@@ -115,20 +43,51 @@ func newAeonDetails(newPrivValidator types.PrivValidator, valHeight int64, id in
 		threshold:       validators.Size()/2 + 1,
 		Start:           startHeight,
 		End:             endHeight,
-		qual:            make([]int64, qual.Size()),
+		qual:            make([]int64, qualSize),
 	}
-	for i := 0; i < int(qual.Size()); i++ {
-		ad.qual[i] = int64(qual.Get(i))
+	for i := 0; i < qualSize; i++ {
+		ad.qual[i] = int64(aeonKeys.Qual().Get(i))
+	}
+	err := ad.checkKeys()
+	if err != nil {
+		return nil, err
 	}
 
 	runtime.SetFinalizer(ad,
 		func(ad *aeonDetails) {
-			DeleteBaseAeon(ad.aeonExecUnit)
+			mcl_cpp.DeleteBaseAeon(ad.aeonExecUnit)
 		})
 
 	return ad, nil
 }
 
+func (ad *aeonDetails) checkKeys() error {
+	if !ad.aeonExecUnit.CheckKeys() {
+		return fmt.Errorf("Failed to deserialise mcl objects")
+	}
+	if ad.aeonExecUnit.CanSign() {
+		if ad.privValidator == nil {
+			return fmt.Errorf("aeonDetails has DKG keys but no privValidator")
+		}
+		pubKey, err := ad.privValidator.GetPubKey()
+		if err == nil {
+			index, _ := ad.validators.GetByAddress(pubKey.Address())
+			if index < 0 || !ad.aeonExecUnit.InQual(uint(index)) {
+				return fmt.Errorf("aeonDetails has DKG keys but not in validators or qual")
+			}
+			if !ad.aeonExecUnit.CheckIndex(uint(index)) {
+				i := 0
+				for !ad.aeonExecUnit.CheckIndex(uint(i)) && i < ad.validators.Size() {
+					i++
+				}
+				return fmt.Errorf("aeonDetails has DKG keys index %v not matching validator index %v", i, index)
+			}
+		}
+	}
+	return nil
+}
+
+// Creates aeon details without any signing or verification keys. Used to bridge gaps in entropy generation.
 func keylessAeonDetails(dkgID int64, validatorHeight int64, aeonStart int64, aeonEnd int64) *aeonDetails {
 	return &aeonDetails{
 		dkgID:           dkgID,
@@ -160,18 +119,70 @@ func (aeon *aeonDetails) dkgOutput() *DKGOutput {
 	return &output
 }
 
-// Function to return whether the specified validator is in qual
-func (aeon *aeonDetails) HasValidatorInQual(addr types.Address) bool {
-
-	if aeon.validators == nil {
-		return false
-	}
-
-	return aeon.validators.HasAddress(addr)
-}
-
 func (aeon *aeonDetails) IsKeyless() bool {
 	return aeon.aeonExecUnit == nil
+}
+
+//--------------------------------------------------------------------------
+
+// AeonDetailsFile is struct for saving aeon keys to file
+type AeonDetailsFile struct {
+	PublicInfo DKGOutput `json:"public_info"`
+	PrivateKey string    `json:"private_key"`
+}
+
+func (aeonFile *AeonDetailsFile) IsForSamePeriod(other *AeonDetailsFile) bool {
+	if (other != nil) && (aeonFile.PublicInfo.Start == other.PublicInfo.Start) && (aeonFile.PublicInfo.End == other.PublicInfo.End) {
+		return true
+	}
+
+	return false
+}
+
+// ValidateBasic for basic validity checking of aeon file
+func (aeonFile *AeonDetailsFile) ValidateBasic() error {
+	err := aeonFile.PublicInfo.ValidateBasic()
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+	return nil
+}
+
+//-----------------------------------------------------------------------------------
+
+// LoadAeonDetails creates aeonDetails from keys saved in file
+func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.ValidatorSet, privVal types.PrivValidator) (*aeonDetails, error) {
+	if len(aeonDetailsFile.PublicInfo.GroupPublicKey) == 0 {
+		return keylessAeonDetails(aeonDetailsFile.PublicInfo.DKGID, aeonDetailsFile.PublicInfo.ValidatorHeight,
+			aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End), nil
+	}
+
+	keys := mcl_cpp.NewDKGKeyInformation()
+	keys.SetGroup_public_key(aeonDetailsFile.PublicInfo.GroupPublicKey)
+	keys.SetPrivate_key(aeonDetailsFile.PrivateKey)
+	keyShares := mcl_cpp.NewStringVector()
+	for i := 0; i < len(aeonDetailsFile.PublicInfo.PublicKeyShares); i++ {
+		keyShares.Add(aeonDetailsFile.PublicInfo.PublicKeyShares[i])
+	}
+	keys.SetPublic_key_shares(keyShares)
+	qual := mcl_cpp.NewIntVector()
+	for i := 0; i < len(aeonDetailsFile.PublicInfo.Qual); i++ {
+		qual.Add(uint(aeonDetailsFile.PublicInfo.Qual[i]))
+	}
+
+	keyType := aeonDetailsFile.PublicInfo.KeyType
+	if len(keyType) == 0 {
+		// If no key type in file, attempt to use the default type specified in beacon_setup_service.hpp
+		keyType = mcl_cpp.GetAeonType()
+	}
+
+	aeonExecUnit := mcl_cpp.NewAeonExecUnit(keyType, aeonDetailsFile.PublicInfo.Generator, keys, qual)
+	aeonDetails, err := newAeonDetails(privVal, aeonDetailsFile.PublicInfo.ValidatorHeight, aeonDetailsFile.PublicInfo.DKGID, validators, aeonExecUnit,
+		aeonDetailsFile.PublicInfo.Start, aeonDetailsFile.PublicInfo.End)
+	if err != nil {
+		return nil, err
+	}
+	return aeonDetails, nil
 }
 
 // Add aon aeon to the file, keeping a max of N aeons in the file (reading
@@ -234,20 +245,6 @@ func saveAeons(filePath string, aeons ...*aeonDetails) {
 	saveAeonQueue(filePath, aeonQueue)
 }
 
-// AeonDetailsFile is struct for saving aeon keys to file
-type AeonDetailsFile struct {
-	PublicInfo DKGOutput `json:"public_info"`
-	PrivateKey string    `json:"private_key"`
-}
-
-func (aeonFile *AeonDetailsFile) IsForSamePeriod(other *AeonDetailsFile) bool {
-	if (other != nil) && (aeonFile.PublicInfo.Start == other.PublicInfo.Start) && (aeonFile.PublicInfo.End == other.PublicInfo.End) {
-		return true
-	}
-
-	return false
-}
-
 // Save creates json with aeon details
 func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 	jsonBytes, err := cdc.MarshalJSONIndent(aeonFiles, "", "  ")
@@ -264,7 +261,7 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		tmos.Exit(err.Error())
 	}
 	var aeonQueue []*AeonDetailsFile
 
@@ -282,48 +279,4 @@ func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 	}
 
 	return aeonQueue, err
-}
-
-// ValidateBasic for basic validity checking of aeon file
-func (aeonFile *AeonDetailsFile) ValidateBasic() error {
-	err := aeonFile.PublicInfo.ValidateBasic()
-	if err != nil {
-		return fmt.Errorf(err.Error())
-	}
-	return nil
-}
-
-// DKGOutput is struct for broadcasting dkg completion info
-type DKGOutput struct {
-	KeyType         string   `json:"key_type"`
-	GroupPublicKey  string   `json:"group_public_key"`
-	PublicKeyShares []string `json:"public_key_shares"`
-	Generator       string   `json:"generator"`
-	ValidatorHeight int64    `json:"validator_height"`
-	DKGID           int64    `json:"dkg_id"`
-	Qual            []int64  `json:"qual"`
-	Start           int64    `json:"start"`
-	End             int64    `json:"end"`
-}
-
-// ValidateBasic for basic validity checking of dkg output
-func (output *DKGOutput) ValidateBasic() error {
-	if len(output.GroupPublicKey) != 0 {
-		if len(output.Generator) == 0 {
-			return fmt.Errorf("Empty generator")
-		}
-		if len(output.Qual) == 0 || len(output.Qual) > len(output.PublicKeyShares) {
-			return fmt.Errorf("Qual size %v invalid. Expected non-zero qual less than public key shares %v", len(output.Qual), len(output.PublicKeyShares))
-		}
-	}
-	if output.ValidatorHeight <= 0 {
-		return fmt.Errorf("Invalid validator height %v", output.ValidatorHeight)
-	}
-	if output.DKGID < 0 {
-		return fmt.Errorf("Invalid dkg id %v", output.DKGID)
-	}
-	if output.Start <= 0 || output.End < output.Start {
-		return fmt.Errorf("Invalid start %v or end %v", output.Start, output.End)
-	}
-	return nil
 }
