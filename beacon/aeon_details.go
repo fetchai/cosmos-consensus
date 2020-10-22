@@ -174,6 +174,40 @@ func (aeon *aeonDetails) IsKeyless() bool {
 	return aeon.aeonExecUnit == nil
 }
 
+// Add aon aeon to the file, keeping a max of N aeons in the file (reading
+// from the file and appending if neccessary)
+func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
+
+  aeonsInFile, _ := loadAeonDetailsFiles(filePath)
+
+  // Now we have potential aeons in the file, and we want the older of these
+  // to be at the front, so append the ones we want to write
+  //aeons = append(aeonsInFile, aeons)
+
+	for _, aeon := range aeons {
+
+		if aeon == nil {
+			panic(fmt.Sprintf("Attempt to save nil aeon(s) to file: %v %v\n", filePath, aeons))
+		}
+
+		aeonFile := AeonDetailsFile{
+			PublicInfo: *aeon.dkgOutput(),
+		}
+		if aeon.aeonExecUnit != nil {
+			aeonFile.PrivateKey = aeon.aeonExecUnit.PrivateKey()
+		}
+
+		aeonsInFile = append(aeonsInFile, &aeonFile)
+	}
+
+	// Now write back to the file the last N of these
+	if len(aeonsInFile) > max {
+		aeonsInFile = aeonsInFile[len(aeonsInFile) - max:]
+	}
+
+	saveAeonQueue(filePath, aeonsInFile)
+}
+
 // Save a number of aeonDetails to a file
 func saveAeons(filePath string, aeons ...*aeonDetails) {
 

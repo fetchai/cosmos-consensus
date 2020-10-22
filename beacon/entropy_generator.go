@@ -290,7 +290,8 @@ func (entropyGenerator *EntropyGenerator) resetKeys() bool {
 	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight >= entropyGenerator.aeon.End {
 		// When updating the aeon, we save the current aeon so that in the event of a crash we
 		// can load it since the block height may still be within this old aeon (entropy leads block height)
-		saveAeons(entropyGenerator.baseConfig.OldEntropyKeyFile(), entropyGenerator.aeon)
+		//saveAeons(entropyGenerator.baseConfig.OldEntropyKeyFile(), entropyGenerator.aeon)
+		updateFileAeons(entropyGenerator.baseConfig.OldEntropyKeyFile(), 2, entropyGenerator.aeon)
 
 		entropyGenerator.Logger.Info("changeKeys: Existing keys expired.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
