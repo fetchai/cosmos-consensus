@@ -178,6 +178,7 @@ func (aeon *aeonDetails) IsKeyless() bool {
 // from the file and appending if neccessary)
 func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 
+	fmt.Printf("updating old!\n") // DELETEME_NH
   aeonsInFile, _ := loadAeonDetailsFiles(filePath)
 
   // Now we have potential aeons in the file, and we want the older of these
@@ -206,6 +207,7 @@ func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 	}
 
 	saveAeonQueue(filePath, aeonsInFile)
+	fmt.Printf("updated old!\n") // DELETEME_NH
 }
 
 // Save a number of aeonDetails to a file
@@ -262,7 +264,7 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		tmos.Exit(err.Error())
+		return nil, err
 	}
 	var aeonQueue []*AeonDetailsFile
 
