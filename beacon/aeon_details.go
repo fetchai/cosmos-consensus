@@ -2,6 +2,8 @@ package beacon
 
 import (
 	"fmt"
+	"os"
+	"errors"
 	"io/ioutil"
 	"runtime"
 
@@ -259,6 +261,12 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 
 // LoadAeonDetailsFile creates a queue of AeonDetailsFiles from json
 func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		fmt.Printf("fail aeon open!\n") // DELETEME_NH
+		return nil, errors.New(fmt.Sprintf("Failed to find file %v when attempting to load aeon", filePath))
+	}
+
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		tmos.Exit(err.Error())
