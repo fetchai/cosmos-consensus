@@ -190,7 +190,7 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 	dkgRunner.mtx.Lock()
 	dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
 
-	fmt.Printf("on block!\n") // DELETEME_NH
+	fmt.Printf("on block!!!\n") // DELETEME_NH
 
 	if len(entropy) != 0 && blockHeight > dkgRunner.aeonEnd {
 		// DKG should not be stale
