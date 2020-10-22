@@ -280,3 +280,14 @@ func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 
 	return aeonQueue, err
 }
+
+// Function to return whether the specified validator is in qual
+func (aeon *aeonDetails) HasValidatorInQual(addr types.Address) bool {
+
+	if aeon.validators == nil {
+		return false
+	}
+
+	return aeon.validators.HasAddress(addr)
+}
+
