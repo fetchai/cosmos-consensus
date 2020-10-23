@@ -3,6 +3,7 @@ package types
 import (
 	// it is ok to use math/rand here: we do not need a cryptographically secure random
 	// number generator here and we can run the tests a bit faster
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"math"
@@ -18,7 +19,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/bits"
-	"github.com/tendermint/tendermint/libs/bytes"
+	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
@@ -256,7 +257,7 @@ func TestHeaderHash(t *testing.T) {
 	testCases := []struct {
 		desc       string
 		header     *Header
-		expectHash bytes.HexBytes
+		expectHash tmbytes.HexBytes
 	}{
 		{"Generates expected hash", &Header{
 			Version:            version.Consensus{Block: 1, App: 2},
@@ -310,7 +311,7 @@ func TestHeaderHash(t *testing.T) {
 					byteSlices = append(byteSlices, cdcEncode(f.Interface()))
 				}
 				assert.Equal(t,
-					bytes.HexBytes(merkle.SimpleHashFromByteSlices(byteSlices)), tc.header.Hash())
+					tmbytes.HexBytes(merkle.SimpleHashFromByteSlices(byteSlices)), tc.header.Hash())
 			}
 		})
 	}
@@ -364,12 +365,12 @@ func randCommit(now time.Time) *Commit {
 	return commit
 }
 
-func hexBytesFromString(s string) bytes.HexBytes {
+func hexBytesFromString(s string) tmbytes.HexBytes {
 	b, err := hex.DecodeString(s)
 	if err != nil {
 		panic(err)
 	}
-	return bytes.HexBytes(b)
+	return tmbytes.HexBytes(b)
 }
 
 func TestBlockMaxDataBytes(t *testing.T) {
@@ -452,6 +453,43 @@ func TestCommitToVoteSet(t *testing.T) {
 		vote3bz := cdc.MustMarshalBinaryBare(vote3)
 		assert.Equal(t, vote1bz, vote2bz)
 		assert.Equal(t, vote1bz, vote3bz)
+	}
+}
+
+func TestCommitToVoteSetWithNilTimestampSigs(t *testing.T) {
+	lastID := makeBlockIDRandom()
+	h := int64(3)
+
+	voteSet, valSet, vals := randVoteSet(h-1, 1, PrecommitType, 10, 1)
+	commit, err := MakeCommit(lastID, h-1, 1, voteSet, vals, time.Now())
+	assert.NoError(t, err)
+
+	// Copy commit and remove timestamp sigs
+	commit2 := *commit
+	commitSigCopy := make([]CommitSig, len(commit.Signatures))
+	copy(commitSigCopy, commit.Signatures)
+	commit2.Signatures = commitSigCopy
+	for index := range commit2.Signatures {
+		commit2.Signatures[index].TimestampSignature = nil
+	}
+
+	var voteSet2 *VoteSet
+	chainID := voteSet.ChainID()
+	assert.NotPanics(t, func() {
+		voteSet2 = CommitToVoteSet(chainID, &commit2, valSet)
+	})
+	assert.NotNil(t, voteSet2)
+
+	for i := 0; i < len(vals); i++ {
+		vote1 := commit.GetVote(i)
+		vote2 := voteSet2.GetByIndex(i)
+		assert.NotNil(t, vote1)
+		assert.NotNil(t, vote2)
+
+		assert.True(t, bytes.Equal(vote1.Signature, vote2.Signature))
+		assert.Equal(t, vote1.Timestamp, vote2.Timestamp)
+		assert.NotNil(t, vote1.TimestampSignature)
+		assert.Nil(t, vote2.TimestampSignature)
 	}
 }
 
@@ -566,10 +604,10 @@ func TestSignedHeaderValidateBasic(t *testing.T) {
 
 func TestBlockIDValidateBasic(t *testing.T) {
 	validBlockID := BlockID{
-		Hash: bytes.HexBytes{},
+		Hash: tmbytes.HexBytes{},
 		PartsHeader: PartSetHeader{
 			Total: 1,
-			Hash:  bytes.HexBytes{},
+			Hash:  tmbytes.HexBytes{},
 		},
 	}
 
@@ -577,13 +615,13 @@ func TestBlockIDValidateBasic(t *testing.T) {
 		Hash: []byte{0},
 		PartsHeader: PartSetHeader{
 			Total: -1,
-			Hash:  bytes.HexBytes{},
+			Hash:  tmbytes.HexBytes{},
 		},
 	}
 
 	testCases := []struct {
 		testName           string
-		blockIDHash        bytes.HexBytes
+		blockIDHash        tmbytes.HexBytes
 		blockIDPartsHeader PartSetHeader
 		expectErr          bool
 	}{
