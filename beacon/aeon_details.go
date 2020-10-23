@@ -204,14 +204,21 @@ func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 			panic(fmt.Sprintf("Attempt to save nil aeon(s) to file: %v %v\n", filePath, aeons))
 		}
 
-		aeonFile := AeonDetailsFile{
+		aeonFileToWrite := AeonDetailsFile{
 			PublicInfo: *aeon.dkgOutput(),
 		}
 		if aeon.aeonExecUnit != nil {
-			aeonFile.PrivateKey = aeon.aeonExecUnit.PrivateKey()
+			aeonFileToWrite.PrivateKey = aeon.aeonExecUnit.PrivateKey()
 		}
 
-		aeonsInFile = append(aeonsInFile, &aeonFile)
+		// Do not put duplicates into the file
+		for _, fileAeon := range aeonsInFile {
+			if fileAeon.IsForSamePeriod(&aeonFileToWrite) {
+				continue
+			}
+		}
+
+		aeonsInFile = append(aeonsInFile, &aeonFileToWrite)
 	}
 
 	// Now write back to the file the last N of these
