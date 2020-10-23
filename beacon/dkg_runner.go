@@ -300,8 +300,6 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			dkgRunner.metrics.DKGMembersInQual.Set(float64(keys.validators.Size()))
 			ourPubKey, _ := dkgRunner.privVal.GetPubKey()
 
-			inQual := keys.HasValidatorInQual(ourPubKey.Address())
-
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
 				dkgRunner.Logger.Error("We can sign.")
