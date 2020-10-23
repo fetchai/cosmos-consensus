@@ -190,8 +190,6 @@ func (dkgRunner *DKGRunner) OnBlock(blockHeight int64, entropy types.ThresholdSi
 	dkgRunner.mtx.Lock()
 	dkgRunner.metrics.DKGMessagesInChain.Add(float64(len(trxs)))
 
-	fmt.Printf("on block!!!\n") // DELETEME_NH
-
 	if len(entropy) != 0 && blockHeight > dkgRunner.aeonEnd {
 		// DKG should not be stale
 		panic(fmt.Errorf("Unexpected entropy in block %v, aeon end %v", blockHeight, dkgRunner.aeonEnd))
@@ -303,9 +301,6 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 			ourPubKey, _ := dkgRunner.privVal.GetPubKey()
 
 			inQual := keys.HasValidatorInQual(ourPubKey.Address())
-
-			dkgRunner.Logger.Error(fmt.Sprintf("We are in qual: %v", inQual))
-			fmt.Printf("we are in qual %v\n", inQual) // DELETEME_NH
 
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)

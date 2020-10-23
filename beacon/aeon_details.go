@@ -191,13 +191,10 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 // from the file and appending if neccessary)
 func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 
-	fmt.Printf("updating old!\n") // DELETEME_NH
   aeonsInFile, _ := loadAeonDetailsFiles(filePath)
 
   // Now we have potential aeons in the file, and we want the older of these
   // to be at the front, so append the ones we want to write
-  //aeons = append(aeonsInFile, aeons)
-
 	for _, aeon := range aeons {
 
 		if aeon == nil {
@@ -227,7 +224,6 @@ func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 	}
 
 	saveAeonQueue(filePath, aeonsInFile)
-	fmt.Printf("updated old!\n") // DELETEME_NH
 }
 
 // Save a number of aeonDetails to a file
@@ -270,7 +266,6 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		fmt.Printf("fail aeon open!\n") // DELETEME_NH
 		return nil, errors.New(fmt.Sprintf("Failed to find file %v when attempting to load aeon", filePath))
 	}
 
