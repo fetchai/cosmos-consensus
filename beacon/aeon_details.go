@@ -298,6 +298,18 @@ func (aeon *aeonDetails) HasValidatorInQual(addr types.Address) bool {
 		return false
 	}
 
-	return aeon.validators.HasAddress(addr)
+	index, _ := aeon.validators.GetByAddress(addr)
+
+	if index < 0 {
+		return false
+	}
+
+	for _, qualIndex := range aeon.qual {
+		if int64(index) == qualIndex {
+			return true
+		}
+	}
+
+	return false
 }
 

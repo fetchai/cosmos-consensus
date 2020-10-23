@@ -302,7 +302,6 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
-				dkgRunner.Logger.Error("We can sign.")
 			} else if keys.HasValidatorInQual(ourPubKey.Address()) {
 				dkgRunner.Logger.Error("We were found to be in qual and yet cannot sign most recent DKG")
 			}
