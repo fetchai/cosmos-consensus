@@ -75,6 +75,19 @@ func MakeVote(
 // computed from itself.
 // It populates the same set of fields validated by ValidateBasic.
 func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
+	// Copy commit and remove timestamp signatures from commit
+	commitPtr := lastCommit
+	if commitPtr != nil {
+		commit := *lastCommit
+		commitSigCopy := make([]CommitSig, len(lastCommit.Signatures))
+		copy(commitSigCopy, lastCommit.Signatures)
+		commit.Signatures = commitSigCopy
+		for index := range commit.Signatures {
+			commit.Signatures[index].TimestampSignature = nil
+		}
+		commitPtr = &commit
+	}
+
 	block := &Block{
 		Header: Header{
 			Height:  height,
@@ -84,13 +97,7 @@ func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) 
 			Txs: txs,
 		},
 		Evidence:   EvidenceData{Evidence: evidence},
-		LastCommit: lastCommit,
-	}
-	// Remove timestamp signatures from commit when making block
-	if block.LastCommit != nil {
-		for index := range block.LastCommit.Signatures {
-			block.LastCommit.Signatures[index].TimestampSignature = nil
-		}
+		LastCommit: commitPtr,
 	}
 	block.fillHeader()
 	return block

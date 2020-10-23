@@ -709,7 +709,13 @@ func CommitToVoteSet(chainID string, commit *Commit, vals *ValidatorSet) *VoteSe
 			continue // OK, some precommits can be missing.
 		}
 		added, err := voteSet.AddVote(commit.GetVote(idx))
-		if !added || err != nil {
+		if err != nil && errors.Is(err, ErrVoteInvalidTimestampSignature) {
+			// Commits can contain empty timestamp signatures if retrieved from block
+			// so we forcefully add these to vote set
+			vote := commit.GetVote(idx)
+			_, val := voteSet.valSet.GetByIndex(vote.ValidatorIndex)
+			voteSet.addVerifiedVote(vote, vote.BlockID.Key(), val.VotingPower)
+		} else if !added || err != nil {
 			panic(fmt.Sprintf("Failed to reconstruct LastCommit: %v", err))
 		}
 	}
