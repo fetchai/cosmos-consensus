@@ -3,6 +3,7 @@ package beacon
 import (
 	"bytes"
 	"fmt"
+	"github.com/tendermint/tendermint/libs/tempfile"
 	"runtime"
 	"sync"
 
@@ -78,6 +79,7 @@ type DistributedKeyGeneration struct {
 	mtx sync.RWMutex
 
 	config       *cfg.BeaconConfig
+	baseConfig   *cfg.BaseConfig
 	chainID      string
 	dkgID        int64
 	dkgIteration int64
@@ -116,12 +118,13 @@ type DistributedKeyGeneration struct {
 }
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
-func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, chain string,
+func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, dkgID int64, vals types.ValidatorSet,
 	aeonEnd int64, entropyParams types.EntropyParams, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
 	dkgThreshold := uint(len(vals.Validators)/2 + 1)
 	dkg := &DistributedKeyGeneration{
 		config:               beaconConfig,
+		baseConfig:           baseConfig,
 		chainID:              chain,
 		dkgID:                dkgID,
 		dkgIteration:         0,
@@ -856,3 +859,32 @@ func (dryRun *DryRunSignature) ValidateBasic() error {
 	}
 	return nil
 }
+
+//-------------------------------------------------------------------------------------------
+// Below are functions for saving and recovery of the DKG in case of a crash
+
+// Helper struct
+
+func saveDKG(file string, dkg *DistributedKeyGeneration) {
+
+	fmt.Printf("Writing to file ")
+	jsonBytes, err := cdc.MarshalJSONIndent(dkg, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	err = tempfile.WriteFileAtomic(file, jsonBytes, 0600)
+	if err != nil {
+		fmt.Printf("Alas! an error %v\n", err)
+		panic(err)
+	}
+}
+//func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
+//	jsonBytes, err := cdc.MarshalJSONIndent(aeonFiles, "", "  ")
+//	if err != nil {
+//		panic(err)
+//	}
+//	err = tempfile.WriteFileAtomic(outFile, jsonBytes, 0600)
+//	if err != nil {
+//		panic(err)
+//	}
+//}

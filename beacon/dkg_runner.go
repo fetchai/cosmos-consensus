@@ -26,6 +26,7 @@ const (
 type DKGRunner struct {
 	service.BaseService
 	beaconConfig   *cfg.BeaconConfig
+	baseConfig     *cfg.BaseConfig
 	chainID        string
 	stateDB        dbm.DB
 	privVal        types.PrivValidator
@@ -52,10 +53,11 @@ type DKGRunner struct {
 }
 
 // NewDKGRunner creates struct for starting new DKGs
-func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
+func NewDKGRunner(config *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string, db dbm.DB, val types.PrivValidator,
 	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer, evpool evidencePool) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		beaconConfig:         config,
+		baseConfig:           baseConfig,
 		chainID:              chain,
 		stateDB:              db,
 		privVal:              val,
@@ -279,7 +281,7 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 	dkgRunner.metrics.DKGId.Set(float64(dkgRunner.dkgID))
 
 	// Create new dkg that starts DKGResetDelay after most recent block height
-	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
+	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.baseConfig, dkgRunner.chainID,
 		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, dkgRunner.dkgID, *validators, dkgRunner.aeonEnd, entropyParams, dkgRunner.slotProtocolEnforcer)
 
 	// Set logger with dkgID and node index for debugging

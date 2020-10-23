@@ -127,7 +127,7 @@ func TestNodeDKGFastSync(t *testing.T) {
 
 	// Create dkgRunner to run FastSync using chain from node
 	encryptionKey := tmnoise.NewEncryptionKey()
-	dkgRunner := beacon.NewDKGRunner(config.Beacon, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight, nil,
+	dkgRunner := beacon.NewDKGRunner(config.Beacon, &config.BaseConfig, config.ChainID(), n.stateDB, n.PrivValidator(), encryptionKey, blockHeight, nil,
 		n.EvidencePool())
 	dkgRunner.SetLogger(log.TestingLogger())
 	dkgRunner.AttachMessageHandler(n.specialTxHandler)
