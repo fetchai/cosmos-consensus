@@ -1435,6 +1435,21 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 		return false
 	}
 
+	// Validate timestamps in block match those we have seen. If we have not seen it then vote
+	// for nil
+	for index, commitSig := range cs.ProposalBlock.LastCommit.Signatures {
+		if commitSig.Absent() {
+			continue
+		}
+		receivedVote := cs.LastCommit.GetByIndex(index)
+		if receivedVote == nil || !receivedVote.Timestamp.Equal(commitSig.Timestamp) {
+			logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails timestamp check for validator index %v ", index), "receivedVote",
+				receivedVote)
+			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+			return false
+		}
+	}
+
 	// Validate proposal block
 	err := cs.blockExec.ValidateBlock(cs.state, cs.ProposalBlock)
 	if err != nil {
@@ -2146,9 +2161,9 @@ func (cs *State) addVote(
 	)
 
 	// A precommit for the previous height?
-	// These come in while we wait timeoutCommit
+	// These come until we have received them all
 	if vote.Height+1 == cs.Height {
-		if !(cs.Step == cstypes.RoundStepNewHeight && vote.Type == types.PrecommitType) {
+		if vote.Type != types.PrecommitType {
 			// TODO: give the reason ..
 			// fmt.Errorf("tryAddVote: Wrong height, not a LastCommit straggler commit.")
 			return added, ErrVoteHeightMismatch
@@ -2163,7 +2178,7 @@ func (cs *State) addVote(
 		cs.evsw.FireEvent(types.EventVote, vote)
 
 		// if we can skip timeoutCommit and have all the votes now,
-		if cs.config.SkipTimeoutCommit && cs.LastCommit.HasAll() {
+		if cs.Step == cstypes.RoundStepNewHeight && cs.config.SkipTimeoutCommit && cs.LastCommit.HasAll() {
 			// go straight to new round (skip timeout commit)
 			// cs.scheduleTimeout(time.Duration(0), cs.Height, 0, cstypes.RoundStepNewHeight)
 			cs.enterNewRound(cs.Height, 0)
