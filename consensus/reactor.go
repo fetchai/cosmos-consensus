@@ -695,7 +695,7 @@ func (conR *Reactor) gossipVotesForHeight(
 
 	// If there are lastCommits to send then send them regardless of the step peer is in. Last commits should
 	// be gossiped until everyone has received them all or consensus moves onto the next height
-	if ps.PickSendPrecommit(rs.LastCommit) {
+	if ps.PickSendVote(rs.LastCommit) {
 		logger.Debug("Picked rs.LastCommit to send")
 		return true
 	}
