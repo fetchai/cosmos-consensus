@@ -58,7 +58,9 @@ type P2PID string
 
 	NOTE: Assumes that the sum total of voting power does not exceed MaxUInt64.
 */
-type VoteSet struct {
+var _ VoteSet = &PrevoteSet{}
+
+type PrevoteSet struct {
 	chainID       string
 	height        int64
 	round         int
@@ -75,15 +77,15 @@ type VoteSet struct {
 }
 
 // Constructs a new VoteSet struct used to accumulate votes for given height/round.
-func NewVoteSet(chainID string, height int64, round int, signedMsgType SignedMsgType, valSet *ValidatorSet) *VoteSet {
+func NewPrevoteSet(chainID string, height int64, round int, valSet *ValidatorSet) *PrevoteSet {
 	if height == 0 {
 		panic("Cannot make VoteSet for height == 0, doesn't make sense.")
 	}
-	return &VoteSet{
+	return &PrevoteSet{
 		chainID:       chainID,
 		height:        height,
 		round:         round,
-		signedMsgType: signedMsgType,
+		signedMsgType: PrevoteType,
 		valSet:        valSet,
 		votesBitArray: bits.NewBitArray(valSet.Size()),
 		votes:         make([]*Vote, valSet.Size()),
@@ -94,12 +96,12 @@ func NewVoteSet(chainID string, height int64, round int, signedMsgType SignedMsg
 	}
 }
 
-func (voteSet *VoteSet) ChainID() string {
+func (voteSet *PrevoteSet) ChainID() string {
 	return voteSet.chainID
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) GetHeight() int64 {
+func (voteSet *PrevoteSet) GetHeight() int64 {
 	if voteSet == nil {
 		return 0
 	}
@@ -107,7 +109,7 @@ func (voteSet *VoteSet) GetHeight() int64 {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) GetRound() int {
+func (voteSet *PrevoteSet) GetRound() int {
 	if voteSet == nil {
 		return -1
 	}
@@ -115,7 +117,7 @@ func (voteSet *VoteSet) GetRound() int {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) Type() byte {
+func (voteSet *PrevoteSet) Type() byte {
 	if voteSet == nil {
 		return 0x00
 	}
@@ -123,11 +125,16 @@ func (voteSet *VoteSet) Type() byte {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) Size() int {
+func (voteSet *PrevoteSet) Size() int {
 	if voteSet == nil {
 		return 0
 	}
 	return voteSet.valSet.Size()
+}
+
+// Implements VoteSet
+func (voteSet *PrevoteSet) ValidatorSetHash() []byte {
+	return voteSet.valSet.Hash()
 }
 
 // Returns added=true if vote is valid and new.
@@ -139,7 +146,7 @@ func (voteSet *VoteSet) Size() int {
 // NOTE: vote should not be mutated after adding.
 // NOTE: VoteSet must not be nil
 // NOTE: Vote must not be nil
-func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
+func (voteSet *PrevoteSet) AddVote(vote *Vote) (added bool, err error) {
 	if voteSet == nil {
 		panic("AddVote() on nil VoteSet")
 	}
@@ -150,7 +157,7 @@ func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
 }
 
 // NOTE: Validates as much as possible before attempting to verify the signature.
-func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
+func (voteSet *PrevoteSet) addVote(vote *Vote) (added bool, err error) {
 	if vote == nil {
 		return false, ErrVoteNil
 	}
@@ -214,7 +221,7 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 }
 
 // Returns (vote, true) if vote exists for valIndex and blockKey.
-func (voteSet *VoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok bool) {
+func (voteSet *PrevoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok bool) {
 	if existing := voteSet.votes[valIndex]; existing != nil && existing.BlockID.Key() == blockKey {
 		return existing, true
 	}
@@ -226,7 +233,7 @@ func (voteSet *VoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok b
 
 // Assumes signature is valid.
 // If conflicting vote exists, returns it.
-func (voteSet *VoteSet) addVerifiedVote(
+func (voteSet *PrevoteSet) addVerifiedVote(
 	vote *Vote,
 	blockKey string,
 	votingPower int64,
@@ -304,7 +311,7 @@ func (voteSet *VoteSet) addVerifiedVote(
 // this can cause memory issues.
 // TODO: implement ability to remove peers too
 // NOTE: VoteSet must not be nil
-func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
+func (voteSet *PrevoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	if voteSet == nil {
 		panic("SetPeerMaj23() on nil VoteSet")
 	}
@@ -340,7 +347,7 @@ func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) BitArray() *bits.BitArray {
+func (voteSet *PrevoteSet) BitArray() *bits.BitArray {
 	if voteSet == nil {
 		return nil
 	}
@@ -349,7 +356,7 @@ func (voteSet *VoteSet) BitArray() *bits.BitArray {
 	return voteSet.votesBitArray.Copy()
 }
 
-func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *bits.BitArray {
+func (voteSet *PrevoteSet) BitArrayByBlockID(blockID BlockID) *bits.BitArray {
 	if voteSet == nil {
 		return nil
 	}
@@ -364,7 +371,7 @@ func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *bits.BitArray {
 
 // NOTE: if validator has conflicting votes, returns "canonical" vote
 // Implements VoteSetReader.
-func (voteSet *VoteSet) GetByIndex(valIndex int) *Vote {
+func (voteSet *PrevoteSet) GetByIndex(valIndex int) *Vote {
 	if voteSet == nil {
 		return nil
 	}
@@ -373,7 +380,7 @@ func (voteSet *VoteSet) GetByIndex(valIndex int) *Vote {
 	return voteSet.votes[valIndex]
 }
 
-func (voteSet *VoteSet) GetByAddress(address []byte) *Vote {
+func (voteSet *PrevoteSet) GetByAddress(address []byte) *Vote {
 	if voteSet == nil {
 		return nil
 	}
@@ -386,7 +393,7 @@ func (voteSet *VoteSet) GetByAddress(address []byte) *Vote {
 	return voteSet.votes[valIndex]
 }
 
-func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
+func (voteSet *PrevoteSet) HasTwoThirdsMajority() bool {
 	if voteSet == nil {
 		return false
 	}
@@ -396,7 +403,7 @@ func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) IsCommit() bool {
+func (voteSet *PrevoteSet) IsCommit() bool {
 	if voteSet == nil {
 		return false
 	}
@@ -408,7 +415,7 @@ func (voteSet *VoteSet) IsCommit() bool {
 	return voteSet.maj23 != nil
 }
 
-func (voteSet *VoteSet) HasTwoThirdsAny() bool {
+func (voteSet *PrevoteSet) HasTwoThirdsAny() bool {
 	if voteSet == nil {
 		return false
 	}
@@ -417,7 +424,7 @@ func (voteSet *VoteSet) HasTwoThirdsAny() bool {
 	return voteSet.sum > voteSet.valSet.TotalVotingPower()*2/3
 }
 
-func (voteSet *VoteSet) HasAll() bool {
+func (voteSet *PrevoteSet) HasAll() bool {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.sum == voteSet.valSet.TotalVotingPower()
@@ -425,7 +432,7 @@ func (voteSet *VoteSet) HasAll() bool {
 
 // If there was a +2/3 majority for blockID, return blockID and true.
 // Else, return the empty BlockID{} and false.
-func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
+func (voteSet *PrevoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	if voteSet == nil {
 		return BlockID{}, false
 	}
@@ -440,14 +447,14 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 //--------------------------------------------------------------------------------
 // Strings and JSON
 
-func (voteSet *VoteSet) String() string {
+func (voteSet *PrevoteSet) String() string {
 	if voteSet == nil {
 		return "nil-VoteSet"
 	}
 	return voteSet.StringIndented("")
 }
 
-func (voteSet *VoteSet) StringIndented(indent string) string {
+func (voteSet *PrevoteSet) StringIndented(indent string) string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	voteStrings := make([]string, len(voteSet.votes))
@@ -473,7 +480,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 
 // Marshal the VoteSet to JSON. Same as String(), just in JSON,
 // and without the height/round/signedMsgType (since its already included in the votes).
-func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
+func (voteSet *PrevoteSet) MarshalJSON() ([]byte, error) {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return cdc.MarshalJSON(VoteSetJSON{
@@ -495,26 +502,26 @@ type VoteSetJSON struct {
 // Return the bit-array of votes including
 // the fraction of power that has voted like:
 // "BA{29:xx__x__x_x___x__x_______xxx__} 856/1304 = 0.66"
-func (voteSet *VoteSet) BitArrayString() string {
+func (voteSet *PrevoteSet) BitArrayString() string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.bitArrayString()
 }
 
-func (voteSet *VoteSet) bitArrayString() string {
+func (voteSet *PrevoteSet) bitArrayString() string {
 	bAString := voteSet.votesBitArray.String()
 	voted, total, fracVoted := voteSet.sumTotalFrac()
 	return fmt.Sprintf("%s %d/%d = %.2f", bAString, voted, total, fracVoted)
 }
 
 // Returns a list of votes compressed to more readable strings.
-func (voteSet *VoteSet) VoteStrings() []string {
+func (voteSet *PrevoteSet) VoteStrings() []string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.voteStrings()
 }
 
-func (voteSet *VoteSet) voteStrings() []string {
+func (voteSet *PrevoteSet) voteStrings() []string {
 	voteStrings := make([]string, len(voteSet.votes))
 	for i, vote := range voteSet.votes {
 		if vote == nil {
@@ -526,7 +533,7 @@ func (voteSet *VoteSet) voteStrings() []string {
 	return voteStrings
 }
 
-func (voteSet *VoteSet) StringShort() string {
+func (voteSet *PrevoteSet) StringShort() string {
 	if voteSet == nil {
 		return "nil-VoteSet"
 	}
@@ -538,44 +545,10 @@ func (voteSet *VoteSet) StringShort() string {
 }
 
 // return the power voted, the total, and the fraction
-func (voteSet *VoteSet) sumTotalFrac() (int64, int64, float64) {
+func (voteSet *PrevoteSet) sumTotalFrac() (int64, int64, float64) {
 	voted, total := voteSet.sum, voteSet.valSet.TotalVotingPower()
 	fracVoted := float64(voted) / float64(total)
 	return voted, total, fracVoted
-}
-
-//--------------------------------------------------------------------------------
-// Commit
-
-// MakeCommit constructs a Commit from the VoteSet. It only includes precommits
-// for the block, which has 2/3+ majority, and nil.
-//
-// Panics if the vote type is not PrecommitType or if there's no +2/3 votes for
-// a single block.
-func (voteSet *VoteSet) MakeCommit() *Commit {
-	if voteSet.signedMsgType != PrecommitType {
-		panic("Cannot MakeCommit() unless VoteSet.Type is PrecommitType")
-	}
-	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
-
-	// Make sure we have a 2/3 majority
-	if voteSet.maj23 == nil {
-		panic("Cannot MakeCommit() unless a blockhash has +2/3")
-	}
-
-	// For every validator, get the precommit
-	commitSigs := make([]CommitSig, len(voteSet.votes))
-	for i, v := range voteSet.votes {
-		commitSig := v.CommitSig()
-		// if block ID exists but doesn't match, exclude sig
-		if commitSig.ForBlock() && !v.BlockID.Equals(*voteSet.maj23) {
-			commitSig = NewCommitSigAbsent()
-		}
-		commitSigs[i] = commitSig
-	}
-
-	return NewCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
 }
 
 //--------------------------------------------------------------------------------

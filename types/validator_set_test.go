@@ -601,7 +601,7 @@ func TestValidatorSet_VerifyCommit_All(t *testing.T) {
 	assert.NoError(t, err)
 	vote.Signature = sig
 
-	commit := NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{vote.CommitSig()})
+	commit := NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{{vote.CommitSig()}})
 
 	vote2 := *vote
 	sig2, err := privKey.Sign(vote2.SignBytes("EpsilonEridani"))
@@ -623,17 +623,17 @@ func TestValidatorSet_VerifyCommit_All(t *testing.T) {
 		{"wrong height", chainID, vote.BlockID, vote.Height - 1, commit, true},
 
 		{"wrong set size: 1 vs 0", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{}), true},
+			NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{}), true},
 
 		{"wrong set size: 1 vs 2", chainID, vote.BlockID, vote.Height,
 			NewCommit(vote.Height, vote.Round, vote.BlockID,
-				[]CommitSig{vote.CommitSig(), {BlockIDFlag: BlockIDFlagAbsent}}), true},
+				[][]CommitSig{{vote.CommitSig()}, {{BlockIDFlag: BlockIDFlagAbsent}}}), true},
 
 		{"insufficient voting power: got 0, needed more than 666", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{{BlockIDFlag: BlockIDFlagAbsent}}), true},
+			NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{{{BlockIDFlag: BlockIDFlagAbsent}}}), true},
 
 		{"wrong signature (#0)", chainID, vote.BlockID, vote.Height,
-			NewCommit(vote.Height, vote.Round, vote.BlockID, []CommitSig{vote2.CommitSig()}), true},
+			NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{{vote2.CommitSig()}}), true},
 	}
 
 	for _, tc := range testCases {
@@ -668,15 +668,19 @@ func TestValidatorSet_VerifyCommit_CheckAllSignatures(t *testing.T) {
 		blockID = makeBlockIDRandom()
 	)
 
-	voteSet, valSet, vals := randVoteSet(h, 0, PrecommitType, 4, 10)
+	voteSet, valSet, vals := randPrecommitSet(h, 0, 4, 10)
 	commit, err := MakeCommit(blockID, h, 0, voteSet, vals, time.Now())
 	require.NoError(t, err)
 
 	// malleate 4th signature
-	vote := voteSet.GetByIndex(3)
+	var vote *Vote
+	for _, elem := range voteSet.GetByIndex(3) {
+		vote = elem
+		break
+	}
 	err = vals[3].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
-	commit.Signatures[3] = vote.CommitSig()
+	commit.Signatures[3][0] = vote.CommitSig()
 
 	err = valSet.VerifyCommit(chainID, blockID, h, commit)
 	if assert.Error(t, err) {
@@ -691,15 +695,19 @@ func TestValidatorSet_VerifyCommitLight_ReturnsAsSoonAsMajorityOfVotingPowerSign
 		blockID = makeBlockIDRandom()
 	)
 
-	voteSet, valSet, vals := randVoteSet(h, 0, PrecommitType, 4, 10)
+	voteSet, valSet, vals := randPrecommitSet(h, 0, 4, 10)
 	commit, err := MakeCommit(blockID, h, 0, voteSet, vals, time.Now())
 	require.NoError(t, err)
 
 	// malleate 4th signature (3 signatures are enough for 2/3+)
-	vote := voteSet.GetByIndex(3)
+	var vote *Vote
+	for _, elem := range voteSet.GetByIndex(3) {
+		vote = elem
+		break
+	}
 	err = vals[3].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
-	commit.Signatures[3] = vote.CommitSig()
+	commit.Signatures[3][0] = vote.CommitSig()
 
 	err = valSet.VerifyCommitLight(chainID, blockID, h, commit)
 	assert.NoError(t, err)
@@ -712,15 +720,19 @@ func TestValidatorSet_VerifyCommitLightTrusting_ReturnsAsSoonAsTrustLevelOfVotin
 		blockID = makeBlockIDRandom()
 	)
 
-	voteSet, valSet, vals := randVoteSet(h, 0, PrecommitType, 4, 10)
+	voteSet, valSet, vals := randPrecommitSet(h, 0, 4, 10)
 	commit, err := MakeCommit(blockID, h, 0, voteSet, vals, time.Now())
 	require.NoError(t, err)
 
 	// malleate 3rd signature (2 signatures are enough for 1/3+ trust level)
-	vote := voteSet.GetByIndex(2)
+	var vote *Vote
+	for _, elem := range voteSet.GetByIndex(2) {
+		vote = elem
+		break
+	}
 	err = vals[2].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
-	commit.Signatures[2] = vote.CommitSig()
+	commit.Signatures[2][0] = vote.CommitSig()
 
 	err = valSet.VerifyCommitLightTrusting(VotePrefix(chainID, valSet.Hash()), blockID, h, commit, tmmath.Fraction{Numerator: 1, Denominator: 3})
 	assert.NoError(t, err)
@@ -1413,7 +1425,7 @@ func TestValSetUpdateOverflowRelated(t *testing.T) {
 func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
 	var (
 		blockID                       = makeBlockIDRandom()
-		voteSet, originalValset, vals = randVoteSet(1, 1, PrecommitType, 6, 1)
+		voteSet, originalValset, vals = randPrecommitSet(1, 1, 6, 1)
 		commit, err                   = MakeCommit(blockID, 1, 1, voteSet, vals, time.Now())
 		newValSet, _                  = RandValidatorSet(2, 1)
 	)
@@ -1454,7 +1466,7 @@ func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
 func TestValidatorSet_VerifyCommitLightTrustingErrorsOnOverflow(t *testing.T) {
 	var (
 		blockID               = makeBlockIDRandom()
-		voteSet, valSet, vals = randVoteSet(1, 1, PrecommitType, 1, MaxTotalVotingPower)
+		voteSet, valSet, vals = randPrecommitSet(1, 1, 1, MaxTotalVotingPower)
 		commit, err           = MakeCommit(blockID, 1, 1, voteSet, vals, time.Now())
 	)
 	require.NoError(t, err)

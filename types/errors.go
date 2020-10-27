@@ -16,6 +16,13 @@ type (
 		Expected int
 		Actual   int
 	}
+
+	// ErrInvalidCommitSigLength is return when the number of signatures per validator is
+	// greater than 1 in the block
+	ErrInvalidCommitSigLength struct {
+		ValidatorIndex  int
+		CommitSigLength int
+	}
 )
 
 func NewErrInvalidCommitHeight(expected, actual int64) ErrInvalidCommitHeight {
@@ -38,4 +45,15 @@ func NewErrInvalidCommitSignatures(expected, actual int) ErrInvalidCommitSignatu
 
 func (e ErrInvalidCommitSignatures) Error() string {
 	return fmt.Sprintf("Invalid commit -- wrong set size: %v vs %v", e.Expected, e.Actual)
+}
+
+func NewErrInvalidCommitSigLength(idx int, commitSigLength int) ErrInvalidCommitSigLength {
+	return ErrInvalidCommitSigLength{
+		ValidatorIndex:  idx,
+		CommitSigLength: commitSigLength,
+	}
+}
+
+func (e ErrInvalidCommitSigLength) Error() string {
+	return fmt.Sprintf("Invalid commit -- wrong number of signatures for validator %v: got %v", e.ValidatorIndex, e.CommitSigLength)
 }
