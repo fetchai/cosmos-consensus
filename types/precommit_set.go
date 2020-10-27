@@ -83,7 +83,6 @@ func (voteSet *PrecommitSet) ChainID() string {
 	return voteSet.chainID
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrecommitSet) GetHeight() int64 {
 	if voteSet == nil {
 		return 0
@@ -91,7 +90,6 @@ func (voteSet *PrecommitSet) GetHeight() int64 {
 	return voteSet.height
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrecommitSet) GetRound() int {
 	if voteSet == nil {
 		return -1
@@ -99,15 +97,6 @@ func (voteSet *PrecommitSet) GetRound() int {
 	return voteSet.round
 }
 
-// Implements VoteSetReader.
-func (voteSet *PrecommitSet) Type() byte {
-	if voteSet == nil {
-		return 0x00
-	}
-	return byte(PrecommitType)
-}
-
-// Implements VoteSetReader.
 func (voteSet *PrecommitSet) Size() int {
 	if voteSet == nil {
 		return 0
@@ -117,6 +106,9 @@ func (voteSet *PrecommitSet) Size() int {
 
 // Implements VoteSet
 func (voteSet *PrecommitSet) ValidatorSetHash() []byte {
+	if voteSet == nil {
+		return []byte{}
+	}
 	return voteSet.valSet.Hash()
 }
 
@@ -346,26 +338,34 @@ func (voteSet *PrecommitSet) VotesByBlockID(blockID BlockID) []string {
 
 // GetByIndex returns all precommit votes from a validator index as a map with timestamp
 // as the key
-func (voteSet *PrecommitSet) GetByIndex(valIndex int) map[string]*Vote {
+func (voteSet *PrecommitSet) GetVoteTimestamps(valIndex int) []time.Time {
 	if voteSet == nil {
 		return nil
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	return voteSet.votes[valIndex]
+	votes := make([]time.Time, len(voteSet.votes[valIndex]))
+	i := 0
+	for _, vote := range voteSet.votes[valIndex] {
+		votes[i] = vote.Timestamp
+		i++
+	}
+	return votes
 }
 
-func (voteSet *PrecommitSet) GetByAddress(address []byte) map[string]*Vote {
+// GetByIndex returns all precommit votes from a validator index as a map with timestamp
+// as the key
+func (voteSet *PrecommitSet) GetByIndex(valIndex int, timestamp time.Time) *Vote {
 	if voteSet == nil {
 		return nil
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	valIndex, val := voteSet.valSet.GetByAddress(address)
-	if val == nil {
-		panic("GetByAddress(address) returned nil")
+
+	if v, ok := voteSet.votes[valIndex][CanonicalTime(timestamp)]; ok {
+		return v
 	}
-	return voteSet.votes[valIndex]
+	return nil
 }
 
 func (voteSet *PrecommitSet) HasTwoThirdsMajority() bool {

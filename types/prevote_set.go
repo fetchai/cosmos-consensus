@@ -134,6 +134,9 @@ func (voteSet *PrevoteSet) Size() int {
 
 // Implements VoteSet
 func (voteSet *PrevoteSet) ValidatorSetHash() []byte {
+	if voteSet == nil {
+		return []byte{}
+	}
 	return voteSet.valSet.Hash()
 }
 

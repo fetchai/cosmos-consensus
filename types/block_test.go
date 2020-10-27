@@ -228,11 +228,7 @@ func TestCommit(t *testing.T) {
 	require.NotNil(t, commit.BitArray())
 	assert.Equal(t, bits.NewBitArray(10).Size(), commit.BitArray().Size())
 
-	var vote *Vote
-	for _, v := range voteSet.GetByIndex(0) {
-		vote = v
-		break
-	}
+	vote := voteSet.GetByIndex(0, voteSet.GetVoteTimestamps(0)[0])
 	assert.Equal(t, vote, commit.GetByIndex(0))
 	assert.True(t, commit.IsCommit())
 }
@@ -449,16 +445,8 @@ func TestCommitToVoteSet(t *testing.T) {
 	voteSet2, _ := CommitToVoteSet(chainID, commit, valSet)
 
 	for i := 0; i < len(vals); i++ {
-		var vote1 *Vote
-		for _, elem := range voteSet.GetByIndex(i) {
-			vote1 = elem
-			break
-		}
-		var vote2 *Vote
-		for _, elem := range voteSet2.GetByIndex(i) {
-			vote2 = elem
-			break
-		}
+		vote1 := voteSet.GetByIndex(i, voteSet.GetVoteTimestamps(i)[0])
+		vote2 := voteSet2.GetByIndex(i, voteSet2.GetVoteTimestamps(i)[0])
 		vote3 := commit.GetVote(i, 0)
 
 		vote1bz := cdc.MustMarshalBinaryBare(vote1)
@@ -496,11 +484,8 @@ func TestCommitToVoteSetWithNilTimestampSigs(t *testing.T) {
 
 	for i := 0; i < len(vals); i++ {
 		vote1 := commit.GetVote(i, 0)
-		var vote2 *Vote
-		for _, vote := range voteSet2.GetByIndex(i) {
-			vote2 = vote
-			break
-		}
+		vote2 := voteSet2.GetByIndex(i, voteSet2.GetVoteTimestamps(i)[0])
+
 		assert.NotNil(t, vote1)
 		assert.NotNil(t, vote2)
 

@@ -673,11 +673,7 @@ func TestValidatorSet_VerifyCommit_CheckAllSignatures(t *testing.T) {
 	require.NoError(t, err)
 
 	// malleate 4th signature
-	var vote *Vote
-	for _, elem := range voteSet.GetByIndex(3) {
-		vote = elem
-		break
-	}
+	vote := voteSet.GetByIndex(3, voteSet.GetVoteTimestamps(3)[0])
 	err = vals[3].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
 	commit.Signatures[3][0] = vote.CommitSig()
@@ -700,11 +696,7 @@ func TestValidatorSet_VerifyCommitLight_ReturnsAsSoonAsMajorityOfVotingPowerSign
 	require.NoError(t, err)
 
 	// malleate 4th signature (3 signatures are enough for 2/3+)
-	var vote *Vote
-	for _, elem := range voteSet.GetByIndex(3) {
-		vote = elem
-		break
-	}
+	vote := voteSet.GetByIndex(3, voteSet.GetVoteTimestamps(3)[0])
 	err = vals[3].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
 	commit.Signatures[3][0] = vote.CommitSig()
@@ -725,11 +717,7 @@ func TestValidatorSet_VerifyCommitLightTrusting_ReturnsAsSoonAsTrustLevelOfVotin
 	require.NoError(t, err)
 
 	// malleate 3rd signature (2 signatures are enough for 1/3+ trust level)
-	var vote *Vote
-	for _, elem := range voteSet.GetByIndex(2) {
-		vote = elem
-		break
-	}
+	vote := voteSet.GetByIndex(3, voteSet.GetVoteTimestamps(3)[0])
 	err = vals[2].SignVote(VotePrefix("CentaurusA", valSet.Hash()), vote)
 	require.NoError(t, err)
 	commit.Signatures[2][0] = vote.CommitSig()
