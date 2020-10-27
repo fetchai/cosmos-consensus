@@ -38,7 +38,7 @@
 #include <sstream>
 
 namespace fetch {
-namespace beacon {    
+namespace beacon {
 
 /**
  * This class defines the functions required for the DKG
@@ -309,8 +309,8 @@ public:
       return;
     }
 
-    serialisers::Deserialise(delimited_by_commas[0], s_ij_);
-    serialisers::Deserialise(delimited_by_commas[1], sprime_ij_);
+    Deserialise(delimited_by_commas[0], s_ij_);
+    Deserialise(delimited_by_commas[1], sprime_ij_);
   }
 
 protected:
