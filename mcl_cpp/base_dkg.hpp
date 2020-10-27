@@ -293,7 +293,7 @@ public:
     return string_stream.str();
   }
 
-  void Deserialize(std::string const &from) const {
+  void Deserialize(std::string const &from) {
 
     std::stringstream ss(from);
     std::vector<std::string> delimited_by_commas;
