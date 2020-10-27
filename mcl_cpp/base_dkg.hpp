@@ -28,12 +28,82 @@
 #include <mutex>
 #include <memory>
 
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/set.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/vector.hpp>
+#include <sstream>
+
 namespace fetch {
 namespace beacon {    
 
 /**
  * This class defines the functions required for the DKG
  */
+
+inline std::string Serialise(std::vector<std::vector<mcl::PrivateKey>> const &private_keys) {
+  std::ostringstream            ss;
+  boost::archive::text_oarchive oa{ss};
+
+  std::vector<std::vector<std::string>> as_strings;
+
+  std::cout << "before ser" << std::endl;
+
+  for(auto const &vec : private_keys)
+  {
+    as_strings.push_back(std::vector<std::string>{});
+    for(auto const &key : vec )
+    {
+      std::cout << key.ToString() << std::endl;
+      as_strings.back().push_back(key.ToString());
+    }
+  }
+
+  oa << as_strings;
+  return ss.str();
+}
+
+inline bool Deserialise(std::string const &msg, std::vector<std::vector<mcl::PrivateKey>> &private_keys) {
+  std::vector<std::vector<std::string>> from_strings;
+  try
+  {
+    std::istringstream            ss{msg};
+    boost::archive::text_iarchive ia{ss};
+
+    ia >> from_strings;
+  }
+  catch (boost::archive::archive_exception ex) 
+  {
+    return false;
+  }
+
+  private_keys.clear();
+
+  for(auto const &vec : from_strings)
+  {
+    private_keys.push_back(std::vector<mcl::PrivateKey>());
+    for(auto const &key : vec )
+    {
+      private_keys.back().push_back(mcl::PrivateKey{});
+      private_keys.back().back().FromString(key);
+    }
+  }
+
+  std::cout << "after ser" << std::endl;
+
+  for(auto const &vec : private_keys)
+  {
+    for(auto const &key : vec )
+    {
+      std::cout << key.ToString() << std::endl;
+    }
+  }
+
+  return true;
+}
 
 template<class CryptoVerificationKey>
 class BaseDkg {
@@ -215,6 +285,34 @@ public:
     return cabinet_size_;
   }
 
+  std::string Serialize() const {
+
+    std::ostringstream string_stream;
+    string_stream << Serialise(s_ij_) << "," << Serialise(sprime_ij_);
+
+    return string_stream.str();
+  }
+
+  void Deserialize(std::string const &from) const {
+
+    std::stringstream ss(from);
+    std::vector<std::string> delimited_by_commas;
+
+    while(ss.good())
+    {
+      std::string substr;
+      getline( ss, substr, ',' );
+      delimited_by_commas.push_back(substr);
+    }
+
+    if(delimited_by_commas.size() < 2) {
+      return;
+    }
+
+    serialisers::Deserialise(delimited_by_commas[0], s_ij_);
+    serialisers::Deserialise(delimited_by_commas[1], sprime_ij_);
+  }
+
 protected:
   // What the DKG should return
   PrivateKey             secret_share_;       ///< Share of group private key (x_i)
@@ -228,7 +326,7 @@ protected:
 
   // Temporary variables in DKG
   PrivateKey xprime_i_;
-  std::vector<std::vector<PrivateKey> > s_ij_, sprime_ij_;
+  std::vector<std::vector<PrivateKey>> s_ij_, sprime_ij_;
   std::vector<std::vector<VerificationKey>> C_ik_;
   std::vector<std::vector<VerificationKey>> A_ik_;
   std::vector<std::vector<VerificationKey>> secret_commitments_;

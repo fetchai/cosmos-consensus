@@ -253,7 +253,7 @@ func DefaultBaseConfig() BaseConfig {
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
 		EntropyKey:         defaultEntropyKeyPath,
-		DkgBackup:      defaultDkgBackup,
+		DkgBackup:          defaultDkgBackup,
 		OldEntropyKey:      defaultOldEntropyKeyPath,
 		NextEntropyKey:     defaultNextEntropyKeyPath,
 		NoiseKey:           defaultNoiseKeyPath,

@@ -535,5 +535,24 @@ bool BeaconSetupService::InQual(const Identifier &index) {
  return beacon_->InQual(index);
 }
 
+
+std::string BeaconSetupService::Serialize() const {
+  // We only serialize the items that are relevant for reconstruction
+  if(!beacon_) {
+    return "";
+  }
+
+  return std::string("bss_ser:") + beacon_->Serialize();
+}
+
+void BeaconSetupService::Deserialize(std::string const &from) const {
+  if (from.rfind("titi", 0) == 0) {
+    Log(LogLevel::ERROR, LOGGING_NAME, std::string("Failed to deser string that did not start with correct prefix. String: ") + from);
+    return;
+  } else {
+    Log(LogLevel::ERROR, LOGGING_NAME, std::string("aasdfasdfFailed to deser string that did not start with correct prefix. String: ") + from);
+  }
+}
+
 }  // namespace beacon
 }  // namespace fetch

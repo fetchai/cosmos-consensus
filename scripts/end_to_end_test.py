@@ -16,7 +16,7 @@ import requests
 
 NODE_0_PRINTS=True
 VALIDATORS=4 # Must be at least 2 as a TX is send to nodes[1]
-TEST_TIMEOUT_S=60*2
+TEST_TIMEOUT_S=60*20
 THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_FILE_DIR)
 
@@ -115,9 +115,9 @@ if timed_out == False:
         except:
             pass
 
-        if total_txs == 1.0:
-            print("Found TX. Quitting test due to success.")
-            break
+        #if total_txs == 1.0:
+        #    print("Found TX. Quitting test due to success.")
+        #    break
 
 for node in nodes:
     node.kill()
