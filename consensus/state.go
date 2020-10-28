@@ -532,7 +532,7 @@ func (cs *State) reconstructLastCommit(state sm.State) {
 		panic(fmt.Sprintf("Failed to reconstruct LastCommit: seen commit for height %v not found",
 			state.LastBlockHeight))
 	}
-	lastPrecommits := types.CommitToVoteSet(state.ChainID, seenCommit, state.LastValidators)
+	lastPrecommits, _ := types.CommitToVoteSet(state.ChainID, seenCommit, state.LastValidators)
 	if !lastPrecommits.HasTwoThirdsMajority() {
 		panic("Failed to reconstruct LastCommit: Does not have +2/3 maj")
 	}
@@ -571,7 +571,7 @@ func (cs *State) updateToState(state sm.State) {
 
 	// Reset fields based on state.
 	validators := state.Validators
-	lastPrecommits := (*types.VoteSet)(nil)
+	lastPrecommits := (*types.PrecommitSet)(nil)
 	if cs.CommitRound > -1 && cs.Votes != nil {
 		if !cs.Votes.Precommits(cs.CommitRound).HasTwoThirdsMajority() {
 			panic("updateToState(state) called but last Precommit round didn't have +2/3")
@@ -1437,14 +1437,26 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 
 	// Validate timestamps in block match those we have seen. If we have not seen it then vote
 	// for nil
-	for index, commitSig := range cs.ProposalBlock.LastCommit.Signatures {
+	for index, commitSigs := range cs.ProposalBlock.LastCommit.Signatures {
+		if len(commitSigs) != 1 {
+			logger.Error("enterPrevote: timestamp verification", "err", types.NewErrInvalidCommitSigLength(index, len(commitSigs)))
+			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+			return false
+		}
+		commitSig := commitSigs[0]
 		if commitSig.Absent() {
 			continue
 		}
-		receivedVote := cs.LastCommit.GetByIndex(index)
-		if receivedVote == nil || !receivedVote.Timestamp.Equal(commitSig.Timestamp) {
-			logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails timestamp check for validator index %v ", index), "receivedVote",
-				receivedVote)
+		timestamps := cs.LastCommit.GetVoteTimestamps(index)
+		matchedTimestamp := false
+		for _, timestamp := range timestamps {
+			if timestamp.Equal(commitSig.Timestamp) {
+				matchedTimestamp = true
+				break
+			}
+		}
+		if !matchedTimestamp {
+			logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails timestamp check for validator index %v ", index))
 			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
 			return false
 		}
@@ -1900,7 +1912,7 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 		}
 
 		for i, val := range cs.LastValidators.Validators {
-			commitSig := block.LastCommit.Signatures[i]
+			commitSig := block.LastCommit.Signatures[i][0]
 			if commitSig.Absent() {
 				missingValidators++
 				missingValidatorsPower += val.VotingPower

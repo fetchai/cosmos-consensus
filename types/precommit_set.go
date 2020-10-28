@@ -3,131 +3,124 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
-
 	"github.com/tendermint/tendermint/libs/bits"
 )
 
-const (
-	// MaxVotesCount is the maximum number of votes in a set. Used in ValidateBasic funcs for
-	// protection against DOS attacks. Note this implies a corresponding equal limit to
-	// the number of validators.
-	MaxVotesCount = 10000
-)
+// VoteSet interface satisfied by PrecommitSet and PrevoteSet
+type VoteSet interface {
+	ChainID() string
+	GetRound() int
+	Size() int
+	BitArray() *bits.BitArray
+	AddVote(vote *Vote) (added bool, err error)
+	SetPeerMaj23(peerID P2PID, blockID BlockID) error
+	HasAll() bool
+	HasTwoThirdsMajority() bool
+	TwoThirdsMajority() (blockID BlockID, ok bool)
+	ValidatorSetHash() []byte
+	StringShort() string
+	VoteStrings() []string
+	BitArrayString() string
+}
 
-// UNSTABLE
-// XXX: duplicate of p2p.ID to avoid dependence between packages.
-// Perhaps we can have a minimal types package containing this (and other things?)
-// that both `types` and `p2p` import ?
-type P2PID string
+var _ VoteSet = &PrecommitSet{}
 
-/*
-	VoteSet helps collect signatures from validators at each height+round for a
-	predefined vote type.
+// PrecommitIdentifier is unique identifier for a precommit in each height and round
+// Used in consensus reactor to record the precommits peers have seen
+func PrecommitIdentifier(index int, timestamp time.Time) string {
+	return fmt.Sprintf("%v/%s", index, CanonicalTime(timestamp))
+}
 
-	We need VoteSet to be able to keep track of conflicting votes when validators
-	double-sign.  Yet, we can't keep track of *all* the votes seen, as that could
-	be a DoS attack vector.
+// Converts precommit identifier back to the validator index
+func PrecommitIdentifierToIndex(identifier string) int {
+	indexTimestamp := strings.Split(identifier, "/")
+	index, err := strconv.Atoi(indexTimestamp[0])
+	if err != nil {
+		panic(fmt.Sprintf("Error converting precommit identifier %v to index", identifier))
+	}
+	return index
+}
 
-	There are two storage areas for votes.
-	1. voteSet.votes
-	2. voteSet.votesByBlock
-
-	`.votes` is the "canonical" list of votes.  It always has at least one vote,
-	if a vote from a validator had been seen at all.  Usually it keeps track of
-	the first vote seen, but when a 2/3 majority is found, votes for that get
-	priority and are copied over from `.votesByBlock`.
-
-	`.votesByBlock` keeps track of a list of votes for a particular block.  There
-	are two ways a &blockVotes{} gets created in `.votesByBlock`.
-	1. the first vote seen by a validator was for the particular block.
-	2. a peer claims to have seen 2/3 majority for the particular block.
-
-	Since the first vote from a validator will always get added in `.votesByBlock`
-	, all votes in `.votes` will have a corresponding entry in `.votesByBlock`.
-
-	When a &blockVotes{} in `.votesByBlock` reaches a 2/3 majority quorum, its
-	votes are copied into `.votes`.
-
-	All this is memory bounded because conflicting votes only get added if a peer
-	told us to track that block, each peer only gets to tell us 1 such block, and,
-	there's only a limited number of peers.
-
-	NOTE: Assumes that the sum total of voting power does not exceed MaxUInt64.
-*/
-type VoteSet struct {
-	chainID       string
-	height        int64
-	round         int
-	signedMsgType SignedMsgType
-	valSet        *ValidatorSet
+// PrecommitSet collects precommit votes on blocks. Stores precommits on the same
+// block but with different timestamp
+type PrecommitSet struct {
+	chainID string
+	height  int64
+	round   int
+	valSet  *ValidatorSet
 
 	mtx           sync.Mutex
 	votesBitArray *bits.BitArray
-	votes         []*Vote                // Primary votes to share
-	sum           int64                  // Sum of voting power for seen votes, discounting conflicts
-	maj23         *BlockID               // First 2/3 majority seen
-	votesByBlock  map[string]*blockVotes // string(blockHash|blockParts) -> blockVotes
-	peerMaj23s    map[P2PID]BlockID      // Maj23 for each peer
+	votes         map[int]map[string]*Vote        // Primary votes to share by validator index and timestamp
+	sum           int64                           // Sum of voting power for seen votes, discounting conflicts
+	maj23         *BlockID                        // First 2/3 majority seen
+	votesByBlock  map[string]*blockPrecommitVotes // string(blockHash|blockParts) -> blockVotes
+	peerMaj23s    map[P2PID]BlockID               // Maj23 for each peer
 }
 
-// Constructs a new VoteSet struct used to accumulate votes for given height/round.
-func NewVoteSet(chainID string, height int64, round int, signedMsgType SignedMsgType, valSet *ValidatorSet) *VoteSet {
+// NewPrecommitSet constructs a new PrecommitVoteSet struct used to accumulate votes for given height/round.
+func NewPrecommitSet(chainID string, height int64, round int, valSet *ValidatorSet) *PrecommitSet {
 	if height == 0 {
 		panic("Cannot make VoteSet for height == 0, doesn't make sense.")
 	}
-	return &VoteSet{
+	precommitSet := &PrecommitSet{
 		chainID:       chainID,
 		height:        height,
 		round:         round,
-		signedMsgType: signedMsgType,
 		valSet:        valSet,
 		votesBitArray: bits.NewBitArray(valSet.Size()),
-		votes:         make([]*Vote, valSet.Size()),
+		votes:         make(map[int]map[string]*Vote, valSet.Size()),
 		sum:           0,
 		maj23:         nil,
-		votesByBlock:  make(map[string]*blockVotes, valSet.Size()),
+		votesByBlock:  make(map[string]*blockPrecommitVotes, valSet.Size()),
 		peerMaj23s:    make(map[P2PID]BlockID),
 	}
+
+	// Initialise nested map
+	for index := 0; index < valSet.Size(); index++ {
+		precommitSet.votes[index] = map[string]*Vote{}
+	}
+
+	return precommitSet
 }
 
-func (voteSet *VoteSet) ChainID() string {
+func (voteSet *PrecommitSet) ChainID() string {
 	return voteSet.chainID
 }
 
-// Implements VoteSetReader.
-func (voteSet *VoteSet) GetHeight() int64 {
+func (voteSet *PrecommitSet) GetHeight() int64 {
 	if voteSet == nil {
 		return 0
 	}
 	return voteSet.height
 }
 
-// Implements VoteSetReader.
-func (voteSet *VoteSet) GetRound() int {
+func (voteSet *PrecommitSet) GetRound() int {
 	if voteSet == nil {
 		return -1
 	}
 	return voteSet.round
 }
 
-// Implements VoteSetReader.
-func (voteSet *VoteSet) Type() byte {
-	if voteSet == nil {
-		return 0x00
-	}
-	return byte(voteSet.signedMsgType)
-}
-
-// Implements VoteSetReader.
-func (voteSet *VoteSet) Size() int {
+func (voteSet *PrecommitSet) Size() int {
 	if voteSet == nil {
 		return 0
 	}
 	return voteSet.valSet.Size()
+}
+
+// Implements VoteSet
+func (voteSet *PrecommitSet) ValidatorSetHash() []byte {
+	if voteSet == nil {
+		return []byte{}
+	}
+	return voteSet.valSet.Hash()
 }
 
 // Returns added=true if vote is valid and new.
@@ -139,7 +132,7 @@ func (voteSet *VoteSet) Size() int {
 // NOTE: vote should not be mutated after adding.
 // NOTE: VoteSet must not be nil
 // NOTE: Vote must not be nil
-func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
+func (voteSet *PrecommitSet) AddVote(vote *Vote) (added bool, err error) {
 	if voteSet == nil {
 		panic("AddVote() on nil VoteSet")
 	}
@@ -150,7 +143,7 @@ func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
 }
 
 // NOTE: Validates as much as possible before attempting to verify the signature.
-func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
+func (voteSet *PrecommitSet) addVote(vote *Vote) (added bool, err error) {
 	if vote == nil {
 		return false, ErrVoteNil
 	}
@@ -168,9 +161,9 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 	// Make sure the step matches.
 	if (vote.Height != voteSet.height) ||
 		(vote.Round != voteSet.round) ||
-		(vote.Type != voteSet.signedMsgType) {
+		(vote.Type != PrecommitType) {
 		return false, errors.Wrapf(ErrVoteUnexpectedStep, "Expected %d/%d/%d, but got %d/%d/%d",
-			voteSet.height, voteSet.round, voteSet.signedMsgType,
+			voteSet.height, voteSet.round, PrecommitType,
 			vote.Height, vote.Round, vote.Type)
 	}
 
@@ -190,8 +183,8 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 	}
 
 	// If we already know of this vote, return false.
-	if existing, ok := voteSet.getVote(valIndex, blockKey); ok {
-		if bytes.Equal(existing.Signature, vote.Signature) {
+	if existing, ok := voteSet.getVote(valIndex, blockKey, vote.Timestamp); ok {
+		if bytes.Equal(existing.TimestampSignature, vote.TimestampSignature) {
 			return false, nil // duplicate
 		}
 		return false, errors.Wrapf(ErrVoteNonDeterministicSignature, "Existing vote: %v; New vote: %v", existing, vote)
@@ -214,11 +207,11 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 }
 
 // Returns (vote, true) if vote exists for valIndex and blockKey.
-func (voteSet *VoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok bool) {
-	if existing := voteSet.votes[valIndex]; existing != nil && existing.BlockID.Key() == blockKey {
+func (voteSet *PrecommitSet) getVote(valIndex int, blockKey string, timestamp time.Time) (vote *Vote, ok bool) {
+	if existing := voteSet.votes[valIndex][CanonicalTime(timestamp)]; existing != nil && existing.BlockID.Key() == blockKey {
 		return existing, true
 	}
-	if existing := voteSet.votesByBlock[blockKey].getByIndex(valIndex); existing != nil {
+	if existing := voteSet.votesByBlock[blockKey].getByIndex(valIndex, timestamp); existing != nil {
 		return existing, true
 	}
 	return nil, false
@@ -226,50 +219,36 @@ func (voteSet *VoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok b
 
 // Assumes signature is valid.
 // If conflicting vote exists, returns it.
-func (voteSet *VoteSet) addVerifiedVote(
+func (voteSet *PrecommitSet) addVerifiedVote(
 	vote *Vote,
 	blockKey string,
 	votingPower int64,
 ) (added bool, conflicting *Vote) {
 	valIndex := vote.ValidatorIndex
+	timestamp := CanonicalTime(vote.Timestamp)
 
 	// Already exists in voteSet.votes?
-	if existing := voteSet.votes[valIndex]; existing != nil {
-		if existing.BlockID.Equals(vote.BlockID) {
-			panic("addVerifiedVote does not expect duplicate votes")
+	for _, existing := range voteSet.votes[valIndex] {
+		if vote.BlockID.Equals(existing.BlockID) {
+			if existing.Timestamp.Equal(vote.Timestamp) {
+				panic("addVerifiedVote does not expect duplicate votes")
+			}
 		} else {
 			conflicting = existing
+			break
 		}
-		// Replace vote if blockKey matches voteSet.maj23.
-		if voteSet.maj23 != nil && voteSet.maj23.Key() == blockKey {
-			voteSet.votes[valIndex] = vote
-			voteSet.votesBitArray.SetIndex(valIndex, true)
-		}
-		// Otherwise don't add it to voteSet.votes
-	} else {
-		// Add to voteSet.votes and incr .sum
-		voteSet.votes[valIndex] = vote
-		voteSet.votesBitArray.SetIndex(valIndex, true)
+	}
+	// Add to voteSet.votes and incr .sum
+	voteSet.votes[valIndex][timestamp] = vote
+	voteSet.votesBitArray.SetIndex(valIndex, true)
+	if len(voteSet.votes[valIndex]) == 1 {
 		voteSet.sum += votingPower
 	}
 
 	votesByBlock, ok := voteSet.votesByBlock[blockKey]
-	if ok {
-		if conflicting != nil && !votesByBlock.peerMaj23 {
-			// There's a conflict and no peer claims that this block is special.
-			return false, conflicting
-		}
-		// We'll add the vote in a bit.
-	} else {
-		// .votesByBlock doesn't exist...
-		if conflicting != nil {
-			// ... and there's a conflicting vote.
-			// We're not even tracking this blockKey, so just forget it.
-			return false, conflicting
-		}
-		// ... and there's no conflicting vote.
+	if !ok {
 		// Start tracking this blockKey
-		votesByBlock = newBlockVotes(false, voteSet.valSet.Size())
+		votesByBlock = newBlockPrecommitVotes(false, voteSet.valSet.Size())
 		voteSet.votesByBlock[blockKey] = votesByBlock
 		// We'll add the vote in a bit.
 	}
@@ -304,7 +283,7 @@ func (voteSet *VoteSet) addVerifiedVote(
 // this can cause memory issues.
 // TODO: implement ability to remove peers too
 // NOTE: VoteSet must not be nil
-func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
+func (voteSet *PrecommitSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	if voteSet == nil {
 		panic("SetPeerMaj23() on nil VoteSet")
 	}
@@ -332,7 +311,7 @@ func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 		votesByBlock.peerMaj23 = true
 		// No need to copy votes, already there.
 	} else {
-		votesByBlock = newBlockVotes(true, voteSet.valSet.Size())
+		votesByBlock = newBlockPrecommitVotes(true, voteSet.valSet.Size())
 		voteSet.votesByBlock[blockKey] = votesByBlock
 		// No need to copy votes, no votes to copy over.
 	}
@@ -340,7 +319,7 @@ func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) BitArray() *bits.BitArray {
+func (voteSet *PrecommitSet) BitArray() *bits.BitArray {
 	if voteSet == nil {
 		return nil
 	}
@@ -349,7 +328,7 @@ func (voteSet *VoteSet) BitArray() *bits.BitArray {
 	return voteSet.votesBitArray.Copy()
 }
 
-func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *bits.BitArray {
+func (voteSet *PrecommitSet) VotesByBlockID(blockID BlockID) []string {
 	if voteSet == nil {
 		return nil
 	}
@@ -357,36 +336,50 @@ func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *bits.BitArray {
 	defer voteSet.mtx.Unlock()
 	votesByBlock, ok := voteSet.votesByBlock[blockID.Key()]
 	if ok {
-		return votesByBlock.bitArray.Copy()
+		votes := []string{}
+		for _, valVotes := range votesByBlock.votes {
+			for _, v := range valVotes {
+				votes = append(votes, PrecommitIdentifier(v.ValidatorIndex, v.Timestamp))
+			}
+		}
+		return votes
 	}
 	return nil
 }
 
-// NOTE: if validator has conflicting votes, returns "canonical" vote
-// Implements VoteSetReader.
-func (voteSet *VoteSet) GetByIndex(valIndex int) *Vote {
+// GetByIndex returns all precommit votes from a validator index as a map with timestamp
+// as the key
+func (voteSet *PrecommitSet) GetVoteTimestamps(valIndex int) []time.Time {
 	if voteSet == nil {
 		return nil
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	return voteSet.votes[valIndex]
+	votes := make([]time.Time, len(voteSet.votes[valIndex]))
+	i := 0
+	for _, vote := range voteSet.votes[valIndex] {
+		votes[i] = vote.Timestamp
+		i++
+	}
+	return votes
 }
 
-func (voteSet *VoteSet) GetByAddress(address []byte) *Vote {
+// GetByIndex returns all precommit votes from a validator index as a map with timestamp
+// as the key
+func (voteSet *PrecommitSet) GetByIndex(valIndex int, timestamp time.Time) *Vote {
 	if voteSet == nil {
 		return nil
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	valIndex, val := voteSet.valSet.GetByAddress(address)
-	if val == nil {
-		panic("GetByAddress(address) returned nil")
+
+	if v, ok := voteSet.votes[valIndex][CanonicalTime(timestamp)]; ok {
+		return v
 	}
-	return voteSet.votes[valIndex]
+	return nil
 }
 
-func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
+func (voteSet *PrecommitSet) HasTwoThirdsMajority() bool {
 	if voteSet == nil {
 		return false
 	}
@@ -396,11 +389,8 @@ func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
 }
 
 // Implements VoteSetReader.
-func (voteSet *VoteSet) IsCommit() bool {
+func (voteSet *PrecommitSet) IsCommit() bool {
 	if voteSet == nil {
-		return false
-	}
-	if voteSet.signedMsgType != PrecommitType {
 		return false
 	}
 	voteSet.mtx.Lock()
@@ -408,7 +398,7 @@ func (voteSet *VoteSet) IsCommit() bool {
 	return voteSet.maj23 != nil
 }
 
-func (voteSet *VoteSet) HasTwoThirdsAny() bool {
+func (voteSet *PrecommitSet) HasTwoThirdsAny() bool {
 	if voteSet == nil {
 		return false
 	}
@@ -417,7 +407,7 @@ func (voteSet *VoteSet) HasTwoThirdsAny() bool {
 	return voteSet.sum > voteSet.valSet.TotalVotingPower()*2/3
 }
 
-func (voteSet *VoteSet) HasAll() bool {
+func (voteSet *PrecommitSet) HasAll() bool {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.sum == voteSet.valSet.TotalVotingPower()
@@ -425,7 +415,7 @@ func (voteSet *VoteSet) HasAll() bool {
 
 // If there was a +2/3 majority for blockID, return blockID and true.
 // Else, return the empty BlockID{} and false.
-func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
+func (voteSet *PrecommitSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	if voteSet == nil {
 		return BlockID{}, false
 	}
@@ -440,14 +430,14 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 //--------------------------------------------------------------------------------
 // Strings and JSON
 
-func (voteSet *VoteSet) String() string {
+func (voteSet *PrecommitSet) String() string {
 	if voteSet == nil {
 		return "nil-VoteSet"
 	}
 	return voteSet.StringIndented("")
 }
 
-func (voteSet *VoteSet) StringIndented(indent string) string {
+func (voteSet *PrecommitSet) StringIndented(indent string) string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	voteStrings := make([]string, len(voteSet.votes))
@@ -455,7 +445,11 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 		if vote == nil {
 			voteStrings[i] = nilVoteStr
 		} else {
-			voteStrings[i] = vote.String()
+			duplicateTimestampVotesStr := []string{}
+			for _, duplicateTimestampVotes := range vote {
+				duplicateTimestampVotesStr = append(duplicateTimestampVotesStr, duplicateTimestampVotes.String())
+			}
+			voteStrings[i] = strings.Join(duplicateTimestampVotesStr, "\n"+indent+"  ")
 		}
 	}
 	return fmt.Sprintf(`VoteSet{
@@ -464,7 +458,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 %s  %v
 %s  %v
 %s}`,
-		indent, voteSet.height, voteSet.round, voteSet.signedMsgType,
+		indent, voteSet.height, voteSet.round, PrecommitType,
 		indent, strings.Join(voteStrings, "\n"+indent+"  "),
 		indent, voteSet.votesBitArray,
 		indent, voteSet.peerMaj23s,
@@ -473,7 +467,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 
 // Marshal the VoteSet to JSON. Same as String(), just in JSON,
 // and without the height/round/signedMsgType (since its already included in the votes).
-func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
+func (voteSet *PrecommitSet) MarshalJSON() ([]byte, error) {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return cdc.MarshalJSON(VoteSetJSON{
@@ -483,50 +477,45 @@ func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// More human readable JSON of the vote set
-// NOTE: insufficient for unmarshalling from (compressed votes)
-// TODO: make the peerMaj23s nicer to read (eg just the block hash)
-type VoteSetJSON struct {
-	Votes         []string          `json:"votes"`
-	VotesBitArray string            `json:"votes_bit_array"`
-	PeerMaj23s    map[P2PID]BlockID `json:"peer_maj_23s"`
-}
-
 // Return the bit-array of votes including
 // the fraction of power that has voted like:
 // "BA{29:xx__x__x_x___x__x_______xxx__} 856/1304 = 0.66"
-func (voteSet *VoteSet) BitArrayString() string {
+func (voteSet *PrecommitSet) BitArrayString() string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.bitArrayString()
 }
 
-func (voteSet *VoteSet) bitArrayString() string {
+func (voteSet *PrecommitSet) bitArrayString() string {
 	bAString := voteSet.votesBitArray.String()
 	voted, total, fracVoted := voteSet.sumTotalFrac()
 	return fmt.Sprintf("%s %d/%d = %.2f", bAString, voted, total, fracVoted)
 }
 
 // Returns a list of votes compressed to more readable strings.
-func (voteSet *VoteSet) VoteStrings() []string {
+func (voteSet *PrecommitSet) VoteStrings() []string {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.voteStrings()
 }
 
-func (voteSet *VoteSet) voteStrings() []string {
+func (voteSet *PrecommitSet) voteStrings() []string {
 	voteStrings := make([]string, len(voteSet.votes))
 	for i, vote := range voteSet.votes {
 		if vote == nil {
 			voteStrings[i] = nilVoteStr
 		} else {
-			voteStrings[i] = vote.String()
+			duplicateTimestampVotesStr := []string{}
+			for _, duplicateTimestampVotes := range vote {
+				duplicateTimestampVotesStr = append(duplicateTimestampVotesStr, duplicateTimestampVotes.String())
+			}
+			voteStrings[i] = strings.Join(duplicateTimestampVotesStr, "\n"+"  ")
 		}
 	}
 	return voteStrings
 }
 
-func (voteSet *VoteSet) StringShort() string {
+func (voteSet *PrecommitSet) StringShort() string {
 	if voteSet == nil {
 		return "nil-VoteSet"
 	}
@@ -534,11 +523,11 @@ func (voteSet *VoteSet) StringShort() string {
 	defer voteSet.mtx.Unlock()
 	_, _, frac := voteSet.sumTotalFrac()
 	return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v) %v %v}`,
-		voteSet.height, voteSet.round, voteSet.signedMsgType, voteSet.maj23, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
+		voteSet.height, voteSet.round, PrecommitType, voteSet.maj23, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
 }
 
-// return the power voted, the total, and the fraction
-func (voteSet *VoteSet) sumTotalFrac() (int64, int64, float64) {
+// return the PrecommitVoteSet voted, the total, and the fraction
+func (voteSet *PrecommitSet) sumTotalFrac() (int64, int64, float64) {
 	voted, total := voteSet.sum, voteSet.valSet.TotalVotingPower()
 	fracVoted := float64(voted) / float64(total)
 	return voted, total, fracVoted
@@ -552,10 +541,7 @@ func (voteSet *VoteSet) sumTotalFrac() (int64, int64, float64) {
 //
 // Panics if the vote type is not PrecommitType or if there's no +2/3 votes for
 // a single block.
-func (voteSet *VoteSet) MakeCommit() *Commit {
-	if voteSet.signedMsgType != PrecommitType {
-		panic("Cannot MakeCommit() unless VoteSet.Type is PrecommitType")
-	}
+func (voteSet *PrecommitSet) MakeCommit() *Commit {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 
@@ -565,14 +551,19 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	}
 
 	// For every validator, get the precommit
-	commitSigs := make([]CommitSig, len(voteSet.votes))
-	for i, v := range voteSet.votes {
-		commitSig := v.CommitSig()
-		// if block ID exists but doesn't match, exclude sig
-		if commitSig.ForBlock() && !v.BlockID.Equals(*voteSet.maj23) {
-			commitSig = NewCommitSigAbsent()
+	commitSigs := make([][]CommitSig, voteSet.valSet.Size())
+	for i, votes := range voteSet.votes {
+		commitSigs[i] = make([]CommitSig, len(votes))
+		j := 0
+		for _, v := range votes {
+			commitSig := v.CommitSig()
+			// if block ID exists but doesn't match, exclude sig
+			if commitSig.ForBlock() && !v.BlockID.Equals(*voteSet.maj23) {
+				commitSig = NewCommitSigAbsent()
+			}
+			commitSigs[i][j] = commitSig
+			j++
 		}
-		commitSigs[i] = commitSig
 	}
 
 	return NewCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
@@ -586,47 +577,45 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	1. first (non-conflicting) vote of a validator w/ blockKey (peerMaj23=false)
 	2. A peer claims to have a 2/3 majority w/ blockKey (peerMaj23=true)
 */
-type blockVotes struct {
-	peerMaj23 bool           // peer claims to have maj23
-	bitArray  *bits.BitArray // valIndex -> hasVote?
-	votes     []*Vote        // valIndex -> *Vote
-	sum       int64          // vote sum
+type blockPrecommitVotes struct {
+	peerMaj23 bool                     // peer claims to have maj23
+	bitArray  *bits.BitArray           // valIndex -> hasVote?
+	votes     map[int]map[string]*Vote // valIndex -> *Vote
+	sum       int64                    // vote sum
 }
 
-func newBlockVotes(peerMaj23 bool, numValidators int) *blockVotes {
-	return &blockVotes{
+func newBlockPrecommitVotes(peerMaj23 bool, numValidators int) *blockPrecommitVotes {
+	blockPrecommitVotes := &blockPrecommitVotes{
 		peerMaj23: peerMaj23,
 		bitArray:  bits.NewBitArray(numValidators),
-		votes:     make([]*Vote, numValidators),
+		votes:     make(map[int]map[string]*Vote, numValidators),
 		sum:       0,
 	}
+
+	// Initialise nest map
+	for index := 0; index < numValidators; index++ {
+		blockPrecommitVotes.votes[index] = map[string]*Vote{}
+	}
+
+	return blockPrecommitVotes
 }
 
-func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower int64) {
+func (vs *blockPrecommitVotes) addVerifiedVote(vote *Vote, votingPower int64) {
 	valIndex := vote.ValidatorIndex
-	if existing := vs.votes[valIndex]; existing == nil {
+	timestamp := CanonicalTime(vote.Timestamp)
+	if existing := vs.votes[valIndex][timestamp]; existing == nil {
 		vs.bitArray.SetIndex(valIndex, true)
-		vs.votes[valIndex] = vote
-		vs.sum += votingPower
+		vs.votes[valIndex][timestamp] = vote
+		// Only count the validator voting power for one vote
+		if len(vs.votes[valIndex]) == 1 {
+			vs.sum += votingPower
+		}
 	}
 }
 
-func (vs *blockVotes) getByIndex(index int) *Vote {
+func (vs *blockPrecommitVotes) getByIndex(index int, timestamp time.Time) *Vote {
 	if vs == nil {
 		return nil
 	}
-	return vs.votes[index]
-}
-
-//--------------------------------------------------------------------------------
-
-// Common interface between *consensus.VoteSet and types.Commit
-type VoteSetReader interface {
-	GetHeight() int64
-	GetRound() int
-	Type() byte
-	Size() int
-	BitArray() *bits.BitArray
-	GetByIndex(int) *Vote
-	IsCommit() bool
+	return vs.votes[index][CanonicalTime(timestamp)]
 }

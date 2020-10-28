@@ -275,22 +275,26 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 			}
 			// Respond with a VoteSetBitsMessage showing which votes we have.
 			// (and consequently shows which we don't have)
-			var ourVotes *bits.BitArray
 			switch msg.Type {
 			case types.PrevoteType:
-				ourVotes = votes.Prevotes(msg.Round).BitArrayByBlockID(msg.BlockID)
+				ourVotes := votes.Prevotes(msg.Round).BitArrayByBlockID(msg.BlockID)
+				src.TrySend(VoteSetBitsChannel, cdc.MustMarshalBinaryBare(&PrevoteSetBitsMessage{
+					Height:  msg.Height,
+					Round:   msg.Round,
+					BlockID: msg.BlockID,
+					Votes:   ourVotes,
+				}))
 			case types.PrecommitType:
-				ourVotes = votes.Precommits(msg.Round).BitArrayByBlockID(msg.BlockID)
+				ourVotes := votes.Precommits(msg.Round).VotesByBlockID(msg.BlockID)
+				src.TrySend(VoteSetBitsChannel, cdc.MustMarshalBinaryBare(&PrecommitMapMessage{
+					Height:  msg.Height,
+					Round:   msg.Round,
+					BlockID: msg.BlockID,
+					Votes:   ourVotes,
+				}))
 			default:
 				panic("Bad VoteSetBitsMessage field Type. Forgot to add a check in ValidateBasic?")
 			}
-			src.TrySend(VoteSetBitsChannel, cdc.MustMarshalBinaryBare(&VoteSetBitsMessage{
-				Height:  msg.Height,
-				Round:   msg.Round,
-				Type:    msg.Type,
-				BlockID: msg.BlockID,
-				Votes:   ourVotes,
-			}))
 		default:
 			conR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -342,26 +346,20 @@ func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 			return
 		}
 		switch msg := msg.(type) {
-		case *VoteSetBitsMessage:
+		case *PrevoteSetBitsMessage:
 			cs := conR.conS
 			cs.mtx.Lock()
 			height, votes := cs.Height, cs.Votes
 			cs.mtx.Unlock()
 
 			if height == msg.Height {
-				var ourVotes *bits.BitArray
-				switch msg.Type {
-				case types.PrevoteType:
-					ourVotes = votes.Prevotes(msg.Round).BitArrayByBlockID(msg.BlockID)
-				case types.PrecommitType:
-					ourVotes = votes.Precommits(msg.Round).BitArrayByBlockID(msg.BlockID)
-				default:
-					panic("Bad VoteSetBitsMessage field Type. Forgot to add a check in ValidateBasic?")
-				}
-				ps.ApplyVoteSetBitsMessage(msg, ourVotes)
+				ourVotes := votes.Prevotes(msg.Round).BitArrayByBlockID(msg.BlockID)
+				ps.ApplyPrevoteSetBitsMessage(msg, ourVotes)
 			} else {
-				ps.ApplyVoteSetBitsMessage(msg, nil)
+				ps.ApplyPrevoteSetBitsMessage(msg, nil)
 			}
+		case *PrecommitMapMessage:
+			ps.ApplyPrecommitMapMessage(msg)
 		default:
 			// don't punish (leave room for soft upgrades)
 			conR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
@@ -652,7 +650,8 @@ OUTER_LOOP:
 		// Special catchup logic.
 		// If peer is lagging by height 1, send LastCommit.
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
-			if ps.PickSendVote(rs.LastCommit) {
+
+			if ps.PickSendPrecommit(rs.LastCommit) {
 				logger.Debug("Picked rs.LastCommit to send", "height", prs.Height)
 				continue OUTER_LOOP
 			}
@@ -664,7 +663,12 @@ OUTER_LOOP:
 			// Load the block commit for prs.Height,
 			// which contains precommit signatures for prs.Height.
 			commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
-			if ps.PickSendVote(commit) {
+			votes, err := types.CommitToVoteSet(conR.conS.GetState().ChainID, commit, conR.conS.Validators)
+			if err != nil {
+				logger.Error("CommitToVoteSet failed", "height", prs.Height, "err", err)
+				continue OUTER_LOOP
+			}
+			if ps.PickSendPrecommit(votes) {
 				logger.Debug("Picked Catchup commit to send", "height", prs.Height)
 				continue OUTER_LOOP
 			}
@@ -675,7 +679,7 @@ OUTER_LOOP:
 			sleeping = 1
 			logger.Debug("No votes to send, sleeping", "rs.Height", rs.Height, "prs.Height", prs.Height,
 				"localPV", rs.Votes.Prevotes(rs.Round).BitArray(), "peerPV", prs.Prevotes,
-				"localPC", rs.Votes.Precommits(rs.Round).BitArray(), "peerPC", prs.Precommits)
+				"localPC", rs.Votes.Precommits(rs.Round).BitArray(), "peerPC", prs.Precommits.BitArray(conR.conS.Validators.Size()))
 		} else if sleeping == 2 {
 			// Continued sleep...
 			sleeping = 1
@@ -695,14 +699,15 @@ func (conR *Reactor) gossipVotesForHeight(
 
 	// If there are lastCommits to send then send them regardless of the step peer is in. Last commits should
 	// be gossiped until everyone has received them all or consensus moves onto the next height
-	if ps.PickSendVote(rs.LastCommit) {
+
+	if ps.PickSendPrecommit(rs.LastCommit) {
 		logger.Debug("Picked rs.LastCommit to send")
 		return true
 	}
 	// If there are POL prevotes to send...
 	if prs.Step <= cstypes.RoundStepPropose && prs.Round != -1 && prs.Round <= rs.Round && prs.ProposalPOLRound != -1 {
 		if polPrevotes := rs.Votes.Prevotes(prs.ProposalPOLRound); polPrevotes != nil {
-			if ps.PickSendVote(polPrevotes) {
+			if ps.PickSendPrevote(polPrevotes) {
 				logger.Debug("Picked rs.Prevotes(prs.ProposalPOLRound) to send",
 					"round", prs.ProposalPOLRound)
 				return true
@@ -711,21 +716,21 @@ func (conR *Reactor) gossipVotesForHeight(
 	}
 	// If there are prevotes to send...
 	if prs.Step <= cstypes.RoundStepPrevoteWait && prs.Round != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Prevotes(prs.Round)) {
+		if ps.PickSendPrevote(rs.Votes.Prevotes(prs.Round)) {
 			logger.Debug("Picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true
 		}
 	}
 	// If there are precommits to send...
 	if prs.Step <= cstypes.RoundStepPrecommitWait && prs.Round != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Precommits(prs.Round)) {
+		if ps.PickSendPrecommit(rs.Votes.Precommits(prs.Round)) {
 			logger.Debug("Picked rs.Precommits(prs.Round) to send", "round", prs.Round)
 			return true
 		}
 	}
 	// If there are prevotes to send...Needed because of validBlock mechanism
 	if prs.Round != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Prevotes(prs.Round)) {
+		if ps.PickSendPrevote(rs.Votes.Prevotes(prs.Round)) {
 			logger.Debug("Picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true
 		}
@@ -733,7 +738,7 @@ func (conR *Reactor) gossipVotesForHeight(
 	// If there are POLPrevotes to send...
 	if prs.ProposalPOLRound != -1 {
 		if polPrevotes := rs.Votes.Prevotes(prs.ProposalPOLRound); polPrevotes != nil {
-			if ps.PickSendVote(polPrevotes) {
+			if ps.PickSendPrevote(polPrevotes) {
 				logger.Debug("Picked rs.Prevotes(prs.ProposalPOLRound) to send",
 					"round", prs.ProposalPOLRound)
 				return true
@@ -1042,10 +1047,10 @@ func (ps *PeerState) SetHasProposalBlockPart(height int64, round int, index int)
 	ps.PRS.ProposalBlockParts.SetIndex(index, true)
 }
 
-// PickSendVote picks a vote and sends it to the peer.
+// PickSendPrevote picks a prevote and sends it to the peer.
 // Returns true if vote was sent.
-func (ps *PeerState) PickSendVote(votes types.VoteSetReader) bool {
-	if vote, ok := ps.PickVoteToSend(votes); ok {
+func (ps *PeerState) PickSendPrevote(votes types.VoteSetReader) bool {
+	if vote, ok := ps.PickPrevoteToSend(votes); ok {
 		msg := &VoteMessage{vote}
 		ps.logger.Debug("Sending vote message", "ps", ps, "vote", vote)
 		if ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg)) {
@@ -1057,10 +1062,10 @@ func (ps *PeerState) PickSendVote(votes types.VoteSetReader) bool {
 	return false
 }
 
-// PickVoteToSend picks a vote to send to the peer.
+// PickPrevoteToSend picks a prevote to send to the peer.
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
-func (ps *PeerState) PickVoteToSend(votes types.VoteSetReader) (vote *types.Vote, ok bool) {
+func (ps *PeerState) PickPrevoteToSend(votes types.VoteSetReader) (vote *types.Vote, ok bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -1068,7 +1073,7 @@ func (ps *PeerState) PickVoteToSend(votes types.VoteSetReader) (vote *types.Vote
 		return nil, false
 	}
 
-	height, round, votesType, size := votes.GetHeight(), votes.GetRound(), types.SignedMsgType(votes.Type()), votes.Size()
+	height, round, size := votes.GetHeight(), votes.GetRound(), votes.Size()
 
 	// Lazily set data using 'votes'.
 	if votes.IsCommit() {
@@ -1076,7 +1081,7 @@ func (ps *PeerState) PickVoteToSend(votes types.VoteSetReader) (vote *types.Vote
 	}
 	ps.ensureVoteBitArrays(height, size)
 
-	psVotes := ps.getVoteBitArray(height, round, votesType)
+	psVotes := ps.getPrevoteBitArray(height, round)
 	if psVotes == nil {
 		return nil, false // Not something worth sending
 	}
@@ -1086,46 +1091,92 @@ func (ps *PeerState) PickVoteToSend(votes types.VoteSetReader) (vote *types.Vote
 	return nil, false
 }
 
-func (ps *PeerState) getVoteBitArray(height int64, round int, votesType types.SignedMsgType) *bits.BitArray {
-	if !types.IsVoteTypeValid(votesType) {
-		return nil
-	}
-
+func (ps *PeerState) getPrevoteBitArray(height int64, round int) *bits.BitArray {
 	if ps.PRS.Height == height {
 		if ps.PRS.Round == round {
-			switch votesType {
-			case types.PrevoteType:
-				return ps.PRS.Prevotes
-			case types.PrecommitType:
-				return ps.PRS.Precommits
-			}
+			return ps.PRS.Prevotes
 		}
 		if ps.PRS.CatchupCommitRound == round {
-			switch votesType {
-			case types.PrevoteType:
-				return nil
-			case types.PrecommitType:
-				return ps.PRS.CatchupCommit
-			}
+			return nil
 		}
 		if ps.PRS.ProposalPOLRound == round {
-			switch votesType {
-			case types.PrevoteType:
-				return ps.PRS.ProposalPOL
-			case types.PrecommitType:
-				return nil
-			}
+			return ps.PRS.ProposalPOL
 		}
 		return nil
 	}
 	if ps.PRS.Height == height+1 {
 		if ps.PRS.LastCommitRound == round {
-			switch votesType {
-			case types.PrevoteType:
-				return nil
-			case types.PrecommitType:
-				return ps.PRS.LastCommit
+			return nil
+		}
+		return nil
+	}
+	return nil
+}
+
+// PickSendPrecommit picks a precommit vote and sends it to the peer.
+// Returns true if vote was sent.
+func (ps *PeerState) PickSendPrecommit(votes *types.PrecommitSet) bool {
+	if vote, ok := ps.PickPrecommitToSend(votes); ok {
+		msg := &VoteMessage{vote}
+		ps.logger.Debug("Sending vote message", "ps", ps, "vote", vote)
+		if ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg)) {
+			ps.SetHasVote(vote)
+			return true
+		}
+		return false
+	}
+	return false
+}
+
+// PickVotePickPrecommitToSendToSend picks a precommit to send to the peer.
+// Returns true if a vote was picked.
+// NOTE: `votes` must be the correct Size() for the Height().
+func (ps *PeerState) PickPrecommitToSend(votes *types.PrecommitSet) (vote *types.Vote, ok bool) {
+	ps.mtx.Lock()
+	defer ps.mtx.Unlock()
+
+	if votes.Size() == 0 {
+		return nil, false
+	}
+
+	height, round, size := votes.GetHeight(), votes.GetRound(), votes.Size()
+
+	// Lazily set data using 'votes'.
+	if votes.IsCommit() {
+		ps.ensureCatchupCommitRound(height, round, size)
+	}
+	ps.ensureVoteBitArrays(height, size)
+
+	psVotes := ps.getPrecommitRecord(height, round)
+	if psVotes == nil {
+		return nil, false // Not something worth sending
+	}
+	for index := 0; index < size; index++ {
+		for _, timestamp := range votes.GetVoteTimestamps(index) {
+			if !psVotes.HasVote(types.PrecommitIdentifier(index, timestamp)) {
+				return votes.GetByIndex(index, timestamp), true
 			}
+		}
+	}
+	return nil, false
+}
+
+func (ps *PeerState) getPrecommitRecord(height int64, round int) *cstypes.PrecommitRecord {
+	if ps.PRS.Height == height {
+		if ps.PRS.Round == round {
+			return ps.PRS.Precommits
+		}
+		if ps.PRS.CatchupCommitRound == round {
+			return ps.PRS.CatchupCommit
+		}
+		if ps.PRS.ProposalPOLRound == round {
+			return nil
+		}
+		return nil
+	}
+	if ps.PRS.Height == height+1 {
+		if ps.PRS.LastCommitRound == round {
+			return ps.PRS.LastCommit
 		}
 		return nil
 	}
@@ -1157,7 +1208,7 @@ func (ps *PeerState) ensureCatchupCommitRound(height int64, round int, numValida
 	if round == ps.PRS.Round {
 		ps.PRS.CatchupCommit = ps.PRS.Precommits
 	} else {
-		ps.PRS.CatchupCommit = bits.NewBitArray(numValidators)
+		ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord()
 	}
 }
 
@@ -1177,17 +1228,17 @@ func (ps *PeerState) ensureVoteBitArrays(height int64, numValidators int) {
 			ps.PRS.Prevotes = bits.NewBitArray(numValidators)
 		}
 		if ps.PRS.Precommits == nil {
-			ps.PRS.Precommits = bits.NewBitArray(numValidators)
+			ps.PRS.Precommits = cstypes.NewPrecommitRecord()
 		}
 		if ps.PRS.CatchupCommit == nil {
-			ps.PRS.CatchupCommit = bits.NewBitArray(numValidators)
+			ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord()
 		}
 		if ps.PRS.ProposalPOL == nil {
 			ps.PRS.ProposalPOL = bits.NewBitArray(numValidators)
 		}
 	} else if ps.PRS.Height == height+1 {
 		if ps.PRS.LastCommit == nil {
-			ps.PRS.LastCommit = bits.NewBitArray(numValidators)
+			ps.PRS.LastCommit = cstypes.NewPrecommitRecord()
 		}
 	}
 }
@@ -1235,10 +1286,10 @@ func (ps *PeerState) SetHasVote(vote *types.Vote) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	ps.setHasVote(vote.Height, vote.Round, vote.Type, vote.ValidatorIndex)
+	ps.setHasVote(vote.Height, vote.Round, vote.Type, vote.ValidatorIndex, vote.Timestamp)
 }
 
-func (ps *PeerState) setHasVote(height int64, round int, voteType types.SignedMsgType, index int) {
+func (ps *PeerState) setHasVote(height int64, round int, voteType types.SignedMsgType, index int, timestamp time.Time) {
 	logger := ps.logger.With(
 		"peerH/R",
 		fmt.Sprintf("%d/%d", ps.PRS.Height, ps.PRS.Round),
@@ -1247,9 +1298,15 @@ func (ps *PeerState) setHasVote(height int64, round int, voteType types.SignedMs
 	logger.Debug("setHasVote", "type", voteType, "index", index)
 
 	// NOTE: some may be nil BitArrays -> no side effects.
-	psVotes := ps.getVoteBitArray(height, round, voteType)
-	if psVotes != nil {
-		psVotes.SetIndex(index, true)
+	switch voteType {
+	case types.PrevoteType:
+		psVotes := ps.getPrevoteBitArray(height, round)
+		if psVotes != nil {
+			psVotes.SetIndex(index, true)
+		}
+	case types.PrecommitType:
+		psVotes := ps.getPrecommitRecord(height, round)
+		psVotes.SetHasVote(types.PrecommitIdentifier(index, timestamp))
 	}
 }
 
@@ -1349,19 +1406,19 @@ func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
 		return
 	}
 
-	ps.setHasVote(msg.Height, msg.Round, msg.Type, msg.Index)
+	ps.setHasVote(msg.Height, msg.Round, msg.Type, msg.Index, msg.Timestamp)
 }
 
-// ApplyVoteSetBitsMessage updates the peer state for the bit-array of votes
+// ApplyPrevoteSetBitsMessage updates the peer state for the bit-array of prevotes
 // it claims to have for the corresponding BlockID.
 // `ourVotes` is a BitArray of votes we have for msg.BlockID
 // NOTE: if ourVotes is nil (e.g. msg.Height < rs.Height),
 // we conservatively overwrite ps's votes w/ msg.Votes.
-func (ps *PeerState) ApplyVoteSetBitsMessage(msg *VoteSetBitsMessage, ourVotes *bits.BitArray) {
+func (ps *PeerState) ApplyPrevoteSetBitsMessage(msg *PrevoteSetBitsMessage, ourVotes *bits.BitArray) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	votes := ps.getVoteBitArray(msg.Height, msg.Round, msg.Type)
+	votes := ps.getPrevoteBitArray(msg.Height, msg.Round)
 	if votes != nil {
 		if ourVotes == nil {
 			votes.Update(msg.Votes)
@@ -1369,6 +1426,22 @@ func (ps *PeerState) ApplyVoteSetBitsMessage(msg *VoteSetBitsMessage, ourVotes *
 			otherVotes := votes.Sub(ourVotes)
 			hasVotes := otherVotes.Or(msg.Votes)
 			votes.Update(hasVotes)
+		}
+	}
+}
+
+// ApplyPrecommitMapMessage updates the peer state for the precommit votes
+// it claims to have for the corresponding BlockID.
+func (ps *PeerState) ApplyPrecommitMapMessage(msg *PrecommitMapMessage) {
+	ps.mtx.Lock()
+	defer ps.mtx.Unlock()
+
+	votes := ps.getPrecommitRecord(msg.Height, msg.Round)
+	if votes != nil {
+		for _, vote := range msg.Votes {
+			if !votes.HasVote(vote) {
+				votes.SetHasVote(vote)
+			}
 		}
 	}
 }
@@ -1411,7 +1484,8 @@ func RegisterMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&VoteMessage{}, "tendermint/Vote", nil)
 	cdc.RegisterConcrete(&HasVoteMessage{}, "tendermint/HasVote", nil)
 	cdc.RegisterConcrete(&VoteSetMaj23Message{}, "tendermint/VoteSetMaj23", nil)
-	cdc.RegisterConcrete(&VoteSetBitsMessage{}, "tendermint/VoteSetBits", nil)
+	cdc.RegisterConcrete(&PrevoteSetBitsMessage{}, "tendermint/PrevoteSetBits", nil)
+	cdc.RegisterConcrete(&PrecommitMapMessage{}, "tendermint/PrecommitMapMessage", nil)
 }
 
 func decodeMsg(bz []byte) (msg Message, err error) {
@@ -1602,10 +1676,11 @@ func (m *VoteMessage) String() string {
 
 // HasVoteMessage is sent to indicate that a particular vote has been received.
 type HasVoteMessage struct {
-	Height int64
-	Round  int
-	Type   types.SignedMsgType
-	Index  int
+	Height    int64
+	Round     int
+	Type      types.SignedMsgType
+	Index     int
+	Timestamp time.Time
 }
 
 // ValidateBasic performs basic validation.
@@ -1627,7 +1702,8 @@ func (m *HasVoteMessage) ValidateBasic() error {
 
 // String returns a string representation.
 func (m *HasVoteMessage) String() string {
-	return fmt.Sprintf("[HasVote VI:%v V:{%v/%02d/%v}]", m.Index, m.Height, m.Round, m.Type)
+	return fmt.Sprintf("[HasVote VI:%v V:{%v/%02d/%v@%s}]", m.Index, m.Height, m.Round, m.Type,
+		types.CanonicalTime(m.Timestamp))
 }
 
 //-------------------------------------
@@ -1664,25 +1740,21 @@ func (m *VoteSetMaj23Message) String() string {
 
 //-------------------------------------
 
-// VoteSetBitsMessage is sent to communicate the bit-array of votes seen for the BlockID.
-type VoteSetBitsMessage struct {
+// PrevoteSetBitsMessage is sent to communicate the bit-array of prevotes seen for the BlockID.
+type PrevoteSetBitsMessage struct {
 	Height  int64
 	Round   int
-	Type    types.SignedMsgType
 	BlockID types.BlockID
 	Votes   *bits.BitArray
 }
 
 // ValidateBasic performs basic validation.
-func (m *VoteSetBitsMessage) ValidateBasic() error {
+func (m *PrevoteSetBitsMessage) ValidateBasic() error {
 	if m.Height < 0 {
 		return errors.New("negative Height")
 	}
 	if m.Round < 0 {
 		return errors.New("negative Round")
-	}
-	if !types.IsVoteTypeValid(m.Type) {
-		return errors.New("invalid Type")
 	}
 	if err := m.BlockID.ValidateBasic(); err != nil {
 		return fmt.Errorf("wrong BlockID: %v", err)
@@ -1695,8 +1767,37 @@ func (m *VoteSetBitsMessage) ValidateBasic() error {
 }
 
 // String returns a string representation.
-func (m *VoteSetBitsMessage) String() string {
-	return fmt.Sprintf("[VSB %v/%02d/%v %v %v]", m.Height, m.Round, m.Type, m.BlockID, m.Votes)
+func (m *PrevoteSetBitsMessage) String() string {
+	return fmt.Sprintf("[PSB %v/%02d %v %v]", m.Height, m.Round, m.BlockID, m.Votes)
+}
+
+//-------------------------------------
+
+// VoteSetBitsMessage is sent to communicate the precommit votes seen for the BlockID.
+type PrecommitMapMessage struct {
+	Height  int64
+	Round   int
+	BlockID types.BlockID
+	Votes   []string
+}
+
+// ValidateBasic performs basic validation.
+func (m *PrecommitMapMessage) ValidateBasic() error {
+	if m.Height < 0 {
+		return errors.New("negative Height")
+	}
+	if m.Round < 0 {
+		return errors.New("negative Round")
+	}
+	if err := m.BlockID.ValidateBasic(); err != nil {
+		return fmt.Errorf("wrong BlockID: %v", err)
+	}
+	return nil
+}
+
+// String returns a string representation.
+func (m *PrecommitMapMessage) String() string {
+	return fmt.Sprintf("[VSB %v/%02d %v %v]", m.Height, m.Round, m.BlockID, m.Votes)
 }
 
 //-------------------------------------

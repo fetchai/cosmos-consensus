@@ -88,7 +88,7 @@ type RoundState struct {
 	ValidBlockParts           *types.PartSet      `json:"valid_block_parts"`
 	Votes                     *HeightVoteSet      `json:"votes"`
 	CommitRound               int                 `json:"commit_round"` //
-	LastCommit                *types.VoteSet      `json:"last_commit"`  // Last precommits at Height-1
+	LastCommit                *types.PrecommitSet `json:"last_commit"`  // Last precommits at Height-1
 	LastValidators            *types.ValidatorSet `json:"last_validators"`
 	TriggeredTimeoutPrecommit bool                `json:"triggered_timeout_precommit"`
 }

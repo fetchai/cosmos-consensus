@@ -7,7 +7,7 @@ import (
 )
 
 func MakeCommit(blockID BlockID, height int64, round int,
-	voteSet *VoteSet, validators []PrivValidator, now time.Time) (*Commit, error) {
+	voteSet *PrecommitSet, validators []PrivValidator, now time.Time) (*Commit, error) {
 
 	// all sign
 	for i := 0; i < len(validators); i++ {
@@ -34,8 +34,8 @@ func MakeCommit(blockID BlockID, height int64, round int,
 	return voteSet.MakeCommit(), nil
 }
 
-func signAddVote(privVal PrivValidator, vote *Vote, voteSet *VoteSet) (signed bool, err error) {
-	err = privVal.SignVote(VotePrefix(voteSet.ChainID(), voteSet.valSet.Hash()), vote)
+func signAddVote(privVal PrivValidator, vote *Vote, voteSet VoteSet) (signed bool, err error) {
+	err = privVal.SignVote(VotePrefix(voteSet.ChainID(), voteSet.ValidatorSetHash()), vote)
 	if err != nil {
 		return false, err
 	}
@@ -79,11 +79,13 @@ func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) 
 	commitPtr := lastCommit
 	if commitPtr != nil {
 		commit := *lastCommit
-		commitSigCopy := make([]CommitSig, len(lastCommit.Signatures))
-		copy(commitSigCopy, lastCommit.Signatures)
-		commit.Signatures = commitSigCopy
-		for index := range commit.Signatures {
-			commit.Signatures[index].TimestampSignature = nil
+		commit.Signatures = make([][]CommitSig, len(lastCommit.Signatures))
+		for index := range lastCommit.Signatures {
+			commit.Signatures[index] = []CommitSig{NewCommitSigAbsent()}
+			if len(lastCommit.Signatures[index]) > 0 {
+				commit.Signatures[index][0] = lastCommit.Signatures[index][0]
+				commit.Signatures[index][0].TimestampSignature = nil
+			}
 		}
 		commitPtr = &commit
 	}
