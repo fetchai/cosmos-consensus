@@ -679,7 +679,7 @@ OUTER_LOOP:
 			sleeping = 1
 			logger.Debug("No votes to send, sleeping", "rs.Height", rs.Height, "prs.Height", prs.Height,
 				"localPV", rs.Votes.Prevotes(rs.Round).BitArray(), "peerPV", prs.Prevotes,
-				"localPC", rs.Votes.Precommits(rs.Round).BitArray(), "peerPC", prs.Precommits)
+				"localPC", rs.Votes.Precommits(rs.Round).BitArray(), "peerPC", prs.Precommits.BitArray(conR.conS.Validators.Size()))
 		} else if sleeping == 2 {
 			// Continued sleep...
 			sleeping = 1
@@ -1147,13 +1147,13 @@ func (ps *PeerState) PickPrecommitToSend(votes *types.PrecommitSet) (vote *types
 	}
 	ps.ensureVoteBitArrays(height, size)
 
-	psVotes := ps.getPrecommitMaps(height, round)
+	psVotes := ps.getPrecommitRecord(height, round)
 	if psVotes == nil {
 		return nil, false // Not something worth sending
 	}
 	for index := 0; index < size; index++ {
 		for _, timestamp := range votes.GetVoteTimestamps(index) {
-			if _, hasVote := (*psVotes)[types.PrecommitIdentifier(index, timestamp)]; !hasVote {
+			if !psVotes.HasVote(types.PrecommitIdentifier(index, timestamp)) {
 				return votes.GetByIndex(index, timestamp), true
 			}
 		}
@@ -1161,7 +1161,7 @@ func (ps *PeerState) PickPrecommitToSend(votes *types.PrecommitSet) (vote *types
 	return nil, false
 }
 
-func (ps *PeerState) getPrecommitMaps(height int64, round int) *map[string]struct{} {
+func (ps *PeerState) getPrecommitRecord(height int64, round int) *cstypes.PrecommitRecord {
 	if ps.PRS.Height == height {
 		if ps.PRS.Round == round {
 			return ps.PRS.Precommits
@@ -1208,7 +1208,7 @@ func (ps *PeerState) ensureCatchupCommitRound(height int64, round int, numValida
 	if round == ps.PRS.Round {
 		ps.PRS.CatchupCommit = ps.PRS.Precommits
 	} else {
-		ps.PRS.CatchupCommit = &map[string]struct{}{}
+		ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord()
 	}
 }
 
@@ -1228,17 +1228,17 @@ func (ps *PeerState) ensureVoteBitArrays(height int64, numValidators int) {
 			ps.PRS.Prevotes = bits.NewBitArray(numValidators)
 		}
 		if ps.PRS.Precommits == nil {
-			ps.PRS.Precommits = &map[string]struct{}{}
+			ps.PRS.Precommits = cstypes.NewPrecommitRecord()
 		}
 		if ps.PRS.CatchupCommit == nil {
-			ps.PRS.CatchupCommit = &map[string]struct{}{}
+			ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord()
 		}
 		if ps.PRS.ProposalPOL == nil {
 			ps.PRS.ProposalPOL = bits.NewBitArray(numValidators)
 		}
 	} else if ps.PRS.Height == height+1 {
 		if ps.PRS.LastCommit == nil {
-			ps.PRS.LastCommit = &map[string]struct{}{}
+			ps.PRS.LastCommit = cstypes.NewPrecommitRecord()
 		}
 	}
 }
@@ -1305,10 +1305,8 @@ func (ps *PeerState) setHasVote(height int64, round int, voteType types.SignedMs
 			psVotes.SetIndex(index, true)
 		}
 	case types.PrecommitType:
-		psVotes := ps.getPrecommitMaps(height, round)
-		if psVotes != nil {
-			(*psVotes)[types.PrecommitIdentifier(index, timestamp)] = struct{}{}
-		}
+		psVotes := ps.getPrecommitRecord(height, round)
+		psVotes.SetHasVote(types.PrecommitIdentifier(index, timestamp))
 	}
 }
 
@@ -1438,11 +1436,11 @@ func (ps *PeerState) ApplyPrecommitMapMessage(msg *PrecommitMapMessage) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	votes := ps.getPrecommitMaps(msg.Height, msg.Round)
+	votes := ps.getPrecommitRecord(msg.Height, msg.Round)
 	if votes != nil {
 		for _, vote := range msg.Votes {
-			if _, haveVote := (*votes)[vote]; !haveVote {
-				(*votes)[vote] = struct{}{}
+			if !votes.HasVote(vote) {
+				votes.SetHasVote(vote)
 			}
 		}
 	}

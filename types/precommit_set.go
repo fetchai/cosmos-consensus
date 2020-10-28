@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,16 @@ var _ VoteSet = &PrecommitSet{}
 // Used in consensus reactor to record the precommits peers have seen
 func PrecommitIdentifier(index int, timestamp time.Time) string {
 	return fmt.Sprintf("%v/%s", index, CanonicalTime(timestamp))
+}
+
+// Converts precommit identifier back to the validator index
+func PrecommitIdentifierToIndex(identifier string) int {
+	indexTimestamp := strings.Split(identifier, "/")
+	index, err := strconv.Atoi(indexTimestamp[0])
+	if err != nil {
+		panic(fmt.Sprintf("Error converting precommit identifier %v to index", identifier))
+	}
+	return index
 }
 
 // PrecommitSet collects precommit votes on blocks. Stores precommits on the same
