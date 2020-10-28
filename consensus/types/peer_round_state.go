@@ -99,13 +99,15 @@ func (prs *PeerRoundState) Unmarshal(bs []byte) error {
 // Thread safe map for recording precommits seen by peer
 
 type PrecommitRecord struct {
-	record map[string]struct{} // All precommits peer has, identified by validator index and timestamp
-	mtx    sync.RWMutex
+	record  map[string]struct{} // All precommits peer has, identified by validator index and timestamp
+	numVals int
+	mtx     sync.RWMutex
 }
 
-func NewPrecommitRecord() *PrecommitRecord {
+func NewPrecommitRecord(numVals int) *PrecommitRecord {
 	return &PrecommitRecord{
-		record: map[string]struct{}{},
+		record:  map[string]struct{}{},
+		numVals: numVals,
 	}
 }
 
@@ -130,7 +132,7 @@ func (pr *PrecommitRecord) SetHasVote(identifier string) {
 
 // BitArray returns bit array of whether peer has seen a precommit from a certain validator, identified
 // by their index
-func (pr *PrecommitRecord) BitArray(numValidators int) *bits.BitArray {
+func (pr *PrecommitRecord) BitArray() *bits.BitArray {
 	if pr == nil {
 		return nil
 	}
@@ -138,7 +140,7 @@ func (pr *PrecommitRecord) BitArray(numValidators int) *bits.BitArray {
 	pr.mtx.RLock()
 	defer pr.mtx.RUnlock()
 
-	bitArray := bits.NewBitArray(numValidators)
+	bitArray := bits.NewBitArray(pr.numVals)
 	for key := range pr.record {
 		bitArray.SetIndex(types.PrecommitIdentifierToIndex(key), true)
 	}
