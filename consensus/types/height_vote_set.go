@@ -135,7 +135,11 @@ func (hvs *HeightVoteSet) AddVote(vote *types.Vote, peerID p2p.ID) (added bool, 
 func (hvs *HeightVoteSet) Prevotes(round int) *types.PrevoteSet {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
-	prevotes, ok := hvs.getVoteSet(round, types.PrevoteType).(*types.PrevoteSet)
+	voteSet := hvs.getVoteSet(round, types.PrevoteType)
+	if voteSet == nil {
+		return nil
+	}
+	prevotes, ok := voteSet.(*types.PrevoteSet)
 	if !ok {
 		panic(fmt.Sprintf("Could not convert HVS.Prevotes to PrevoteSet for round %v", round))
 	}
@@ -146,7 +150,11 @@ func (hvs *HeightVoteSet) Prevotes(round int) *types.PrevoteSet {
 func (hvs *HeightVoteSet) Precommits(round int) *types.PrecommitSet {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
-	precommits, ok := hvs.getVoteSet(round, types.PrecommitType).(*types.PrecommitSet)
+	voteSet := hvs.getVoteSet(round, types.PrecommitType)
+	if voteSet == nil {
+		return nil
+	}
+	precommits, ok := voteSet.(*types.PrecommitSet)
 	if !ok {
 		panic(fmt.Sprintf("Could not convert HVS.Precommits to PrecommitSet for round %v", round))
 	}

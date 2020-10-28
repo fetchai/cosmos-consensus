@@ -330,7 +330,7 @@ func (voteSet *PrecommitSet) BitArray() *bits.BitArray {
 
 func (voteSet *PrecommitSet) VotesByBlockID(blockID BlockID) []string {
 	if voteSet == nil {
-		return nil
+		return []string{}
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
@@ -344,7 +344,7 @@ func (voteSet *PrecommitSet) VotesByBlockID(blockID BlockID) []string {
 		}
 		return votes
 	}
-	return nil
+	return []string{}
 }
 
 // GetByIndex returns all precommit votes from a validator index as a map with timestamp
