@@ -23,7 +23,7 @@ func TestReactorConflictingTimestamps(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			N := 4
+			N := 5
 			css, cleanup := randConsensusNet(N, "consensus_reactor_test", newMockTickerFunc(true), newCounter)
 			defer cleanup()
 

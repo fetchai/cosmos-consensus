@@ -1438,6 +1438,11 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 	// Validate timestamps in block match those we have seen. If we have not seen it then vote
 	// for nil
 	for index, commitSigs := range cs.ProposalBlock.LastCommit.Signatures {
+		if len(commitSigs) != 1 {
+			logger.Error("enterPrevote: timestamp verification", "err", types.NewErrInvalidCommitSigLength(index, len(commitSigs)))
+			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+			return false
+		}
 		commitSig := commitSigs[0]
 		if commitSig.Absent() {
 			continue
@@ -1453,6 +1458,7 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 		if !matchedTimestamp {
 			logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails timestamp check for validator index %v ", index))
 			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+			return false
 		}
 	}
 

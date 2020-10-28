@@ -1902,3 +1902,73 @@ func subscribeUnBuffered(eventBus *types.EventBus, q tmpubsub.Query) <-chan tmpu
 	}
 	return sub.Out()
 }
+
+// Check nodes reject blocks with commit timestamps they have not received
+func TestStatePrevoteVerifyBlockTimestamps(t *testing.T) {
+	testCases := []struct {
+		testName        string
+		modifyProposal  func(*types.Block)
+		expectedPrevote bool
+	}{
+		{"No modification", func(*types.Block) {}, true},
+		{"Too many commit sigs in block", func(block *types.Block) {
+			block.LastCommit.Signatures[0] = append(block.LastCommit.Signatures[0], types.CommitSig{})
+		}, false},
+		{"Unknown commit timestamp", func(block *types.Block) {
+			block.LastCommit.Signatures[0][0].Timestamp = time.Now()
+		}, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			cs1, vss := randState(4)
+			height, round := cs1.Height, cs1.Round
+
+			newRoundCh := subscribe(cs1.eventBus, types.EventQueryNewRound)
+			proposalCh := subscribe(cs1.eventBus, types.EventQueryCompleteProposal)
+			pv1, err := cs1.privValidator.GetPubKey()
+			require.NoError(t, err)
+			addr := pv1.Address()
+			voteCh := subscribeToVoter(cs1, addr)
+			newBlockCh := subscribe(cs1.eventBus, types.EventQueryNewBlock)
+
+			// Do one full round so that next block has precommits
+			startTestRound(cs1, height, round)
+			ensureNewRound(newRoundCh, height, round)
+			ensureNewProposal(proposalCh, height, round)
+			propBlock := cs1.ProposalBlock
+			propBlockParts := cs1.ProposalBlockParts
+			ensurePrevote(voteCh, height, 0)
+			signAddVotes(cs1, types.PrevoteType, propBlock.Hash(), propBlockParts.Header(), vss[1:]...)
+			ensurePrecommit(voteCh, height, 0)
+			signAddVotes(cs1, types.PrecommitType, propBlock.Hash(), propBlockParts.Header(), vss[1:]...)
+			ensureNewBlock(newBlockCh, height)
+
+			// New height
+			height++
+			ensureNewRound(newRoundCh, height, 0)
+
+			// Modify block proposal
+			_, propBlock = decideProposal(cs1, vss[1], height, 0)
+			tc.modifyProposal(propBlock)
+			propBlockParts = propBlock.MakePartSet(types.BlockPartSizeBytes)
+			propBlockID := types.BlockID{Hash: propBlock.Hash(), PartsHeader: propBlockParts.Header()}
+			prop := types.NewProposal(height, round, cs1.ValidRound, propBlockID)
+			if err := vss[1].SignProposal(cs1.state.ChainID, prop); err != nil {
+				panic(err)
+			}
+			if err := cs1.SetProposalAndBlock(prop, propBlock, propBlockParts, "some peer"); err != nil {
+				t.Fatal(err)
+			}
+			ensureNewProposal(proposalCh, height, 0)
+
+			// Check prevote returns the expected result
+			blockHash := propBlock.Hash()
+			if !tc.expectedPrevote {
+				blockHash = nil
+			}
+			ensurePrevote(voteCh, height, 0)
+			validatePrevote(t, cs1, round, vss[0], blockHash)
+		})
+	}
+}
