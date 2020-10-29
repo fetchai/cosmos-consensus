@@ -67,6 +67,13 @@ func (ad *aeonDetails) checkKeys() error {
 	if !ad.aeonExecUnit.CheckKeys() {
 		return fmt.Errorf("Failed to deserialise mcl objects")
 	}
+
+	fmt.Printf("GPK: %v\n", ad.aeonExecUnit.GroupPublicKey())
+	fmt.Printf("gener: %v\n", ad.aeonExecUnit.Generator())
+	//for _, xx := farange ad.aeonExecUnit.PublicKeyShares() {
+		//fmt.Printf("pubKS: %v\n", ad.aeonExecUnit.PublicKeyShares()[0])
+	//}
+
 	if ad.aeonExecUnit.CanSign() {
 		if ad.privValidator == nil {
 			return fmt.Errorf("aeonDetails has DKG keys but no privValidator")
@@ -77,6 +84,9 @@ func (ad *aeonDetails) checkKeys() error {
 			if index < 0 || !ad.aeonExecUnit.InQual(uint(index)) {
 				return fmt.Errorf("aeonDetails has DKG keys but not in validators or qual")
 			}
+
+			//fmt.Printf("During this check, public key share: ")
+
 			if !ad.aeonExecUnit.CheckIndex(uint(index)) {
 				i := 0
 				for !ad.aeonExecUnit.CheckIndex(uint(i)) && i < ad.validators.Size() {

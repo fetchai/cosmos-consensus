@@ -107,6 +107,21 @@ void BlsDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabin
   this->reconstruction_shares.clear();
 }
 
+
+void BlsDkg::GenerateCoefficients(std::vector<PrivateKey> const &a_i, std::vector<PrivateKey> const &b_i)
+{
+  for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
+  {
+    this->C_ik_[cabinet_index_][k] =
+        mcl::ComputeLHS(temp_qual_coeffs_[k], GetGroupG(), GetGroupH(), a_i[k], b_i[k]);
+  }
+
+  for (CabinetIndex l = 0; l < cabinet_size_; l++)
+  {
+    mcl::ComputeShares(this->s_ij_[cabinet_index_][l], this->sprime_ij_[cabinet_index_][l], a_i, b_i, l);
+  }
+}
+
 void BlsDkg::GenerateCoefficients()
 {
   std::vector<PrivateKey> a_i(polynomial_degree_ + 1, GetZeroFr());
@@ -127,6 +142,8 @@ void BlsDkg::GenerateCoefficients()
   {
     mcl::ComputeShares(this->s_ij_[cabinet_index_][l], this->sprime_ij_[cabinet_index_][l], a_i, b_i, l);
   }
+
+  SaveCoefficients(a_i, b_i);
 }
 
 std::vector<BlsDkg::Coefficient> BlsDkg::GetQualCoefficients()

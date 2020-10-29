@@ -21,6 +21,7 @@
 #include "mcl_crypto.hpp"
 #include "serialisers.hpp"
 #include <fstream>
+#include <iostream>
 
 namespace fetch {
 namespace beacon {
@@ -49,6 +50,7 @@ BaseAeon::BaseAeon(std::string const &filename) {
       for (CabinetIndex i = 0; i < qual_size; i++)
       {
         getline(myfile, line);
+        std::cout << "pushing back line: " << line << std::endl;
         aeon_keys_.public_key_shares.push_back(line);
       }
 
@@ -66,14 +68,14 @@ BaseAeon::BaseAeon(std::string const &filename) {
     }
 }
 
-BaseAeon::BaseAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual) 
+BaseAeon::BaseAeon(std::string generator, DKGKeyInformation keys, std::set<CabinetIndex> qual)
   : aeon_keys_{std::move(keys)}
   , generator_{std::move(generator)}
-  , qual_{std::move(qual)} 
+  , qual_{std::move(qual)}
   {
 }
 
-BaseAeon::BaseAeon(DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual) 
+BaseAeon::BaseAeon(DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual)
 {
   for (auto const &index : qual) {
     qual_.insert(index);
@@ -158,6 +160,9 @@ bool BlsAeon::CheckIndex(CabinetIndex index) const {
   mcl::PrivateKey private_key;
   mcl::GroupPublicKey public_key;
 
+  Log(LogLevel::ERROR, LOGGING_NAME, "Doing a check of index: " + std::to_string(index) + " " + aeon_keys_.private_key + " " + aeon_keys_.public_key_shares[index]);
+  Log(LogLevel::ERROR, LOGGING_NAME, "Note size is " + std::to_string(aeon_keys_.public_key_shares.size()));
+
   private_key.FromString(aeon_keys_.private_key);
   public_key.FromString(aeon_keys_.public_key_shares[index]);
 
@@ -168,9 +173,9 @@ bool BlsAeon::CheckIndex(CabinetIndex index) const {
 }
 
 /**
- * Check strings from file are correct for initialising the corresponding 
+ * Check strings from file are correct for initialising the corresponding
  * mcl type
- * 
+ *
  * @return Whether check succeeded or failed
  */
 bool BlsAeon::CheckKeys() const {
@@ -263,7 +268,7 @@ std::string BlsAeon::Name() const{
   return BLS_AEON;
 }
 
-GlowAeon::GlowAeon(std::string const &generator_strs, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual) 
+GlowAeon::GlowAeon(std::string const &generator_strs, DKGKeyInformation const &keys, std::vector<CabinetIndex> const &qual)
 : BaseAeon{keys, qual}
 {
   std::pair<std::string, std::string> generators;
@@ -280,9 +285,9 @@ GlowAeon::GlowAeon(std::string generator, std::string generator_g1, DKGKeyInform
 : BaseAeon{generator, keys, qual}, generator_g1_{std::move(generator_g1)} {}
 
 /**
- * Check strings from file are correct for initialising the corresponding 
+ * Check strings from file are correct for initialising the corresponding
  * mcl type
- * 
+ *
  * @return Whether check succeeded or failed
  */
 bool GlowAeon::CheckKeys() const {
@@ -320,11 +325,16 @@ bool GlowAeon::CheckKeys() const {
 
 
 bool GlowAeon::CheckIndex(CabinetIndex index) const {
+  Log(LogLevel::ERROR, LOGGING_NAME, "Doing a check of indexxxx");
+
   if (index >= aeon_keys_.public_key_shares.size()) {
     return false;
   }
   mcl::PrivateKey private_key;
   mcl::Signature public_key;
+
+  Log(LogLevel::ERROR, LOGGING_NAME, "Doing a check of index: " + std::to_string(index) + " " + aeon_keys_.private_key + " " + aeon_keys_.public_key_shares[index]);
+  Log(LogLevel::ERROR, LOGGING_NAME, "Note size is " + std::to_string(aeon_keys_.public_key_shares.size()));
 
   private_key.FromString(aeon_keys_.private_key);
   public_key.FromString(aeon_keys_.public_key_shares[index]);
@@ -332,7 +342,11 @@ bool GlowAeon::CheckIndex(CabinetIndex index) const {
   auto test_message = "Test";
   auto sig = Sign(test_message, index);
 
-  return Verify(test_message, sig, index);
+  auto answ = Verify(test_message, sig, index);
+
+  Log(LogLevel::ERROR, LOGGING_NAME, "answer is" + std::to_string(answ));
+
+  return answ;
 }
 
 /**

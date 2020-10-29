@@ -39,7 +39,7 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
-	defaultDkgBackup          = "dkg_backup_file.json"
+	defaultDkgBackupName      = "dkg_backup_file.json"
 	defaultOldEntropyKeyName  = "old_entropy_key.json"
 	defaultEntropyKeyName     = "entropy_key.json"
 	defaultNextEntropyKeyName = "next_entropy_key.json"
@@ -52,7 +52,7 @@ var (
 	defaultGenesisJSONPath    = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
 	defaultPrivValKeyPath     = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
 	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
-	defaultDkgBackupPath      = filepath.Join(defaultDataDir, defaultDkgBackup)
+	defaultDkgBackupPath      = filepath.Join(defaultDataDir, defaultDkgBackupName)
 	defaultOldEntropyKeyPath  = filepath.Join(defaultDataDir, defaultOldEntropyKeyName)
 	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
 	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
@@ -253,7 +253,7 @@ func DefaultBaseConfig() BaseConfig {
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
 		EntropyKey:         defaultEntropyKeyPath,
-		DkgBackup:          defaultDkgBackup,
+		DkgBackup:          defaultDkgBackupPath,
 		OldEntropyKey:      defaultOldEntropyKeyPath,
 		NextEntropyKey:     defaultNextEntropyKeyPath,
 		NoiseKey:           defaultNoiseKeyPath,

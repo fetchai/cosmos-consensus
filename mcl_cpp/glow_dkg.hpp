@@ -36,6 +36,7 @@ public:
 
   void NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) override;
   void GenerateCoefficients() override;
+  void GenerateCoefficients(std::vector<PrivateKey> const &a_i, std::vector<PrivateKey> const &b_i) override;
   std::vector<Coefficient> GetQualCoefficients() override;
   void AddQualCoefficients(CabinetIndex const &from_index, std::vector<Coefficient> const &coefficients) override;
   SharesExposedMap ComputeQualComplaints(std::set<CabinetIndex> const &coeff_received) const override;

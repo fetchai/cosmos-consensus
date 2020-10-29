@@ -111,6 +111,7 @@ type DistributedKeyGeneration struct {
 	stateDuration   int64
 	aeonKeys        *aeonDetails
 	onFailState     func(int64)
+	enableRecovery  bool
 
 	startHeight   int64
 	states        map[dkgState]*state
@@ -134,6 +135,7 @@ type DistributedKeyGeneration struct {
 	evidenceHandler func(*types.DKGEvidence)
 }
 
+
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string,
 	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, dkgID int64, vals types.ValidatorSet,
@@ -153,6 +155,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg
 		entropyParams:        entropyParams,
 		threshold:            dkgThreshold,
 		startHeight:          validatorHeight,
+		enableRecovery:       true,
 		states:               make(map[dkgState]*state),
 		currentState:         dkgStart,
 		earlySecretShares:    make(map[uint]string),
@@ -190,6 +193,24 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg
 		})
 
 	return dkg
+}
+
+
+//func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string,
+//	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, dkgID int64, vals types.ValidatorSet, <= std_logic_vector(unsigned() - 1);<Esc>hhhhhhhp
+//	aeonEnd int64, entropyParams types.EntropyParams, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
+
+// Clear the state of the DKG as if it had just been initialised
+func (dkg *DistributedKeyGeneration) ClearState() *DistributedKeyGeneration {
+	newDkg := NewDistributedKeyGeneration(dkg.config, dkg.baseConfig, dkg.chainID, dkg.privValidator, dkg.encryptionKey, dkg.validatorHeight, dkg.dkgID, dkg.validators, dkg.currentAeonEnd, dkg.entropyParams, dkg.slotProtocolEnforcer)
+
+	// Copy closures
+	newDkg.onFailState = dkg.onFailState
+	newDkg.sendMsgCallback = dkg.sendMsgCallback
+	newDkg.dkgCompletionCallback = dkg.dkgCompletionCallback
+	newDkg.evidenceHandler = dkg.evidenceHandler
+
+	return newDkg
 }
 
 // Estimate of dkg run times from local computations
@@ -476,15 +497,17 @@ func (dkg *DistributedKeyGeneration) validateMessage(msg *types.DKGMessage, inde
 }
 
 func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
-	if dkg.currentState == dkgFinish {
+	currentState := dkg.currentState
+
+	if currentState == dkgFinish {
 		dkg.metrics.DKGDuration.Set(float64(blockHeight - dkg.startHeight))
 		return
 	}
-	if dkg.stateExpired(blockHeight) || dkg.states[dkg.currentState].checkTransition() {
-		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", dkg.currentState, "stateExpired", dkg.stateExpired(blockHeight))
-		if !dkg.states[dkg.currentState].onExit() {
-			dkg.Logger.Error("checkTransition: failed onExit", "height", blockHeight, "state", dkg.currentState, "iteration", dkg.dkgIteration)
-			if dkg.currentState == waitForDryRun {
+	if dkg.stateExpired(blockHeight) || dkg.states[currentState].checkTransition() {
+		dkg.Logger.Debug("checkTransition: state change triggered", "height", blockHeight, "state", currentState, "stateExpired", dkg.stateExpired(blockHeight))
+		if !dkg.states[currentState].onExit() {
+			dkg.Logger.Error("checkTransition: failed onExit", "height", blockHeight, "state", currentState, "iteration", dkg.dkgIteration)
+			if currentState == waitForDryRun {
 				// If exit function for dry run failed then reset and restart DKG
 				dkg.Stop()
 				dkg.Reset()
@@ -494,30 +517,31 @@ func (dkg *DistributedKeyGeneration) checkTransition(blockHeight int64) {
 			}
 			return
 		}
-		if dkg.currentState == dkgStart && dkg.index() < 0 {
+		if currentState == dkgStart && dkg.index() < 0 {
 			// If not in validators skip straight to waiting for DKG output
 			dkg.proceedToNextState(waitForDryRun, false, blockHeight)
 			return
 		}
-		dkg.proceedToNextState(dkg.currentState+1, true, blockHeight)
+		dkg.proceedToNextState(currentState+1, true, blockHeight)
 	}
 }
 
 func (dkg *DistributedKeyGeneration) proceedToNextState(nextState dkgState, runOnEntry bool, blockHeight int64) {
 
-	// If the state we are going into is the first one, we can see if it is possible to load a DKG which has crashed. Otherwise, we save our dkg
-	// details
-	if nextState == waitForEncryptionKeys {
-		fmt.Printf("proceeding to start! %v\n", dkg.baseConfig.DkgBackupFile()) // DELETEME_NH
-		loadDKG(dkg.baseConfig.DkgBackupFile(), dkg)
-	} else if nextState == waitForDryRun || nextState == dkgFinish {
-		// Just before going to the next state, save the DKG in its current form for crash recovery
-		fmt.Printf("readddddd\n") // DELETEME_NH
-		saveDKG(dkg.baseConfig.DkgBackupFile(), dkg)
+	// If the state we are going into is the first one, we can see if it is possible to load a DKG which has crashed.
+	// Otherwise, we save our dkg details
+	if dkg.enableRecovery {
+		if nextState == waitForEncryptionKeys {
+			fmt.Printf("############# proceeding to start! %v\n", dkg.baseConfig.DkgBackupFile()) // DELETEME_NH
+			loadDKG(dkg.baseConfig.DkgBackupFile(), dkg)
+		} else if nextState == waitForDryRun || nextState == dkgFinish {
+			// Just before going to the next state, save the DKG in its current form for crash recovery
+			fmt.Printf("readddddd\n") // DELETEME_NH
+			saveDKG(dkg.baseConfig.DkgBackupFile(), dkg)
+		}
 	}
 
 	fmt.Printf("state: %v\n", nextState) // DELETEME_NH
-
 
 	dkg.currentState = nextState
 	dkg.metrics.DKGState.Set(float64(dkg.currentState))
@@ -653,6 +677,7 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 func (dkg *DistributedKeyGeneration) dispatchKeys() {
 	if dkg.dkgCompletionCallback != nil {
 		dkg.dkgCompletionCallback(dkg.aeonKeys)
+		saveDKG(dkg.baseConfig.DkgBackupFile(), dkg) // todo: remove DELETEME_NH
 	}
 
 	// Stop service so we do not process more blocks
@@ -748,6 +773,7 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	if signatureShares.Size() < requiredPassSize {
+		fmt.Print("asfasf!!!\n\n\n\nwhoooo")
 		dkg.Logger.Error(fmt.Sprintf("checkDryRuns: not enough valid dry run signatures. Got %v. Wanted %v",
 			signatureShares.Size(), requiredPassSize))
 		return false
@@ -918,8 +944,10 @@ func saveDKG(file string, dkg *DistributedKeyGeneration) {
 
 	jsonBytes, err := cdc.MarshalJSONIndent(toWrite, "", "  ")
 	if err != nil {
+		fmt.Printf("bad thing 4\n") // DELETEME_NH
 		panic(err)
 	}
+
 	err = tempfile.WriteFileAtomic(file, jsonBytes, 0600)
 	if err != nil {
 		fmt.Printf("Alas! an error %v\n", err)
@@ -934,19 +962,22 @@ func loadDKG(filePath string, dkg *DistributedKeyGeneration) (err error) {
 	fmt.Printf("Loading from file!\n") // DELETEME_NH
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		errors.New(fmt.Sprintf("Failed to find file %v when attempting to load dkg", filePath))
+		fmt.Printf("bad thing 1\n") // DELETEME_NH
+		return errors.New(fmt.Sprintf("Failed to find file %v when attempting to load dkg", filePath))
 	}
 
 	jsonBytes, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		errors.New(fmt.Sprintf("Failed to read file! %v", filePath))
+	if err != nil || len(jsonBytes) == 0 {
+		fmt.Printf("bad thing 2\n") // DELETEME_NH
+		return errors.New(fmt.Sprintf("Failed to read file! %v", filePath))
 	}
 	var dkgLoaded DistributedKeyGenerationFile
 
-	err = cdc.UnmarshalJSON(jsonBytes, dkgLoaded)
+	err = cdc.UnmarshalJSON(jsonBytes, &dkgLoaded)
 
 	if err != nil {
-		errors.New(fmt.Sprintf("Failed to unmarshal file! %v", jsonBytes))
+		fmt.Printf("bad thing 3\n") // DELETEME_NH
+		return errors.New(fmt.Sprintf("Failed to unmarshal file! %v", jsonBytes))
 	}
 
 	matches := true
@@ -960,11 +991,10 @@ func loadDKG(filePath string, dkg *DistributedKeyGeneration) (err error) {
 
 	if matches {
 		dkg.beaconService.Deserialize(dkgLoaded.BeaconServiceSer)
-		dkg.aeonKeys = dkgLoaded.AeonKeys
-		dkg.dryRunKeys = dkgLoaded.DryRunKeys
-		dkg.dryRunKeys = dkgLoaded.DryRunKeys
-		dkg.dryRunSignatures = dkgLoaded.DryRunSignatures
-		dkg.dryRunCount = dkgLoaded.DryRunCount
+		//dkg.aeonKeys = dkgLoaded.AeonKeys
+		//dkg.dryRunKeys = dkgLoaded.DryRunKeys
+		//dkg.dryRunSignatures = dkgLoaded.DryRunSignatures
+		//dkg.dryRunCount = dkgLoaded.DryRunCount
 		fmt.Printf("matches!!!!!\n") // DELETEME_NH
 	} else {
 		fmt.Printf("no match\n") // DELETEME_NH
