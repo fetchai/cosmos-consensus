@@ -142,7 +142,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg
 		entropyParams:        entropyParams,
 		threshold:            dkgThreshold,
 		startHeight:          validatorHeight,
-		enableRecovery:       false,
+		enableRecovery:       true,
 		states:               make(map[dkgState]*state),
 		currentState:         dkgStart,
 		earlySecretShares:    make(map[uint]string),
@@ -918,6 +918,10 @@ type DistributedKeyGenerationFile struct {
 
 func saveDKG(file string, dkg *DistributedKeyGeneration) {
 
+	if dkg.beaconService == nil {
+		dkg.Logger.Error("Attempted to save DKG but the beacon service was nil. Skipping.")
+	}
+
 	toWrite := DistributedKeyGenerationFile{dkg.chainID, dkg.dkgID, dkg.dkgIteration, dkg.currentAeonEnd, dkg.aeonKeys, dkg.startHeight, dkg.currentState, dkg.beaconService.Serialize(), dkg.dryRunKeys, dkg.dryRunSignatures, dkg.dryRunCount}
 
 	jsonBytes, err := cdc.MarshalJSONIndent(toWrite, "", "  ")
@@ -927,6 +931,7 @@ func saveDKG(file string, dkg *DistributedKeyGeneration) {
 
 	err = tempfile.WriteFileAtomic(file, jsonBytes, 0600)
 	if err != nil {
+		dkg.Logger.Error("Failure to write to file!", "err", err)
 		panic(err)
 	}
 }

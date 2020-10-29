@@ -33,6 +33,11 @@ const (
 	withholdEncryptionKey
 )
 
+func init () {
+	// Make sure to create the data dir if it is being used
+	_ = os.Mkdir("data", 0777)
+}
+
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
 
@@ -516,17 +521,19 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 	config := cfg.TestBeaconConfig()
 	baseConfig := cfg.TestBaseConfig()
 
-	// Make sure to create the data dir if it is being used
-	_ = os.Mkdir("data", 0777)
+	// make sure to remove the dkg file before each
+	// test, and to disable recovery
 	os.Remove(baseConfig.DkgBackupFile())
 
 	nodes := make([]*testNode, nVals+nSentries)
 	for i := 0; i < nVals; i++ {
 		nodes[i] = newTestNode(config, &baseConfig, genDoc.ChainID, privVals[i], state.Validators, sendDuplicates)
+		nodes[i].dkg.enableRecovery = false
 	}
 	for i := 0; i < nSentries; i++ {
 		_, privVal := types.RandValidator(false, 10)
 		nodes[nVals+i] = newTestNode(config, &baseConfig, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
+		nodes[nVals+i].dkg.enableRecovery = false
 	}
 	return nodes
 }
