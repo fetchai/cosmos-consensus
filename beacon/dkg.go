@@ -920,6 +920,7 @@ func saveDKG(file string, dkg *DistributedKeyGeneration) {
 
 	if dkg.beaconService == nil {
 		dkg.Logger.Error("Attempted to save DKG but the beacon service was nil. Skipping.")
+		return 
 	}
 
 	toWrite := DistributedKeyGenerationFile{dkg.chainID, dkg.dkgID, dkg.dkgIteration, dkg.currentAeonEnd, dkg.aeonKeys, dkg.startHeight, dkg.currentState, dkg.beaconService.Serialize(), dkg.dryRunKeys, dkg.dryRunSignatures, dkg.dryRunCount}
