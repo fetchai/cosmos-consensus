@@ -27,7 +27,7 @@ func TestReactorConflictingTimestamps(t *testing.T) {
 			css, cleanup := randConsensusNet(N, "consensus_reactor_test", newMockTickerFunc(true), newCounter)
 			defer cleanup()
 
-			for i := 0; i < 4; i++ {
+			for i := 0; i < N; i++ {
 				ticker := NewTimeoutTicker()
 				ticker.SetLogger(css[i].Logger)
 				css[i].SetTimeoutTicker(ticker)
