@@ -561,7 +561,6 @@ func TestDKGRecovery(t *testing.T) {
 			}
 
 			// Start all nodes
-			// Note: why is this 10?
 			blockHeight := int64(10)
 			for _, node := range nodes {
 				assert.True(t, !node.dkg.IsRunning())
@@ -639,7 +638,6 @@ func TestDKGRecovery(t *testing.T) {
 			}
 
 			// Check the outputs match when recovery and not if not
-
 			for index := 0; index < nTotal; index++ {
 				originalPK := outputs[index].aeonExecUnit.PrivateKey()
 				secondPK := secondOutputs[index].aeonExecUnit.PrivateKey()

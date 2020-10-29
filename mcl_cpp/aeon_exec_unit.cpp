@@ -21,7 +21,6 @@
 #include "mcl_crypto.hpp"
 #include "serialisers.hpp"
 #include <fstream>
-#include <iostream>
 
 namespace fetch {
 namespace beacon {
@@ -50,7 +49,6 @@ BaseAeon::BaseAeon(std::string const &filename) {
       for (CabinetIndex i = 0; i < qual_size; i++)
       {
         getline(myfile, line);
-        std::cout << "pushing back line: " << line << std::endl;
         aeon_keys_.public_key_shares.push_back(line);
       }
 
@@ -159,9 +157,6 @@ bool BlsAeon::CheckIndex(CabinetIndex index) const {
   }
   mcl::PrivateKey private_key;
   mcl::GroupPublicKey public_key;
-
-  Log(LogLevel::ERROR, LOGGING_NAME, "Doing a check of index: " + std::to_string(index) + " " + aeon_keys_.private_key + " " + aeon_keys_.public_key_shares[index]);
-  Log(LogLevel::ERROR, LOGGING_NAME, "Note size is " + std::to_string(aeon_keys_.public_key_shares.size()));
 
   private_key.FromString(aeon_keys_.private_key);
   public_key.FromString(aeon_keys_.public_key_shares[index]);
@@ -325,7 +320,6 @@ bool GlowAeon::CheckKeys() const {
 
 
 bool GlowAeon::CheckIndex(CabinetIndex index) const {
-  Log(LogLevel::ERROR, LOGGING_NAME, "Doing a check of indexxxx");
 
   if (index >= aeon_keys_.public_key_shares.size()) {
     return false;
@@ -333,20 +327,13 @@ bool GlowAeon::CheckIndex(CabinetIndex index) const {
   mcl::PrivateKey private_key;
   mcl::Signature public_key;
 
-  Log(LogLevel::ERROR, LOGGING_NAME, "Doing a check of index: " + std::to_string(index) + " " + aeon_keys_.private_key + " " + aeon_keys_.public_key_shares[index]);
-  Log(LogLevel::ERROR, LOGGING_NAME, "Note size is " + std::to_string(aeon_keys_.public_key_shares.size()));
-
   private_key.FromString(aeon_keys_.private_key);
   public_key.FromString(aeon_keys_.public_key_shares[index]);
 
   auto test_message = "Test";
   auto sig = Sign(test_message, index);
 
-  auto answ = Verify(test_message, sig, index);
-
-  Log(LogLevel::ERROR, LOGGING_NAME, "answer is" + std::to_string(answ));
-
-  return answ;
+  return Verify(test_message, sig, index);
 }
 
 /**

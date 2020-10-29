@@ -107,7 +107,7 @@ void BlsDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabin
   this->reconstruction_shares.clear();
 }
 
-
+// use provided previously generated coefficients to re-load
 void BlsDkg::GenerateCoefficients(std::vector<PrivateKey> const &a_i, std::vector<PrivateKey> const &b_i)
 {
   for (CabinetIndex k = 0; k <= polynomial_degree_; k++)

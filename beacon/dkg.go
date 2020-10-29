@@ -24,19 +24,6 @@ import (
 type dkgState int
 
 const (
-	BeaconSetupServiceAminoName = "tendermint/beaconSetupService"
-)
-
-func init() {
-	var bss mcl_cpp.BeaconSetupService = mcl_cpp.NewBeaconSetupService(uint(0), uint(0), uint(0))
-
-	cdc.RegisterConcrete(bss,
-		BeaconSetupServiceAminoName, nil)
-
-	mcl_cpp.DeleteBeaconSetupService(bss)
-}
-
-const (
 
 	// DKG has two tracks participants and observers. Participants enter all
 	// states but observers skip all states except waitForDryRun to obtain DKG output
@@ -91,15 +78,15 @@ func newState(durMultiplier int64, entry func(), exit func() bool, transition fu
 // Empty keys are dispatched for the duration of the dkg [dkgStart, dkgEnd + 1] to allow trivial entropy generation
 // if no current keys exist.
 type DistributedKeyGeneration struct {
-	chainID      string
-	dkgID        int64
-	dkgIteration int64
-
 	service.BaseService
 	mtx sync.RWMutex
 
 	config       *cfg.BeaconConfig
 	baseConfig   *cfg.BaseConfig
+
+	chainID      string
+	dkgID        int64
+	dkgIteration int64
 
 	privValidator   types.PrivValidator
 	validatorHeight int64
@@ -195,14 +182,11 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg
 	return dkg
 }
 
-
-//func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string,
-//	privVal types.PrivValidator, dhKey noise.DHKey, validatorHeight int64, dkgID int64, vals types.ValidatorSet, <= std_logic_vector(unsigned() - 1);<Esc>hhhhhhhp
-//	aeonEnd int64, entropyParams types.EntropyParams, slotProtocolEnforcer *SlotProtocolEnforcer) *DistributedKeyGeneration {
-
 // Clear the state of the DKG as if it had just been initialised
 func (dkg *DistributedKeyGeneration) ClearState() *DistributedKeyGeneration {
-	newDkg := NewDistributedKeyGeneration(dkg.config, dkg.baseConfig, dkg.chainID, dkg.privValidator, dkg.encryptionKey, dkg.validatorHeight, dkg.dkgID, dkg.validators, dkg.currentAeonEnd, dkg.entropyParams, dkg.slotProtocolEnforcer)
+	newDkg := NewDistributedKeyGeneration(dkg.config, dkg.baseConfig, dkg.chainID, dkg.privValidator,
+		dkg.encryptionKey, dkg.validatorHeight, dkg.dkgID, dkg.validators,
+		dkg.currentAeonEnd, dkg.entropyParams, dkg.slotProtocolEnforcer)
 
 	// Copy closures
 	newDkg.onFailState = dkg.onFailState
@@ -532,16 +516,12 @@ func (dkg *DistributedKeyGeneration) proceedToNextState(nextState dkgState, runO
 	// Otherwise, we save our dkg details
 	if dkg.enableRecovery {
 		if nextState == waitForEncryptionKeys {
-			fmt.Printf("############# proceeding to start! %v\n", dkg.baseConfig.DkgBackupFile()) // DELETEME_NH
 			loadDKG(dkg.baseConfig.DkgBackupFile(), dkg)
 		} else if nextState == waitForDryRun || nextState == dkgFinish {
 			// Just before going to the next state, save the DKG in its current form for crash recovery
-			fmt.Printf("readddddd\n") // DELETEME_NH
 			saveDKG(dkg.baseConfig.DkgBackupFile(), dkg)
 		}
 	}
-
-	fmt.Printf("state: %v\n", nextState) // DELETEME_NH
 
 	dkg.currentState = nextState
 	dkg.metrics.DKGState.Set(float64(dkg.currentState))
@@ -677,7 +657,6 @@ func (dkg *DistributedKeyGeneration) computeKeys() {
 func (dkg *DistributedKeyGeneration) dispatchKeys() {
 	if dkg.dkgCompletionCallback != nil {
 		dkg.dkgCompletionCallback(dkg.aeonKeys)
-		saveDKG(dkg.baseConfig.DkgBackupFile(), dkg) // todo: remove DELETEME_NH
 	}
 
 	// Stop service so we do not process more blocks
@@ -773,7 +752,6 @@ func (dkg *DistributedKeyGeneration) checkDryRuns() bool {
 	}
 
 	if signatureShares.Size() < requiredPassSize {
-		fmt.Print("asfasf!!!\n\n\n\nwhoooo")
 		dkg.Logger.Error(fmt.Sprintf("checkDryRuns: not enough valid dry run signatures. Got %v. Wanted %v",
 			signatureShares.Size(), requiredPassSize))
 		return false
@@ -923,34 +901,30 @@ func (dryRun *DryRunSignature) ValidateBasic() error {
 
 // When saving to a file, save only the relevant DKG information for recovery
 type DistributedKeyGenerationFile struct {
-	ChainID          string `json:"chain_id"`
-	DkgID            int64  `json:"dkg_id"`
-	DkgIteration     int64  `json:"dkg_it"`
-	CurrentAeonEnd   int64 `json:"current_aeon_end"`
-	AeonKeys         *aeonDetails `json:"aeon_keys"`
-	StartHeight      int64 `json:"start_height"`
-	CurrentState     dkgState `json:"current_state"`
-	BeaconServiceSer string `json:"beacon_service_ser"`
-	DryRunKeys       map[string]DKGOutput `json:"dry_run_keys"`
-	DryRunSignatures map[string]map[string]string `json:"dry_run_signatures"`
-	DryRunCount      *bits.BitArray `json:dry_run_count"`
+	ChainID          string                         `json:"chain_id"`
+	DkgID            int64                          `json:"dkg_id"`
+	DkgIteration     int64                          `json:"dkg_it"`
+	CurrentAeonEnd   int64                          `json:"current_aeon_end"`
+	AeonKeys         *aeonDetails                   `json:"aeon_keys"`
+	StartHeight      int64                          `json:"start_height"`
+	CurrentState     dkgState                       `json:"current_state"`
+	BeaconServiceSer string                         `json:"beacon_service_ser"`
+	DryRunKeys       map[string]DKGOutput           `json:"dry_run_keys"`
+	DryRunSignatures map[string]map[string]string   `json:"dry_run_signatures"`
+	DryRunCount      *bits.BitArray                 `json:dry_run_count"`
 }
 
 func saveDKG(file string, dkg *DistributedKeyGeneration) {
-
-	fmt.Printf("Writing to file %v\n", file)
 
 	toWrite := DistributedKeyGenerationFile{dkg.chainID, dkg.dkgID, dkg.dkgIteration, dkg.currentAeonEnd, dkg.aeonKeys, dkg.startHeight, dkg.currentState, dkg.beaconService.Serialize(), dkg.dryRunKeys, dkg.dryRunSignatures, dkg.dryRunCount}
 
 	jsonBytes, err := cdc.MarshalJSONIndent(toWrite, "", "  ")
 	if err != nil {
-		fmt.Printf("bad thing 4\n") // DELETEME_NH
 		panic(err)
 	}
 
 	err = tempfile.WriteFileAtomic(file, jsonBytes, 0600)
 	if err != nil {
-		fmt.Printf("Alas! an error %v\n", err)
 		panic(err)
 	}
 }
@@ -959,16 +933,12 @@ func saveDKG(file string, dkg *DistributedKeyGeneration) {
 // the dkg object with previously lost information
 func loadDKG(filePath string, dkg *DistributedKeyGeneration) (err error) {
 
-	fmt.Printf("Loading from file!\n") // DELETEME_NH
-
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		fmt.Printf("bad thing 1\n") // DELETEME_NH
 		return errors.New(fmt.Sprintf("Failed to find file %v when attempting to load dkg", filePath))
 	}
 
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil || len(jsonBytes) == 0 {
-		fmt.Printf("bad thing 2\n") // DELETEME_NH
 		return errors.New(fmt.Sprintf("Failed to read file! %v", filePath))
 	}
 	var dkgLoaded DistributedKeyGenerationFile
@@ -976,10 +946,11 @@ func loadDKG(filePath string, dkg *DistributedKeyGeneration) (err error) {
 	err = cdc.UnmarshalJSON(jsonBytes, &dkgLoaded)
 
 	if err != nil {
-		fmt.Printf("bad thing 3\n") // DELETEME_NH
 		return errors.New(fmt.Sprintf("Failed to unmarshal file! %v", jsonBytes))
 	}
 
+	// Only load (deserialise the beacon service) when it is
+	// The same DKG, but in the future
 	matches := true
 
 	matches = matches && dkgLoaded.ChainID == dkg.chainID
@@ -991,15 +962,7 @@ func loadDKG(filePath string, dkg *DistributedKeyGeneration) (err error) {
 
 	if matches {
 		dkg.beaconService.Deserialize(dkgLoaded.BeaconServiceSer)
-		//dkg.aeonKeys = dkgLoaded.AeonKeys
-		//dkg.dryRunKeys = dkgLoaded.DryRunKeys
-		//dkg.dryRunSignatures = dkgLoaded.DryRunSignatures
-		//dkg.dryRunCount = dkgLoaded.DryRunCount
-		fmt.Printf("matches!!!!!\n") // DELETEME_NH
-	} else {
-		fmt.Printf("no match\n") // DELETEME_NH
 	}
 
 	return nil
 }
-

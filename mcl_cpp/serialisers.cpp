@@ -28,8 +28,6 @@
 #include <boost/serialization/vector.hpp>
 #include <sstream>
 
-#include "base_dkg.hpp"
-
 namespace fetch {
 namespace serialisers {
 
@@ -126,14 +124,6 @@ bool Deserialise(std::string const &msg, std::unordered_map<uint32_t, std::pair<
   }
   return true;
 }
-
-//std::string Serialise(std::vector<std::vector<::fetch::beacon::mcl::PrivateKey>> const &private_keys) {
-//  return "";
-//}
-//
-//bool Deserialise(std::string const &msg, std::vector<std::vector<::fetch::beacon::mcl::PrivateKey>> &private_keys) {
-//  return true;
-//}
 
 }  // namespace serialisers
 }  // namespace fetch

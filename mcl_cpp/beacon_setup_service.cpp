@@ -548,8 +548,6 @@ std::string BeaconSetupService::Serialize() const {
 void BeaconSetupService::Deserialize(std::string const &from) const {
   if (from.rfind("bss_ser:", 0) == 0) {
     std::string from_trimmed = from.substr(8, from.size()-1);
-    Log(LogLevel::ERROR, LOGGING_NAME, std::string("from trimmed:") + from);
-    Log(LogLevel::ERROR, LOGGING_NAME, std::string("from trimmed:") + from_trimmed);
     beacon_->Deserialize(from_trimmed);
   } else {
     Log(LogLevel::ERROR, LOGGING_NAME, std::string("Failed to deser string that did not start with correct prefix. String: ") + from);
