@@ -11,8 +11,8 @@ import (
 )
 
 type RoundVoteSet struct {
-	Prevotes   *types.VoteSet
-	Precommits *types.VoteSet
+	Prevotes   types.VoteSet
+	Precommits types.VoteSet
 }
 
 var (
@@ -100,8 +100,8 @@ func (hvs *HeightVoteSet) addRound(round int) {
 		panic("addRound() for an existing round")
 	}
 	// log.Debug("addRound(round)", "round", round)
-	prevotes := types.NewVoteSet(hvs.chainID, hvs.height, round, types.PrevoteType, hvs.valSet)
-	precommits := types.NewVoteSet(hvs.chainID, hvs.height, round, types.PrecommitType, hvs.valSet)
+	prevotes := types.NewPrevoteSet(hvs.chainID, hvs.height, round, hvs.valSet)
+	precommits := types.NewPrecommitSet(hvs.chainID, hvs.height, round, hvs.valSet)
 	hvs.roundVoteSets[round] = RoundVoteSet{
 		Prevotes:   prevotes,
 		Precommits: precommits,
@@ -132,16 +132,33 @@ func (hvs *HeightVoteSet) AddVote(vote *types.Vote, peerID p2p.ID) (added bool, 
 	return
 }
 
-func (hvs *HeightVoteSet) Prevotes(round int) *types.VoteSet {
+func (hvs *HeightVoteSet) Prevotes(round int) *types.PrevoteSet {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
-	return hvs.getVoteSet(round, types.PrevoteType)
+	voteSet := hvs.getVoteSet(round, types.PrevoteType)
+	if voteSet == nil {
+		return nil
+	}
+	prevotes, ok := voteSet.(*types.PrevoteSet)
+	if !ok {
+		panic(fmt.Sprintf("Could not convert HVS.Prevotes to PrevoteSet for round %v", round))
+	}
+	return prevotes
+
 }
 
-func (hvs *HeightVoteSet) Precommits(round int) *types.VoteSet {
+func (hvs *HeightVoteSet) Precommits(round int) *types.PrecommitSet {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
-	return hvs.getVoteSet(round, types.PrecommitType)
+	voteSet := hvs.getVoteSet(round, types.PrecommitType)
+	if voteSet == nil {
+		return nil
+	}
+	precommits, ok := voteSet.(*types.PrecommitSet)
+	if !ok {
+		panic(fmt.Sprintf("Could not convert HVS.Precommits to PrecommitSet for round %v", round))
+	}
+	return precommits
 }
 
 // Last round and blockID that has +2/3 prevotes for a particular block or nil.
@@ -159,7 +176,7 @@ func (hvs *HeightVoteSet) POLInfo() (polRound int, polBlockID types.BlockID) {
 	return -1, types.BlockID{}
 }
 
-func (hvs *HeightVoteSet) getVoteSet(round int, voteType types.SignedMsgType) *types.VoteSet {
+func (hvs *HeightVoteSet) getVoteSet(round int, voteType types.SignedMsgType) types.VoteSet {
 	rvs, ok := hvs.roundVoteSets[round]
 	if !ok {
 		return nil

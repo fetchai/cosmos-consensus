@@ -96,7 +96,7 @@ func (vote *Vote) SignBytes(chainID string) []byte {
 }
 
 func (vote *Vote) SignTimestamp(chainID string) []byte {
-	bz, err := cdc.MarshalBinaryLengthPrefixed(CanonicalizeTimestamp(chainID, vote.Timestamp))
+	bz, err := cdc.MarshalBinaryLengthPrefixed(CanonicalizeVoteWithTimestamp(chainID, vote))
 	if err != nil {
 		panic(err)
 	}

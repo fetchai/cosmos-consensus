@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/tendermint/tendermint/libs/bits"
@@ -27,17 +28,17 @@ type PeerRoundState struct {
 	ProposalPOLRound         int                 `json:"proposal_pol_round"`          // Proposal's POL round. -1 if none.
 
 	// nil until ProposalPOLMessage received.
-	ProposalPOL     *bits.BitArray `json:"proposal_pol"`
-	Prevotes        *bits.BitArray `json:"prevotes"`          // All votes peer has for this round
-	Precommits      *bits.BitArray `json:"precommits"`        // All precommits peer has for this round
-	LastCommitRound int            `json:"last_commit_round"` // Round of commit for last height. -1 if none.
-	LastCommit      *bits.BitArray `json:"last_commit"`       // All commit precommits of commit for last height.
+	ProposalPOL     *bits.BitArray   `json:"proposal_pol"`
+	Prevotes        *bits.BitArray   `json:"prevotes"`          // All votes peer has for this round
+	Precommits      *PrecommitRecord `json:"precommits"`        // All precommits peer has for this round
+	LastCommitRound int              `json:"last_commit_round"` // Round of commit for last height. -1 if none.
+	LastCommit      *PrecommitRecord `json:"last_commit"`       // All commit precommits of commit for last height
 
 	// Round that we have commit for. Not necessarily unique. -1 if none.
 	CatchupCommitRound int `json:"catchup_commit_round"`
 
 	// All commit precommits peer has for this height & CatchupCommitRound
-	CatchupCommit *bits.BitArray `json:"catchup_commit"`
+	CatchupCommit *PrecommitRecord `json:"catchup_commit"`
 }
 
 // String returns a string representation of the PeerRoundState
@@ -92,4 +93,56 @@ func (prs *PeerRoundState) MarshalTo(data []byte) (int, error) {
 // Unmarshal deserializes from amino encoded form.
 func (prs *PeerRoundState) Unmarshal(bs []byte) error {
 	return cdc.UnmarshalBinaryBare(bs, prs)
+}
+
+//-----------------------------------------------------------
+// Thread safe map for recording precommits seen by peer
+
+type PrecommitRecord struct {
+	record  map[string]struct{} // All precommits peer has, identified by validator index and timestamp
+	numVals int
+	mtx     sync.RWMutex
+}
+
+func NewPrecommitRecord(numVals int) *PrecommitRecord {
+	return &PrecommitRecord{
+		record:  map[string]struct{}{},
+		numVals: numVals,
+	}
+}
+
+func (pr *PrecommitRecord) HasVote(identifier string) bool {
+	pr.mtx.RLock()
+	defer pr.mtx.RUnlock()
+
+	_, hasVote := pr.record[identifier]
+	return hasVote
+}
+
+func (pr *PrecommitRecord) SetHasVote(identifier string) {
+	if pr == nil {
+		return
+	}
+
+	pr.mtx.Lock()
+	defer pr.mtx.Unlock()
+
+	pr.record[identifier] = struct{}{}
+}
+
+// BitArray returns bit array of whether peer has seen a precommit from a certain validator, identified
+// by their index
+func (pr *PrecommitRecord) BitArray() *bits.BitArray {
+	if pr == nil {
+		return nil
+	}
+
+	pr.mtx.RLock()
+	defer pr.mtx.RUnlock()
+
+	bitArray := bits.NewBitArray(pr.numVals)
+	for key := range pr.record {
+		bitArray.SetIndex(types.PrecommitIdentifierToIndex(key), true)
+	}
+	return bitArray
 }

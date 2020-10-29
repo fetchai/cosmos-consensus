@@ -152,7 +152,7 @@ func (state State) MakeBlock(
 	if height == 1 {
 		timestamp = state.LastBlockTime // genesis time
 	} else {
-		timestamp = MedianTime(commit, state.LastValidators)
+		timestamp = MedianTime(block.LastCommit, state.LastValidators)
 	}
 
 	// Fill rest of header with state data.
@@ -175,7 +175,8 @@ func MedianTime(commit *types.Commit, validators *types.ValidatorSet) time.Time 
 	weightedTimes := make([]*tmtime.WeightedTime, len(commit.Signatures))
 	totalVotingPower := int64(0)
 
-	for i, commitSig := range commit.Signatures {
+	for i, commitSigs := range commit.Signatures {
+		commitSig := commitSigs[0]
 		if commitSig.Absent() {
 			continue
 		}

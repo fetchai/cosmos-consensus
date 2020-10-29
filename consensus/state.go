@@ -532,7 +532,7 @@ func (cs *State) reconstructLastCommit(state sm.State) {
 		panic(fmt.Sprintf("Failed to reconstruct LastCommit: seen commit for height %v not found",
 			state.LastBlockHeight))
 	}
-	lastPrecommits := types.CommitToVoteSet(state.ChainID, seenCommit, state.LastValidators)
+	lastPrecommits, _ := types.CommitToVoteSet(state.ChainID, seenCommit, state.LastValidators)
 	if !lastPrecommits.HasTwoThirdsMajority() {
 		panic("Failed to reconstruct LastCommit: Does not have +2/3 maj")
 	}
@@ -571,7 +571,7 @@ func (cs *State) updateToState(state sm.State) {
 
 	// Reset fields based on state.
 	validators := state.Validators
-	lastPrecommits := (*types.VoteSet)(nil)
+	lastPrecommits := (*types.PrecommitSet)(nil)
 	if cs.CommitRound > -1 && cs.Votes != nil {
 		if !cs.Votes.Precommits(cs.CommitRound).HasTwoThirdsMajority() {
 			panic("updateToState(state) called but last Precommit round didn't have +2/3")
@@ -1435,6 +1435,33 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 		return false
 	}
 
+	// Validate timestamps in block match those we have seen. If we have not seen it then vote
+	// for nil
+	for index, commitSigs := range cs.ProposalBlock.LastCommit.Signatures {
+		if len(commitSigs) != 1 {
+			logger.Error("enterPrevote: timestamp verification", "err", types.NewErrInvalidCommitSigLength(index, len(commitSigs)))
+			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+			return false
+		}
+		commitSig := commitSigs[0]
+		if commitSig.Absent() {
+			continue
+		}
+		timestamps := cs.LastCommit.GetVoteTimestamps(index)
+		matchedTimestamp := false
+		for _, timestamp := range timestamps {
+			if timestamp.Equal(commitSig.Timestamp) {
+				matchedTimestamp = true
+				break
+			}
+		}
+		if !matchedTimestamp {
+			logger.Error(fmt.Sprintf("enterPrevote: ProposalBlock fails timestamp check for validator index %v ", index))
+			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
+			return false
+		}
+	}
+
 	// Validate proposal block
 	err := cs.blockExec.ValidateBlock(cs.state, cs.ProposalBlock)
 	if err != nil {
@@ -1885,7 +1912,7 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 		}
 
 		for i, val := range cs.LastValidators.Validators {
-			commitSig := block.LastCommit.Signatures[i]
+			commitSig := block.LastCommit.Signatures[i][0]
 			if commitSig.Absent() {
 				missingValidators++
 				missingValidatorsPower += val.VotingPower
@@ -2146,9 +2173,9 @@ func (cs *State) addVote(
 	)
 
 	// A precommit for the previous height?
-	// These come in while we wait timeoutCommit
+	// These come until we have received them all
 	if vote.Height+1 == cs.Height {
-		if !(cs.Step == cstypes.RoundStepNewHeight && vote.Type == types.PrecommitType) {
+		if vote.Type != types.PrecommitType {
 			// TODO: give the reason ..
 			// fmt.Errorf("tryAddVote: Wrong height, not a LastCommit straggler commit.")
 			return added, ErrVoteHeightMismatch
@@ -2163,7 +2190,7 @@ func (cs *State) addVote(
 		cs.evsw.FireEvent(types.EventVote, vote)
 
 		// if we can skip timeoutCommit and have all the votes now,
-		if cs.config.SkipTimeoutCommit && cs.LastCommit.HasAll() {
+		if cs.Step == cstypes.RoundStepNewHeight && cs.config.SkipTimeoutCommit && cs.LastCommit.HasAll() {
 			// go straight to new round (skip timeout commit)
 			// cs.scheduleTimeout(time.Duration(0), cs.Height, 0, cstypes.RoundStepNewHeight)
 			cs.enterNewRound(cs.Height, 0)

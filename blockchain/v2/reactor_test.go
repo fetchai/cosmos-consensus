@@ -515,7 +515,7 @@ func newReactorStore(
 				panic(err)
 			}
 			lastCommit = types.NewCommit(vote.Height, vote.Round,
-				lastBlockMeta.BlockID, []types.CommitSig{vote.CommitSig()})
+				lastBlockMeta.BlockID, [][]types.CommitSig{{vote.CommitSig()}})
 		}
 
 		thisBlock := makeBlock(blockHeight, state, lastCommit)

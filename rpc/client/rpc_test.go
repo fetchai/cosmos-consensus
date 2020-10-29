@@ -587,6 +587,8 @@ func newEvidence(
 	deepcpVote2 := deepcpVote(vote2)
 	deepcpVote2.Signature, err = val.Key.PrivKey.Sign(deepcpVote2.SignBytes(chainID))
 	require.NoError(t, err)
+	deepcpVote2.TimestampSignature, err = val.Key.PrivKey.Sign(deepcpVote2.SignTimestamp(chainID))
+	require.NoError(t, err)
 
 	return *types.NewDuplicateVoteEvidence(val.Key.PubKey, vote, deepcpVote2)
 }
@@ -614,6 +616,7 @@ func makeEvidences(
 
 	var err error
 	vote.Signature, err = val.Key.PrivKey.Sign(vote.SignBytes(chainID))
+	require.NoError(t, err)
 	vote.TimestampSignature, err = val.Key.PrivKey.Sign(vote.SignTimestamp(chainID))
 	require.NoError(t, err)
 

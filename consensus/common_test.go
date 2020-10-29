@@ -238,12 +238,13 @@ func validatePrevote(t *testing.T, cs *State, round int, privVal *validatorStub,
 }
 
 func validateLastPrecommit(t *testing.T, cs *State, privVal *validatorStub, blockHash []byte) {
-	votes := cs.LastCommit
 	pv, err := privVal.GetPubKey()
 	require.NoError(t, err)
 	address := pv.Address()
-	var vote *types.Vote
-	if vote = votes.GetByAddress(address); vote == nil {
+	index, _ := cs.Validators.GetByAddress(address)
+	vote := cs.LastCommit.GetByIndex(index, cs.LastCommit.GetVoteTimestamps(index)[0])
+
+	if vote == nil {
 		panic("Failed to find precommit from validator")
 	}
 	if !bytes.Equal(vote.BlockID.Hash, blockHash) {
@@ -264,8 +265,10 @@ func validatePrecommit(
 	pv, err := privVal.GetPubKey()
 	require.NoError(t, err)
 	address := pv.Address()
-	var vote *types.Vote
-	if vote = precommits.GetByAddress(address); vote == nil {
+	index, _ := cs.Validators.GetByAddress(address)
+	vote := precommits.GetByIndex(index, precommits.GetVoteTimestamps(index)[0])
+
+	if vote == nil {
 		panic("Failed to find precommit from validator")
 	}
 
