@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestReactorConflictingTimestamps(t *testing.T) {
 			css, cleanup := randConsensusNet(N, "consensus_reactor_test", newMockTickerFunc(true), newCounter)
 			defer cleanup()
 
-			for i := 0; i < 4; i++ {
+			for i := 0; i < N; i++ {
 				ticker := NewTimeoutTicker()
 				ticker.SetLogger(css[i].Logger)
 				css[i].SetTimeoutTicker(ticker)
@@ -55,6 +56,7 @@ func TestReactorConflictingTimestamps(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				timeoutWaitGroup(t, N, func(j int) {
 					<-blocksSubs[j].Out()
+					fmt.Printf("Complete block height %v index %v\n", i, j)
 				}, css)
 			}
 		})
@@ -95,7 +97,7 @@ func invalidVoteFunc(t *testing.T, height int64, round int, cs *State, sw *p2p.S
 				PartsHeader: blockPartsHeader,
 			},
 		}
-		cs.privValidator.SignVote(cs.state.ChainID, vote1)
+		cs.privValidator.SignVote(types.VotePrefix(cs.state.ChainID, cs.Validators.Hash()), vote1)
 		// vote2
 		vote2 := &types.Vote{
 			ValidatorAddress: addr,
@@ -109,7 +111,7 @@ func invalidVoteFunc(t *testing.T, height int64, round int, cs *State, sw *p2p.S
 				PartsHeader: blockPartsHeader,
 			},
 		}
-		cs.privValidator.SignVote(cs.state.ChainID, vote2)
+		cs.privValidator.SignVote(types.VotePrefix(cs.state.ChainID, cs.Validators.Hash()), vote2)
 		cs.mtx.Unlock()
 
 		peers := sw.Peers().List()

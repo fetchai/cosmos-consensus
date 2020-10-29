@@ -679,7 +679,7 @@ OUTER_LOOP:
 			sleeping = 1
 			logger.Debug("No votes to send, sleeping", "rs.Height", rs.Height, "prs.Height", prs.Height,
 				"localPV", rs.Votes.Prevotes(rs.Round).BitArray(), "peerPV", prs.Prevotes,
-				"localPC", rs.Votes.Precommits(rs.Round).BitArray(), "peerPC", prs.Precommits.BitArray(conR.conS.Validators.Size()))
+				"localPC", rs.Votes.Precommits(rs.Round).BitArray(), "peerPC", prs.Precommits.BitArray())
 		} else if sleeping == 2 {
 			// Continued sleep...
 			sleeping = 1
@@ -1208,7 +1208,7 @@ func (ps *PeerState) ensureCatchupCommitRound(height int64, round int, numValida
 	if round == ps.PRS.Round {
 		ps.PRS.CatchupCommit = ps.PRS.Precommits
 	} else {
-		ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord()
+		ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord(numValidators)
 	}
 }
 
@@ -1228,17 +1228,17 @@ func (ps *PeerState) ensureVoteBitArrays(height int64, numValidators int) {
 			ps.PRS.Prevotes = bits.NewBitArray(numValidators)
 		}
 		if ps.PRS.Precommits == nil {
-			ps.PRS.Precommits = cstypes.NewPrecommitRecord()
+			ps.PRS.Precommits = cstypes.NewPrecommitRecord(numValidators)
 		}
 		if ps.PRS.CatchupCommit == nil {
-			ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord()
+			ps.PRS.CatchupCommit = cstypes.NewPrecommitRecord(numValidators)
 		}
 		if ps.PRS.ProposalPOL == nil {
 			ps.PRS.ProposalPOL = bits.NewBitArray(numValidators)
 		}
 	} else if ps.PRS.Height == height+1 {
 		if ps.PRS.LastCommit == nil {
-			ps.PRS.LastCommit = cstypes.NewPrecommitRecord()
+			ps.PRS.LastCommit = cstypes.NewPrecommitRecord(numValidators)
 		}
 	}
 }
