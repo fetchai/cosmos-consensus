@@ -142,7 +142,7 @@ func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg
 		entropyParams:        entropyParams,
 		threshold:            dkgThreshold,
 		startHeight:          validatorHeight,
-		enableRecovery:       true,
+		enableRecovery:       false,
 		states:               make(map[dkgState]*state),
 		currentState:         dkgStart,
 		earlySecretShares:    make(map[uint]string),
@@ -515,6 +515,8 @@ func (dkg *DistributedKeyGeneration) proceedToNextState(nextState dkgState, runO
 	// If the state we are going into is the first one, we can see if it is possible to load a DKG which has crashed.
 	// Otherwise, we save our dkg details
 	if dkg.enableRecovery {
+
+		fmt.Printf("attempt recovery %v\n", nextState) // DELETEME_NH
 		if nextState == waitForEncryptionKeys {
 			loadDKG(dkg.baseConfig.DkgBackupFile(), dkg)
 		} else if nextState == waitForDryRun || nextState == dkgFinish {
