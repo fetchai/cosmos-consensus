@@ -2,6 +2,8 @@ package beacon
 
 import (
 	"fmt"
+	"os"
+	"errors"
 	"io/ioutil"
 	"runtime"
 
@@ -185,6 +187,45 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 	return aeonDetails, nil
 }
 
+// Add aon aeon to the file, keeping a max of N aeons in the file (reading
+// from the file and appending if neccessary)
+func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
+
+  aeonsInFile, _ := loadAeonDetailsFiles(filePath)
+
+  // Now we have potential aeons in the file, and we want the older of these
+  // to be at the front, so append the ones we want to write
+	for _, aeon := range aeons {
+
+		if aeon == nil {
+			panic(fmt.Sprintf("Attempt to save nil aeon(s) to file: %v %v\n", filePath, aeons))
+		}
+
+		aeonFileToWrite := AeonDetailsFile{
+			PublicInfo: *aeon.dkgOutput(),
+		}
+		if aeon.aeonExecUnit != nil {
+			aeonFileToWrite.PrivateKey = aeon.aeonExecUnit.PrivateKey()
+		}
+
+		// Do not put duplicates into the file
+		for _, fileAeon := range aeonsInFile {
+			if fileAeon.IsForSamePeriod(&aeonFileToWrite) {
+				continue
+			}
+		}
+
+		aeonsInFile = append(aeonsInFile, &aeonFileToWrite)
+	}
+
+	// Now write back to the file the last N of these
+	if len(aeonsInFile) > max {
+		aeonsInFile = aeonsInFile[len(aeonsInFile) - max:]
+	}
+
+	saveAeonQueue(filePath, aeonsInFile)
+}
+
 // Save a number of aeonDetails to a file
 func saveAeons(filePath string, aeons ...*aeonDetails) {
 
@@ -223,6 +264,11 @@ func saveAeonQueue(outFile string, aeonFiles []*AeonDetailsFile) {
 
 // LoadAeonDetailsFile creates a queue of AeonDetailsFiles from json
 func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, errors.New(fmt.Sprintf("Failed to find file %v when attempting to load aeon", filePath))
+	}
+
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		tmos.Exit(err.Error())
@@ -244,3 +290,26 @@ func loadAeonDetailsFiles(filePath string) ([]*AeonDetailsFile, error) {
 
 	return aeonQueue, err
 }
+
+// Function to return whether the specified validator is in qual
+func (aeon *aeonDetails) HasValidatorInQual(addr types.Address) bool {
+
+	if aeon.validators == nil {
+		return false
+	}
+
+	index, _ := aeon.validators.GetByAddress(addr)
+
+	if index < 0 {
+		return false
+	}
+
+	for _, qualIndex := range aeon.qual {
+		if int64(index) == qualIndex {
+			return true
+		}
+	}
+
+	return false
+}
+

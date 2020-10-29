@@ -237,13 +237,13 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 		return
 	}
 
-	// If over max number of keys pop of the oldest one
+	// If over max number of keys pop off the oldest one
 	if len(entropyGenerator.nextAeons) > maxNextAeons {
 		entropyGenerator.nextAeons[0] = nil
 		entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
 	}
-	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 
+	entropyGenerator.nextAeons = append(entropyGenerator.nextAeons, aeon)
 	saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
 
 	if entropyGenerator.metrics != nil {
@@ -253,6 +253,8 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 
 // Trim old aeons from the queue (assumes they are ordered)
 func (entropyGenerator *EntropyGenerator) trimNextAeons() {
+	changed := false
+
 	for {
 		if len(entropyGenerator.nextAeons) == 0 {
 			break
@@ -262,15 +264,20 @@ func (entropyGenerator *EntropyGenerator) trimNextAeons() {
 		if entropyGenerator.lastBlockHeight >= entropyGenerator.nextAeons[0].End {
 			if len(entropyGenerator.nextAeons) == 1 {
 				entropyGenerator.nextAeons = make([]*aeonDetails, 0)
+				changed = true
 			} else {
 				entropyGenerator.nextAeons[0] = nil
 				entropyGenerator.nextAeons = entropyGenerator.nextAeons[1:len(entropyGenerator.nextAeons)]
+				changed = true
 			}
 		} else {
-			// Save aeons to file
-			saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
 			break
 		}
+	}
+
+	// Save aeons to file if there has been a change to the queue
+	if changed {
+		saveAeons(entropyGenerator.baseConfig.NextEntropyKeyFile(), entropyGenerator.nextAeons...)
 	}
 }
 
@@ -287,7 +294,7 @@ func (entropyGenerator *EntropyGenerator) resetKeys() bool {
 	if entropyGenerator.aeon != nil && entropyGenerator.lastBlockHeight >= entropyGenerator.aeon.End {
 		// When updating the aeon, we save the current aeon so that in the event of a crash we
 		// can load it since the block height may still be within this old aeon (entropy leads block height)
-		saveAeons(entropyGenerator.baseConfig.OldEntropyKeyFile(), entropyGenerator.aeon)
+		updateFileAeons(entropyGenerator.baseConfig.OldEntropyKeyFile(), 2, entropyGenerator.aeon)
 
 		entropyGenerator.Logger.Info("changeKeys: Existing keys expired.", "blockHeight", entropyGenerator.lastBlockHeight,
 			"end", entropyGenerator.aeon.End)
