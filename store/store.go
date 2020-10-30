@@ -316,15 +316,14 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 				}
 			}
 			// If we do not have the commit sig with timestamp matching the one included in the block
-			// Replace with the one from the block but there will be no timestamp signature
-			// for this vote
+			// Replace with nil
 			if matchingIndex < 0 {
-				previousCommit.Signatures[index][0] = block.LastCommit.Signatures[index][0]
+				previousCommit.Signatures[index] = nil
 			} else {
 				previousCommit.Signatures[index][0] = previousCommit.Signatures[index][matchingIndex]
+				// Only keep the vote with timestamp matching the one in the block
+				previousCommit.Signatures[index] = previousCommit.Signatures[index][:1]
 			}
-			// Only keep the vote with timestamp matching the one in the block
-			previousCommit.Signatures[index] = previousCommit.Signatures[index][:1]
 		}
 
 		previousCommitBytes := cdc.MustMarshalBinaryBare(previousCommit)
