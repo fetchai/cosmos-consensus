@@ -303,6 +303,34 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 	seenCommitBytes := cdc.MustMarshalBinaryBare(seenCommit)
 	bs.db.Set(calcSeenCommitKey(height), seenCommitBytes)
 
+	// Get commit from previous height and remove all commits not included in this
+	// block since they are not needed
+	previousCommit := bs.LoadSeenCommit(height - 1)
+	if height != 1 && previousCommit != nil {
+		for index, blockSigs := range block.LastCommit.Signatures {
+			matchingIndex := -1
+			for sigIndex, sig := range previousCommit.Signatures[index] {
+				if sig.Timestamp.Equal(blockSigs[0].Timestamp) {
+					matchingIndex = sigIndex
+					break
+				}
+			}
+			// If we do not have the commit sig with timestamp matching the one included in the block
+			// Replace with the one from the block but there will be no timestamp signature
+			// for this vote
+			if matchingIndex < 0 {
+				previousCommit.Signatures[index][0] = block.LastCommit.Signatures[index][0]
+			} else {
+				previousCommit.Signatures[index][0] = previousCommit.Signatures[index][matchingIndex]
+			}
+			// Only keep the vote with timestamp matching the one in the block
+			previousCommit.Signatures[index] = previousCommit.Signatures[index][:1]
+		}
+
+		previousCommitBytes := cdc.MustMarshalBinaryBare(previousCommit)
+		bs.db.Set(calcSeenCommitKey(height-1), previousCommitBytes)
+	}
+
 	// Done!
 	bs.mtx.Lock()
 	bs.height = height
