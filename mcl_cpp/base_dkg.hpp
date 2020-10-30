@@ -28,12 +28,60 @@
 #include <mutex>
 #include <memory>
 
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/set.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/vector.hpp>
+#include <sstream>
+
 namespace fetch {
-namespace beacon {    
+namespace beacon {
 
 /**
  * This class defines the functions required for the DKG
  */
+inline std::string Serialise(std::vector<mcl::PrivateKey> const &private_keys) {
+  std::ostringstream            ss;
+  boost::archive::text_oarchive oa{ss};
+
+  std::vector<std::string> as_strings;
+
+  for(auto const &key : private_keys )
+  {
+    as_strings.push_back(key.ToString());
+  }
+
+  oa << as_strings;
+  return ss.str();
+}
+
+inline bool Deserialise(std::string const &msg, std::vector<mcl::PrivateKey> &private_keys) {
+  std::vector<std::string> from_strings;
+  try
+  {
+    std::istringstream            ss{msg};
+    boost::archive::text_iarchive ia{ss};
+
+    ia >> from_strings;
+  }
+  catch (boost::archive::archive_exception ex)
+  {
+    return false;
+  }
+
+  private_keys.clear();
+
+  for(auto const &key : from_strings )
+  {
+    private_keys.push_back(mcl::PrivateKey{});
+    private_keys.back().FromString(key);
+  }
+
+  return true;
+}
 
 template<class CryptoVerificationKey>
 class BaseDkg {
@@ -56,6 +104,7 @@ public:
   virtual PrivateKey GetZeroFr() const = 0;
   virtual void NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, CabinetIndex index) = 0;
   virtual void GenerateCoefficients() = 0;
+  virtual void GenerateCoefficients(std::vector<PrivateKey> const &a_i, std::vector<PrivateKey> const &b_i) = 0;
   virtual std::vector<Coefficient> GetQualCoefficients() = 0;
   virtual void AddQualCoefficients(CabinetIndex const &from_index,std::vector<Coefficient> const &coefficients) = 0;
   virtual SharesExposedMap ComputeQualComplaints(std::set<CabinetIndex> const &coeff_received) const = 0;
@@ -63,7 +112,7 @@ public:
   virtual bool RunReconstruction() = 0;
   virtual void ComputePublicKeys() = 0;
   virtual std::shared_ptr<BaseAeon> GetDkgOutput() const = 0;
-  
+
   std::vector<Coefficient> GetCoefficients()
   {
     std::vector<Coefficient> coefficients;
@@ -130,7 +179,7 @@ public:
     PrivateKey s, sprime;
     VerificationKey lhsG, rhsG;
 
-    if (s.FromString(answer.second.first) && sprime.FromString(answer.second.second)) 
+    if (s.FromString(answer.second.first) && sprime.FromString(answer.second.second))
     {
       rhsG = mcl::ComputeRHS(reporter_index, C_ik_[from_index]);
       lhsG = mcl::ComputeLHS(GetGroupG(), GetGroupH(), s, sprime);
@@ -138,8 +187,8 @@ public:
       {
         return false;
       }
-     
-      if (reporter_index == cabinet_index_) 
+
+      if (reporter_index == cabinet_index_)
       {
         s_ij_[from_index][cabinet_index_] = s;
         sprime_ij_[from_index][cabinet_index_] = sprime;
@@ -156,7 +205,7 @@ public:
     qual_ = std::move(qual);
   }
 
-  void ComputeSecretShare() 
+  void ComputeSecretShare()
   {
     secret_share_.SetZero();
     xprime_i_.SetZero();
@@ -166,7 +215,7 @@ public:
     }
   }
 
-  void AddReconstructionShare(CabinetIndex const &index) 
+  void AddReconstructionShare(CabinetIndex const &index)
   {
     if (reconstruction_shares.find(index) == reconstruction_shares.end())
     {
@@ -176,17 +225,17 @@ public:
     reconstruction_shares.at(index).second[cabinet_index_] = s_ij_[index][cabinet_index_];
   }
 
-  void VerifyReconstructionShare(CabinetIndex const &from, ExposedShare const &share) 
+  void VerifyReconstructionShare(CabinetIndex const &from, ExposedShare const &share)
   {
     CabinetIndex victim_index = share.first;
     VerificationKey lhs, rhs;
     PrivateKey s, sprime;
 
-    if (s.FromString(share.second.first) && sprime.FromString(share.second.second)) 
+    if (s.FromString(share.second.first) && sprime.FromString(share.second.second))
     {
       lhs = mcl::ComputeLHS(GetGroupG(), GetGroupH(), s, sprime);
       rhs = mcl::ComputeRHS(from, C_ik_[victim_index]);
-      if (lhs == rhs && !lhs.isZero()) 
+      if (lhs == rhs && !lhs.isZero())
       {
         AddReconstructionShare(from, {share.first, share.second.first});
       }
@@ -215,6 +264,36 @@ public:
     return cabinet_size_;
   }
 
+  std::string Serialize() const {
+
+    std::ostringstream string_stream;
+    string_stream << Serialise(saved_a_i_) << "," << Serialise(saved_b_i_);
+
+    return string_stream.str();
+  }
+
+  void Deserialize(std::string const &from) {
+
+    std::stringstream ss(from);
+    std::vector<std::string> delimited_by_commas;
+
+    while(ss.good())
+    {
+      std::string substr;
+      getline( ss, substr, ',' );
+      delimited_by_commas.push_back(substr);
+    }
+
+    if(delimited_by_commas.size() < 2) {
+      return;
+    }
+
+    Deserialise(delimited_by_commas[0], saved_a_i_);
+    Deserialise(delimited_by_commas[1], saved_b_i_);
+
+    GenerateCoefficients(saved_a_i_, saved_b_i_);
+  }
+
 protected:
   // What the DKG should return
   PrivateKey             secret_share_;       ///< Share of group private key (x_i)
@@ -228,10 +307,15 @@ protected:
 
   // Temporary variables in DKG
   PrivateKey xprime_i_;
-  std::vector<std::vector<PrivateKey> > s_ij_, sprime_ij_;
+  std::vector<std::vector<PrivateKey>> s_ij_, sprime_ij_;
   std::vector<std::vector<VerificationKey>> C_ik_;
   std::vector<std::vector<VerificationKey>> A_ik_;
   std::vector<std::vector<VerificationKey>> secret_commitments_;
+
+  // Save the coefficients after generating so they can be recovered in the case of a crash
+  // (ser/deser to a file)
+  std::vector<PrivateKey> saved_a_i_;
+  std::vector<PrivateKey> saved_b_i_;
 
   std::unordered_map<CabinetIndex, std::pair<std::set<CabinetIndex>, std::vector<PrivateKey>>>
       reconstruction_shares;  ///< Map from id of node_i in complaints to a pair <parties which
@@ -239,8 +323,14 @@ protected:
 
   BaseDkg() = default;
 
+  void SaveCoefficients(std::vector<PrivateKey> const &a_i_, std::vector<PrivateKey> const &b_i_)
+  {
+    saved_a_i_ = a_i_;
+    saved_b_i_ = b_i_;
+  }
+
   void AddReconstructionShare(CabinetIndex const &from_index,
-                                           std::pair<CabinetIndex, Share> const &share) 
+                                           std::pair<CabinetIndex, Share> const &share)
   {
     if (reconstruction_shares.find(share.first) == reconstruction_shares.end()) {
       mcl::Init(reconstruction_shares[share.first].second, cabinet_size_);

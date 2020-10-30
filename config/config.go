@@ -39,6 +39,7 @@ var (
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
 
+	defaultDkgBackupName      = "dkg_backup_file.json"
 	defaultOldEntropyKeyName  = "old_entropy_key.json"
 	defaultEntropyKeyName     = "entropy_key.json"
 	defaultNextEntropyKeyName = "next_entropy_key.json"
@@ -51,6 +52,7 @@ var (
 	defaultGenesisJSONPath    = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
 	defaultPrivValKeyPath     = filepath.Join(defaultConfigDir, defaultPrivValKeyName)
 	defaultPrivValStatePath   = filepath.Join(defaultDataDir, defaultPrivValStateName)
+	defaultDkgBackupPath      = filepath.Join(defaultDataDir, defaultDkgBackupName)
 	defaultOldEntropyKeyPath  = filepath.Join(defaultDataDir, defaultOldEntropyKeyName)
 	defaultEntropyKeyPath     = filepath.Join(defaultDataDir, defaultEntropyKeyName)
 	defaultNextEntropyKeyPath = filepath.Join(defaultDataDir, defaultNextEntropyKeyName)
@@ -219,6 +221,9 @@ type BaseConfig struct { //nolint: maligned
 	EntropyKey string `mapstructure:"entropy_key_file"`
 
 	// Path to the JSON file containing the dkg output for previous entropy generation
+	DkgBackup string `mapstructure:"dkg_backup_file"`
+
+	// Path to the JSON file containing the dkg output for previous entropy generation
 	OldEntropyKey string `mapstructure:"old_entropy_key_file"`
 
 	// Path to the JSON file containing the dkg output for next aeon entropy generation
@@ -248,6 +253,7 @@ func DefaultBaseConfig() BaseConfig {
 		PrivValidatorKey:   defaultPrivValKeyPath,
 		PrivValidatorState: defaultPrivValStatePath,
 		EntropyKey:         defaultEntropyKeyPath,
+		DkgBackup:          defaultDkgBackupPath,
 		OldEntropyKey:      defaultOldEntropyKeyPath,
 		NextEntropyKey:     defaultNextEntropyKeyPath,
 		NoiseKey:           defaultNoiseKeyPath,
@@ -297,6 +303,11 @@ func (cfg BaseConfig) PrivValidatorStateFile() string {
 // EntropyKeyFile returns the full path to the entropy_key.json file
 func (cfg BaseConfig) EntropyKeyFile() string {
 	return rootify(cfg.EntropyKey, cfg.RootDir)
+}
+
+// EntropyKeyFile returns the full path to the dkg backup file
+func (cfg BaseConfig) DkgBackupFile() string {
+	return rootify(cfg.DkgBackup, cfg.RootDir)
 }
 
 // EntropyKeyFile returns the full path to the old entropy_key.json file
