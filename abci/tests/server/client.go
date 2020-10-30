@@ -13,11 +13,10 @@ import (
 func InitChain(client abcicli.Client) error {
 	total := 10
 	vals := make([]types.ValidatorUpdate, total)
-	argh3
 	for i := 0; i < total; i++ {
 		pubkey := tmrand.Bytes(33)
 		power := tmrand.Int()
-		vals[i] = types.Ed25519ValidatorUpdate(pubkey, int64(power))
+		vals[i] = types.Bls12_381ValidatorUpdate(pubkey, int64(power))
 	}
 	_, err := client.InitChainSync(types.RequestInitChain{
 		Validators: vals,
