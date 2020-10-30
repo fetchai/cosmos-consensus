@@ -1,0 +1,36 @@
+{
+  "chain_id": "tendermint_test",
+  "dkg_id": "1",
+  "dkg_it": "0",
+  "current_aeon_end": "20",
+  "aeon_keys": {
+    "Start": "51",
+    "End": "150"
+  },
+  "start_height": "8",
+  "current_state": "8",
+  "beacon_service_ser": "bss_ser:22 serialization::archive 17 0 0 1 0 0 0 1 0 64 92a2612e2870bfd9315241b91d814bf1e1c684ff716afc8873f438dcf39e3f64,22 serialization::archive 17 0 0 1 0 0 0 1 0 64 f73caa27fbed6f5f7c2824a52dc36038de79d9111893ce8d5fe77f194f30a773",
+  "dry_run_keys": {
+    "\n\u0008GlowAeon\u0012\ufffd\u000191b4e9e4013b20f2b302aa389cc862b8f7753892d17f03dd596e24429b49fe33ec862fa3d702f29c84e291f5bf824a0379e4da6cd8ac3fbf295ae5a3bcd63372fc03c4c8b6e6d945b1d928f6fcd28feccd7e422c7296cb1df5cabaeae98f5685\u001a`4c63637ba8c2686e4716047a7cc46233e9fbce13ede42602113bf75412417c5be89e4a1206746518d68dae30a3ac2c0c\"\ufffd\u000222 serialization::archive 17 0 0 192 605f336b06cc33b2b080990c877bbf97432181ded7c967eb3175803fbab344d61b44e1ded6d968a079073de232ead31616123b0b27a0e04f8f68c5deaaac40fb65bd2b0ad97c741bde6d9abb673e00aa208ee929e5dd0e6179e8ff76084fb690 96 7497bfc7b1184a8c6a1372f366a90a8bf7427cce875f0bce3fbe2c1fba3cf945c451ed8634ed94cba4e47f8201b1ce06(\u00080\u0001:\u0001\u0000@3H\ufffd\u0001": {
+      "key_type": "GlowAeon",
+      "group_public_key": "91b4e9e4013b20f2b302aa389cc862b8f7753892d17f03dd596e24429b49fe33ec862fa3d702f29c84e291f5bf824a0379e4da6cd8ac3fbf295ae5a3bcd63372fc03c4c8b6e6d945b1d928f6fcd28feccd7e422c7296cb1df5cabaeae98f5685",
+      "public_key_shares": [
+        "4c63637ba8c2686e4716047a7cc46233e9fbce13ede42602113bf75412417c5be89e4a1206746518d68dae30a3ac2c0c"
+      ],
+      "generator": "22 serialization::archive 17 0 0 192 605f336b06cc33b2b080990c877bbf97432181ded7c967eb3175803fbab344d61b44e1ded6d968a079073de232ead31616123b0b27a0e04f8f68c5deaaac40fb65bd2b0ad97c741bde6d9abb673e00aa208ee929e5dd0e6179e8ff76084fb690 96 7497bfc7b1184a8c6a1372f366a90a8bf7427cce875f0bce3fbe2c1fba3cf945c451ed8634ed94cba4e47f8201b1ce06",
+      "validator_height": "8",
+      "dkg_id": "1",
+      "qual": [
+        "0"
+      ],
+      "start": "51",
+      "end": "150"
+    }
+  },
+  "dry_run_signatures": {
+    "\n\u0008GlowAeon\u0012\ufffd\u000191b4e9e4013b20f2b302aa389cc862b8f7753892d17f03dd596e24429b49fe33ec862fa3d702f29c84e291f5bf824a0379e4da6cd8ac3fbf295ae5a3bcd63372fc03c4c8b6e6d945b1d928f6fcd28feccd7e422c7296cb1df5cabaeae98f5685\u001a`4c63637ba8c2686e4716047a7cc46233e9fbce13ede42602113bf75412417c5be89e4a1206746518d68dae30a3ac2c0c\"\ufffd\u000222 serialization::archive 17 0 0 192 605f336b06cc33b2b080990c877bbf97432181ded7c967eb3175803fbab344d61b44e1ded6d968a079073de232ead31616123b0b27a0e04f8f68c5deaaac40fb65bd2b0ad97c741bde6d9abb673e00aa208ee929e5dd0e6179e8ff76084fb690 96 7497bfc7b1184a8c6a1372f366a90a8bf7427cce875f0bce3fbe2c1fba3cf945c451ed8634ed94cba4e47f8201b1ce06(\u00080\u0001:\u0001\u0000@3H\ufffd\u0001": {
+      "Xa [\ufffd[\ufffd~`\u000f:\u003c\ufffd\ufffd.\u0016\ufffdA@\ufffd": "22 serialization::archive 17 0 0 3 0 96 bf3a112bf63da884bd9fc708ebc6ce73a0c97a7e73b4ccb8383191f0fe05cafea6294b6969512b178c09ca6bdc737204 64 61e008576d7ce3568898dd2c7af9a252db56f40e9dc844d9865ded3a76a3336c 64 11cf36ea59be735e7f66dc6d0e561cc390ed441cfd0710da40b87575c01f8a6c"
+    }
+  },
+  "DryRunCount": "x"
+}

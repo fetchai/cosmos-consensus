@@ -1,6 +1,8 @@
 package beacon
 
 import (
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -30,6 +32,11 @@ const (
 	mutateData
 	withholdEncryptionKey
 )
+
+func init () {
+	// Make sure to create the data dir if it is being used
+	_ = os.Mkdir("data", 0777)
+}
 
 func TestDKGHelpers(t *testing.T) {
 	dkg := exampleDKG(4)
@@ -427,11 +434,12 @@ func exampleDKG(nVals int) *DistributedKeyGeneration {
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestBeaconConfig()
+	baseConfig := cfg.TestBaseConfig()
 
 	entropyParams := types.EntropyParams{
 		AeonLength: 100,
 	}
-	dkg := NewDistributedKeyGeneration(config, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, 1, *state.Validators, 20,
+	dkg := NewDistributedKeyGeneration(config, &baseConfig, genDoc.ChainID, privVals[0], tmnoise.NewEncryptionKey(), 8, 1, *state.Validators, 20,
 		entropyParams, nil)
 	dkg.SetLogger(log.TestingLogger())
 	return dkg
@@ -445,13 +453,13 @@ type testNode struct {
 	sentBadShare bool
 }
 
-func newTestNode(config *cfg.BeaconConfig, chainID string, privVal types.PrivValidator,
+func newTestNode(config *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chainID string, privVal types.PrivValidator,
 	vals *types.ValidatorSet, sendDuplicates bool) *testNode {
 	entropyParams := types.EntropyParams{
 		AeonLength: 100,
 	}
 	node := &testNode{
-		dkg: NewDistributedKeyGeneration(config, chainID, privVal, tmnoise.NewEncryptionKey(), 8, 1, *vals, 20,
+		dkg: NewDistributedKeyGeneration(config, baseConfig, chainID, privVal, tmnoise.NewEncryptionKey(), 8, 1, *vals, 20,
 			entropyParams, nil),
 		currentMsgs:  make([]*types.DKGMessage, 0),
 		nextMsgs:     make([]*types.DKGMessage, 0),
@@ -511,14 +519,142 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 	stateDB := dbm.NewMemDB() // each state needs its own db
 	state, _ := sm.LoadStateFromDBOrGenesisDoc(stateDB, genDoc)
 	config := cfg.TestBeaconConfig()
+	baseConfig := cfg.TestBaseConfig()
+
+	// make sure to remove the dkg file before each
+	// test, and to disable recovery
+	os.Remove(baseConfig.DkgBackupFile())
 
 	nodes := make([]*testNode, nVals+nSentries)
 	for i := 0; i < nVals; i++ {
-		nodes[i] = newTestNode(config, genDoc.ChainID, privVals[i], state.Validators, sendDuplicates)
+		nodes[i] = newTestNode(config, &baseConfig, genDoc.ChainID, privVals[i], state.Validators, sendDuplicates)
+		nodes[i].dkg.enableRecovery = false
 	}
 	for i := 0; i < nSentries; i++ {
 		_, privVal := types.RandValidator(false, 10)
-		nodes[nVals+i] = newTestNode(config, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
+		nodes[nVals+i] = newTestNode(config, &baseConfig, genDoc.ChainID, privVal, state.Validators, sendDuplicates)
+		nodes[nVals+i].dkg.enableRecovery = false
 	}
 	return nodes
+}
+func TestDKGRecovery(t *testing.T) {
+	testCases := []struct {
+		testName       string
+		nVals          int
+		nSentries      int
+		fileRecovery   bool
+	}{
+		{"Crash during DKG, no file recovery", 1, 0, false},
+		{"Crash during DKG, with file recovery", 1, 0, true},
+	}
+	for _, tc := range testCases {
+
+		t.Run(tc.testName, func(t *testing.T) {
+			nodes := exampleDKGNetwork(tc.nVals, tc.nSentries, false)
+			cppLogger := NewNativeLoggingCollector(log.TestingLogger())
+			cppLogger.Start()
+
+			nTotal := tc.nVals + tc.nSentries
+			outputs := make([]*aeonDetails, nTotal)
+			secondOutputs := make([]*aeonDetails, nTotal)
+
+			for index := 0; index < nTotal; index++ {
+				output := &outputs[index]
+				_ = output // dummy assignment
+				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
+					*output = aeon
+				})
+				nodes[index].dkg.enableRecovery = tc.fileRecovery
+			}
+
+			// Start all nodes
+			blockHeight := int64(10)
+			for _, node := range nodes {
+				assert.True(t, !node.dkg.IsRunning())
+				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+				assert.True(t, node.dkg.IsRunning())
+				node.clearMsgs()
+			}
+
+			var messagesInBlocks [][]*types.DKGMessage
+
+			for nodesFinished := 0; nodesFinished < nTotal; {
+				blockHeight++
+				currentMsgs := make([]*types.DKGMessage, 0)
+				for _, node := range nodes {
+					currentMsgs = append(currentMsgs, node.currentMsgs...)
+				}
+				for _, node := range nodes {
+					node.dkg.OnBlock(blockHeight, currentMsgs)
+					node.clearMsgs()
+				}
+
+				messagesInBlocks = append(messagesInBlocks, currentMsgs)
+
+				nodesFinished = 0
+				for _, node := range nodes {
+					if node.dkg.dkgIteration >= 2 {
+						t.Log("Test failed: dkg iteration exceeded 1")
+						t.FailNow()
+					}
+					if node.dkg.currentState == dkgFinish {
+						nodesFinished++
+					}
+				}
+			}
+
+			// overwrite old dkgs
+			for _, node := range nodes {
+				node.dkg = node.dkg.ClearState()
+			}
+
+			aa := nodes[0].dkg.currentState
+
+			fmt.Printf("thing %v", aa)
+
+			// Now run again replaying the blocks (redirecting output), this should trigger the file recovery
+			// redirect the output
+			for index := 0; index < nTotal; index++ {
+				output := &secondOutputs[index]
+				_ = output // dummy assignment
+				nodes[index].dkg.SetDkgCompletionCallback(func(aeon *aeonDetails) {
+					*output = aeon
+				})
+				nodes[index].dkg.enableRecovery = tc.fileRecovery
+			}
+
+			fmt.Print("restarting...\n\n\n")
+
+			// Restart/reset.
+			// Note: why is this 10?
+			blockHeight = int64(10)
+			for _, node := range nodes {
+				assert.True(t, !node.dkg.IsRunning())
+				node.dkg.OnBlock(blockHeight, []*types.DKGMessage{}) // OnBlock sends TXs to the chain
+				assert.True(t, node.dkg.IsRunning())
+				node.clearMsgs()
+			}
+
+			// Send the old messages to the dkgs and get them to replay
+			for _, messages := range messagesInBlocks {
+				for _, node := range nodes {
+					node.dkg.OnBlock(blockHeight, messages)
+					node.clearMsgs()
+				}
+				blockHeight++
+			}
+
+			// Check the outputs match when recovery and not if not
+			for index := 0; index < nTotal; index++ {
+				originalPK := outputs[index].aeonExecUnit.PrivateKey()
+				secondPK := secondOutputs[index].aeonExecUnit.PrivateKey()
+
+				same := originalPK == secondPK
+
+				assert.True(t, tc.fileRecovery == same)
+			}
+
+			cppLogger.Stop()
+		})
+	}
 }
