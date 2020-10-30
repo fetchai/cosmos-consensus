@@ -116,15 +116,8 @@ func newBlockchainReactor(
 	sm.SaveState(db, state)
 
 	// let's add some blocks in
+	lastCommit := types.NewCommit(0, 1, types.BlockID{}, nil)
 	for blockHeight := int64(1); blockHeight <= maxBlockHeight; blockHeight++ {
-		lastCommit := types.NewCommit(blockHeight-1, 1, types.BlockID{}, nil)
-		if blockHeight > 1 {
-			lastBlockMeta := blockStore.LoadBlockMeta(blockHeight - 1)
-			lastBlock := blockStore.LoadBlock(blockHeight - 1)
-
-			vote := makeVote(t, &lastBlock.Header, lastBlockMeta.BlockID, state.Validators, privVals[0])
-			lastCommit = types.NewCommit(vote.Height, vote.Round, lastBlockMeta.BlockID, [][]types.CommitSig{{vote.CommitSig()}})
-		}
 
 		thisBlock := makeBlock(blockHeight, state, lastCommit)
 
@@ -135,6 +128,9 @@ func newBlockchainReactor(
 		if err != nil {
 			panic(errors.Wrap(err, "error apply block"))
 		}
+
+		vote := makeVote(t, &thisBlock.Header, blockID, state.Validators, privVals[0])
+		lastCommit = types.NewCommit(vote.Height, vote.Round, blockID, [][]types.CommitSig{{vote.CommitSig()}})
 
 		blockStore.SaveBlock(thisBlock, thisParts, lastCommit)
 	}
