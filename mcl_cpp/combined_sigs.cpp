@@ -144,19 +144,15 @@ std::string Sign(std::string const &message, std::string const &private_key) {
         return "";
     }
 
-    //std::cout << "Sign: " << message.length() <<  " " << private_key.length() << " answ: " <<  mcl::Sign(message, priv_key).ToString() << std::endl;
-
     return mcl::Sign(message, priv_key).ToString();
 }
 bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key, std::string const &generator) {
-    //std::cout << "pairing verify len: " << message.length() << " " << sign.length() << " " << public_key.length() << std::endl;
     mcl::Signature signature;
     mcl::GroupPublicKey pub_key;
     mcl::GroupPublicKey gen;
     bool ok_sign = signature.FromString(sign);
     bool ok_key = pub_key.FromString(public_key);
     if (!ok_sign || !ok_key) {
-        //std::cout << "got here!!!" << ok_sign << " " << ok_key  << std::endl;
         return false;
     }
     mcl::SetGenerator(gen, generator);

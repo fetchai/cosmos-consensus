@@ -10,7 +10,6 @@ import (
 func RandVal(i int) types.ValidatorUpdate {
 	pubkey := tmrand.Bytes(32)
 	power := tmrand.Uint16() + 1
-	//argh4
 	v := types.Bls12_381ValidatorUpdate(pubkey, int64(power))
 	return v
 }
