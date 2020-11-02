@@ -15,7 +15,7 @@ import requests
 # Assumes that tendermint is installed and new. Node 0 will display its logs.
 
 NODE_0_PRINTS=True
-VALIDATORS=5 # Must be at least 2 as a TX is send to nodes[1]
+VALIDATORS=4 # Must be at least 2 as a TX is send to nodes[1]
 TEST_TIMEOUT_S=60*2
 THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 os.chdir(THIS_FILE_DIR)

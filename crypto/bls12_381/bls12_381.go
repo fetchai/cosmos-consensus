@@ -127,23 +127,6 @@ func GenPrivKey() (ret PrivKeyBls) {
 
 
 	copy(ret[:], privKey)
-
-	//fmt.Printf("Generating new private key!\n%v\n%v\n", privKey, ret.String()) // DELETEME_NH
-
-	//fmt.Printf("len is %v key: %v\n", len(privKey), len(ret)) // DELETEME_NH
-
-	//fmt.Printf("Starting test.\n") // DELETEME_NH
-
-	//pubKey := ret.PubKey()
-
-	//fmt.Printf("pubkey %v\n", pubKey) // DELETEME_NH
-
-	//msg := []byte("one two")
-
-	//sig, _ := ret.Sign(msg)
-//
-	//fmt.Printf("response after test: %v\n", pubKey.VerifyBytes(msg, sig)) // DELETEME_NH
-
 	return
 }
 
