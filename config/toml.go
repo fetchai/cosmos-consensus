@@ -485,8 +485,8 @@ var testGenesisFmt = `{
   "validators": [
     {
       "pub_key": {
-        "type": "tendermint/PubKeyEd25519",
-        "value":"AT/+aaL1eB0477Mud9JMm8Sh8BIvOYlPGC9KkIUmFaE="
+        "type": "tendermint/PubKeyBls",
+        "value":"Yzk1NDEyZGE0ODM2ZjY1YWFiODA0NjhjZjUyMzQ0NGJkYmE3ZDFiMzI0OThkNjVkNDBlY2EwMDhiZjBlNmJkYzMzMDkzNzBiZWVmMDczYmFmM2UyMDJmMjgwMjczYzExOGRhNmNmM2U3ZTA2ZDg2MjA2MDA0YTkxNjljNzE0ZmExYzAzNDRjYmYyNTNmNWYxMGUxMDhjNzdkODllM2I2MDQzYzE3M2JjMTI3Y2Y0MDc0MTVmNWIyN2VhYzg1YzAy"
       },
       "power": "10",
       "name": ""

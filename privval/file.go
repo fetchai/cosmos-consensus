@@ -150,7 +150,6 @@ type FilePV struct {
 // GenFilePV generates a new validator with randomly generated private key
 // and sets the filePaths, but does not call Save().
 func GenFilePV(keyFilePath, stateFilePath string) *FilePV {
-	fmt.Printf("GEN2!!!")
 	privKey := bls12_381.GenPrivKey()
 
 	return &FilePV{
