@@ -3,9 +3,9 @@ package encoding
 import (
 	"errors"
 	"fmt"
-	"github.com/tendermint/tendermint/crypto/bls12_381"
 
 	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	pc "github.com/tendermint/tendermint/proto/crypto/keys"
 )

@@ -553,6 +553,10 @@ func (voteSet *PrecommitSet) MakeCommit() *Commit {
 	// For every validator, get the precommit
 	commitSigs := make([][]CommitSig, voteSet.valSet.Size())
 	for i, votes := range voteSet.votes {
+		if len(votes) == 0 {
+			commitSigs[i] = []CommitSig{NewCommitSigAbsent()}
+			continue
+		}
 		commitSigs[i] = make([]CommitSig, len(votes))
 		j := 0
 		for _, v := range votes {

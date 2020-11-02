@@ -10,8 +10,10 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"github.com/tendermint/tendermint/crypto/merkle"
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	tmproto "github.com/tendermint/tendermint/proto/types"
 )
 
@@ -645,6 +647,8 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 
 	talliedVotingPower := int64(0)
 	votingPowerNeeded := vals.TotalVotingPower() * 2 / 3
+	combinedPublicKey := mcl_cpp.NewCombinedPublicKey()
+	var voteBytes []byte
 	for idx, commitSigs := range commit.Signatures {
 		if len(commitSigs) != 1 {
 			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
@@ -664,8 +668,19 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 			return fmt.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
 		}
 		// Good!
-		if blockID.Equals(commitSig.BlockID(commit.BlockID)) {
+		if commitSig.ForBlock() {
 			talliedVotingPower += val.VotingPower
+			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
+			if !ok {
+				panic(fmt.Sprintf("incorrect key type for combined signatures"))
+			}
+			combinedPublicKey.Add(blsKey.RawString())
+			if voteBytes == nil {
+				voteBytes = voteSignBytes
+			} else if !bytes.Equal(voteSignBytes, voteBytes) {
+				// All vote signatures for the same block should have signed the same message
+				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
+			}
 		}
 		// else {
 		// It's OK that the BlockID doesn't match.  We include stray
@@ -675,6 +690,10 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 
 	if got, needed := talliedVotingPower, votingPowerNeeded; got <= needed {
 		return ErrNotEnoughVotingPowerSigned{Got: got, Needed: needed}
+	}
+
+	if !mcl_cpp.PairingVerify(string(voteBytes), commit.CombinedSignature, combinedPublicKey.Finish()) {
+		return fmt.Errorf("invalid combined signature")
 	}
 
 	return nil
@@ -771,7 +790,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 	oldVals := vals
 
 	// Commit must be a valid commit for newSet.
-	err := newSet.VerifyCommit(VotePrefix(chainID, vals.Hash()), blockID, height, commit)
+	err := newSet.VerifyCommit(chainID, blockID, height, commit)
 	if err != nil {
 		return err
 	}
