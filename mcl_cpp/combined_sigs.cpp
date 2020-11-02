@@ -25,6 +25,8 @@
 namespace fetch {
 namespace beacon {
 
+static const std::string COMBINED_SIG_GENERATOR  = "Fetchai Combined Signature Generator";
+
 // Constructor for combined signature should set the string to the serialisation
 // of the zero of signature element
 CombinedSignature::CombinedSignature() {
@@ -102,7 +104,7 @@ std::string GenPrivKeyBls(std::string const &secret) {
 } 
 
 // Public key from private key using specified string to hash into generator
-std::string PubKeyFromPrivate(std::string const &private_key, std::string const &generator) {
+std::string PubKeyFromPrivate(std::string const &private_key) {
     mcl::PrivateKey priv_key;
     bool ok = priv_key.FromString(private_key);
     if (!ok) {
@@ -110,7 +112,7 @@ std::string PubKeyFromPrivate(std::string const &private_key, std::string const 
     }
 
     mcl::GroupPublicKey gen;
-    mcl::SetGenerator(gen, generator);
+    mcl::SetGenerator(gen, COMBINED_SIG_GENERATOR);
 
     mcl::GroupPublicKey public_key;
     public_key.Mult(gen, priv_key);
@@ -119,7 +121,7 @@ std::string PubKeyFromPrivate(std::string const &private_key, std::string const 
 
 // Public key from private with proof of possesion, so in addition to public key it returns the signature 
 // of the public key
-std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &private_key, std::string const &generator) {
+std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &private_key) {
     mcl::PrivateKey priv_key;
     bool ok = priv_key.FromString(private_key);
     if (!ok) {
@@ -127,7 +129,7 @@ std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &
     }
 
     mcl::GroupPublicKey gen;
-    mcl::SetGenerator(gen, generator);
+    mcl::SetGenerator(gen, COMBINED_SIG_GENERATOR);
 
     mcl::GroupPublicKey public_key;
     public_key.Mult(gen, priv_key);
@@ -146,7 +148,7 @@ std::string Sign(std::string const &message, std::string const &private_key) {
 
     return mcl::Sign(message, priv_key).ToString();
 }
-bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key, std::string const &generator) {
+bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key) {
     mcl::Signature signature;
     mcl::GroupPublicKey pub_key;
     mcl::GroupPublicKey gen;
@@ -155,7 +157,7 @@ bool PairingVerify(std::string const &message, std::string const &sign, std::str
     if (!ok_sign || !ok_key) {
         return false;
     }
-    mcl::SetGenerator(gen, generator);
+    mcl::SetGenerator(gen, COMBINED_SIG_GENERATOR);
     
     return mcl::PairingVerify(message, signature, pub_key, gen);
 }

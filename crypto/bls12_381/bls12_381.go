@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+
 	"github.com/pkg/errors"
 
 	"golang.org/x/crypto/ripemd160" // nolint: staticcheck // necessary for Bitcoin address format
@@ -19,7 +20,7 @@ import (
 const (
 	PrivKeyAminoName = "tendermint/PrivKeyBls"
 	PubKeyAminoName  = "tendermint/PubKeyBls"
-	SignatureSize = 96
+	SignatureSize    = 96
 )
 
 var cdc = amino.NewCodec()
@@ -47,13 +48,6 @@ type PrivKeyBls [PrivKeyBlsSize]byte
 
 // Reference empty priv key
 var emptyPrivKey PrivKeyBls = PrivKeyBls{}
-
-// Default generator
-var fetchGenerator string = getGenerator()
-
-func getGenerator() string {
-	return "Fetchai Combined Signature Generator"
-}
 
 func (privKey PrivKeyBls) String() (ret string) {
 	asByte := [PrivKeyBlsSize]byte(privKey)
@@ -89,7 +83,7 @@ func (privKey PrivKeyBls) Bytes() []byte {
 
 // PubKey can be inferred from the private key
 func (privKey PrivKeyBls) PubKey() (ret crypto.PubKey) {
-	pubKey := mcl_cpp.PubKeyFromPrivate(privKey.String(), fetchGenerator)
+	pubKey := mcl_cpp.PubKeyFromPrivate(privKey.String())
 	newKey := PubKeyBls{}
 
 	if len(pubKey) != PubKeyBlsSize {
@@ -97,7 +91,6 @@ func (privKey PrivKeyBls) PubKey() (ret crypto.PubKey) {
 	}
 
 	copy(newKey[:], pubKey[:])
-
 
 	return newKey
 }
@@ -119,7 +112,6 @@ func (privKey PrivKeyBls) Equals(other crypto.PrivKey) bool {
 // It uses OS randomness to generate the private key.
 func GenPrivKey() (ret PrivKeyBls) {
 	privKey := mcl_cpp.GenPrivKey()
-
 
 	copy(ret[:], privKey)
 	return
@@ -150,7 +142,7 @@ const PubKeyBlsSize = 192
 type PubKeyBls [PubKeyBlsSize]byte
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
-	result := mcl_cpp.PairingVerify(string(msg), string(sig), pubKey.RawString(), fetchGenerator)
+	result := mcl_cpp.PairingVerify(string(msg), string(sig), pubKey.RawString())
 	return result
 }
 

@@ -51,11 +51,10 @@ private:
 
 std::string GenPrivKey();
 std::string GenPrivKeyBls(std::string const &secret); 
-std::string PubKeyFromPrivate(std::string const &private_key, std::string const &generator);
-std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &private_key, 
-        std::string const &string);
+std::string PubKeyFromPrivate(std::string const &private_key);
+std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &private_key);
 std::string Sign(std::string const &message, std::string const &private_key);
-bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key, std::string const &generator);
+bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key);
 
 } //beacon
 } //fetch
