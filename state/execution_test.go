@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"context"
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"testing"
 	"time"
 
@@ -358,7 +359,7 @@ func TestEndBlockValidatorUpdates(t *testing.T) {
 	block := makeBlock(state, 1)
 	blockID := types.BlockID{Hash: block.Hash(), PartsHeader: block.MakePartSet(testPartSize).Header()}
 
-	pubkey := ed25519.GenPrivKey().PubKey()
+	pubkey := bls12_381.GenPrivKey().PubKey()
 	app.ValidatorUpdates = []abci.ValidatorUpdate{
 		{PubKey: types.TM2PB.PubKey(pubkey), Power: 10},
 	}

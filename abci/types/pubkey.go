@@ -1,14 +1,14 @@
 package types
 
 const (
-	PubKeyEd25519 = "ed25519"
+	PubKeyBls12_381 = "bls12_381"
 )
 
-func Ed25519ValidatorUpdate(pubkey []byte, power int64) ValidatorUpdate {
+func Bls12_381ValidatorUpdate(pubkey []byte, power int64) ValidatorUpdate {
 	return ValidatorUpdate{
 		// Address:
 		PubKey: PubKey{
-			Type: PubKeyEd25519,
+			Type: PubKeyBls12_381,
 			Data: pubkey,
 		},
 		Power: power,

@@ -6,6 +6,7 @@ import (
 	amino "github.com/tendermint/go-amino"
 
 	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/crypto/multisig"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
@@ -57,6 +58,8 @@ func RegisterAmino(cdc *amino.Codec) {
 		secp256k1.PubKeyAminoName, nil)
 	cdc.RegisterConcrete(multisig.PubKeyMultisigThreshold{},
 		multisig.PubKeyMultisigThresholdAminoRoute, nil)
+	cdc.RegisterConcrete(bls12_381.PubKeyBls{},
+		bls12_381.PubKeyAminoName, nil)
 
 	cdc.RegisterInterface((*crypto.PrivKey)(nil), nil)
 	cdc.RegisterConcrete(ed25519.PrivKeyEd25519{},
@@ -65,6 +68,8 @@ func RegisterAmino(cdc *amino.Codec) {
 		sr25519.PrivKeyAminoName, nil)
 	cdc.RegisterConcrete(secp256k1.PrivKeySecp256k1{},
 		secp256k1.PrivKeyAminoName, nil)
+	cdc.RegisterConcrete(bls12_381.PrivKeyBls{},
+		bls12_381.PrivKeyAminoName, nil)
 }
 
 // RegisterKeyType registers an external key type to allow decoding it from bytes

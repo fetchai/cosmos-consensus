@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"strconv"
 	"strings"
 
@@ -11,7 +12,6 @@ import (
 
 	"github.com/tendermint/tendermint/abci/example/code"
 	"github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/libs/log"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
@@ -205,14 +205,14 @@ func (app *PersistentKVStoreApplication) execValidatorTx(tx []byte) types.Respon
 	}
 
 	// update
-	return app.updateValidator(types.Ed25519ValidatorUpdate(pubkey, power))
+	return app.updateValidator(types.Bls12_381ValidatorUpdate(pubkey, power))
 }
 
 // add, update, or remove a validator
 func (app *PersistentKVStoreApplication) updateValidator(v types.ValidatorUpdate) types.ResponseDeliverTx {
 	key := []byte("val:" + string(v.PubKey.Data))
 
-	pubkey := ed25519.PubKeyEd25519{}
+	pubkey := bls12_381.PubKeyBls{}
 	copy(pubkey[:], v.PubKey.Data)
 
 	if v.Power == 0 {

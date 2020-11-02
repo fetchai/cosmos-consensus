@@ -485,8 +485,8 @@ var testGenesisFmt = `{
   "validators": [
     {
       "pub_key": {
-        "type": "tendermint/PubKeyEd25519",
-        "value":"AT/+aaL1eB0477Mud9JMm8Sh8BIvOYlPGC9KkIUmFaE="
+        "type": "tendermint/PubKeyBls",
+        "value":"Yzk1NDEyZGE0ODM2ZjY1YWFiODA0NjhjZjUyMzQ0NGJkYmE3ZDFiMzI0OThkNjVkNDBlY2EwMDhiZjBlNmJkYzMzMDkzNzBiZWVmMDczYmFmM2UyMDJmMjgwMjczYzExOGRhNmNmM2U3ZTA2ZDg2MjA2MDA0YTkxNjljNzE0ZmExYzAzNDRjYmYyNTNmNWYxMGUxMDhjNzdkODllM2I2MDQzYzE3M2JjMTI3Y2Y0MDc0MTVmNWIyN2VhYzg1YzAy"
       },
       "power": "10",
       "name": ""
@@ -497,14 +497,14 @@ var testGenesisFmt = `{
 }`
 
 var testPrivValidatorKey = `{
-  "address": "A3258DCBF45DCA0DF052981870F2D1441A36D145",
+  "address": "252A2DD1E9B08B3410011F2090517E98790F84D1",
   "pub_key": {
-    "type": "tendermint/PubKeyEd25519",
-    "value": "AT/+aaL1eB0477Mud9JMm8Sh8BIvOYlPGC9KkIUmFaE="
+    "type": "tendermint/PubKeyBls",
+    "value": "Yzk1NDEyZGE0ODM2ZjY1YWFiODA0NjhjZjUyMzQ0NGJkYmE3ZDFiMzI0OThkNjVkNDBlY2EwMDhiZjBlNmJkYzMzMDkzNzBiZWVmMDczYmFmM2UyMDJmMjgwMjczYzExOGRhNmNmM2U3ZTA2ZDg2MjA2MDA0YTkxNjljNzE0ZmExYzAzNDRjYmYyNTNmNWYxMGUxMDhjNzdkODllM2I2MDQzYzE3M2JjMTI3Y2Y0MDc0MTVmNWIyN2VhYzg1YzAy"
   },
   "priv_key": {
-    "type": "tendermint/PrivKeyEd25519",
-    "value": "EVkqJO/jIXp3rkASXfh9YnyToYXRXhBr6g9cQVxPFnQBP/5povV4HTjvsy530kybxKHwEi85iU8YL0qQhSYVoQ=="
+    "type": "tendermint/PrivKeyBls",
+    "value": "M2NjMTJhYjQwMWQ3NTc3NTU4MzliNDcyOTJhNzZmYWFiNTc1YmQxODllNzYxNWY0NzA0YTg0MDRmYTNmNjY0MQ=="
   }
 }`
 

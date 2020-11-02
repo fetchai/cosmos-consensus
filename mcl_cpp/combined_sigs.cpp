@@ -137,6 +137,7 @@ std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &
 }
 
 std::string Sign(std::string const &message, std::string const &private_key) {
+
     mcl::PrivateKey priv_key;
     bool ok = priv_key.FromString(private_key);
     if (!ok) {
