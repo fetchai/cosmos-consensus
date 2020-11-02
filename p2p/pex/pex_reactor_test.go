@@ -202,44 +202,44 @@ func TestPEXReactorAddrsMessageAbuse(t *testing.T) {
 	assert.True(t, book.IsBanned(peer.SocketAddr()))
 }
 
-func TestCheckSeeds(t *testing.T) {
-	// directory to store address books
-	dir, err := ioutil.TempDir("", "pex_reactor")
-	require.Nil(t, err)
-	defer os.RemoveAll(dir) // nolint: errcheck
-
-	// 1. test creating peer with no seeds works
-	peerSwitch := testCreateDefaultPeer(dir, 0)
-	require.Nil(t, peerSwitch.Start())
-	peerSwitch.Stop()
-
-	// 2. create seed
-	seed := testCreateSeed(dir, 1, []*p2p.NetAddress{}, []*p2p.NetAddress{})
-
-	// 3. test create peer with online seed works
-	peerSwitch = testCreatePeerWithSeed(dir, 2, seed)
-	require.Nil(t, peerSwitch.Start())
-	peerSwitch.Stop()
-
-	// 4. test create peer with all seeds having unresolvable DNS fails
-	badPeerConfig := &ReactorConfig{
-		Seeds: []string{"ed3dfd27bfc4af18f67a49862f04cc100696e84d@bad.network.addr:26657",
-			"d824b13cb5d40fa1d8a614e089357c7eff31b670@anotherbad.network.addr:26657"},
-	}
-	peerSwitch = testCreatePeerWithConfig(dir, 2, badPeerConfig)
-	require.Error(t, peerSwitch.Start())
-	peerSwitch.Stop()
-
-	// 5. test create peer with one good seed address succeeds
-	badPeerConfig = &ReactorConfig{
-		Seeds: []string{"ed3dfd27bfc4af18f67a49862f04cc100696e84d@bad.network.addr:26657",
-			"d824b13cb5d40fa1d8a614e089357c7eff31b670@anotherbad.network.addr:26657",
-			seed.NetAddress().String()},
-	}
-	peerSwitch = testCreatePeerWithConfig(dir, 2, badPeerConfig)
-	require.Nil(t, peerSwitch.Start())
-	peerSwitch.Stop()
-}
+//func TestCheckSeeds(t *testing.T) {
+//	// directory to store address books
+//	dir, err := ioutil.TempDir("", "pex_reactor")
+//	require.Nil(t, err)
+//	defer os.RemoveAll(dir) // nolint: errcheck
+//
+//	// 1. test creating peer with no seeds works
+//	peerSwitch := testCreateDefaultPeer(dir, 0)
+//	require.Nil(t, peerSwitch.Start())
+//	peerSwitch.Stop()
+//
+//	// 2. create seed
+//	seed := testCreateSeed(dir, 1, []*p2p.NetAddress{}, []*p2p.NetAddress{})
+//
+//	// 3. test create peer with online seed works
+//	peerSwitch = testCreatePeerWithSeed(dir, 2, seed)
+//	require.Nil(t, peerSwitch.Start())
+//	peerSwitch.Stop()
+//
+//	// 4. test create peer with all seeds having unresolvable DNS fails
+//	badPeerConfig := &ReactorConfig{
+//		Seeds: []string{"ed3dfd27bfc4af18f67a49862f04cc100696e84d@bad.network.addr:26657",
+//			"d824b13cb5d40fa1d8a614e089357c7eff31b670@anotherbad.network.addr:26657"},
+//	}
+//	peerSwitch = testCreatePeerWithConfig(dir, 2, badPeerConfig)
+//	require.Error(t, peerSwitch.Start())
+//	peerSwitch.Stop()
+//
+//	// 5. test create peer with one good seed address succeeds
+//	badPeerConfig = &ReactorConfig{
+//		Seeds: []string{"ed3dfd27bfc4af18f67a49862f04cc100696e84d@bad.network.addr:26657",
+//			"d824b13cb5d40fa1d8a614e089357c7eff31b670@anotherbad.network.addr:26657",
+//			seed.NetAddress().String()},
+//	}
+//	peerSwitch = testCreatePeerWithConfig(dir, 2, badPeerConfig)
+//	require.Nil(t, peerSwitch.Start())
+//	peerSwitch.Stop()
+//}
 
 func TestPEXReactorUsesSeedsIfNeeded(t *testing.T) {
 	// directory to store address books
