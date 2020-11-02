@@ -624,7 +624,8 @@ func validateBlock(block *types.Block, activeVals map[string]struct{}) error {
 			len(activeVals))
 	}
 
-	for _, commitSig := range block.LastCommit.Signatures {
+	for _, commitSigs := range block.LastCommit.Signatures {
+		commitSig := commitSigs[0]
 		if _, ok := activeVals[string(commitSig.ValidatorAddress)]; !ok {
 			return fmt.Errorf("found vote for inactive validator %X", commitSig.ValidatorAddress)
 		}
@@ -900,14 +901,13 @@ func TestVoteSetMaj23MessageValidateBasic(t *testing.T) {
 
 func TestVoteSetBitsMessageValidateBasic(t *testing.T) {
 	testCases := []struct { // nolint: maligned
-		malleateFn func(*VoteSetBitsMessage)
+		malleateFn func(*PrevoteSetBitsMessage)
 		expErr     string
 	}{
-		{func(msg *VoteSetBitsMessage) {}, ""},
-		{func(msg *VoteSetBitsMessage) { msg.Height = -1 }, "negative Height"},
-		{func(msg *VoteSetBitsMessage) { msg.Round = -1 }, "negative Round"},
-		{func(msg *VoteSetBitsMessage) { msg.Type = 0x03 }, "invalid Type"},
-		{func(msg *VoteSetBitsMessage) {
+		{func(msg *PrevoteSetBitsMessage) {}, ""},
+		{func(msg *PrevoteSetBitsMessage) { msg.Height = -1 }, "negative Height"},
+		{func(msg *PrevoteSetBitsMessage) { msg.Round = -1 }, "negative Round"},
+		{func(msg *PrevoteSetBitsMessage) {
 			msg.BlockID = types.BlockID{
 				Hash: bytes.HexBytes{},
 				PartsHeader: types.PartSetHeader{
@@ -916,17 +916,16 @@ func TestVoteSetBitsMessageValidateBasic(t *testing.T) {
 				},
 			}
 		}, "wrong BlockID: wrong PartsHeader: negative Total"},
-		{func(msg *VoteSetBitsMessage) { msg.Votes = bits.NewBitArray(types.MaxVotesCount + 1) },
+		{func(msg *PrevoteSetBitsMessage) { msg.Votes = bits.NewBitArray(types.MaxVotesCount + 1) },
 			"votes bit array is too big: 10001, max: 10000"},
 	}
 
 	for i, tc := range testCases {
 		tc := tc
 		t.Run(fmt.Sprintf("#%d", i), func(t *testing.T) {
-			msg := &VoteSetBitsMessage{
+			msg := &PrevoteSetBitsMessage{
 				Height:  1,
 				Round:   0,
-				Type:    0x01,
 				Votes:   bits.NewBitArray(1),
 				BlockID: types.BlockID{},
 			}

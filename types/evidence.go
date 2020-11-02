@@ -18,7 +18,7 @@ import (
 
 const (
 	// MaxEvidenceBytes is a maximum size of any evidence (including amino overhead).
-	MaxEvidenceBytes int64 = 548
+	MaxEvidenceBytes int64 = 616
 )
 
 // ErrEvidenceInvalid wraps a piece of evidence and the error denoting how or why it is invalid.
@@ -388,8 +388,14 @@ func (dve *DuplicateVoteEvidence) Verify(chainID string, pubKey crypto.PubKey) e
 	if !pubKey.VerifyBytes(dve.VoteA.SignBytes(chainID), dve.VoteA.Signature) {
 		return fmt.Errorf("duplicateVoteEvidence Error verifying VoteA: %v", ErrVoteInvalidSignature)
 	}
+	if !pubKey.VerifyBytes(dve.VoteA.SignTimestamp(chainID), dve.VoteA.TimestampSignature) {
+		return fmt.Errorf("duplicateVoteEvidence Error verifying VoteA: %v", ErrVoteInvalidTimestampSignature)
+	}
 	if !pubKey.VerifyBytes(dve.VoteB.SignBytes(chainID), dve.VoteB.Signature) {
 		return fmt.Errorf("duplicateVoteEvidence Error verifying VoteB: %v", ErrVoteInvalidSignature)
+	}
+	if !pubKey.VerifyBytes(dve.VoteB.SignTimestamp(chainID), dve.VoteB.TimestampSignature) {
+		return fmt.Errorf("duplicateVoteEvidence Error verifying VoteB: %v", ErrVoteInvalidTimestampSignature)
 	}
 
 	return nil

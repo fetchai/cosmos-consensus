@@ -32,7 +32,7 @@ const std::string AeonType = GLOW_AEON;
 const std::string AeonType = BLS_AEON;
 #endif
 
-// DKG mmplementation is switched depending on whether GLOW is defined. 
+// DKG implementation is switched depending on whether GLOW is defined. 
 // Default is the DFinity/BLS implementation.
 class BeaconSetupService
 {
@@ -55,6 +55,12 @@ using AeonExecUnit    = BlsAeon;
   BeaconSetupService(BeaconSetupService const &) = delete;
   BeaconSetupService(BeaconSetupService &&)      = delete;
   ~BeaconSetupService();
+
+  /// @name Self serialize/deser this class
+  /// @{
+  std::string Serialize() const;
+  void Deserialize(std::string const &from) const;
+  /// @}
 
   /// @name For checking state transition counters
   /// @{

@@ -84,12 +84,12 @@ func TestBeginBlockValidators(t *testing.T) {
 
 	testCases := []struct {
 		desc                     string
-		lastCommitSigs           []types.CommitSig
+		lastCommitSigs           [][]types.CommitSig
 		expectedAbsentValidators []int
 	}{
-		{"none absent", []types.CommitSig{commitSig0, commitSig1}, []int{}},
-		{"one absent", []types.CommitSig{commitSig0, absentSig}, []int{1}},
-		{"multiple absent", []types.CommitSig{absentSig, absentSig}, []int{0, 1}},
+		{"none absent", [][]types.CommitSig{{commitSig0}, {commitSig1}}, []int{}},
+		{"one absent", [][]types.CommitSig{{commitSig0}, {absentSig}}, []int{1}},
+		{"multiple absent", [][]types.CommitSig{{absentSig}, {absentSig}}, []int{0, 1}},
 	}
 
 	for _, tc := range testCases {
@@ -160,7 +160,7 @@ func TestBeginBlockByzantineValidators(t *testing.T) {
 			state.Validators.Validators[1].Address,
 			now)
 	)
-	commitSigs := []types.CommitSig{commitSig0, commitSig1}
+	commitSigs := [][]types.CommitSig{{commitSig0}, {commitSig1}}
 	lastCommit := types.NewCommit(9, 0, prevBlockID, commitSigs)
 	for _, tc := range testCases {
 

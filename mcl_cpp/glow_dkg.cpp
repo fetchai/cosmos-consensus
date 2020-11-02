@@ -115,6 +115,22 @@ void GlowDkg::NewCabinet(CabinetIndex cabinet_size, CabinetIndex threshold, Cabi
   this->reconstruction_shares.clear();
 }
 
+void GlowDkg::GenerateCoefficients(std::vector<PrivateKey> const &a_i, std::vector<PrivateKey> const &b_i)
+{
+  a_i_ = a_i;
+
+  for (CabinetIndex k = 0; k <= polynomial_degree_; k++)
+  {
+    this->C_ik_[cabinet_index_][k] =
+        mcl::ComputeLHS(GetGroupG(), GetGroupH(), a_i_[k], b_i[k]);
+  }
+
+  for (CabinetIndex l = 0; l < cabinet_size_; l++)
+  {
+    mcl::ComputeShares(this->s_ij_[cabinet_index_][l], this->sprime_ij_[cabinet_index_][l], a_i_, b_i, l);
+  }
+}
+
 void GlowDkg::GenerateCoefficients()
 {
   std::vector<PrivateKey> b_i(polynomial_degree_ + 1, GetZeroFr());
@@ -134,11 +150,13 @@ void GlowDkg::GenerateCoefficients()
   {
     mcl::ComputeShares(this->s_ij_[cabinet_index_][l], this->sprime_ij_[cabinet_index_][l], a_i_, b_i, l);
   }
+
+  SaveCoefficients(a_i_, b_i);
 }
 
 std::vector<GlowDkg::Coefficient> GlowDkg::GetQualCoefficients()
 {
-  std::vector<Coefficient> coefficients;  
+  std::vector<Coefficient> coefficients;
   B_i_[cabinet_index_].Mult(GetGeneratorG2(), a_i_[0]);
 
   // Make first element in coefficients message B_i_
@@ -163,11 +181,11 @@ void GlowDkg::AddQualCoefficients(CabinetIndex const &            from_index,
 
   for (CabinetIndex i = 0; i < coefficients.size(); ++i)
   {
-    if (i == 0) 
+    if (i == 0)
     {
       B_i_[from_index].FromString(coefficients[i]);
-    } 
-    else 
+    }
+    else
     {
       this->A_ik_[from_index][i-1].FromString(coefficients[i]);
     }

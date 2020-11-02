@@ -243,7 +243,7 @@ func MaxDataBytes(maxBytes int64, valsCount, evidenceCount int) int64 {
 	maxDataBytes := maxBytes -
 		MaxAminoOverheadForBlock -
 		MaxHeaderBytes -
-		int64(valsCount)*MaxVoteBytes -
+		int64(valsCount)*MaxBlockVoteBytes -
 		int64(evidenceCount)*MaxEvidenceBytes
 
 	if maxDataBytes < 0 {
@@ -536,10 +536,11 @@ const (
 
 // CommitSig is a part of the Vote included in a Commit.
 type CommitSig struct {
-	BlockIDFlag      BlockIDFlag `json:"block_id_flag"`
-	ValidatorAddress Address     `json:"validator_address"`
-	Timestamp        time.Time   `json:"timestamp"`
-	Signature        []byte      `json:"signature"`
+	BlockIDFlag        BlockIDFlag `json:"block_id_flag"`
+	ValidatorAddress   Address     `json:"validator_address"`
+	Timestamp          time.Time   `json:"timestamp"`
+	Signature          []byte      `json:"signature"`
+	TimestampSignature []byte      `json:"timestamp_signature"`
 }
 
 // NewCommitSigForBlock returns new CommitSig with BlockIDFlagCommit.
@@ -571,11 +572,12 @@ func (cs CommitSig) Absent() bool {
 }
 
 func (cs CommitSig) String() string {
-	return fmt.Sprintf("CommitSig{%X by %X on %v @ %s}",
+	return fmt.Sprintf("CommitSig{%X by %X on %v @ %s %X}",
 		tmbytes.Fingerprint(cs.Signature),
 		tmbytes.Fingerprint(cs.ValidatorAddress),
 		cs.BlockIDFlag,
-		CanonicalTime(cs.Timestamp))
+		CanonicalTime(cs.Timestamp),
+		cs.TimestampSignature)
 }
 
 // BlockID returns the Commit's BlockID if CommitSig indicates signing,
@@ -631,6 +633,9 @@ func (cs CommitSig) ValidateBasic() error {
 			//fmt.Printf("gotc %v\n", len(cs.Signature)) // DELETEME_NH
 			return fmt.Errorf("signature is too big (max: %d)", MaxSignatureSize)
 		}
+		if len(cs.TimestampSignature) > MaxSignatureSize {
+			return fmt.Errorf("timestamp signature is too big (max: %d)", MaxSignatureSize)
+		}
 	}
 
 	return nil
@@ -643,10 +648,11 @@ func (cs *CommitSig) ToProto() *tmproto.CommitSig {
 	}
 
 	return &tmproto.CommitSig{
-		BlockIdFlag:      tmproto.BlockIDFlag(cs.BlockIDFlag),
-		ValidatorAddress: cs.ValidatorAddress,
-		Timestamp:        cs.Timestamp,
-		Signature:        cs.Signature,
+		BlockIdFlag:        tmproto.BlockIDFlag(cs.BlockIDFlag),
+		ValidatorAddress:   cs.ValidatorAddress,
+		Timestamp:          cs.Timestamp,
+		Signature:          cs.Signature,
+		TimestampSignature: cs.TimestampSignature,
 	}
 }
 
@@ -658,6 +664,7 @@ func (cs *CommitSig) FromProto(csp tmproto.CommitSig) error {
 	cs.ValidatorAddress = csp.ValidatorAddress
 	cs.Timestamp = csp.Timestamp
 	cs.Signature = csp.Signature
+	cs.TimestampSignature = csp.TimestampSignature
 
 	return cs.ValidateBasic()
 }
@@ -671,10 +678,10 @@ type Commit struct {
 	// ValidatorSet order.
 	// Any peer with a block can gossip signatures by index with a peer without
 	// recalculating the active ValidatorSet.
-	Height     int64       `json:"height"`
-	Round      int         `json:"round"`
-	BlockID    BlockID     `json:"block_id"`
-	Signatures []CommitSig `json:"signatures"`
+	Height     int64         `json:"height"`
+	Round      int           `json:"round"`
+	BlockID    BlockID       `json:"block_id"`
+	Signatures [][]CommitSig `json:"signatures"`
 
 	// Memoized in first call to corresponding method.
 	// NOTE: can't memoize in constructor because constructor isn't used for
@@ -684,7 +691,7 @@ type Commit struct {
 }
 
 // NewCommit returns a new Commit.
-func NewCommit(height int64, round int, blockID BlockID, commitSigs []CommitSig) *Commit {
+func NewCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSig) *Commit {
 	return &Commit{
 		Height:     height,
 		Round:      round,
@@ -693,37 +700,73 @@ func NewCommit(height int64, round int, blockID BlockID, commitSigs []CommitSig)
 	}
 }
 
-// CommitToVoteSet constructs a VoteSet from the Commit and validator set.
-// Panics if signatures from the commit can't be added to the voteset.
-// Inverse of VoteSet.MakeCommit().
-func CommitToVoteSet(chainID string, commit *Commit, vals *ValidatorSet) *VoteSet {
-	voteSet := NewVoteSet(chainID, commit.Height, commit.Round, PrecommitType, vals)
-	for idx, commitSig := range commit.Signatures {
-		if commitSig.Absent() {
-			continue // OK, some precommits can be missing.
-		}
-		added, err := voteSet.AddVote(commit.GetVote(idx))
-		if !added || err != nil {
-			panic(fmt.Sprintf("Failed to reconstruct LastCommit: %v", err))
+// CommitToVoteSet constructs a PrecommitSet from the Commit and validator set.
+// Panics if signatures from the commit can't be added to the precommit set.
+// Inverse of PrecommitSet.MakeCommit().
+func CommitToVoteSet(chainID string, commit *Commit, vals *ValidatorSet) (*PrecommitSet, error) {
+	voteSet := NewPrecommitSet(chainID, commit.Height, commit.Round, vals)
+	var err error
+	for idx, commitSigs := range commit.Signatures {
+		for voteIndex, commitSig := range commitSigs {
+			if commitSig.Absent() {
+				continue // OK, some precommits can be missing.
+			}
+			if v := commit.GetVote(idx, voteIndex); v != nil {
+				added, err := voteSet.AddVote(v)
+				if err != nil && errors.Is(err, ErrVoteInvalidTimestampSignature) {
+					// Commits can contain empty timestamp signatures if retrieved from block
+					// so we forcefully add these to vote set
+					vote := commit.GetVote(idx, voteIndex)
+					_, val := voteSet.valSet.GetByIndex(vote.ValidatorIndex)
+					voteSet.addVerifiedVote(vote, vote.BlockID.Key(), val.VotingPower)
+				} else if !added || err != nil {
+					panic(fmt.Sprintf("Failed to reconstruct LastCommit: %v", err))
+				}
+			}
 		}
 	}
-	return voteSet
+	return voteSet, err
+}
+
+func (commit *Commit) GetVotes(valIdx int) []*Vote {
+	commitSigs := commit.Signatures[valIdx]
+	votes := make([]*Vote, len(commitSigs))
+	for index, commitSig := range commitSigs {
+		vote := &Vote{
+			Type:               PrecommitType,
+			Height:             commit.Height,
+			Round:              commit.Round,
+			BlockID:            commitSig.BlockID(commit.BlockID),
+			Timestamp:          commitSig.Timestamp,
+			ValidatorAddress:   commitSig.ValidatorAddress,
+			ValidatorIndex:     valIdx,
+			Signature:          commitSig.Signature,
+			TimestampSignature: commitSig.TimestampSignature,
+		}
+		votes[index] = vote
+	}
+	return votes
 }
 
 // GetVote converts the CommitSig for the given valIdx to a Vote.
 // Returns nil if the precommit at valIdx is nil.
 // Panics if valIdx >= commit.Size().
-func (commit *Commit) GetVote(valIdx int) *Vote {
-	commitSig := commit.Signatures[valIdx]
+func (commit *Commit) GetVote(valIdx int, voteIdx int) *Vote {
+	commitSigs := commit.Signatures[valIdx]
+	if voteIdx > len(commitSigs)-1 {
+		return nil
+	}
+	commitSig := commitSigs[voteIdx]
 	return &Vote{
-		Type:             PrecommitType,
-		Height:           commit.Height,
-		Round:            commit.Round,
-		BlockID:          commitSig.BlockID(commit.BlockID),
-		Timestamp:        commitSig.Timestamp,
-		ValidatorAddress: commitSig.ValidatorAddress,
-		ValidatorIndex:   valIdx,
-		Signature:        commitSig.Signature,
+		Type:               PrecommitType,
+		Height:             commit.Height,
+		Round:              commit.Round,
+		BlockID:            commitSig.BlockID(commit.BlockID),
+		Timestamp:          commitSig.Timestamp,
+		ValidatorAddress:   commitSig.ValidatorAddress,
+		ValidatorIndex:     valIdx,
+		Signature:          commitSig.Signature,
+		TimestampSignature: commitSig.TimestampSignature,
 	}
 }
 
@@ -732,7 +775,7 @@ func (commit *Commit) GetVote(valIdx int) *Vote {
 // signed over are otherwise the same for all validators.
 // Panics if valIdx >= commit.Size().
 func (commit *Commit) VoteSignBytes(chainID string, valIdx int) []byte {
-	return commit.GetVote(valIdx).SignBytes(chainID)
+	return commit.GetVote(valIdx, 0).SignBytes(chainID)
 }
 
 // Type returns the vote type of the commit, which is always VoteTypePrecommit
@@ -770,7 +813,7 @@ func (commit *Commit) BitArray() *bits.BitArray {
 		for i, commitSig := range commit.Signatures {
 			// TODO: need to check the BlockID otherwise we could be counting conflicts,
 			// not just the one with +2/3 !
-			commit.bitArray.SetIndex(i, !commitSig.Absent())
+			commit.bitArray.SetIndex(i, !commitSig[0].Absent())
 		}
 	}
 	return commit.bitArray
@@ -780,7 +823,7 @@ func (commit *Commit) BitArray() *bits.BitArray {
 // Panics if `index >= commit.Size()`.
 // Implements VoteSetReader.
 func (commit *Commit) GetByIndex(valIdx int) *Vote {
-	return commit.GetVote(valIdx)
+	return commit.GetVote(valIdx, 0)
 }
 
 // IsCommit returns true if there is at least one signature.
@@ -806,9 +849,11 @@ func (commit *Commit) ValidateBasic() error {
 		if len(commit.Signatures) == 0 {
 			return errors.New("no signatures in commit")
 		}
-		for i, commitSig := range commit.Signatures {
-			if err := commitSig.ValidateBasic(); err != nil {
-				return fmt.Errorf("wrong CommitSig #%d: %v", i, err)
+		for i, commitSigs := range commit.Signatures {
+			for _, commitSig := range commitSigs {
+				if err := commitSig.ValidateBasic(); err != nil {
+					return fmt.Errorf("wrong CommitSig #%d: %v", i, err)
+				}
 			}
 		}
 	}
@@ -816,15 +861,19 @@ func (commit *Commit) ValidateBasic() error {
 	return nil
 }
 
-// Hash returns the hash of the commit
+// Hash returns the hash of the commit. Don't include timestamp signature in
+// hash as this signature is not included in the block
 func (commit *Commit) Hash() tmbytes.HexBytes {
 	if commit == nil {
 		return nil
 	}
 	if commit.hash == nil {
 		bs := make([][]byte, len(commit.Signatures))
-		for i, commitSig := range commit.Signatures {
-			bs[i] = cdcEncode(commitSig)
+		for i, commitSigs := range commit.Signatures {
+			for _, commitSig := range commitSigs {
+				commitSig.TimestampSignature = nil
+				bs[i] = cdcEncode(commitSig)
+			}
 		}
 		commit.hash = merkle.SimpleHashFromByteSlices(bs)
 	}
@@ -837,8 +886,10 @@ func (commit *Commit) StringIndented(indent string) string {
 		return "nil-Commit"
 	}
 	commitSigStrings := make([]string, len(commit.Signatures))
-	for i, commitSig := range commit.Signatures {
-		commitSigStrings[i] = commitSig.String()
+	for i, commitSigs := range commit.Signatures {
+		for _, commitSig := range commitSigs {
+			commitSigStrings[i] = commitSig.String()
+		}
 	}
 	return fmt.Sprintf(`Commit{
 %s  Height:     %d
@@ -864,7 +915,7 @@ func (commit *Commit) ToProto() *tmproto.Commit {
 	c := new(tmproto.Commit)
 	sigs := make([]tmproto.CommitSig, len(commit.Signatures))
 	for i := range commit.Signatures {
-		sigs[i] = *commit.Signatures[i].ToProto()
+		sigs[i] = *commit.Signatures[i][0].ToProto()
 	}
 	c.Signatures = sigs
 
@@ -897,9 +948,10 @@ func CommitFromProto(cp *tmproto.Commit) (*Commit, error) {
 
 	bitArray.FromProto(cp.BitArray)
 
-	sigs := make([]CommitSig, len(cp.Signatures))
+	sigs := make([][]CommitSig, len(cp.Signatures))
 	for i := range cp.Signatures {
-		if err := sigs[i].FromProto(cp.Signatures[i]); err != nil {
+		sigs[i] = make([]CommitSig, 1)
+		if err := sigs[i][0].FromProto(cp.Signatures[i]); err != nil {
 			return nil, err
 		}
 	}

@@ -231,7 +231,7 @@ BeaconSetupService::SerialisedMsg BeaconSetupService::GetQualComplaints()
   {
     qual_complaints_manager_.AddComplaintAgainst(mem.first);
   }
-  Log(LogLevel::DEBUG, LOGGING_NAME, "GetQualComplaints(" + std::to_string(beacon_->cabinet_index()) + 
+  Log(LogLevel::DEBUG, LOGGING_NAME, "GetQualComplaints(" + std::to_string(beacon_->cabinet_index()) +
     "): size " + std::to_string(complaints.size()));
   return serialisers::Serialise(complaints);
 }
@@ -311,7 +311,7 @@ void BeaconSetupService::OnComplaints(SerialisedMsg const &msg, Identifier const
 
   std::set<Identifier>          complaints;
   serialisers::Deserialise(msg, complaints);
-  Log(LogLevel::DEBUG, LOGGING_NAME, "OnComplaints(" + std::to_string(from) + "->" + 
+  Log(LogLevel::DEBUG, LOGGING_NAME, "OnComplaints(" + std::to_string(from) + "->" +
     std::to_string(beacon_->cabinet_index()) + "): size " + std::to_string(complaints.size()));
   complaints_manager_.AddComplaintsFrom(from, complaints, valid_dkg_members_);
 }
@@ -370,7 +370,7 @@ void BeaconSetupService::OnQualComplaints(SerialisedMsg const &msg, Identifier c
 
   SharesExposedMap              shares;
   serialisers::Deserialise(msg, shares);
-  Log(LogLevel::DEBUG, LOGGING_NAME, "OnQualComplaints(" + std::to_string(from) + "->" + 
+  Log(LogLevel::DEBUG, LOGGING_NAME, "OnQualComplaints(" + std::to_string(from) + "->" +
     std::to_string(beacon_->cabinet_index()) + "): size " + std::to_string(shares.size()));
   qual_complaints_manager_.AddComplaintsFrom(from, shares);
 }
@@ -533,6 +533,25 @@ bool BeaconSetupService::CheckQualComplaints()
 bool BeaconSetupService::InQual(const Identifier &index) {
   std::lock_guard<std::mutex> lock(mutex_);
  return beacon_->InQual(index);
+}
+
+
+std::string BeaconSetupService::Serialize() const {
+  // We only serialize the items that are relevant for reconstruction
+  if(!beacon_) {
+    return "";
+  }
+
+  return std::string("bss_ser:") + beacon_->Serialize();
+}
+
+void BeaconSetupService::Deserialize(std::string const &from) const {
+  if (from.rfind("bss_ser:", 0) == 0) {
+    std::string from_trimmed = from.substr(8, from.size()-1);
+    beacon_->Deserialize(from_trimmed);
+  } else {
+    Log(LogLevel::ERROR, LOGGING_NAME, std::string("Failed to deser string that did not start with correct prefix. String: ") + from);
+  }
 }
 
 }  // namespace beacon

@@ -26,6 +26,7 @@ const (
 type DKGRunner struct {
 	service.BaseService
 	beaconConfig   *cfg.BeaconConfig
+	baseConfig     *cfg.BaseConfig
 	chainID        string
 	stateDB        dbm.DB
 	privVal        types.PrivValidator
@@ -52,10 +53,11 @@ type DKGRunner struct {
 }
 
 // NewDKGRunner creates struct for starting new DKGs
-func NewDKGRunner(config *cfg.BeaconConfig, chain string, db dbm.DB, val types.PrivValidator,
+func NewDKGRunner(config *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string, db dbm.DB, val types.PrivValidator,
 	encryptionKey noise.DHKey, blockHeight int64, slotProtocolEnforcer *SlotProtocolEnforcer, evpool evidencePool) *DKGRunner {
 	dkgRunner := &DKGRunner{
 		beaconConfig:         config,
+		baseConfig:           baseConfig,
 		chainID:              chain,
 		stateDB:              db,
 		privVal:              val,
@@ -107,10 +109,15 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	if aeon == nil {
 		return
 	}
+
+	dkgRunner.aeonEnd = aeon.End
+	dkgRunner.dkgID = aeon.dkgID
+
 	if aeon.IsKeyless() {
 		// aeonStart is fetched from dkgRunner to be included in the  block and must
 		// always correspond to the start of entropy generation periods, or -1
 		dkgRunner.aeonStart = aeon.validatorHeight
+		dkgRunner.dkgID = aeon.dkgID - 1 // as startNewDKG increments by 1
 		// Special case for genesis.
 		if dkgRunner.aeonStart == 1 {
 			dkgRunner.aeonStart = -1
@@ -118,8 +125,6 @@ func (dkgRunner *DKGRunner) SetCurrentAeon(aeon *aeonDetails) {
 	} else {
 		dkgRunner.aeonStart = aeon.Start
 	}
-	dkgRunner.aeonEnd = aeon.End
-	dkgRunner.dkgID = aeon.dkgID
 }
 
 // setNextAeon sets the new aeon from dkg completion
@@ -273,9 +278,10 @@ func (dkgRunner *DKGRunner) checkNextDKG() {
 func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types.ValidatorSet, entropyParams types.EntropyParams) {
 	dkgRunner.Logger.Debug("startNewDKG: successful", "height", validatorHeight)
 	dkgRunner.dkgID++
+	dkgRunner.metrics.DKGId.Set(float64(dkgRunner.dkgID))
 
 	// Create new dkg that starts DKGResetDelay after most recent block height
-	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.chainID,
+	dkgRunner.activeDKG = NewDistributedKeyGeneration(dkgRunner.beaconConfig, dkgRunner.baseConfig, dkgRunner.chainID,
 		dkgRunner.privVal, dkgRunner.encryptionKey, validatorHeight, dkgRunner.dkgID, *validators, dkgRunner.aeonEnd, entropyParams, dkgRunner.slotProtocolEnforcer)
 
 	// Set logger with dkgID and node index for debugging
@@ -293,8 +299,13 @@ func (dkgRunner *DKGRunner) startNewDKG(validatorHeight int64, validators *types
 		if keys.aeonExecUnit != nil {
 			dkgRunner.completedDKG = true
 			dkgRunner.metrics.DKGsCompleted.Add(1)
+			dkgRunner.metrics.DKGMembersInQual.Set(float64(keys.validators.Size()))
+			ourPubKey, _ := dkgRunner.privVal.GetPubKey()
+
 			if keys.aeonExecUnit.CanSign() {
 				dkgRunner.metrics.DKGsCompletedWithPrivateKey.Add(1)
+			} else if keys.HasValidatorInQual(ourPubKey.Address()) {
+				dkgRunner.Logger.Error("We were found to be in qual and yet cannot sign most recent DKG")
 			}
 			dkgRunner.setNextAeon(keys)
 		}

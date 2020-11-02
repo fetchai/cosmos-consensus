@@ -69,11 +69,13 @@ func (pvKey FilePVKey) Save() {
 
 // FilePVLastSignState stores the mutable part of PrivValidator.
 type FilePVLastSignState struct {
-	Height    int64            `json:"height"`
-	Round     int              `json:"round"`
-	Step      int8             `json:"step"`
-	Signature []byte           `json:"signature,omitempty"`
-	SignBytes tmbytes.HexBytes `json:"signbytes,omitempty"`
+	Height             int64            `json:"height"`
+	Round              int              `json:"round"`
+	Step               int8             `json:"step"`
+	Signature          []byte           `json:"signature,omitempty"`
+	SignBytes          tmbytes.HexBytes `json:"signbytes,omitempty"`
+	TimestampSignature []byte           `json:"timestamp_signature,omitempty"`
+	Timestamp          time.Time        `json:"timestamp,omitempty"`
 
 	filePath string
 }
@@ -309,6 +311,8 @@ func (pv *FilePV) Reset() {
 	pv.LastSignState.Step = 0
 	pv.LastSignState.Signature = sig
 	pv.LastSignState.SignBytes = nil
+	pv.LastSignState.Timestamp = time.Time{}
+	pv.LastSignState.TimestampSignature = nil
 	pv.Save()
 }
 
@@ -346,11 +350,13 @@ func (pv *FilePV) signVote(chainID string, vote *types.Vote) error {
 	// If they only differ by timestamp, use last timestamp and signature
 	// Otherwise, return error
 	if sameHRS {
-		if bytes.Equal(signBytes, lss.SignBytes) {
+		if bytes.Equal(signBytes, lss.SignBytes) && vote.Timestamp.Equal(lss.Timestamp) {
 			vote.Signature = lss.Signature
-		} else if timestamp, ok := checkVotesOnlyDifferByTimestamp(lss.SignBytes, signBytes); ok {
-			vote.Timestamp = timestamp
+			vote.TimestampSignature = lss.TimestampSignature
+		} else if bytes.Equal(signBytes, lss.SignBytes) && !vote.Timestamp.Equal(lss.Timestamp) {
 			vote.Signature = lss.Signature
+			vote.Timestamp = lss.Timestamp
+			vote.TimestampSignature = lss.TimestampSignature
 		} else {
 			err = fmt.Errorf("conflicting data")
 		}
@@ -362,8 +368,13 @@ func (pv *FilePV) signVote(chainID string, vote *types.Vote) error {
 	if err != nil {
 		return err
 	}
-	pv.saveSigned(height, round, step, signBytes, sig)
+	timestampSig, err := pv.Key.PrivKey.Sign(vote.SignTimestamp(chainID))
+	if err != nil {
+		return err
+	}
+	pv.saveSigned(height, round, step, signBytes, sig, vote.Timestamp, timestampSig)
 	vote.Signature = sig
+	vote.TimestampSignature = timestampSig
 	return nil
 }
 
@@ -404,47 +415,26 @@ func (pv *FilePV) signProposal(chainID string, proposal *types.Proposal) error {
 	if err != nil {
 		return err
 	}
-	pv.saveSigned(height, round, step, signBytes, sig)
+	pv.saveSigned(height, round, step, signBytes, sig, proposal.Timestamp, nil)
 	proposal.Signature = sig
 	return nil
 }
 
 // Persist height/round/step and signature
 func (pv *FilePV) saveSigned(height int64, round int, step int8,
-	signBytes []byte, sig []byte) {
+	signBytes []byte, sig []byte, timestamp time.Time, timestampSig []byte) {
 
 	pv.LastSignState.Height = height
 	pv.LastSignState.Round = round
 	pv.LastSignState.Step = step
 	pv.LastSignState.Signature = sig
 	pv.LastSignState.SignBytes = signBytes
+	pv.LastSignState.Timestamp = timestamp
+	pv.LastSignState.TimestampSignature = timestampSig
 	pv.LastSignState.Save()
 }
 
 //-----------------------------------------------------------------------------------------
-
-// returns the timestamp from the lastSignBytes.
-// returns true if the only difference in the votes is their timestamp.
-func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.Time, bool) {
-	var lastVote, newVote types.CanonicalVote
-	if err := cdc.UnmarshalBinaryLengthPrefixed(lastSignBytes, &lastVote); err != nil {
-		panic(fmt.Sprintf("LastSignBytes cannot be unmarshalled into vote: %v", err))
-	}
-	if err := cdc.UnmarshalBinaryLengthPrefixed(newSignBytes, &newVote); err != nil {
-		panic(fmt.Sprintf("signBytes cannot be unmarshalled into vote: %v", err))
-	}
-
-	lastTime := lastVote.Timestamp
-
-	// set the times to the same value and check equality
-	now := tmtime.Now()
-	lastVote.Timestamp = now
-	newVote.Timestamp = now
-	lastVoteBytes, _ := cdc.MarshalJSON(lastVote)
-	newVoteBytes, _ := cdc.MarshalJSON(newVote)
-
-	return lastTime, bytes.Equal(newVoteBytes, lastVoteBytes)
-}
 
 // returns the timestamp from the lastSignBytes.
 // returns true if the only difference in the proposals is their timestamp
