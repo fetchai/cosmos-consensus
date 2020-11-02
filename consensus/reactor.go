@@ -662,7 +662,7 @@ OUTER_LOOP:
 		if prs.Height != 0 && rs.Height >= prs.Height+2 {
 			// Load the block commit for prs.Height,
 			// which contains precommit signatures for prs.Height.
-			commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
+			commit := conR.conS.blockStore.LoadSeenCommit(prs.Height)
 			votes, err := types.CommitToVoteSet(conR.conS.GetState().ChainID, commit, conR.conS.Validators)
 			if err != nil {
 				logger.Error("CommitToVoteSet failed", "height", prs.Height, "err", err)
@@ -1154,7 +1154,11 @@ func (ps *PeerState) PickPrecommitToSend(votes *types.PrecommitSet) (vote *types
 	for index := 0; index < size; index++ {
 		for _, timestamp := range votes.GetVoteTimestamps(index) {
 			if !psVotes.HasVote(types.PrecommitIdentifier(index, timestamp)) {
-				return votes.GetByIndex(index, timestamp), true
+				vote := votes.GetByIndex(index, timestamp)
+				// Only send peer precommits we have the timestamp signature for
+				if len(vote.TimestampSignature) != 0 {
+					return vote, true
+				}
 			}
 		}
 	}
