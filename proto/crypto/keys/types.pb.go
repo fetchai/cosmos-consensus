@@ -66,7 +66,13 @@ type PublicKey_Ed25519 struct {
 	Ed25519 []byte `protobuf:"bytes,1,opt,name=ed25519,proto3,oneof" json:"ed25519,omitempty"`
 }
 
+type PublicKey_Bls12_381 struct {
+	Bls12_381 []byte `protobuf:"bytes,1,opt,name=ed25519,proto3,oneof" json:"ed25519,omitempty"`
+}
+
 func (*PublicKey_Ed25519) isPublicKey_Sum() {}
+
+func (*PublicKey_Bls12_381) isPublicKey_Sum() {}
 
 func (m *PublicKey) GetSum() isPublicKey_Sum {
 	if m != nil {
@@ -239,6 +245,36 @@ func (this *PublicKey) Compare(that interface{}) int {
 	}
 	return 0
 }
+func (this *PublicKey_Bls12_381) Compare(that interface{}) int {
+	if that == nil {
+		if this == nil {
+			return 0
+		}
+		return 1
+	}
+
+	that1, ok := that.(*PublicKey_Bls12_381)
+	if !ok {
+		that2, ok := that.(PublicKey_Bls12_381)
+		if ok {
+			that1 = &that2
+		} else {
+			return 1
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return 0
+		}
+		return 1
+	} else if this == nil {
+		return -1
+	}
+	if c := bytes.Compare(this.Bls12_381, that1.Bls12_381); c != 0 {
+		return c
+	}
+	return 0
+}
 func (this *PublicKey_Ed25519) Compare(that interface{}) int {
 	if that == nil {
 		if this == nil {
@@ -322,6 +358,30 @@ func (this *PublicKey_Ed25519) Equal(that interface{}) bool {
 		return false
 	}
 	if !bytes.Equal(this.Ed25519, that1.Ed25519) {
+		return false
+	}
+	return true
+}
+func (this *PublicKey_Bls12_381) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*PublicKey_Bls12_381)
+	if !ok {
+		that2, ok := that.(PublicKey_Bls12_381)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Bls12_381, that1.Bls12_381) {
 		return false
 	}
 	return true

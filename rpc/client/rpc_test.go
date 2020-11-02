@@ -16,7 +16,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
-	"github.com/tendermint/tendermint/crypto/ed25519"
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/log"
 	tmmath "github.com/tendermint/tendermint/libs/math"
@@ -676,8 +676,8 @@ func TestBroadcastEvidenceDuplicateVote(t *testing.T) {
 		require.NoError(t, err)
 		client.WaitForHeight(c, status.SyncInfo.LatestBlockHeight+2, nil)
 
-		ed25519pub := ev.PubKey.(ed25519.PubKeyEd25519)
-		rawpub := ed25519pub[:]
+		bls12_381pub := ev.PubKey.(bls12_381.PubKeyBls)
+		rawpub := bls12_381pub[:]
 		result2, err := c.ABCIQuery("/val", rawpub)
 		require.Nil(t, err, "Error querying evidence, err %v", err)
 		qres := result2.Response
