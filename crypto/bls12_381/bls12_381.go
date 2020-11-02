@@ -3,10 +3,8 @@ package bls12_381
 import (
 	"bytes"
 	"crypto/sha256"
-	//"crypto/subtle"
 	"fmt"
 	"io"
-	//"math/big"
 	"github.com/pkg/errors"
 
 	"golang.org/x/crypto/ripemd160" // nolint: staticcheck // necessary for Bitcoin address format
@@ -81,8 +79,6 @@ func (privKey PrivKeyBls) Sign(msg []byte) (ret []byte, err error) {
 		return ret, errors.New("Attempt to sign an empty message is invalid")
 	}
 
-	//fmt.Printf("Signing: msg %v res: %v priv: %v \n", msg, []byte(sig), privKey) // DELETEME_NH
-
 	return []byte(sig), nil
 }
 
@@ -102,7 +98,6 @@ func (privKey PrivKeyBls) PubKey() (ret crypto.PubKey) {
 
 	copy(newKey[:], pubKey[:])
 
-	//fmt.Printf("inferred pub key from priv. recvd: %v \n =%v=\nY%vY\n", newKey, pubKey, privKey) // DELETEME_NH
 
 	return newKey
 }
@@ -156,8 +151,6 @@ type PubKeyBls [PubKeyBlsSize]byte
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
 	result := mcl_cpp.PairingVerify(string(msg), string(sig), pubKey.RawString(), fetchGenerator)
-	//fmt.Printf("verifying bytes. Returning true, answer would have been : %v\n", result) // DELETEME_NH
-	//fmt.Printf("Inputs: msg %v sig %v \n", msg, sig) // DELETEME_NH
 	return result
 }
 

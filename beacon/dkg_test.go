@@ -608,10 +608,6 @@ func TestDKGRecovery(t *testing.T) {
 				node.dkg = node.dkg.ClearState()
 			}
 
-			// TODO(HUT): remove this after testing
-			aa := nodes[0].dkg.currentState
-			fmt.Printf("thing %v", aa)
-
 			// Now run again replaying the blocks (redirecting output), this should trigger the file recovery
 			// redirect the output
 			for index := 0; index < nTotal; index++ {
