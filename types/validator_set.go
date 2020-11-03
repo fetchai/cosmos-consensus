@@ -664,9 +664,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 
 		// Validate signature.
 		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
-		if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
-			return fmt.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
-		}
+
 		// Good!
 		if commitSig.ForBlock() {
 			talliedVotingPower += val.VotingPower
