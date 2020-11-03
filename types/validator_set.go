@@ -701,59 +701,6 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 // LIGHT CLIENT VERIFICATION METHODS
 ///////////////////////////////////////////////////////////////////////////////
 
-// VerifyCommitLight verifies +2/3 of the set had signed the given commit.
-//
-// This method is primarily used by the light client and does not check all the
-// signatures.
-func (vals *ValidatorSet) VerifyCommitLight(chainID string, blockID BlockID,
-	height int64, commit *Commit) error {
-
-	if vals.Size() != len(commit.Signatures) {
-		return NewErrInvalidCommitSignatures(vals.Size(), len(commit.Signatures))
-	}
-
-	// Validate Height and BlockID.
-	if height != commit.Height {
-		return NewErrInvalidCommitHeight(height, commit.Height)
-	}
-	if !blockID.Equals(commit.BlockID) {
-		return fmt.Errorf("invalid commit -- wrong block ID: want %v, got %v",
-			blockID, commit.BlockID)
-	}
-
-	talliedVotingPower := int64(0)
-	votingPowerNeeded := vals.TotalVotingPower() * 2 / 3
-	for idx, commitSigs := range commit.Signatures {
-		if len(commitSigs) != 1 {
-			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
-		}
-		commitSig := commitSigs[0]
-		// No need to verify absent or nil votes.
-		if !commitSig.ForBlock() {
-			continue
-		}
-
-		// The vals and commit have a 1-to-1 correspondance.
-		// This means we don't need the validator address or to do any lookup.
-		val := vals.Validators[idx]
-
-		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
-		if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
-			return fmt.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
-		}
-
-		talliedVotingPower += val.VotingPower
-
-		// return as soon as +2/3 of the signatures are verified
-		if talliedVotingPower > votingPowerNeeded {
-			return nil
-		}
-	}
-
-	return ErrNotEnoughVotingPowerSigned{Got: talliedVotingPower, Needed: votingPowerNeeded}
-}
-
 // VerifyFutureCommit will check to see if the set would be valid with a different
 // validator set.
 //
@@ -765,7 +712,7 @@ func (vals *ValidatorSet) VerifyCommitLight(chainID string, blockID BlockID,
 // make arbitrary state transitions.
 //
 // To preserve this property in the light client, we also require > 2/3 of the
-// old vals to sign the future commit at H, that way we preserve the property
+// old vals to participated in the future commit at H, that way we preserve the property
 // that if they weren't being truthful about the validator set at H (block hash
 // -> vals hash) or about the app state (block hash -> app hash) we can slash
 // > 2/3.  Otherwise, the lite client isn't providing the same security
@@ -813,11 +760,6 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 		}
 		seen[oldIdx] = true
 
-		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
-		if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
-			return errors.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
-		}
 		// Good!
 		if blockID.Equals(commitSig.BlockID(commit.BlockID)) {
 			oldVotingPower += val.VotingPower
@@ -837,8 +779,9 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 // VerifyCommitLightTrusting verifies that trustLevel of the validator set signed
 // this commit.
 //
-// This method is primarily used by the light client and does not check all the
-// signatures.
+// This method is primarily used by the light client to check overlap in validator
+// sets and does no verification of the combined signature. Must be used in conjunction
+// with VerifyCommit
 //
 // NOTE the given validators do not necessarily correspond to the validator set
 // for this commit, but there may be some intersection.
@@ -848,7 +791,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 // Since validators may not correspond to validator set for the commit, the vote prefix
 // consisting of the chain ID concatenated with the commit validator set hash must be
 // passed into this function
-func (vals *ValidatorSet) VerifyCommitLightTrusting(votePrefix string, blockID BlockID,
+func (vals *ValidatorSet) VerifyValidatorSetTrust(blockID BlockID,
 	height int64, commit *Commit, trustLevel tmmath.Fraction) error {
 
 	// sanity check
@@ -894,12 +837,6 @@ func (vals *ValidatorSet) VerifyCommitLightTrusting(votePrefix string, blockID B
 				return errors.Errorf("double vote from %v (%d and %d)", val, firstIndex, secondIndex)
 			}
 			seenVals[valIdx] = idx
-
-			// Validate signature.
-			voteSignBytes := commit.VoteSignBytes(votePrefix, idx)
-			if !val.PubKey.VerifyBytes(voteSignBytes, commitSig.Signature) {
-				return errors.Errorf("wrong signature (#%d): %X", idx, commitSig.Signature)
-			}
 
 			talliedVotingPower += val.VotingPower
 

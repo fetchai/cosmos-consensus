@@ -56,8 +56,9 @@ func VerifyNonAdjacent(
 		return ErrInvalidHeader{err}
 	}
 
-	// Ensure that +`trustLevel` (default 1/3) or more of last trusted validators signed correctly.
-	err := trustedVals.VerifyCommitLightTrusting(types.VotePrefix(chainID, untrustedHeader.ValidatorsHash), untrustedHeader.Commit.BlockID, untrustedHeader.Height,
+	// Ensure that +`trustLevel` (default 1/3) or more of last trusted validators participated in combined signature
+	// Does not verify combined signature
+	err := trustedVals.VerifyValidatorSetTrust(untrustedHeader.Commit.BlockID, untrustedHeader.Height,
 		untrustedHeader.Commit, trustLevel)
 	if err != nil {
 		switch e := err.(type) {
@@ -68,12 +69,12 @@ func VerifyNonAdjacent(
 		}
 	}
 
-	// Ensure that +2/3 of new validators signed correctly.
+	// Ensure that new validators signed correctly.
 	//
 	// NOTE: this should always be the last check because untrustedVals can be
 	// intentionally made very large to DOS the light client. not the case for
 	// VerifyAdjacent, where validator set is known in advance.
-	if err := untrustedVals.VerifyCommitLight(chainID, untrustedHeader.Commit.BlockID, untrustedHeader.Height,
+	if err := untrustedVals.VerifyCommit(chainID, untrustedHeader.Commit.BlockID, untrustedHeader.Height,
 		untrustedHeader.Commit); err != nil {
 		return ErrInvalidHeader{err}
 	}
@@ -127,8 +128,8 @@ func VerifyAdjacent(
 		return err
 	}
 
-	// Ensure that +2/3 of new validators signed correctly.
-	if err := untrustedVals.VerifyCommitLight(chainID, untrustedHeader.Commit.BlockID, untrustedHeader.Height,
+	// Ensure that new validators signed correctly.
+	if err := untrustedVals.VerifyCommit(chainID, untrustedHeader.Commit.BlockID, untrustedHeader.Height,
 		untrustedHeader.Commit); err != nil {
 		return ErrInvalidHeader{err}
 	}
