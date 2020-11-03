@@ -2,13 +2,12 @@ package beacon
 
 import (
 	"bytes"
-	"io/ioutil"
+	"errors"
 	"fmt"
-	"github.com/tendermint/tendermint/libs/tempfile"
+	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
-	"os"
-	"errors"
 
 	"github.com/flynn/noise"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	bits "github.com/tendermint/tendermint/libs/bits"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/libs/tempfile"
 	"github.com/tendermint/tendermint/mcl_cpp"
 	tmnoise "github.com/tendermint/tendermint/noise"
 	"github.com/tendermint/tendermint/types"
@@ -81,8 +81,8 @@ type DistributedKeyGeneration struct {
 	service.BaseService
 	mtx sync.RWMutex
 
-	config       *cfg.BeaconConfig
-	baseConfig   *cfg.BaseConfig
+	config     *cfg.BeaconConfig
+	baseConfig *cfg.BaseConfig
 
 	chainID      string
 	dkgID        int64
@@ -121,7 +121,6 @@ type DistributedKeyGeneration struct {
 
 	evidenceHandler func(*types.DKGEvidence)
 }
-
 
 // NewDistributedKeyGeneration runs the DKG from messages encoded in transactions
 func NewDistributedKeyGeneration(beaconConfig *cfg.BeaconConfig, baseConfig *cfg.BaseConfig, chain string,
@@ -901,24 +900,24 @@ func (dryRun *DryRunSignature) ValidateBasic() error {
 
 // When saving to a file, save only the relevant DKG information for recovery
 type DistributedKeyGenerationFile struct {
-	ChainID          string                         `json:"chain_id"`
-	DkgID            int64                          `json:"dkg_id"`
-	DkgIteration     int64                          `json:"dkg_it"`
-	CurrentAeonEnd   int64                          `json:"current_aeon_end"`
-	AeonKeys         *aeonDetails                   `json:"aeon_keys"`
-	StartHeight      int64                          `json:"start_height"`
-	CurrentState     dkgState                       `json:"current_state"`
-	BeaconServiceSer string                         `json:"beacon_service_ser"`
-	DryRunKeys       map[string]DKGOutput           `json:"dry_run_keys"`
-	DryRunSignatures map[string]map[string]string   `json:"dry_run_signatures"`
-	DryRunCount      *bits.BitArray                 `json:dry_run_count"`
+	ChainID          string                       `json:"chain_id"`
+	DkgID            int64                        `json:"dkg_id"`
+	DkgIteration     int64                        `json:"dkg_it"`
+	CurrentAeonEnd   int64                        `json:"current_aeon_end"`
+	AeonKeys         *aeonDetails                 `json:"aeon_keys"`
+	StartHeight      int64                        `json:"start_height"`
+	CurrentState     dkgState                     `json:"current_state"`
+	BeaconServiceSer string                       `json:"beacon_service_ser"`
+	DryRunKeys       map[string]DKGOutput         `json:"dry_run_keys"`
+	DryRunSignatures map[string]map[string]string `json:"dry_run_signatures"`
+	DryRunCount      *bits.BitArray               `json:dry_run_count"`
 }
 
 func saveDKG(file string, dkg *DistributedKeyGeneration) {
 
 	if dkg.beaconService == nil {
 		dkg.Logger.Error("Attempted to save DKG but the beacon service was nil. Skipping.")
-		return 
+		return
 	}
 
 	toWrite := DistributedKeyGenerationFile{dkg.chainID, dkg.dkgID, dkg.dkgIteration, dkg.currentAeonEnd, dkg.aeonKeys, dkg.startHeight, dkg.currentState, dkg.beaconService.Serialize(), dkg.dryRunKeys, dkg.dryRunSignatures, dkg.dryRunCount}
