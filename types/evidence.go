@@ -14,6 +14,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmproto "github.com/tendermint/tendermint/proto/types"
+	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 const (
@@ -534,7 +535,7 @@ var _ Evidence = &BeaconInactivityEvidence{}
 func NewBeaconInactivityEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, aeon int64, threshold int64) *BeaconInactivityEvidence {
 	return &BeaconInactivityEvidence{
 		CreationHeight:     height,
-		CreationTime:       time.Now(),
+		CreationTime:       tmtime.Now(),
 		DefendantAddress:   defAddress,
 		ComplainantAddress: comAddress,
 		AeonStart:          aeon,
@@ -699,7 +700,7 @@ var _ Evidence = &DKGEvidence{}
 func NewDKGEvidence(height int64, defAddress crypto.Address, comAddress crypto.Address, validatorHeight int64, dkgID int64, threshold int64) *DKGEvidence {
 	return &DKGEvidence{
 		CreationHeight:     height,
-		CreationTime:       time.Now(),
+		CreationTime:       tmtime.Now(),
 		DefendantAddress:   defAddress,
 		ComplainantAddress: comAddress,
 		ValHeight:          validatorHeight,
