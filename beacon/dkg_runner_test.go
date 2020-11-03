@@ -94,7 +94,7 @@ func testDKGRunners(nVals int, nSentries int) ([]*DKGRunner, tx_extensions.Messa
 	fakeHandler := tx_extensions.NewFakeMessageHandler()
 	dkgRunners := make([]*DKGRunner, nVals+nSentries)
 	for index := 0; index < nVals; index++ {
-		dkgRunners[index] = NewDKGRunner(config, &baseConfig,"dkg_runner_test", stateDB, privVals[index], tmnoise.NewEncryptionKey(), 0, nil,
+		dkgRunners[index] = NewDKGRunner(config, &baseConfig, "dkg_runner_test", stateDB, privVals[index], tmnoise.NewEncryptionKey(), 0, nil,
 			newMockEvidencePool())
 		dkgRunners[index].SetLogger(logger.With("index", index))
 		dkgRunners[index].AttachMessageHandler(fakeHandler)

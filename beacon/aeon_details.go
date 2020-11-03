@@ -1,10 +1,10 @@
 package beacon
 
 import (
-	"fmt"
-	"os"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"runtime"
 
 	tmos "github.com/tendermint/tendermint/libs/os"
@@ -193,10 +193,10 @@ func loadAeonDetails(aeonDetailsFile *AeonDetailsFile, validators *types.Validat
 // from the file and appending if neccessary)
 func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 
-  aeonsInFile, _ := loadAeonDetailsFiles(filePath)
+	aeonsInFile, _ := loadAeonDetailsFiles(filePath)
 
-  // Now we have potential aeons in the file, and we want the older of these
-  // to be at the front, so append the ones we want to write
+	// Now we have potential aeons in the file, and we want the older of these
+	// to be at the front, so append the ones we want to write
 	for _, aeon := range aeons {
 
 		if aeon == nil {
@@ -222,7 +222,7 @@ func updateFileAeons(filePath string, max int, aeons ...*aeonDetails) {
 
 	// Now write back to the file the last N of these
 	if len(aeonsInFile) > max {
-		aeonsInFile = aeonsInFile[len(aeonsInFile) - max:]
+		aeonsInFile = aeonsInFile[len(aeonsInFile)-max:]
 	}
 
 	saveAeonQueue(filePath, aeonsInFile)
@@ -314,4 +314,3 @@ func (aeon *aeonDetails) HasValidatorInQual(addr types.Address) bool {
 
 	return false
 }
-

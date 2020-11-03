@@ -112,6 +112,7 @@ message Commit {
   repeated CommitSig                  signatures = 4 [(gogoproto.nullable) = false];
   bytes                               hash       = 5;
   tendermint.proto.libs.bits.BitArray bit_array  = 6;
+  string                      combined_signature = 7;
 }
 
 // CommitSig is a part of the Vote included in a Commit.

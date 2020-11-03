@@ -47,11 +47,11 @@ type Metrics struct {
 	// Time between key arrival and aeon start
 	AeonKeyBuffer metrics.Gauge
 	// The ID of the current DKG
-	DKGId                      metrics.Gauge
+	DKGId metrics.Gauge
 	// The iteration of the current DKG
-	DKGIteration                  metrics.Gauge
+	DKGIteration metrics.Gauge
 	// On successful completion, the members in qual
-	DKGMembersInQual              metrics.Gauge
+	DKGMembersInQual metrics.Gauge
 	// Number of completed DKGs with private key for entropy generation
 	DKGsCompletedWithPrivateKey metrics.Counter
 	// DKG state duration in blocks

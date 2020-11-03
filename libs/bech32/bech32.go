@@ -2,12 +2,14 @@ package bech32
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/btcsuite/btcutil/bech32"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
 var gen = []int{0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3}
 
 //ConvertAndEncode converts from a base64 encoded byte string to base32 encoded byte string and then to bech32
@@ -98,6 +100,7 @@ func Decode(bech string) (string, []byte, error) {
 	// We exclude the last 6 bytes, which is the checksum.
 	return hrp, decoded[:len(decoded)-6], nil
 }
+
 // toBytes converts each character in the string 'chars' to the value of the
 // index of the correspoding character in 'charset'.
 func toBytes(chars string) ([]byte, error) {
@@ -112,6 +115,7 @@ func toBytes(chars string) ([]byte, error) {
 	}
 	return decoded, nil
 }
+
 // For more details on the checksum verification, please refer to BIP 173.
 func bech32VerifyChecksum(hrp string, data []byte) bool {
 	integers := make([]int, len(data))
@@ -134,6 +138,7 @@ func toChars(data []byte) (string, error) {
 	}
 	return string(result), nil
 }
+
 // For more details on the checksum calculation, please refer to BIP 173.
 func bech32Checksum(hrp string, data []byte) []byte {
 	// Convert the bytes to list of integers, as this is needed for the

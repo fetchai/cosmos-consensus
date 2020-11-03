@@ -15,6 +15,7 @@ import (
 	"github.com/tendermint/tendermint/libs/bits"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	"github.com/tendermint/tendermint/mcl_cpp"
 	tmproto "github.com/tendermint/tendermint/proto/types"
 	tmversion "github.com/tendermint/tendermint/proto/version"
 	"github.com/tendermint/tendermint/version"
@@ -677,10 +678,11 @@ type Commit struct {
 	// ValidatorSet order.
 	// Any peer with a block can gossip signatures by index with a peer without
 	// recalculating the active ValidatorSet.
-	Height     int64         `json:"height"`
-	Round      int           `json:"round"`
-	BlockID    BlockID       `json:"block_id"`
-	Signatures [][]CommitSig `json:"signatures"`
+	Height            int64         `json:"height"`
+	Round             int           `json:"round"`
+	BlockID           BlockID       `json:"block_id"`
+	Signatures        [][]CommitSig `json:"signatures"`
+	CombinedSignature string        `json:"combined_signature"`
 
 	// Memoized in first call to corresponding method.
 	// NOTE: can't memoize in constructor because constructor isn't used for
@@ -691,11 +693,19 @@ type Commit struct {
 
 // NewCommit returns a new Commit.
 func NewCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSig) *Commit {
+	combinedSig := mcl_cpp.NewCombinedSignature()
+	for _, commitSig := range commitSigs {
+		// Exclude sigs which are for nil or are absent
+		if commitSig[0].ForBlock() {
+			combinedSig.Add(string(commitSig[0].Signature))
+		}
+	}
 	return &Commit{
-		Height:     height,
-		Round:      round,
-		BlockID:    blockID,
-		Signatures: commitSigs,
+		Height:            height,
+		Round:             round,
+		BlockID:           blockID,
+		Signatures:        commitSigs,
+		CombinedSignature: combinedSig.Finish(),
 	}
 }
 
@@ -770,8 +780,6 @@ func (commit *Commit) GetVote(valIdx int, voteIdx int) *Vote {
 }
 
 // VoteSignBytes constructs the SignBytes for the given CommitSig.
-// The only unique part of the SignBytes is the Timestamp - all other fields
-// signed over are otherwise the same for all validators.
 // Panics if valIdx >= commit.Size().
 func (commit *Commit) VoteSignBytes(chainID string, valIdx int) []byte {
 	return commit.GetVote(valIdx, 0).SignBytes(chainID)
@@ -855,6 +863,9 @@ func (commit *Commit) ValidateBasic() error {
 				}
 			}
 		}
+		if len(commit.CombinedSignature) == 0 {
+			return errors.New("empty combined signature")
+		}
 	}
 
 	return nil
@@ -925,6 +936,7 @@ func (commit *Commit) ToProto() *tmproto.Commit {
 		c.Hash = commit.hash
 	}
 	c.BitArray = commit.bitArray.ToProto()
+	c.CombinedSignature = commit.CombinedSignature
 	return c
 }
 
@@ -961,6 +973,7 @@ func CommitFromProto(cp *tmproto.Commit) (*Commit, error) {
 	commit.BlockID = *bi
 	commit.hash = cp.Hash
 	commit.bitArray = bitArray
+	commit.CombinedSignature = cp.CombinedSignature
 
 	return commit, commit.ValidateBasic()
 }

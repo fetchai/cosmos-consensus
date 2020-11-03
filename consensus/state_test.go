@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	tmtime "github.com/tendermint/tendermint/types/time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1915,7 +1916,7 @@ func TestStatePrevoteVerifyBlockTimestamps(t *testing.T) {
 			block.LastCommit.Signatures[0] = append(block.LastCommit.Signatures[0], types.CommitSig{})
 		}, false},
 		{"Unknown commit timestamp", func(block *types.Block) {
-			block.LastCommit.Signatures[0][0].Timestamp = time.Now()
+			block.LastCommit.Signatures[0][0].Timestamp = tmtime.Now()
 		}, false},
 	}
 

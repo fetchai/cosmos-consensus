@@ -1155,6 +1155,9 @@ func (ps *PeerState) PickPrecommitToSend(votes *types.PrecommitSet) (vote *types
 		for _, timestamp := range votes.GetVoteTimestamps(index) {
 			if !psVotes.HasVote(types.PrecommitIdentifier(index, timestamp)) {
 				vote := votes.GetByIndex(index, timestamp)
+				if vote == nil {
+					continue
+				}
 				// Only send peer precommits we have the timestamp signature for
 				if len(vote.TimestampSignature) != 0 {
 					return vote, true

@@ -33,7 +33,7 @@ const (
 	withholdEncryptionKey
 )
 
-func init () {
+func init() {
 	// Make sure to create the data dir if it is being used
 	_ = os.Mkdir("data", 0777)
 }
@@ -539,10 +539,10 @@ func exampleDKGNetwork(nVals int, nSentries int, sendDuplicates bool) []*testNod
 }
 func TestDKGRecovery(t *testing.T) {
 	testCases := []struct {
-		testName       string
-		nVals          int
-		nSentries      int
-		fileRecovery   bool
+		testName     string
+		nVals        int
+		nSentries    int
+		fileRecovery bool
 	}{
 		{"Crash during DKG, no file recovery", 1, 0, false},
 		{"Crash during DKG, with file recovery", 1, 0, true},

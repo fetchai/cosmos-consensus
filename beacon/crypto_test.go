@@ -176,39 +176,35 @@ func TestHonestDkg(t *testing.T) {
 func TestSign(t *testing.T) {
 	privKeyString := mcl_cpp.GenPrivKey()
 
-	generator := "Test Generator"
-	pubKey := mcl_cpp.PubKeyFromPrivate(privKeyString, generator)
+	pubKey := mcl_cpp.PubKeyFromPrivate(privKeyString)
 	assert.True(t, len(pubKey) != 0)
 
 	message := "Test Message"
 	sign := mcl_cpp.Sign(message, privKeyString)
 	assert.True(t, len(sign) != 0)
-	assert.True(t, mcl_cpp.PairingVerify(message, sign, pubKey, generator))
+	assert.True(t, mcl_cpp.PairingVerify(message, sign, pubKey))
 }
 
 // Verify proof of posession generated is valid
 func TestProofOfPossession(t *testing.T) {
 	privKeyString := mcl_cpp.GenPrivKey()
 
-	generator := "Test Generator"
 	pubKeyWithPoP := mcl_cpp.NewStringPair()
 	defer mcl_cpp.DeleteStringPair(pubKeyWithPoP)
-	pubKeyWithPoP = mcl_cpp.PubKeyFromPrivateWithPoP(privKeyString, generator)
+	pubKeyWithPoP = mcl_cpp.PubKeyFromPrivateWithPoP(privKeyString)
 
-	assert.True(t, mcl_cpp.PairingVerify(pubKeyWithPoP.GetFirst(), pubKeyWithPoP.GetSecond(), pubKeyWithPoP.GetFirst(),
-		generator))
+	assert.True(t, mcl_cpp.PairingVerify(pubKeyWithPoP.GetFirst(), pubKeyWithPoP.GetSecond(), pubKeyWithPoP.GetFirst()))
 }
 
 func TestCombinedSignatures(t *testing.T) {
 	nVals := 10
 	signerRecord := bits.NewBitArray(nVals)
-	generator := "Test Generator"
 
 	privKeyStrs := make([]string, nVals)
 	publicKeyStrs := make([]string, nVals)
 	for i := 0; i < nVals; i++ {
 		privKeyStrs[i] = mcl_cpp.GenPrivKey()
-		publicKeyStrs[i] = mcl_cpp.PubKeyFromPrivate(privKeyStrs[i], generator)
+		publicKeyStrs[i] = mcl_cpp.PubKeyFromPrivate(privKeyStrs[i])
 	}
 
 	message := "Test Message"
@@ -218,7 +214,7 @@ func TestCombinedSignatures(t *testing.T) {
 			signerRecord.SetIndex(i, true)
 			signatureStrs[i] = mcl_cpp.Sign(message, privKeyStrs[i])
 			assert.True(t, len(signatureStrs[i]) != 0)
-			assert.True(t, mcl_cpp.PairingVerify(message, signatureStrs[i], publicKeyStrs[i], generator))
+			assert.True(t, mcl_cpp.PairingVerify(message, signatureStrs[i], publicKeyStrs[i]))
 		}
 	}
 
@@ -231,7 +227,7 @@ func TestCombinedSignatures(t *testing.T) {
 		}
 	}
 
-	assert.True(t, mcl_cpp.PairingVerify(message, combinedSig.Finish(), combinedPubKey.Finish(), generator))
+	assert.True(t, mcl_cpp.PairingVerify(message, combinedSig.Finish(), combinedPubKey.Finish()))
 }
 
 func testAeonFromFile(filename string) mcl_cpp.BaseAeon {

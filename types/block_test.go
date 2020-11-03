@@ -469,9 +469,8 @@ func TestCommitToVoteSetWithNilTimestampSigs(t *testing.T) {
 	commit2 := *commit
 	commit2.Signatures = make([][]CommitSig, len(commit2.Signatures))
 	for index := range commit2.Signatures {
-		commitSigCopy := make([]CommitSig, 1)
-		copy(commitSigCopy, commit.Signatures[index][:1])
-		commit2.Signatures[index] = commitSigCopy
+		commit2.Signatures[index] = make([]CommitSig, 1)
+		commit2.Signatures[index][0] = commit.Signatures[index][0]
 		commit2.Signatures[index][0].TimestampSignature = nil
 	}
 

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/bls12_381"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
@@ -583,11 +584,78 @@ func TestSafeSubClip(t *testing.T) {
 
 //-------------------------------------------------------------------
 
-// Check VerifyCommit, VerifyCommitLight and VerifyCommitLightTrusting basic
+// Check VerifyCommit
+func TestValidatorSet_VerifyCommit(t *testing.T) {
+	var (
+		privKey = bls12_381.GenPrivKey()
+		pubKey  = privKey.PubKey()
+		v1      = NewValidator(pubKey, 1000)
+		vset    = NewValidatorSet([]*Validator{v1})
+
+		chainID = "Lalande21185"
+	)
+
+	vote := examplePrecommit()
+	vote.ValidatorAddress = pubKey.Address()
+	sig, err := privKey.Sign(vote.SignBytes(VotePrefix(chainID, vset.Hash())))
+	assert.NoError(t, err)
+	vote.Signature = sig
+
+	commit := NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{{vote.CommitSig()}})
+
+	vote2 := *vote
+	sig2, err := privKey.Sign(vote2.SignBytes("EpsilonEridani"))
+	require.NoError(t, err)
+	vote2.Signature = sig2
+
+	testCases := []struct {
+		description string
+		chainID     string
+		blockID     BlockID
+		height      int64
+		commit      *Commit
+		expErr      bool
+	}{
+		{"good", chainID, vote.BlockID, vote.Height, commit, false},
+
+		{"invalid combined signature", "EpsilonEridani", vote.BlockID, vote.Height, commit, true},
+		{"wrong block ID", chainID, makeBlockIDRandom(), vote.Height, commit, true},
+		{"wrong height", chainID, vote.BlockID, vote.Height - 1, commit, true},
+
+		{"wrong set size: 1 vs 0", chainID, vote.BlockID, vote.Height,
+			NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{}), true},
+
+		{"wrong set size: 1 vs 2", chainID, vote.BlockID, vote.Height,
+			NewCommit(vote.Height, vote.Round, vote.BlockID,
+				[][]CommitSig{{vote.CommitSig()}, {{BlockIDFlag: BlockIDFlagAbsent}}}), true},
+
+		{"insufficient voting power: got 0, needed more than 666", chainID, vote.BlockID, vote.Height,
+			NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{{{BlockIDFlag: BlockIDFlagAbsent}}}), true},
+
+		{"invalid combined signature", chainID, vote.BlockID, vote.Height,
+			NewCommit(vote.Height, vote.Round, vote.BlockID, [][]CommitSig{{vote2.CommitSig()}}), true},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.description, func(t *testing.T) {
+			err := vset.VerifyCommit(tc.chainID, tc.blockID, tc.height, tc.commit)
+			if tc.expErr {
+				if assert.Error(t, err, "VerifyCommit") {
+					assert.Contains(t, err.Error(), tc.description, "VerifyCommit")
+				}
+			} else {
+				assert.NoError(t, err, "VerifyCommit")
+			}
+		})
+	}
+}
+
+// Check VerifyCommitLight and VerifyCommitLightTrusting basic
 // verification.
 func TestValidatorSet_VerifyCommit_All(t *testing.T) {
 	var (
-		privKey = ed25519.GenPrivKey()
+		privKey = bls12_381.GenPrivKey()
 		pubKey  = privKey.PubKey()
 		v1      = NewValidator(pubKey, 1000)
 		vset    = NewValidatorSet([]*Validator{v1})
@@ -639,16 +707,7 @@ func TestValidatorSet_VerifyCommit_All(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.description, func(t *testing.T) {
-			err := vset.VerifyCommit(tc.chainID, tc.blockID, tc.height, tc.commit)
-			if tc.expErr {
-				if assert.Error(t, err, "VerifyCommit") {
-					assert.Contains(t, err.Error(), tc.description, "VerifyCommit")
-				}
-			} else {
-				assert.NoError(t, err, "VerifyCommit")
-			}
-
-			err = vset.VerifyCommitLight(tc.chainID, tc.blockID, tc.height, tc.commit)
+			err := vset.VerifyCommitLight(tc.chainID, tc.blockID, tc.height, tc.commit)
 			if tc.expErr {
 				if assert.Error(t, err, "VerifyCommitLight") {
 					assert.Contains(t, err.Error(), tc.description, "VerifyCommitLight")
@@ -678,10 +737,10 @@ func TestValidatorSet_VerifyCommit_CheckAllSignatures(t *testing.T) {
 	require.NoError(t, err)
 	commit.Signatures[3][0] = vote.CommitSig()
 
+	// Changing signature has no affect as the combined signature was computed with correct
+	// signature
 	err = valSet.VerifyCommit(chainID, blockID, h, commit)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "wrong signature (#3)")
-	}
+	assert.NoError(t, err)
 }
 
 func TestValidatorSet_VerifyCommitLight_ReturnsAsSoonAsMajorityOfVotingPowerSigned(t *testing.T) {

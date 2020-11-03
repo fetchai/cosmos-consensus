@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
+	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 // one byz val sends vote messages with conflicting timestamps
@@ -90,7 +90,7 @@ func invalidVoteFunc(t *testing.T, height int64, round int, cs *State, sw *p2p.S
 			ValidatorIndex:   valIndex,
 			Height:           cs.Height,
 			Round:            cs.Round,
-			Timestamp:        time.Now(),
+			Timestamp:        tmtime.Now(),
 			Type:             voteType,
 			BlockID: types.BlockID{
 				Hash:        blockHash,

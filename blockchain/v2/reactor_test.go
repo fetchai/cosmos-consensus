@@ -498,26 +498,8 @@ func newReactorStore(
 	sm.SaveState(db, state)
 
 	// add blocks in
+	lastCommit := types.NewCommit(0, 0, types.BlockID{}, nil)
 	for blockHeight := int64(1); blockHeight <= maxBlockHeight; blockHeight++ {
-		lastCommit := types.NewCommit(blockHeight-1, 0, types.BlockID{}, nil)
-		if blockHeight > 1 {
-			lastBlockMeta := blockStore.LoadBlockMeta(blockHeight - 1)
-			lastBlock := blockStore.LoadBlock(blockHeight - 1)
-			vote, err := types.MakeVote(
-				lastBlock.Header.Height,
-				lastBlockMeta.BlockID,
-				state.Validators,
-				privVals[0],
-				lastBlock.Header.ChainID,
-				time.Now(),
-			)
-			if err != nil {
-				panic(err)
-			}
-			lastCommit = types.NewCommit(vote.Height, vote.Round,
-				lastBlockMeta.BlockID, [][]types.CommitSig{{vote.CommitSig()}})
-		}
-
 		thisBlock := makeBlock(blockHeight, state, lastCommit)
 
 		thisParts := thisBlock.MakePartSet(types.BlockPartSizeBytes)
@@ -527,6 +509,19 @@ func newReactorStore(
 		if err != nil {
 			panic(errors.Wrap(err, "error apply block"))
 		}
+
+		vote, err := types.MakeVote(
+			thisBlock.Header.Height,
+			blockID,
+			state.Validators,
+			privVals[0],
+			thisBlock.Header.ChainID,
+			time.Now(),
+		)
+		if err != nil {
+			panic(err)
+		}
+		lastCommit = types.NewCommit(vote.Height, vote.Round, blockID, [][]types.CommitSig{{vote.CommitSig()}})
 
 		blockStore.SaveBlock(thisBlock, thisParts, lastCommit)
 	}
