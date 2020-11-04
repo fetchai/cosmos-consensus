@@ -82,7 +82,7 @@ func (privKey PrivKeyBls) Bytes() []byte {
 }
 
 // PubKey can be inferred from the private key
-func (privKey PrivKeyBls) PubKey() (ret crypto.PubKey) {
+func (privKey PrivKeyBls) PubKey() crypto.PubKey {
 	pubKey := mcl_cpp.PubKeyFromPrivate(privKey.String())
 	newKey := PubKeyBls{}
 

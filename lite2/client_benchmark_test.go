@@ -20,12 +20,12 @@ import (
 // or -benchtime 100x.
 //
 // Remember that none of these benchmarks account for network latency.
-var (
-	benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
-	genesisHeader, _  = benchmarkFullNode.SignedHeader(1)
-)
 
 func BenchmarkSequence(b *testing.B) {
+	var (
+		benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
+		genesisHeader, _  = benchmarkFullNode.SignedHeader(1)
+	)
 	c, err := lite.NewClient(
 		chainID,
 		lite.TrustOptions{
@@ -53,6 +53,10 @@ func BenchmarkSequence(b *testing.B) {
 }
 
 func BenchmarkBisection(b *testing.B) {
+	var (
+		benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
+		genesisHeader, _  = benchmarkFullNode.SignedHeader(1)
+	)
 	c, err := lite.NewClient(
 		chainID,
 		lite.TrustOptions{
@@ -79,6 +83,9 @@ func BenchmarkBisection(b *testing.B) {
 }
 
 func BenchmarkBackwards(b *testing.B) {
+	var (
+		benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
+	)
 	trustedHeader, _ := benchmarkFullNode.SignedHeader(0)
 	c, err := lite.NewClient(
 		chainID,
