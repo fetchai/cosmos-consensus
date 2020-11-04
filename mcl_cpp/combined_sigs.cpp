@@ -89,6 +89,7 @@ std::string Sign(std::string const &message, std::string const &private_key) {
     return mcl::Sign(message, priv_key).ToString();
 }
 
+// Combines a list of public keys for verifying combined signatures
 std::string CombinePublicKeys(std::vector<std::string> const &pub_keys) {
     mcl::GroupPublicKey pub_key;
     for (auto const &key : pub_keys) {
@@ -102,8 +103,9 @@ std::string CombinePublicKeys(std::vector<std::string> const &pub_keys) {
     return pub_key.ToString();
 }
 
+// Combines a list of signatures into a combined signature
 std::string CombineSignatures(std::vector<std::string> const &sigs) {
- mcl::Signature combined_sig;
+    mcl::Signature combined_sig;
     for (auto const &sig : sigs) {
         mcl::Signature val_sig;
         bool ok_sig = val_sig.FromString(sig);
@@ -129,6 +131,8 @@ bool PairingVerify(std::string const &message, std::string const &sign, std::str
     return mcl::PairingVerify(message, signature, pub_key, gen);
 }
 
+// Verifies a combined signature by computing the combined public key from a list of public keys and computing the elliptic curve 
+// pairing
 bool PairingVerifyCombinedSig(std::string const &message, std::string const &sign, std::vector<std::string> const &public_key) {
     mcl::Signature signature;
     mcl::GroupPublicKey pub_key;

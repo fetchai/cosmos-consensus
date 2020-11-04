@@ -693,6 +693,9 @@ type Commit struct {
 
 // NewCommit returns a new Commit.
 func NewCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSig) *Commit {
+	// Computed combined signature by combining signatures for the block in order of validator
+	// index. CombinedSignature in the commit will be empty if any of the individual signatures
+	// does not correspond to the correct mcl signature type
 	sigs := mcl_cpp.NewStringVector()
 	defer mcl_cpp.DeleteStringVector(sigs)
 	for _, commitSig := range commitSigs {

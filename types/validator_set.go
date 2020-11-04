@@ -630,11 +630,8 @@ func (vals *ValidatorSet) UpdateWithChangeSet(changes []*Validator) error {
 
 // VerifyCommit verifies +2/3 of the set had signed the given commit.
 //
-// It checks all the signatures! While it's safe to exit as soon as we have
-// 2/3+ signatures, doing so would impact incentivization logic in the ABCI
-// application that depends on the LastCommitInfo sent in BeginBlock, which
-// includes which validators signed. For instance, Gaia incentivizes proposers
-// with a bonus for including more than +2/3 of the signatures.
+// It checks the combined signature, which takes into account all
+// validator signatures for the block
 func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 	height int64, commit *Commit) error {
 
@@ -663,23 +660,22 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		// This means we don't need the validator address or to do any lookup.
 		val := vals.Validators[idx]
 
-		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
-
-		// Good!
 		if commitSigs[0].ForBlock() {
-			talliedVotingPower += val.VotingPower
+			// Check that the information signed is consistent with other votes as all signatures for the same block
+			// should have signed the same message
+			voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
+			if voteBytes == nil {
+				voteBytes = voteSignBytes
+			} else if !bytes.Equal(voteSignBytes, voteBytes) {
+				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
+			}
+
 			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
 			if !ok {
 				panic(fmt.Sprintf("incorrect key type for combined signatures"))
 			}
 			pubKeys.Add(blsKey.RawString())
-			if voteBytes == nil {
-				voteBytes = voteSignBytes
-			} else if !bytes.Equal(voteSignBytes, voteBytes) {
-				// All vote signatures for the same block should have signed the same message
-				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
-			}
+			talliedVotingPower += val.VotingPower
 		}
 		// else {
 		// It's OK that the BlockID doesn't match.  We include stray

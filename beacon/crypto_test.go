@@ -235,6 +235,8 @@ func testAeonFromFile(filename string) mcl_cpp.BaseAeon {
 	return mcl_cpp.NewBlsAeon(filename)
 }
 
+// Benchmarks the function used to compute the public key used to verify combined signatures
+// This operation is costly due to the string to mcl conversions
 func BenchmarkCombinedPubKey(b *testing.B) {
 	nVals := 100
 
@@ -249,6 +251,7 @@ func BenchmarkCombinedPubKey(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		pubKeys := mcl_cpp.NewStringVector()
+		defer mcl_cpp.DeleteStringVector(pubKeys)
 		for i := 0; i < nVals; i++ {
 			pubKeys.Add(publicKeyStrs[i])
 		}
@@ -256,6 +259,7 @@ func BenchmarkCombinedPubKey(b *testing.B) {
 	}
 }
 
+// Benchmarks the combined signature verification function used by validators to verify blocks
 func BenchmarkVerifyCombinedSignature(b *testing.B) {
 	nVals := 100
 	signerRecord := bits.NewBitArray(nVals)
