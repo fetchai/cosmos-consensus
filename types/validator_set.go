@@ -647,14 +647,15 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 
 	talliedVotingPower := int64(0)
 	votingPowerNeeded := vals.TotalVotingPower() * 2 / 3
-	combinedPublicKey := mcl_cpp.NewCombinedPublicKey()
+	pubKeys := mcl_cpp.NewStringVector()
+	defer mcl_cpp.DeleteStringVector(pubKeys)
+	valHash := vals.Hash()
 	var voteBytes []byte
 	for idx, commitSigs := range commit.Signatures {
 		if len(commitSigs) != 1 {
 			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
 		}
-		commitSig := commitSigs[0]
-		if commitSig.Absent() {
+		if commitSigs[0].Absent() {
 			continue // OK, some signatures can be absent.
 		}
 
@@ -663,16 +664,16 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		val := vals.Validators[idx]
 
 		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
+		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
 
 		// Good!
-		if commitSig.ForBlock() {
+		if commitSigs[0].ForBlock() {
 			talliedVotingPower += val.VotingPower
 			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
 			if !ok {
 				panic(fmt.Sprintf("incorrect key type for combined signatures"))
 			}
-			combinedPublicKey.Add(blsKey.RawString())
+			pubKeys.Add(blsKey.RawString())
 			if voteBytes == nil {
 				voteBytes = voteSignBytes
 			} else if !bytes.Equal(voteSignBytes, voteBytes) {
@@ -690,7 +691,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		return ErrNotEnoughVotingPowerSigned{Got: got, Needed: needed}
 	}
 
-	if !mcl_cpp.PairingVerify(string(voteBytes), commit.CombinedSignature, combinedPublicKey.Finish()) {
+	if !mcl_cpp.PairingVerifyCombinedSig(string(voteBytes), commit.CombinedSignature, pubKeys) {
 		return fmt.Errorf("invalid combined signature")
 	}
 

@@ -27,67 +27,7 @@ namespace beacon {
 
 static const std::string COMBINED_SIG_GENERATOR  = "Fetchai Combined Signature Generator";
 
-// Constructor for combined signature should set the string to the serialisation
-// of the zero of signature element
-CombinedSignature::CombinedSignature() {
-    mcl::Signature sig;
-    combined_signature_ = sig.ToString();
-}
-
-// Adds a signature to the saved combined signature string. Returns whether the signature
-// was added or not.
-bool CombinedSignature::Add(std::string const &signature) {
-    // Get saved combined signature
-    mcl::Signature sig;
-    sig.FromString(combined_signature_);
-
-    mcl::Signature sig_to_add;
-    bool ok = sig_to_add.FromString(signature);
-    if (!ok) {
-        Log(LogLevel::ERROR, LOGGING_NAME, "Add can not deserialise signature "+signature);
-        return false;
-    }
-
-    sig.Add(sig, sig_to_add);
-    combined_signature_ = sig.ToString();
-    return true;
-}  
-
-std::string CombinedSignature::Finish() const {
-    return combined_signature_;
-}
-
-// Constructor for combined public key should set the string to the serialisation
-// of the zero of public key element
-CombinedPublicKey::CombinedPublicKey() {
-    mcl::GroupPublicKey pub_key;
-    combined_key_ = pub_key.ToString();
-}
-
-// Adds a signature to the saved combined public key string. Returns whether the public key
-// was added or not.
-bool CombinedPublicKey::Add(std::string const &public_key) {
-    // Get saved combined public key
-    mcl::GroupPublicKey pub_key;
-    pub_key.FromString(combined_key_);
-
-    mcl::GroupPublicKey pub_key_to_add;
-    bool ok = pub_key_to_add.FromString(public_key);
-    if (!ok) {
-        Log(LogLevel::ERROR, LOGGING_NAME, "Add can not deserialise public key "+public_key);
-        return false;
-    }
-
-    pub_key.Add(pub_key, pub_key_to_add);
-    combined_key_ = pub_key.ToString();
-    return true;
-}  
-
-std::string CombinedPublicKey::Finish() const {
-    return combined_key_;
-}
-    
-// GenPrivKey generates a new Bls12_381 private key
+ // GenPrivKey generates a new Bls12_381 private key
 // It uses OS randomness to generate the private key.
 std::string GenPrivKey() {
     mcl::PrivateKey new_key;
@@ -148,6 +88,33 @@ std::string Sign(std::string const &message, std::string const &private_key) {
 
     return mcl::Sign(message, priv_key).ToString();
 }
+
+std::string CombinePublicKeys(std::vector<std::string> const &pub_keys) {
+    mcl::GroupPublicKey pub_key;
+    for (auto const &key : pub_keys) {
+        mcl::GroupPublicKey val_key;
+        bool ok_key = val_key.FromString(key);
+        if (!ok_key) {
+            return "";
+        }
+        pub_key.Add(pub_key, val_key);
+    }
+    return pub_key.ToString();
+}
+
+std::string CombineSignatures(std::vector<std::string> const &sigs) {
+ mcl::Signature combined_sig;
+    for (auto const &sig : sigs) {
+        mcl::Signature val_sig;
+        bool ok_sig = val_sig.FromString(sig);
+        if (!ok_sig) {
+            return "";
+        }
+        combined_sig.Add(combined_sig, val_sig);
+    }
+    return combined_sig.ToString();
+}
+
 bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key) {
     mcl::Signature signature;
     mcl::GroupPublicKey pub_key;
@@ -156,6 +123,27 @@ bool PairingVerify(std::string const &message, std::string const &sign, std::str
     bool ok_key = pub_key.FromString(public_key);
     if (!ok_sign || !ok_key) {
         return false;
+    }
+    mcl::SetGenerator(gen, COMBINED_SIG_GENERATOR);
+    
+    return mcl::PairingVerify(message, signature, pub_key, gen);
+}
+
+bool PairingVerifyCombinedSig(std::string const &message, std::string const &sign, std::vector<std::string> const &public_key) {
+    mcl::Signature signature;
+    mcl::GroupPublicKey pub_key;
+    mcl::GroupPublicKey gen;
+    bool ok_sign = signature.FromString(sign);
+     if (!ok_sign) {
+        return false;
+    }
+    for (auto const &key : public_key) {
+        mcl::GroupPublicKey val_key;
+        bool ok_key = val_key.FromString(key);
+        if (!ok_key) {
+            return false;
+        }
+        pub_key.Add(pub_key, val_key);
     }
     mcl::SetGenerator(gen, COMBINED_SIG_GENERATOR);
     

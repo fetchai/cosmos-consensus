@@ -218,19 +218,76 @@ func TestCombinedSignatures(t *testing.T) {
 		}
 	}
 
-	combinedSig := mcl_cpp.NewCombinedSignature()
-	combinedPubKey := mcl_cpp.NewCombinedPublicKey()
+	sigs := mcl_cpp.NewStringVector()
+	pubKeys := mcl_cpp.NewStringVector()
 	for i := 0; i < nVals; i++ {
 		if signerRecord.GetIndex(i) {
-			assert.True(t, combinedSig.Add(signatureStrs[i]))
-			assert.True(t, combinedPubKey.Add(publicKeyStrs[i]))
+			sigs.Add(signatureStrs[i])
+			pubKeys.Add(publicKeyStrs[i])
 		}
 	}
 
-	assert.True(t, mcl_cpp.PairingVerify(message, combinedSig.Finish(), combinedPubKey.Finish()))
+	assert.True(t, mcl_cpp.PairingVerifyCombinedSig(message, mcl_cpp.CombineSignatures(sigs), pubKeys))
 }
 
 func testAeonFromFile(filename string) mcl_cpp.BaseAeon {
 	//Aeon type here must match those in key files
 	return mcl_cpp.NewBlsAeon(filename)
+}
+
+func BenchmarkCombinedPubKey(b *testing.B) {
+	nVals := 100
+
+	privKeyStrs := make([]string, nVals)
+	publicKeyStrs := make([]string, nVals)
+	for i := 0; i < nVals; i++ {
+		privKeyStrs[i] = mcl_cpp.GenPrivKey()
+		publicKeyStrs[i] = mcl_cpp.PubKeyFromPrivate(privKeyStrs[i])
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		pubKeys := mcl_cpp.NewStringVector()
+		for i := 0; i < nVals; i++ {
+			pubKeys.Add(publicKeyStrs[i])
+		}
+		assert.True(b, len(mcl_cpp.CombinePublicKeys(pubKeys)) != 0)
+	}
+}
+
+func BenchmarkVerifyCombinedSignature(b *testing.B) {
+	nVals := 100
+	signerRecord := bits.NewBitArray(nVals)
+
+	privKeyStrs := make([]string, nVals)
+	publicKeyStrs := make([]string, nVals)
+	for i := 0; i < nVals; i++ {
+		privKeyStrs[i] = mcl_cpp.GenPrivKey()
+		publicKeyStrs[i] = mcl_cpp.PubKeyFromPrivate(privKeyStrs[i])
+	}
+
+	message := "Test Message"
+	signatureStrs := make(map[int]string, 0)
+	for i := 0; i < nVals; i++ {
+		signerRecord.SetIndex(i, true)
+		signatureStrs[i] = mcl_cpp.Sign(message, privKeyStrs[i])
+	}
+
+	sigs := mcl_cpp.NewStringVector()
+	pubKeys := mcl_cpp.NewStringVector()
+	defer mcl_cpp.DeleteStringVector(sigs)
+	defer mcl_cpp.DeleteStringVector(pubKeys)
+	for i := 0; i < nVals; i++ {
+		if signerRecord.GetIndex(i) {
+			sigs.Add(signatureStrs[i])
+			pubKeys.Add(publicKeyStrs[i])
+		}
+	}
+	combined_sig := mcl_cpp.CombineSignatures(sigs)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		mcl_cpp.PairingVerifyCombinedSig(message, combined_sig, pubKeys)
+	}
 }

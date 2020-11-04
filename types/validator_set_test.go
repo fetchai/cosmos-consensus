@@ -1573,3 +1573,24 @@ func BenchmarkUpdates(b *testing.B) {
 		assert.NoError(b, valSetCopy.UpdateWithChangeSet(newValList))
 	}
 }
+
+func BenchmarkVerifyCommit(b *testing.B) {
+	var (
+		chainID               = "test_chain_id"
+		height                = int64(1)
+		round                 = 0
+		blockID               = makeBlockIDRandom()
+		nVals                 = 100
+		voteSet, valSet, vals = randPrecommitSet(height, round, nVals, 10)
+		commit, err           = MakeCommit(blockID, height, round, voteSet, vals, time.Now())
+	)
+
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		valSet.VerifyCommit(chainID, blockID, height, commit)
+	}
+}
