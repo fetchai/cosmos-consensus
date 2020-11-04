@@ -27,7 +27,7 @@ namespace beacon {
 
 static const std::string COMBINED_SIG_GENERATOR  = "Fetchai Combined Signature Generator";
 
- // GenPrivKey generates a new Bls12_381 private key
+// GenPrivKey generates a new Bls12_381 private key
 // It uses OS randomness to generate the private key.
 std::string GenPrivKey() {
     mcl::PrivateKey new_key;
