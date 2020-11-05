@@ -652,7 +652,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		if len(commitSigs) != 1 {
 			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
 		}
-		if commitSigs[0].Absent() {
+		if !commitSigs[0].ForBlock() {
 			continue // OK, some signatures can be absent.
 		}
 
@@ -660,27 +660,21 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		// This means we don't need the validator address or to do any lookup.
 		val := vals.Validators[idx]
 
-		if commitSigs[0].ForBlock() {
-			// Check that the information signed is consistent with other votes as all signatures for the same block
-			// should have signed the same message
-			voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
-			if voteBytes == nil {
-				voteBytes = voteSignBytes
-			} else if !bytes.Equal(voteSignBytes, voteBytes) {
-				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
-			}
-
-			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
-			if !ok {
-				panic(fmt.Sprintf("incorrect key type for combined signatures"))
-			}
-			pubKeys.Add(blsKey.RawString())
-			talliedVotingPower += val.VotingPower
+		// Check that the information signed is consistent with other votes as all signatures for the same block
+		// should have signed the same message
+		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
+		if voteBytes == nil {
+			voteBytes = voteSignBytes
+		} else if !bytes.Equal(voteSignBytes, voteBytes) {
+			return fmt.Errorf("conflicting signed vote bytes for block %v valIndex %v", height, idx)
 		}
-		// else {
-		// It's OK that the BlockID doesn't match.  We include stray
-		// signatures (~votes for nil) to measure validator availability.
-		// }
+
+		blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
+		if !ok {
+			panic(fmt.Sprintf("incorrect key type for combined signatures"))
+		}
+		pubKeys.Add(blsKey.RawString())
+		talliedVotingPower += val.VotingPower
 	}
 
 	if got, needed := talliedVotingPower, votingPowerNeeded; got <= needed {
@@ -745,20 +739,19 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 		if len(commitSigs) != 1 {
 			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
 		}
-		commitSig := commitSigs[0]
-		if commitSig.Absent() {
+		if commitSigs[0].Absent() {
 			continue // OK, some signatures can be absent.
 		}
 
 		// See if this validator is in oldVals.
-		oldIdx, val := oldVals.GetByAddress(commitSig.ValidatorAddress)
+		oldIdx, val := oldVals.GetByAddress(commitSigs[0].ValidatorAddress)
 		if val == nil || seen[oldIdx] {
 			continue // missing or double vote...
 		}
 		seen[oldIdx] = true
 
 		// Good!
-		if blockID.Equals(commitSig.BlockID(commit.BlockID)) {
+		if commitSigs[0].ForBlock() {
 			oldVotingPower += val.VotingPower
 		}
 		// else {
@@ -817,15 +810,14 @@ func (vals *ValidatorSet) VerifyValidatorSetTrust(blockID BlockID,
 		if len(commitSigs) != 1 {
 			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
 		}
-		commitSig := commitSigs[0]
 		// No need to verify absent or nil votes.
-		if !commitSig.ForBlock() {
+		if !commitSigs[0].ForBlock() {
 			continue
 		}
 
 		// We don't know the validators that committed this block, so we have to
 		// check for each vote if its validator is already known.
-		valIdx, val := vals.GetByAddress(commitSig.ValidatorAddress)
+		valIdx, val := vals.GetByAddress(commitSigs[0].ValidatorAddress)
 
 		if val != nil {
 			// check for double vote of validator on the same commit
