@@ -25,36 +25,15 @@
 namespace fetch {
 namespace beacon {
 
-// Combined signature class for combined signatures and outputting result
-class CombinedSignature {
-public:
-    CombinedSignature();
-
-    bool Add(std::string const &signature);
-    std::string Finish() const;
-private:
-    std::string combined_signature_;
-    static constexpr char const *LOGGING_NAME = "CombinedSignatures";
-};
-
-// Aggregate public key class for combining public keys for verifying combined signatures
-class CombinedPublicKey {
-public:
-    CombinedPublicKey();
-
-    bool Add(std::string const &public_key);
-    std::string Finish() const;
-private:
-    std::string combined_key_;
-    static constexpr char const *LOGGING_NAME = "CombinedPublicKey";
-};
-
 std::string GenPrivKey();
 std::string GenPrivKeyBls(std::string const &secret); 
 std::string PubKeyFromPrivate(std::string const &private_key);
 std::pair<std::string, std::string> PubKeyFromPrivateWithPoP(std::string const &private_key);
 std::string Sign(std::string const &message, std::string const &private_key);
+std::string CombinePublicKeys(std::vector<std::string> const &pub_keys);
+std::string CombineSignatures(std::vector<std::string> const &sigs);
 bool PairingVerify(std::string const &message, std::string const &sign, std::string const &public_key);
+bool PairingVerifyCombinedSig(std::string const &message, std::string const &sign, std::vector<std::string> const &public_key);
 
 } //beacon
 } //fetch

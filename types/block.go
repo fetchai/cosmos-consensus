@@ -693,11 +693,15 @@ type Commit struct {
 
 // NewCommit returns a new Commit.
 func NewCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSig) *Commit {
-	combinedSig := mcl_cpp.NewCombinedSignature()
+	// Computed combined signature by combining signatures for the block in order of validator
+	// index. CombinedSignature in the commit will be empty if any of the individual signatures
+	// does not correspond to the correct mcl signature type
+	sigs := mcl_cpp.NewStringVector()
+	defer mcl_cpp.DeleteStringVector(sigs)
 	for _, commitSig := range commitSigs {
 		// Exclude sigs which are for nil or are absent
 		if commitSig[0].ForBlock() {
-			combinedSig.Add(string(commitSig[0].Signature))
+			sigs.Add(string(commitSig[0].Signature))
 		}
 	}
 	return &Commit{
@@ -705,7 +709,7 @@ func NewCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSi
 		Round:             round,
 		BlockID:           blockID,
 		Signatures:        commitSigs,
-		CombinedSignature: combinedSig.Finish(),
+		CombinedSignature: mcl_cpp.CombineSignatures(sigs),
 	}
 }
 

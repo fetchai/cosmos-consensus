@@ -630,11 +630,8 @@ func (vals *ValidatorSet) UpdateWithChangeSet(changes []*Validator) error {
 
 // VerifyCommit verifies +2/3 of the set had signed the given commit.
 //
-// It checks all the signatures! While it's safe to exit as soon as we have
-// 2/3+ signatures, doing so would impact incentivization logic in the ABCI
-// application that depends on the LastCommitInfo sent in BeginBlock, which
-// includes which validators signed. For instance, Gaia incentivizes proposers
-// with a bonus for including more than +2/3 of the signatures.
+// It checks the combined signature, which takes into account all
+// validator signatures for the block
 func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 	height int64, commit *Commit) error {
 
@@ -647,14 +644,15 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 
 	talliedVotingPower := int64(0)
 	votingPowerNeeded := vals.TotalVotingPower() * 2 / 3
-	combinedPublicKey := mcl_cpp.NewCombinedPublicKey()
+	pubKeys := mcl_cpp.NewStringVector()
+	defer mcl_cpp.DeleteStringVector(pubKeys)
+	valHash := vals.Hash()
 	var voteBytes []byte
 	for idx, commitSigs := range commit.Signatures {
 		if len(commitSigs) != 1 {
 			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
 		}
-		commitSig := commitSigs[0]
-		if commitSig.Absent() {
+		if commitSigs[0].Absent() {
 			continue // OK, some signatures can be absent.
 		}
 
@@ -662,23 +660,22 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		// This means we don't need the validator address or to do any lookup.
 		val := vals.Validators[idx]
 
-		// Validate signature.
-		voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()), idx)
+		if commitSigs[0].ForBlock() {
+			// Check that the information signed is consistent with other votes as all signatures for the same block
+			// should have signed the same message
+			voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
+			if voteBytes == nil {
+				voteBytes = voteSignBytes
+			} else if !bytes.Equal(voteSignBytes, voteBytes) {
+				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
+			}
 
-		// Good!
-		if commitSig.ForBlock() {
-			talliedVotingPower += val.VotingPower
 			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
 			if !ok {
 				panic(fmt.Sprintf("incorrect key type for combined signatures"))
 			}
-			combinedPublicKey.Add(blsKey.RawString())
-			if voteBytes == nil {
-				voteBytes = voteSignBytes
-			} else if !bytes.Equal(voteSignBytes, voteBytes) {
-				// All vote signatures for the same block should have signed the same message
-				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
-			}
+			pubKeys.Add(blsKey.RawString())
+			talliedVotingPower += val.VotingPower
 		}
 		// else {
 		// It's OK that the BlockID doesn't match.  We include stray
@@ -690,7 +687,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		return ErrNotEnoughVotingPowerSigned{Got: got, Needed: needed}
 	}
 
-	if !mcl_cpp.PairingVerify(string(voteBytes), commit.CombinedSignature, combinedPublicKey.Finish()) {
+	if !mcl_cpp.PairingVerifyCombinedSig(string(voteBytes), commit.CombinedSignature, pubKeys) {
 		return fmt.Errorf("invalid combined signature")
 	}
 
