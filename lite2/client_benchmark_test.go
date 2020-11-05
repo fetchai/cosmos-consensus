@@ -26,25 +26,27 @@ func BenchmarkSequence(b *testing.B) {
 		benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
 		genesisHeader, _  = benchmarkFullNode.SignedHeader(1)
 	)
-	c, err := lite.NewClient(
-		chainID,
-		lite.TrustOptions{
-			Period: 24 * time.Hour,
-			Height: 1,
-			Hash:   genesisHeader.Hash(),
-		},
-		benchmarkFullNode,
-		[]provider.Provider{benchmarkFullNode},
-		dbs.New(dbm.NewMemDB(), chainID),
-		lite.Logger(log.TestingLogger()),
-		lite.SequentialVerification(),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
+		b.StopTimer()
+		c, err := lite.NewClient(
+			chainID,
+			lite.TrustOptions{
+				Period: 24 * time.Hour,
+				Height: 1,
+				Hash:   genesisHeader.Hash(),
+			},
+			benchmarkFullNode,
+			[]provider.Provider{benchmarkFullNode},
+			dbs.New(dbm.NewMemDB(), chainID),
+			lite.Logger(log.TestingLogger()),
+			lite.SequentialVerification(),
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.StartTimer()
 		_, err = c.VerifyHeaderAtHeight(1000, bTime.Add(1000*time.Minute))
 		if err != nil {
 			b.Fatal(err)
@@ -57,6 +59,8 @@ func BenchmarkBisection(b *testing.B) {
 		benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
 		genesisHeader, _  = benchmarkFullNode.SignedHeader(1)
 	)
+	b.ResetTimer()
+
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		c, err := lite.NewClient(
@@ -86,6 +90,8 @@ func BenchmarkBackwards(b *testing.B) {
 	var (
 		benchmarkFullNode = mockp.New(GenMockNode(chainID, 1000, 100, 1, bTime))
 	)
+	b.ResetTimer()
+
 	trustedHeader, _ := benchmarkFullNode.SignedHeader(0)
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
