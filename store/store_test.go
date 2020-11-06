@@ -28,14 +28,14 @@ import (
 type cleanupFunc func()
 
 // make a Commit with a single vote containing just the height and a timestamp
-func makeTestCommit(height int64, timestamp time.Time) *types.VotesCommit {
+func makeTestCommit(height int64, timestamp time.Time) *types.BlockCommit {
 	commitSigs := [][]types.CommitSigVote{{{
 		BlockIDFlag:      types.BlockIDFlagCommit,
 		ValidatorAddress: []byte("ValidatorAddress"),
 		Timestamp:        timestamp,
 		Signature:        []byte("Signature"),
 	}}}
-	return types.NewVotesCommit(height, 0, types.BlockID{}, commitSigs)
+	return types.NewBlockCommit(height, 0, types.BlockID{}, commitSigs)
 }
 
 func makeTxs(height int64) (txs []types.Tx) {
@@ -138,7 +138,7 @@ var (
 	partSet     *types.PartSet
 	part1       *types.Part
 	part2       *types.Part
-	seenCommit1 *types.VotesCommit
+	seenCommit1 types.SeenCommit
 )
 
 func TestMain(m *testing.M) {
@@ -194,7 +194,7 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 	tuples := []struct {
 		block      *types.Block
 		parts      *types.PartSet
-		seenCommit *types.VotesCommit
+		seenCommit types.SeenCommit
 		wantPanic  string
 		wantErr    bool
 
@@ -550,13 +550,9 @@ func doFn(fn func() (interface{}, error)) (res interface{}, err error, panicErr 
 	return res, err, panicErr
 }
 
-func newBlock(hdr types.Header, lastCommit *types.VotesCommit) *types.Block {
-	var blockCommit *types.BlockCommit
-	if lastCommit != nil {
-		blockCommit = types.NewBlockCommit(lastCommit.Height, lastCommit.Round, lastCommit.BlockID, lastCommit.Signatures)
-	}
+func newBlock(hdr types.Header, lastCommit *types.BlockCommit) *types.Block {
 	return &types.Block{
 		Header:     hdr,
-		LastCommit: blockCommit,
+		LastCommit: lastCommit,
 	}
 }

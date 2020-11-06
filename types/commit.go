@@ -375,7 +375,7 @@ var _ SeenCommit = &VotesCommit{}
 
 // VotesCommit contains the evidence that a block was committed by a set of validators.
 // Contains all signatures required to verify information in votes and stores multiple votes
-// from the same validator with different timestamps
+// from the same validator with different timestamps. Mainly used for saving votes to store.
 // NOTE: Commit is empty for height 1, but never nil.
 type VotesCommit struct {
 	// NOTE: The signatures are in order of address to preserve the bonded
@@ -394,8 +394,7 @@ type VotesCommit struct {
 	bitArray *bits.BitArray
 }
 
-// NewVotesCommit returns a new VotesCommit.
-func NewVotesCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSigVote) *VotesCommit {
+func newVotesCommit(height int64, round int, blockID BlockID, commitSigs [][]CommitSigVote) *VotesCommit {
 	return &VotesCommit{
 		Height:     height,
 		Round:      round,
@@ -419,10 +418,10 @@ func CommitToVoteSet(chainID string, seenCommit SeenCommit, vals *ValidatorSet) 
 			if commitSig.Absent() {
 				continue // OK, some precommits can be missing.
 			}
-			if v := commit.GetVote(idx, voteIndex); v != nil {
+			if v := commit.getVote(idx, voteIndex); v != nil {
 				added, err := voteSet.AddVote(v)
 				if err != nil {
-					vote := commit.GetVote(idx, voteIndex)
+					vote := commit.getVote(idx, voteIndex)
 					_, val := voteSet.valSet.GetByIndex(vote.ValidatorIndex)
 					voteSet.addVerifiedVote(vote, vote.BlockID.Key(), val.VotingPower)
 				} else if !added || err != nil {
@@ -434,30 +433,10 @@ func CommitToVoteSet(chainID string, seenCommit SeenCommit, vals *ValidatorSet) 
 	return voteSet, err
 }
 
-func (commit *VotesCommit) GetVotes(valIdx int) []*Vote {
-	commitSigs := commit.Signatures[valIdx]
-	votes := make([]*Vote, len(commitSigs))
-	for index, commitSig := range commitSigs {
-		vote := &Vote{
-			Type:               PrecommitType,
-			Height:             commit.Height,
-			Round:              commit.Round,
-			BlockID:            commitSig.BlockID(commit.BlockID),
-			Timestamp:          commitSig.Timestamp,
-			ValidatorAddress:   commitSig.ValidatorAddress,
-			ValidatorIndex:     valIdx,
-			Signature:          commitSig.Signature,
-			TimestampSignature: commitSig.TimestampSignature,
-		}
-		votes[index] = vote
-	}
-	return votes
-}
-
-// GetVote converts the CommitSig for the given valIdx to a Vote.
+// getVote converts the CommitSig for the given valIdx to a Vote.
 // Returns nil if the precommit at valIdx is nil.
 // Panics if valIdx >= commit.Size().
-func (commit *VotesCommit) GetVote(valIdx int, voteIdx int) *Vote {
+func (commit *VotesCommit) getVote(valIdx int, voteIdx int) *Vote {
 	commitSigs := commit.Signatures[valIdx]
 	if voteIdx > len(commitSigs)-1 {
 		return nil
@@ -476,67 +455,16 @@ func (commit *VotesCommit) GetVote(valIdx int, voteIdx int) *Vote {
 	}
 }
 
-// VoteSignBytes constructs the SignBytes for the given CommitSig.
-// Panics if valIdx >= commit.Size().
-func (commit *VotesCommit) VoteSignBytes(chainID string, valIdx int) []byte {
-	return commit.GetVote(valIdx, 0).SignBytes(chainID)
-}
-
-// Type returns the vote type of the commit, which is always VoteTypePrecommit
-func (commit *VotesCommit) Type() byte {
-	return byte(PrecommitType)
-}
-
-// GetHeight returns height of the commit.
-func (commit *VotesCommit) GetHeight() int64 {
-	return commit.Height
-}
-
 // GetRound returns height of the commit.
+// Implements SeenCommit
 func (commit *VotesCommit) GetRound() int {
 	return commit.Round
 }
 
-// Size returns the number of signatures in the commit.
-func (commit *VotesCommit) Size() int {
-	if commit == nil {
-		return 0
-	}
-	return len(commit.Signatures)
-}
-
 // GetBlockID returns blockID in commit
-// Implements GossipCommit
+// Implements SeenCommit
 func (commit *VotesCommit) GetBlockID() BlockID {
 	return commit.BlockID
-}
-
-// BitArray returns a BitArray of which validators voted for BlockID or nil in this commit.
-func (commit *VotesCommit) BitArray() *bits.BitArray {
-	if commit.bitArray == nil {
-		commit.bitArray = bits.NewBitArray(len(commit.Signatures))
-		for i, commitSigs := range commit.Signatures {
-			if len(commitSigs) == 0 {
-				commit.bitArray.SetIndex(i, false)
-				continue
-			}
-			// TODO: need to check the BlockID otherwise we could be counting conflicts,
-			// not just the one with +2/3 !
-			commit.bitArray.SetIndex(i, !commitSigs[0].Absent())
-		}
-	}
-	return commit.bitArray
-}
-
-// GetByIndex returns the vote corresponding to a given validator index.
-// Panics if `index >= commit.Size()`.
-func (commit *VotesCommit) GetByIndex(valIdx int) *Vote {
-	return commit.GetVote(valIdx, 0)
-}
-
-// IsCommit returns true if there is at least one signature.
-func (commit *VotesCommit) IsCommit() bool {
-	return len(commit.Signatures) != 0
 }
 
 // ValidateBasic performs basic validation that doesn't involve state data.
@@ -566,51 +494,6 @@ func (commit *VotesCommit) ValidateBasic() error {
 	}
 
 	return nil
-}
-
-// Hash returns the hash of the commit. Don't include timestamp signature in
-// hash as this signature is not included in the block
-func (commit *VotesCommit) Hash() tmbytes.HexBytes {
-	if commit == nil {
-		return nil
-	}
-	if commit.hash == nil {
-		bs := make([][]byte, len(commit.Signatures))
-		for i, commitSigs := range commit.Signatures {
-			for _, commitSig := range commitSigs {
-				commitSig.TimestampSignature = nil
-				bs[i] = cdcEncode(commitSig)
-			}
-		}
-		commit.hash = merkle.SimpleHashFromByteSlices(bs)
-	}
-	return commit.hash
-}
-
-// StringIndented returns a string representation of the commit
-func (commit *VotesCommit) StringIndented(indent string) string {
-	if commit == nil {
-		return "nil-Commit"
-	}
-	commitSigStrings := make([]string, len(commit.Signatures))
-	for i, commitSigs := range commit.Signatures {
-		for _, commitSig := range commitSigs {
-			commitSigStrings[i] = commitSig.String()
-		}
-	}
-	return fmt.Sprintf(`Commit{
-%s  Height:     %d
-%s  Round:      %d
-%s  BlockID:    %v
-%s  Signatures:
-%s    %v
-%s}#%v`,
-		indent, commit.Height,
-		indent, commit.Round,
-		indent, commit.BlockID,
-		indent,
-		indent, strings.Join(commitSigStrings, "\n"+indent+"    "),
-		indent, commit.hash)
 }
 
 func RegisterCommits(cdc *amino.Codec) {

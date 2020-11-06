@@ -582,7 +582,7 @@ func (voteSet *PrecommitSet) makeVotesCommit() *VotesCommit {
 		}
 	}
 
-	return NewVotesCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
+	return newVotesCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
 }
 
 //--------------------------------------------------------------------------------

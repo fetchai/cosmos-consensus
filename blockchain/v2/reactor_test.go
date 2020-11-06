@@ -69,7 +69,7 @@ func (ml *mockBlockStore) LoadBlock(height int64) *types.Block {
 	return ml.blocks[height]
 }
 
-func (ml *mockBlockStore) SaveBlock(block *types.Block, part *types.PartSet, commit *types.VotesCommit) {
+func (ml *mockBlockStore) SaveBlock(block *types.Block, part *types.PartSet, commit types.SeenCommit) {
 	ml.blocks[block.Height] = block
 }
 

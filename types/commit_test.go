@@ -6,11 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/bits"
 	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
-func TestCommit(t *testing.T) {
+func TestBlockCommit(t *testing.T) {
 	lastID := makeBlockIDRandom()
 	h := int64(3)
 	voteSet, _, vals := randPrecommitSet(h-1, 1, 10, 1)
@@ -19,17 +18,12 @@ func TestCommit(t *testing.T) {
 
 	assert.Equal(t, h-1, commit.Height)
 	assert.Equal(t, 1, commit.Round)
-	assert.Equal(t, PrecommitType, SignedMsgType(commit.Type()))
-	if commit.Size() <= 0 {
-		t.Fatalf("commit %v has a zero or negative size: %d", commit, commit.Size())
+	if len(commit.Signatures) <= 0 {
+		t.Fatalf("commit %v has a zero or negative size: %d", commit, len(commit.Signatures))
 	}
 
-	require.NotNil(t, commit.BitArray())
-	assert.Equal(t, bits.NewBitArray(10).Size(), commit.BitArray().Size())
-
 	vote := voteSet.GetByIndex(0, voteSet.GetVoteTimestamps(0)[0])
-	assert.Equal(t, vote, commit.GetByIndex(0))
-	assert.True(t, commit.IsCommit())
+	assert.Equal(t, vote, commit.getVote(0, 0))
 }
 
 func TestVotesCommitValidateBasic(t *testing.T) {
@@ -67,7 +61,7 @@ func TestCommitToVoteSet(t *testing.T) {
 	for i := 0; i < len(vals); i++ {
 		vote1 := voteSet.GetByIndex(i, voteSet.GetVoteTimestamps(i)[0])
 		vote2 := voteSet2.GetByIndex(i, voteSet2.GetVoteTimestamps(i)[0])
-		vote3 := commit.GetVote(i, 0)
+		vote3 := commit.getVote(i, 0)
 
 		vote1bz := cdc.MustMarshalBinaryBare(vote1)
 		vote2bz := cdc.MustMarshalBinaryBare(vote2)

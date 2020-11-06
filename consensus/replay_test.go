@@ -930,7 +930,7 @@ func makeBlocks(n int, state *sm.State, privVal types.PrivValidator) []*types.Bl
 func makeBlock(state sm.State, lastBlock *types.Block, lastBlockMeta *types.BlockMeta,
 	privVal types.PrivValidator, height int64) (*types.Block, *types.PartSet) {
 
-	lastCommit := types.NewVotesCommit(height-1, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(height-1, 0, types.BlockID{}, nil)
 	if height > 1 {
 		vote, _ := types.MakeVote(
 			lastBlock.Header.Height,
@@ -939,11 +939,11 @@ func makeBlock(state sm.State, lastBlock *types.Block, lastBlockMeta *types.Bloc
 			privVal,
 			lastBlock.Header.ChainID,
 			time.Now())
-		lastCommit = types.NewVotesCommit(vote.Height, vote.Round,
+		lastCommit = types.NewBlockCommit(vote.Height, vote.Round,
 			lastBlockMeta.BlockID, [][]types.CommitSigVote{{vote.CommitSig()}})
 	}
 
-	return state.MakeBlock(height, []types.Tx{}, types.VotesToBlockCommit(lastCommit), nil, state.Validators.GetProposer().Address)
+	return state.MakeBlock(height, []types.Tx{}, lastCommit, nil, state.Validators.GetProposer().Address)
 }
 
 type badApp struct {
@@ -990,7 +990,7 @@ func makeBlockchainFromWAL(wal WAL) ([]*types.Block, []types.SeenCommit, error) 
 		blocks          []*types.Block
 		commits         []types.SeenCommit
 		thisBlockParts  *types.PartSet
-		thisBlockCommit *types.VotesCommit
+		thisBlockCommit *types.BlockCommit
 	)
 
 	dec := NewWALDecoder(gr)
@@ -1036,7 +1036,7 @@ func makeBlockchainFromWAL(wal WAL) ([]*types.Block, []types.SeenCommit, error) 
 			}
 		case *types.Vote:
 			if p.Type == types.PrecommitType {
-				thisBlockCommit = types.NewVotesCommit(p.Height, p.Round,
+				thisBlockCommit = types.NewBlockCommit(p.Height, p.Round,
 					p.BlockID, [][]types.CommitSigVote{{p.CommitSig()}})
 			}
 		}
