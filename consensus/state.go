@@ -527,6 +527,9 @@ func (cs *State) reconstructLastCommit(state sm.State) {
 	if state.LastBlockHeight == 0 {
 		return
 	}
+	// LoadSeenCommit either returns a VotesCommit, if we were running consensus for the last block,
+	// or BlockCommit, if we obtained the last block from syncing. Either way, it should not be
+	// nil
 	seenCommit := cs.blockStore.LoadSeenCommit(state.LastBlockHeight)
 	if seenCommit == nil {
 		panic(fmt.Sprintf("Failed to reconstruct LastCommit: seen commit for height %v not found",
