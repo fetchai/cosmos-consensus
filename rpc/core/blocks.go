@@ -119,8 +119,17 @@ func Commit(ctx *rpctypes.Context, heightPtr *int64) (*ctypes.ResultCommit, erro
 	// If the next block has not been committed yet,
 	// use a non-canonical commit
 	if height == env.BlockStore.Height() {
-		commit := env.BlockStore.LoadSeenCommit(height)
-		return ctypes.NewResultCommit(&header, commit, false), nil
+		seenCommit := env.BlockStore.LoadSeenCommit(height)
+		switch commit := seenCommit.(type) {
+		case *types.BlockCommit:
+			return ctypes.NewResultCommit(&header, commit, false), nil
+		case *types.VotesCommit:
+			blockCommit := types.VotesToBlockCommit(commit)
+			return ctypes.NewResultCommit(&header, blockCommit, false), nil
+		default:
+			panic(fmt.Sprintf("Unexpected seenCommit type %T", commit))
+		}
+
 	}
 
 	// Return the canonical commit (comes from the block at height+1)

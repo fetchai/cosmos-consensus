@@ -9,8 +9,8 @@ import (
 
 type processorContext interface {
 	applyBlock(blockID types.BlockID, block *types.Block) error
-	verifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.Commit) error
-	saveBlock(block *types.Block, blockParts *types.PartSet, seenCommit *types.Commit)
+	verifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.BlockCommit) error
+	saveBlock(block *types.Block, blockParts *types.PartSet, seenCommit types.SeenCommit)
 	tmState() state.State
 }
 
@@ -38,11 +38,11 @@ func (pc pContext) tmState() state.State {
 	return pc.state
 }
 
-func (pc pContext) verifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.Commit) error {
+func (pc pContext) verifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.BlockCommit) error {
 	return pc.state.Validators.VerifyCommit(chainID, blockID, height, commit)
 }
 
-func (pc *pContext) saveBlock(block *types.Block, blockParts *types.PartSet, seenCommit *types.Commit) {
+func (pc *pContext) saveBlock(block *types.Block, blockParts *types.PartSet, seenCommit types.SeenCommit) {
 	pc.store.SaveBlock(block, blockParts, seenCommit)
 }
 
@@ -73,7 +73,7 @@ func (mpc *mockPContext) applyBlock(blockID types.BlockID, block *types.Block) e
 	return nil
 }
 
-func (mpc *mockPContext) verifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.Commit) error {
+func (mpc *mockPContext) verifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.BlockCommit) error {
 	for _, h := range mpc.verificationBL {
 		if h == height {
 			return fmt.Errorf("generic verification error")
@@ -82,7 +82,7 @@ func (mpc *mockPContext) verifyCommit(chainID string, blockID types.BlockID, hei
 	return nil
 }
 
-func (mpc *mockPContext) saveBlock(block *types.Block, blockParts *types.PartSet, seenCommit *types.Commit) {
+func (mpc *mockPContext) saveBlock(block *types.Block, blockParts *types.PartSet, seenCommit types.SeenCommit) {
 
 }
 

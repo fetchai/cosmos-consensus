@@ -40,11 +40,11 @@ func newTestApp() proxy.AppConns {
 func makeAndCommitGoodBlock(
 	state sm.State,
 	height int64,
-	lastCommit *types.Commit,
+	lastCommit *types.BlockCommit,
 	proposerAddr []byte,
 	blockExec *sm.BlockExecutor,
 	privVals map[string]types.PrivValidator,
-	evidence []types.Evidence) (sm.State, types.BlockID, *types.Commit, error) {
+	evidence []types.Evidence) (sm.State, types.BlockID, *types.BlockCommit, error) {
 	// A good block passes
 	state, blockID, err := makeAndApplyGoodBlock(state, height, lastCommit, proposerAddr, blockExec, evidence)
 	if err != nil {
@@ -59,7 +59,7 @@ func makeAndCommitGoodBlock(
 	return state, blockID, commit, nil
 }
 
-func makeAndApplyGoodBlock(state sm.State, height int64, lastCommit *types.Commit, proposerAddr []byte,
+func makeAndApplyGoodBlock(state sm.State, height int64, lastCommit *types.BlockCommit, proposerAddr []byte,
 	blockExec *sm.BlockExecutor, evidence []types.Evidence) (sm.State, types.BlockID, error) {
 	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, evidence, proposerAddr)
 	if err := blockExec.ValidateBlock(state, block); err != nil {
@@ -79,17 +79,17 @@ func makeValidCommit(
 	blockID types.BlockID,
 	vals *types.ValidatorSet,
 	privVals map[string]types.PrivValidator,
-) (*types.Commit, error) {
-	sigs := make([][]types.CommitSig, 0)
+) (*types.BlockCommit, error) {
+	sigs := make([][]types.CommitSigVote, 0)
 	for i := 0; i < vals.Size(); i++ {
 		_, val := vals.GetByIndex(i)
 		vote, err := types.MakeVote(height, blockID, vals, privVals[val.Address.String()], chainID, time.Now())
 		if err != nil {
 			return nil, err
 		}
-		sigs = append(sigs, []types.CommitSig{vote.CommitSig()})
+		sigs = append(sigs, []types.CommitSigVote{vote.CommitSig()})
 	}
-	return types.NewCommit(height, 0, blockID, sigs), nil
+	return types.NewBlockCommit(height, 0, blockID, sigs), nil
 }
 
 // make some bogus txs
@@ -135,7 +135,7 @@ func makeBlock(state sm.State, height int64) *types.Block {
 	block, _ := state.MakeBlock(
 		height,
 		makeTxs(state.LastBlockHeight),
-		new(types.Commit),
+		new(types.BlockCommit),
 		nil,
 		state.Validators.GetProposer().Address,
 	)

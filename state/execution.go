@@ -95,7 +95,7 @@ func (blockExec *BlockExecutor) SetEventBus(eventBus types.BlockEventPublisher) 
 // The rest is given to txs, up to the max gas.
 func (blockExec *BlockExecutor) CreateProposalBlock(
 	height int64,
-	state State, commit *types.Commit,
+	state State, commit *types.BlockCommit,
 	proposerAddr []byte,
 	fallbackMode bool,
 ) (*types.Block, *types.PartSet) {
@@ -363,7 +363,7 @@ func getBeginBlockValidatorInfo(logger log.Logger, block *types.Block, stateDB d
 		}
 
 		for i, val := range lastValSet.Validators {
-			commitSig := block.LastCommit.Signatures[i][0]
+			commitSig := block.LastCommit.Signatures[i]
 			voteInfos[i] = abci.VoteInfo{
 				Validator:       types.TM2PB.Validator(val),
 				SignedLastBlock: !commitSig.Absent(),

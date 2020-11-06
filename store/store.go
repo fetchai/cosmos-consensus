@@ -154,12 +154,12 @@ func (bs *BlockStore) LoadBlockMeta(height int64) *types.BlockMeta {
 	return blockMeta
 }
 
-// LoadBlockCommit returns the Commit for the given height.
-// This commit consists of the +2/3 and other Precommit-votes for block at `height`,
+// LoadBlockCommit returns the BlockCommit for the given height.
+// This commit consists of the combined signature for block at `height`,
 // and it comes from the block.LastCommit for `height+1`.
 // If no commit is found for the given height, it returns nil.
-func (bs *BlockStore) LoadBlockCommit(height int64) *types.Commit {
-	var commit = new(types.Commit)
+func (bs *BlockStore) LoadBlockCommit(height int64) *types.BlockCommit {
+	var commit = new(types.BlockCommit)
 	bz, err := bs.db.Get(calcBlockCommitKey(height))
 	if err != nil {
 		panic(err)
@@ -174,11 +174,11 @@ func (bs *BlockStore) LoadBlockCommit(height int64) *types.Commit {
 	return commit
 }
 
-// LoadSeenCommit returns the locally seen Commit for the given height.
+// LoadSeenCommit returns the locally seen VotesCommit or BlockCommit for the given height,
+// depending on whether the last block was obtained from running consensus or fast sync
 // This is useful when we've seen a commit, but there has not yet been
 // a new block at `height + 1` that includes this commit in its block.LastCommit.
-func (bs *BlockStore) LoadSeenCommit(height int64) *types.Commit {
-	var commit = new(types.Commit)
+func (bs *BlockStore) LoadSeenCommit(height int64) types.SeenCommit {
 	bz, err := bs.db.Get(calcSeenCommitKey(height))
 	if err != nil {
 		panic(err)
@@ -186,7 +186,8 @@ func (bs *BlockStore) LoadSeenCommit(height int64) *types.Commit {
 	if len(bz) == 0 {
 		return nil
 	}
-	err = cdc.UnmarshalBinaryBare(bz, commit)
+	var commit types.SeenCommit
+	err = cdc.UnmarshalBinaryBare(bz, &commit)
 	if err != nil {
 		panic(errors.Wrap(err, "Error reading block seen commit"))
 	}
@@ -267,7 +268,7 @@ func (bs *BlockStore) PruneBlocks(height int64) (uint64, error) {
 //             If all the nodes restart after committing a block,
 //             we need this to reload the precommits to catch-up nodes to the
 //             most recent height.  Otherwise they'd stall at H-1.
-func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, seenCommit *types.Commit) {
+func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, seenCommit types.SeenCommit) {
 	if block == nil {
 		panic("BlockStore can only save a non-nil block")
 	}
@@ -306,11 +307,12 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 	// Get commit from previous height and remove all commits not included in this
 	// block since they are not needed
 	previousCommit := bs.LoadSeenCommit(height - 1)
-	if height != 1 && previousCommit != nil {
+	votesCommit, ok := previousCommit.(*types.VotesCommit)
+	if height != 1 && ok {
 		for index, blockSigs := range block.LastCommit.Signatures {
 			matchingIndex := -1
-			for sigIndex, sig := range previousCommit.Signatures[index] {
-				if sig.Timestamp.Equal(blockSigs[0].Timestamp) {
+			for sigIndex, sig := range votesCommit.Signatures[index] {
+				if sig.Timestamp.Equal(blockSigs.Timestamp) {
 					matchingIndex = sigIndex
 					break
 				}
@@ -318,11 +320,11 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 			// If we do not have the commit sig with timestamp matching the one included in the block
 			// Replace with nil
 			if matchingIndex < 0 {
-				previousCommit.Signatures[index] = nil
+				votesCommit.Signatures[index] = nil
 			} else {
-				previousCommit.Signatures[index][0] = previousCommit.Signatures[index][matchingIndex]
+				votesCommit.Signatures[index][0] = votesCommit.Signatures[index][matchingIndex]
 				// Only keep the vote with timestamp matching the one in the block
-				previousCommit.Signatures[index] = previousCommit.Signatures[index][:1]
+				votesCommit.Signatures[index] = votesCommit.Signatures[index][:1]
 			}
 		}
 

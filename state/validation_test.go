@@ -36,7 +36,7 @@ func TestValidateBlockHeader(t *testing.T) {
 		sm.MockEvidencePool{},
 		blockStore,
 	)
-	lastCommit := types.NewCommit(0, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(0, 0, types.BlockID{}, nil)
 
 	// some bad values
 	wrongHash := tmhash.Sum([]byte("this hash is wrong"))
@@ -109,8 +109,8 @@ func TestValidateBlockCommit(t *testing.T) {
 		sm.MockEvidencePool{},
 		blockStore,
 	)
-	lastCommit := types.NewCommit(0, 0, types.BlockID{}, nil)
-	wrongSigsCommit := types.NewCommit(1, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(0, 0, types.BlockID{}, nil)
+	wrongSigsCommit := types.NewBlockCommit(1, 0, types.BlockID{}, nil)
 	badPrivVal := types.NewMockPV()
 
 	for height := int64(1); height < validationTestsStopHeight; height++ {
@@ -129,11 +129,11 @@ func TestValidateBlockCommit(t *testing.T) {
 				time.Now(),
 			)
 			require.NoError(t, err, "height %d", height)
-			wrongHeightCommit := types.NewCommit(
+			wrongHeightCommit := types.NewBlockCommit(
 				wrongHeightVote.Height,
 				wrongHeightVote.Round,
 				state.LastBlockID,
-				[][]types.CommitSig{{wrongHeightVote.CommitSig()}},
+				[][]types.CommitSigVote{{wrongHeightVote.CommitSig()}},
 			)
 			block, _ := state.MakeBlock(height, makeTxs(height), wrongHeightCommit, nil, proposerAddr)
 			err = blockExec.ValidateBlock(state, block)
@@ -198,8 +198,8 @@ func TestValidateBlockCommit(t *testing.T) {
 		err = badPrivVal.SignVote(types.VotePrefix(chainID, state.Validators.Hash()), badVote)
 		require.NoError(t, err, "height %d", height)
 
-		wrongSigsCommit = types.NewCommit(goodVote.Height, goodVote.Round,
-			blockID, [][]types.CommitSig{{goodVote.CommitSig()}, {badVote.CommitSig()}})
+		wrongSigsCommit = types.NewBlockCommit(goodVote.Height, goodVote.Round,
+			blockID, [][]types.CommitSigVote{{goodVote.CommitSig()}, {badVote.CommitSig()}})
 	}
 }
 
@@ -219,7 +219,7 @@ func TestValidateBlockEvidence(t *testing.T) {
 		sm.MockEvidencePool{},
 		blockStore,
 	)
-	lastCommit := types.NewCommit(0, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(0, 0, types.BlockID{}, nil)
 
 	for height := int64(1); height < validationTestsStopHeight; height++ {
 		proposerAddr := state.Validators.GetProposer().Address

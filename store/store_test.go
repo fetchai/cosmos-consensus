@@ -28,14 +28,14 @@ import (
 type cleanupFunc func()
 
 // make a Commit with a single vote containing just the height and a timestamp
-func makeTestCommit(height int64, timestamp time.Time) *types.Commit {
-	commitSigs := [][]types.CommitSig{{{
+func makeTestCommit(height int64, timestamp time.Time) *types.VotesCommit {
+	commitSigs := [][]types.CommitSigVote{{{
 		BlockIDFlag:      types.BlockIDFlagCommit,
 		ValidatorAddress: []byte("ValidatorAddress"),
 		Timestamp:        timestamp,
 		Signature:        []byte("Signature"),
 	}}}
-	return types.NewCommit(height, 0, types.BlockID{}, commitSigs)
+	return types.NewVotesCommit(height, 0, types.BlockID{}, commitSigs)
 }
 
 func makeTxs(height int64) (txs []types.Tx) {
@@ -45,7 +45,7 @@ func makeTxs(height int64) (txs []types.Tx) {
 	return txs
 }
 
-func makeBlock(height int64, state sm.State, lastCommit *types.Commit) *types.Block {
+func makeBlock(height int64, state sm.State, lastCommit *types.BlockCommit) *types.Block {
 	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, nil, state.Validators.GetProposer().Address)
 	return block
 }
@@ -138,13 +138,13 @@ var (
 	partSet     *types.PartSet
 	part1       *types.Part
 	part2       *types.Part
-	seenCommit1 *types.Commit
+	seenCommit1 *types.VotesCommit
 )
 
 func TestMain(m *testing.M) {
 	var cleanup cleanupFunc
 	state, _, cleanup = makeStateAndBlockStore(log.NewTMLogger(new(bytes.Buffer)))
-	block = makeBlock(1, state, new(types.Commit))
+	block = makeBlock(1, state, new(types.BlockCommit))
 	partSet = block.MakePartSet(2)
 	part1 = partSet.GetPart(0)
 	part2 = partSet.GetPart(1)
@@ -171,7 +171,7 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 	}
 
 	// save a block
-	block := makeBlock(bs.Height()+1, state, new(types.Commit))
+	block := makeBlock(bs.Height()+1, state, new(types.BlockCommit))
 	validPartSet := block.MakePartSet(2)
 	seenCommit := makeTestCommit(10, tmtime.Now())
 	bs.SaveBlock(block, partSet, seenCommit)
@@ -194,7 +194,7 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 	tuples := []struct {
 		block      *types.Block
 		parts      *types.PartSet
-		seenCommit *types.Commit
+		seenCommit *types.VotesCommit
 		wantPanic  string
 		wantErr    bool
 
@@ -235,7 +235,7 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 			parts:             validPartSet,
 			seenCommit:        seenCommit1,
 			corruptCommitInDB: true, // Corrupt the DB's commit entry
-			wantPanic:         "unmarshal to types.Commit failed",
+			wantPanic:         "UnmarshalBinaryBare expected to read prefix bytes 60C49448",
 		},
 
 		{
@@ -261,7 +261,7 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 			seenCommit: seenCommit1,
 
 			corruptSeenCommitInDB: true,
-			wantPanic:             "unmarshal to types.Commit failed",
+			wantPanic:             "unmarshal to types.SeenCommit failed",
 		},
 
 		{
@@ -276,10 +276,10 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 
 	type quad struct {
 		block  *types.Block
-		commit *types.Commit
+		commit *types.BlockCommit
 		meta   *types.BlockMeta
 
-		seenCommit *types.Commit
+		seenCommit types.SeenCommit
 	}
 
 	for i, tuple := range tuples {
@@ -406,7 +406,7 @@ func TestPruneBlocks(t *testing.T) {
 
 	// make more than 1000 blocks, to test batch deletions
 	for h := int64(1); h <= 1500; h++ {
-		block := makeBlock(h, state, new(types.Commit))
+		block := makeBlock(h, state, new(types.BlockCommit))
 		partSet := block.MakePartSet(2)
 		seenCommit := makeTestCommit(h, tmtime.Now())
 		bs.SaveBlock(block, partSet, seenCommit)
@@ -508,7 +508,7 @@ func TestBlockFetchAtHeight(t *testing.T) {
 	state, bs, cleanup := makeStateAndBlockStore(log.NewTMLogger(new(bytes.Buffer)))
 	defer cleanup()
 	require.Equal(t, bs.Height(), int64(0), "initially the height should be zero")
-	block := makeBlock(bs.Height()+1, state, new(types.Commit))
+	block := makeBlock(bs.Height()+1, state, new(types.BlockCommit))
 
 	partSet := block.MakePartSet(2)
 	seenCommit := makeTestCommit(10, tmtime.Now())
@@ -550,9 +550,13 @@ func doFn(fn func() (interface{}, error)) (res interface{}, err error, panicErr 
 	return res, err, panicErr
 }
 
-func newBlock(hdr types.Header, lastCommit *types.Commit) *types.Block {
+func newBlock(hdr types.Header, lastCommit *types.VotesCommit) *types.Block {
+	var blockCommit *types.BlockCommit
+	if lastCommit != nil {
+		blockCommit = types.NewBlockCommit(lastCommit.Height, lastCommit.Round, lastCommit.BlockID, lastCommit.Signatures)
+	}
 	return &types.Block{
 		Header:     hdr,
-		LastCommit: lastCommit,
+		LastCommit: blockCommit,
 	}
 }

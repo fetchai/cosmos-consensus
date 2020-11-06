@@ -7,7 +7,7 @@ import (
 )
 
 func MakeCommit(blockID BlockID, height int64, round int,
-	voteSet *PrecommitSet, validators []PrivValidator, now time.Time) (*Commit, error) {
+	voteSet *PrecommitSet, validators []PrivValidator, now time.Time) (*VotesCommit, error) {
 
 	// all sign
 	for i := 0; i < len(validators); i++ {
@@ -31,7 +31,7 @@ func MakeCommit(blockID BlockID, height int64, round int,
 		}
 	}
 
-	return voteSet.MakeCommit(), nil
+	return voteSet.MakeVotesCommit(), nil
 }
 
 func signAddVote(privVal PrivValidator, vote *Vote, voteSet VoteSet) (signed bool, err error) {
@@ -74,22 +74,7 @@ func MakeVote(
 // MakeBlock returns a new block with an empty header, except what can be
 // computed from itself.
 // It populates the same set of fields validated by ValidateBasic.
-func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
-	// Copy commit and remove timestamp signatures from commit
-	commitPtr := lastCommit
-	if commitPtr != nil {
-		commit := *lastCommit
-		commit.Signatures = make([][]CommitSig, len(lastCommit.Signatures))
-		for index := range lastCommit.Signatures {
-			commit.Signatures[index] = []CommitSig{NewCommitSigAbsent()}
-			if len(lastCommit.Signatures[index]) > 0 {
-				commit.Signatures[index][0] = lastCommit.Signatures[index][0]
-				commit.Signatures[index][0].TimestampSignature = nil
-			}
-		}
-		commitPtr = &commit
-	}
-
+func MakeBlock(height int64, txs []Tx, lastCommit *BlockCommit, evidence []Evidence) *Block {
 	block := &Block{
 		Header: Header{
 			Height:  height,
@@ -99,7 +84,7 @@ func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) 
 			Txs: txs,
 		},
 		Evidence:   EvidenceData{Evidence: evidence},
-		LastCommit: commitPtr,
+		LastCommit: lastCommit,
 	}
 	block.fillHeader()
 	return block

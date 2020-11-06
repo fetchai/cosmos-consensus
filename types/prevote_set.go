@@ -100,7 +100,6 @@ func (voteSet *PrevoteSet) ChainID() string {
 	return voteSet.chainID
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) GetHeight() int64 {
 	if voteSet == nil {
 		return 0
@@ -108,7 +107,6 @@ func (voteSet *PrevoteSet) GetHeight() int64 {
 	return voteSet.height
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) GetRound() int {
 	if voteSet == nil {
 		return -1
@@ -116,7 +114,6 @@ func (voteSet *PrevoteSet) GetRound() int {
 	return voteSet.round
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) Type() byte {
 	if voteSet == nil {
 		return 0x00
@@ -124,7 +121,6 @@ func (voteSet *PrevoteSet) Type() byte {
 	return byte(voteSet.signedMsgType)
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) Size() int {
 	if voteSet == nil {
 		return 0
@@ -349,7 +345,6 @@ func (voteSet *PrevoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	return nil
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) BitArray() *bits.BitArray {
 	if voteSet == nil {
 		return nil
@@ -373,7 +368,6 @@ func (voteSet *PrevoteSet) BitArrayByBlockID(blockID BlockID) *bits.BitArray {
 }
 
 // NOTE: if validator has conflicting votes, returns "canonical" vote
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) GetByIndex(valIndex int) *Vote {
 	if voteSet == nil {
 		return nil
@@ -405,7 +399,6 @@ func (voteSet *PrevoteSet) HasTwoThirdsMajority() bool {
 	return voteSet.maj23 != nil
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrevoteSet) IsCommit() bool {
 	if voteSet == nil {
 		return false
@@ -592,17 +585,4 @@ func (vs *blockVotes) getByIndex(index int) *Vote {
 		return nil
 	}
 	return vs.votes[index]
-}
-
-//--------------------------------------------------------------------------------
-
-// Common interface between *consensus.VoteSet and types.Commit
-type VoteSetReader interface {
-	GetHeight() int64
-	GetRound() int
-	Type() byte
-	Size() int
-	BitArray() *bits.BitArray
-	GetByIndex(int) *Vote
-	IsCommit() bool
 }

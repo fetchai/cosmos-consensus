@@ -31,6 +31,7 @@ type VoteSet interface {
 }
 
 var _ VoteSet = &PrecommitSet{}
+var _ ConsensusLastCommit = &PrecommitSet{}
 
 // PrecommitIdentifier is unique identifier for a precommit in each height and round
 // Used in consensus reactor to record the precommits peers have seen
@@ -319,7 +320,6 @@ func (voteSet *PrecommitSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	return nil
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrecommitSet) BitArray() *bits.BitArray {
 	if voteSet == nil {
 		return nil
@@ -389,7 +389,6 @@ func (voteSet *PrecommitSet) HasTwoThirdsMajority() bool {
 	return voteSet.maj23 != nil
 }
 
-// Implements VoteSetReader.
 func (voteSet *PrecommitSet) IsCommit() bool {
 	if voteSet == nil {
 		return false
@@ -537,41 +536,53 @@ func (voteSet *PrecommitSet) sumTotalFrac() (int64, int64, float64) {
 //--------------------------------------------------------------------------------
 // Commit
 
-// MakeCommit constructs a Commit from the VoteSet. It only includes precommits
+// MakeVotesCommit constructs a VotesCommit from the VoteSet. It only includes precommits
 // for the block, which has 2/3+ majority, and nil.
 //
 // Panics if the vote type is not PrecommitType or if there's no +2/3 votes for
 // a single block.
-func (voteSet *PrecommitSet) MakeCommit() *Commit {
+func (voteSet *PrecommitSet) MakeVotesCommit() *VotesCommit {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 
+	return voteSet.makeVotesCommit()
+}
+
+// MakeBlockCommit returns BlockCommit from set of votes
+func (voteSet *PrecommitSet) MakeBlockCommit() *BlockCommit {
+	voteSet.mtx.Lock()
+	defer voteSet.mtx.Unlock()
+
+	return VotesToBlockCommit(voteSet.makeVotesCommit())
+}
+
+func (voteSet *PrecommitSet) makeVotesCommit() *VotesCommit {
 	// Make sure we have a 2/3 majority
 	if voteSet.maj23 == nil {
 		panic("Cannot MakeCommit() unless a blockhash has +2/3")
 	}
 
 	// For every validator, get the precommit
-	commitSigs := make([][]CommitSig, voteSet.valSet.Size())
+	commitSigs := make([][]CommitSigVote, voteSet.valSet.Size())
 	for i, votes := range voteSet.votes {
 		if len(votes) == 0 {
-			commitSigs[i] = []CommitSig{NewCommitSigAbsent()}
+			commitSigs[i] = []CommitSigVote{NewCommitSigVoteAbsent()}
 			continue
 		}
-		commitSigs[i] = make([]CommitSig, len(votes))
+		commitSigs[i] = make([]CommitSigVote, len(votes))
 		j := 0
 		for _, v := range votes {
 			commitSig := v.CommitSig()
 			// if block ID exists but doesn't match, exclude sig
 			if commitSig.ForBlock() && !v.BlockID.Equals(*voteSet.maj23) {
-				commitSig = NewCommitSigAbsent()
+				commitSig = NewCommitSigVoteAbsent()
 			}
 			commitSigs[i][j] = commitSig
 			j++
 		}
 	}
 
-	return NewCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
+	return NewVotesCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
 }
 
 //--------------------------------------------------------------------------------

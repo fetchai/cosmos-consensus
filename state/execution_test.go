@@ -72,29 +72,31 @@ func TestBeginBlockValidators(t *testing.T) {
 
 	var (
 		now        = tmtime.Now()
-		commitSig0 = types.NewCommitSigForBlock(
+		commitSig0 = types.NewCommitSigVoteForBlock(
 			[]byte("Signature1"),
 			state.Validators.Validators[0].Address,
-			now)
-		commitSig1 = types.NewCommitSigForBlock(
+			now,
+			[]byte("TimestampSignature1"))
+		commitSig1 = types.NewCommitSigVoteForBlock(
 			[]byte("Signature2"),
 			state.Validators.Validators[1].Address,
-			now)
-		absentSig = types.NewCommitSigAbsent()
+			now,
+			[]byte("TimestampSignature2"))
+		absentSig = types.NewCommitSigVoteAbsent()
 	)
 
 	testCases := []struct {
 		desc                     string
-		lastCommitSigs           [][]types.CommitSig
+		lastCommitSigs           [][]types.CommitSigVote
 		expectedAbsentValidators []int
 	}{
-		{"none absent", [][]types.CommitSig{{commitSig0}, {commitSig1}}, []int{}},
-		{"one absent", [][]types.CommitSig{{commitSig0}, {absentSig}}, []int{1}},
-		{"multiple absent", [][]types.CommitSig{{absentSig}, {absentSig}}, []int{0, 1}},
+		{"none absent", [][]types.CommitSigVote{{commitSig0}, {commitSig1}}, []int{}},
+		{"one absent", [][]types.CommitSigVote{{commitSig0}, {absentSig}}, []int{1}},
+		{"multiple absent", [][]types.CommitSigVote{{absentSig}, {absentSig}}, []int{0, 1}},
 	}
 
 	for _, tc := range testCases {
-		lastCommit := types.NewCommit(1, 0, prevBlockID, tc.lastCommitSigs)
+		lastCommit := types.NewBlockCommit(1, 0, prevBlockID, tc.lastCommitSigs)
 
 		// block for height 2
 		block, _ := state.MakeBlock(2, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address)
@@ -152,17 +154,19 @@ func TestBeginBlockByzantineValidators(t *testing.T) {
 	}
 
 	var (
-		commitSig0 = types.NewCommitSigForBlock(
+		commitSig0 = types.NewCommitSigVoteForBlock(
 			[]byte("Signature1"),
 			state.Validators.Validators[0].Address,
-			now)
-		commitSig1 = types.NewCommitSigForBlock(
+			now,
+			[]byte("TimestampSignature1"))
+		commitSig1 = types.NewCommitSigVoteForBlock(
 			[]byte("Signature2"),
 			state.Validators.Validators[1].Address,
-			now)
+			now,
+			[]byte("TimestampSignature2"))
 	)
-	commitSigs := [][]types.CommitSig{{commitSig0}, {commitSig1}}
-	lastCommit := types.NewCommit(9, 0, prevBlockID, commitSigs)
+	commitSigs := [][]types.CommitSigVote{{commitSig0}, {commitSig1}}
+	lastCommit := types.NewBlockCommit(9, 0, prevBlockID, commitSigs)
 	for _, tc := range testCases {
 
 		block, _ := state.MakeBlock(10, makeTxs(2), lastCommit, nil, state.Validators.GetProposer().Address)

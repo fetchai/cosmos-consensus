@@ -120,7 +120,7 @@ func (m *bcStatusResponseMessage) String() string {
 
 type blockStore interface {
 	LoadBlock(height int64) *types.Block
-	SaveBlock(*types.Block, *types.PartSet, *types.Commit)
+	SaveBlock(*types.Block, *types.PartSet, types.SeenCommit)
 	Base() int64
 	Height() int64
 }
@@ -146,7 +146,7 @@ type BlockchainReactor struct {
 
 //nolint:unused,deadcode
 type blockVerifier interface {
-	VerifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.Commit) error
+	VerifyCommit(chainID string, blockID types.BlockID, height int64, commit *types.BlockCommit) error
 }
 
 //nolint:deadcode

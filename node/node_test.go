@@ -347,7 +347,7 @@ func TestCreateProposalBlock(t *testing.T) {
 		blockStore,
 	)
 
-	commit := types.NewCommit(height-1, 0, types.BlockID{}, nil)
+	commit := types.NewBlockCommit(height-1, 0, types.BlockID{}, nil)
 	block, _ := blockExec.CreateProposalBlock(
 		height,
 		state, commit,

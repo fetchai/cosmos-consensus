@@ -824,9 +824,9 @@ OUTER_LOOP:
 				if commit := conR.conS.LoadCommit(prs.Height); commit != nil {
 					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
 						Height:  prs.Height,
-						Round:   commit.Round,
+						Round:   commit.GetRound(),
 						Type:    types.PrecommitType,
-						BlockID: commit.BlockID,
+						BlockID: commit.GetBlockID(),
 					}))
 					time.Sleep(conR.conS.config.PeerQueryMaj23SleepDuration)
 				}
@@ -1049,7 +1049,7 @@ func (ps *PeerState) SetHasProposalBlockPart(height int64, round int, index int)
 
 // PickSendPrevote picks a prevote and sends it to the peer.
 // Returns true if vote was sent.
-func (ps *PeerState) PickSendPrevote(votes types.VoteSetReader) bool {
+func (ps *PeerState) PickSendPrevote(votes *types.PrevoteSet) bool {
 	if vote, ok := ps.PickPrevoteToSend(votes); ok {
 		msg := &VoteMessage{vote}
 		ps.logger.Debug("Sending vote message", "ps", ps, "vote", vote)
@@ -1065,7 +1065,7 @@ func (ps *PeerState) PickSendPrevote(votes types.VoteSetReader) bool {
 // PickPrevoteToSend picks a prevote to send to the peer.
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
-func (ps *PeerState) PickPrevoteToSend(votes types.VoteSetReader) (vote *types.Vote, ok bool) {
+func (ps *PeerState) PickPrevoteToSend(votes *types.PrevoteSet) (vote *types.Vote, ok bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -1115,7 +1115,7 @@ func (ps *PeerState) getPrevoteBitArray(height int64, round int) *bits.BitArray 
 
 // PickSendPrecommit picks a precommit vote and sends it to the peer.
 // Returns true if vote was sent.
-func (ps *PeerState) PickSendPrecommit(votes *types.PrecommitSet) bool {
+func (ps *PeerState) PickSendPrecommit(votes types.ConsensusLastCommit) bool {
 	if vote, ok := ps.PickPrecommitToSend(votes); ok {
 		msg := &VoteMessage{vote}
 		ps.logger.Debug("Sending vote message", "ps", ps, "vote", vote)
@@ -1131,7 +1131,7 @@ func (ps *PeerState) PickSendPrecommit(votes *types.PrecommitSet) bool {
 // PickVotePickPrecommitToSendToSend picks a precommit to send to the peer.
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
-func (ps *PeerState) PickPrecommitToSend(votes *types.PrecommitSet) (vote *types.Vote, ok bool) {
+func (ps *PeerState) PickPrecommitToSend(votes types.ConsensusLastCommit) (vote *types.Vote, ok bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 

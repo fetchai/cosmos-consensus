@@ -124,8 +124,8 @@ func (mockBlockStore) LoadBlockMeta(height int64) *types.BlockMeta       { retur
 func (mockBlockStore) LoadBlock(height int64) *types.Block               { return nil }
 func (mockBlockStore) LoadBlockByHash(hash []byte) *types.Block          { return nil }
 func (mockBlockStore) LoadBlockPart(height int64, index int) *types.Part { return nil }
-func (mockBlockStore) LoadBlockCommit(height int64) *types.Commit        { return nil }
-func (mockBlockStore) LoadSeenCommit(height int64) *types.Commit         { return nil }
+func (mockBlockStore) LoadBlockCommit(height int64) *types.BlockCommit   { return nil }
+func (mockBlockStore) LoadSeenCommit(height int64) types.SeenCommit      { return nil }
 func (mockBlockStore) PruneBlocks(height int64) (uint64, error)          { return 0, nil }
-func (mockBlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, seenCommit *types.Commit) {
+func (mockBlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, seenCommit types.SeenCommit) {
 }

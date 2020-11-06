@@ -549,7 +549,7 @@ func TestMakeCommit(t *testing.T) {
 	}
 
 	// MakeCommit should fail.
-	assert.Panics(t, func() { voteSet.MakeCommit() }, "Doesn't have +2/3 majority")
+	assert.Panics(t, func() { voteSet.MakeVotesCommit() }, "Doesn't have +2/3 majority")
 
 	// 7th voted for some other block.
 	{
@@ -592,7 +592,7 @@ func TestMakeCommit(t *testing.T) {
 		}
 	}
 
-	commit := voteSet.MakeCommit()
+	commit := voteSet.MakeVotesCommit()
 
 	// Commit should have 10 elements
 	if len(commit.Signatures) != 10 {

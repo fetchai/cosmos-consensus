@@ -633,7 +633,7 @@ func (vals *ValidatorSet) UpdateWithChangeSet(changes []*Validator) error {
 // It checks the combined signature, which takes into account all
 // validator signatures for the block
 func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
-	height int64, commit *Commit) error {
+	height int64, commit *BlockCommit) error {
 
 	if vals.Size() != len(commit.Signatures) {
 		return NewErrInvalidCommitSignatures(vals.Size(), len(commit.Signatures))
@@ -646,13 +646,8 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 	votingPowerNeeded := vals.TotalVotingPower() * 2 / 3
 	pubKeys := mcl_cpp.NewStringVector()
 	defer mcl_cpp.DeleteStringVector(pubKeys)
-	valHash := vals.Hash()
-	var voteBytes []byte
-	for idx, commitSigs := range commit.Signatures {
-		if len(commitSigs) != 1 {
-			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
-		}
-		if commitSigs[0].Absent() {
+	for idx, commitSig := range commit.Signatures {
+		if commitSig.Absent() {
 			continue // OK, some signatures can be absent.
 		}
 
@@ -660,16 +655,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		// This means we don't need the validator address or to do any lookup.
 		val := vals.Validators[idx]
 
-		if commitSigs[0].ForBlock() {
-			// Check that the information signed is consistent with other votes as all signatures for the same block
-			// should have signed the same message
-			voteSignBytes := commit.VoteSignBytes(VotePrefix(chainID, valHash), idx)
-			if voteBytes == nil {
-				voteBytes = voteSignBytes
-			} else if !bytes.Equal(voteSignBytes, voteBytes) {
-				panic(fmt.Sprintf("conflicting signed vote bytes for block %v valIndex %v", height, idx))
-			}
-
+		if commitSig.ForBlock() {
 			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
 			if !ok {
 				panic(fmt.Sprintf("incorrect key type for combined signatures"))
@@ -687,6 +673,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		return ErrNotEnoughVotingPowerSigned{Got: got, Needed: needed}
 	}
 
+	voteBytes := commit.VoteSignBytes(VotePrefix(chainID, vals.Hash()))
 	if !mcl_cpp.PairingVerifyCombinedSig(string(voteBytes), commit.CombinedSignature, pubKeys) {
 		return fmt.Errorf("invalid combined signature")
 	}
@@ -728,7 +715,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 // current height isn't part of the ValidatorSet.  Caller must check that the
 // commit height is greater than the height for this validator set.
 func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID string,
-	blockID BlockID, height int64, commit *Commit) error {
+	blockID BlockID, height int64, commit *BlockCommit) error {
 	oldVals := vals
 
 	// Commit must be a valid commit for newSet.
@@ -741,11 +728,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 	oldVotingPower := int64(0)
 	seen := map[int]bool{}
 
-	for idx, commitSigs := range commit.Signatures {
-		if len(commitSigs) != 1 {
-			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
-		}
-		commitSig := commitSigs[0]
+	for _, commitSig := range commit.Signatures {
 		if commitSig.Absent() {
 			continue // OK, some signatures can be absent.
 		}
@@ -789,7 +772,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 // consisting of the chain ID concatenated with the commit validator set hash must be
 // passed into this function
 func (vals *ValidatorSet) VerifyValidatorSetTrust(blockID BlockID,
-	height int64, commit *Commit, trustLevel tmmath.Fraction) error {
+	height int64, commit *BlockCommit, trustLevel tmmath.Fraction) error {
 
 	// sanity check
 	if trustLevel.Numerator*3 < trustLevel.Denominator || // < 1/3
@@ -813,11 +796,7 @@ func (vals *ValidatorSet) VerifyValidatorSetTrust(blockID BlockID,
 	}
 	votingPowerNeeded := totalVotingPowerMulByNumerator / trustLevel.Denominator
 
-	for idx, commitSigs := range commit.Signatures {
-		if len(commitSigs) != 1 {
-			return NewErrInvalidCommitSigLength(idx, len(commitSigs))
-		}
-		commitSig := commitSigs[0]
+	for idx, commitSig := range commit.Signatures {
 		// No need to verify absent or nil votes.
 		if !commitSig.ForBlock() {
 			continue
@@ -846,7 +825,7 @@ func (vals *ValidatorSet) VerifyValidatorSetTrust(blockID BlockID,
 	return ErrNotEnoughVotingPowerSigned{Got: talliedVotingPower, Needed: votingPowerNeeded}
 }
 
-func verifyCommitBasic(commit *Commit, height int64, blockID BlockID) error {
+func verifyCommitBasic(commit *BlockCommit, height int64, blockID BlockID) error {
 	if err := commit.ValidateBasic(); err != nil {
 		return err
 	}

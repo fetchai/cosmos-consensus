@@ -121,8 +121,6 @@ message CommitSig {
   bytes                     validator_address = 2;
   google.protobuf.Timestamp timestamp         = 3
       [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
-  bytes signature = 4;
-  bytes timestamp_signature = 5;
 }
 
 message Proposal {
