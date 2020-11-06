@@ -647,7 +647,7 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 	pubKeys := mcl_cpp.NewStringVector()
 	defer mcl_cpp.DeleteStringVector(pubKeys)
 	for idx, commitSig := range commit.Signatures {
-		if commitSig.Absent() {
+		if !commitSig.ForBlock() {
 			continue // OK, some signatures can be absent.
 		}
 
@@ -655,18 +655,12 @@ func (vals *ValidatorSet) VerifyCommit(chainID string, blockID BlockID,
 		// This means we don't need the validator address or to do any lookup.
 		val := vals.Validators[idx]
 
-		if commitSig.ForBlock() {
-			blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
-			if !ok {
-				panic(fmt.Sprintf("incorrect key type for combined signatures"))
-			}
-			pubKeys.Add(blsKey.RawString())
-			talliedVotingPower += val.VotingPower
+		blsKey, ok := val.PubKey.(bls12_381.PubKeyBls)
+		if !ok {
+			return fmt.Errorf("incorrect key type for combined signatures %T", val.PubKey)
 		}
-		// else {
-		// It's OK that the BlockID doesn't match.  We include stray
-		// signatures (~votes for nil) to measure validator availability.
-		// }
+		pubKeys.Add(blsKey.RawString())
+		talliedVotingPower += val.VotingPower
 	}
 
 	if got, needed := talliedVotingPower, votingPowerNeeded; got <= needed {
@@ -741,7 +735,7 @@ func (vals *ValidatorSet) VerifyFutureCommit(newSet *ValidatorSet, chainID strin
 		seen[oldIdx] = true
 
 		// Good!
-		if blockID.Equals(commitSig.BlockID(commit.BlockID)) {
+		if commitSig.ForBlock() {
 			oldVotingPower += val.VotingPower
 		}
 		// else {
