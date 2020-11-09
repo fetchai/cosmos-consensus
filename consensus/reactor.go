@@ -665,7 +665,8 @@ OUTER_LOOP:
 			commit := conR.conS.blockStore.LoadSeenCommit(prs.Height)
 			votes, err := types.CommitToVoteSet(conR.conS.GetState().ChainID, commit, conR.conS.Validators)
 			if err != nil {
-				logger.Error("CommitToVoteSet failed", "height", prs.Height, "err", err)
+				// Can fail if LoadSeenCommit returns a BlockCommit rather than VotesCommit
+				logger.Debug("CommitToVoteSet failed", "height", prs.Height, "err", err)
 				continue OUTER_LOOP
 			}
 			if ps.PickSendPrecommit(votes) {

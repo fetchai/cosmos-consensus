@@ -409,7 +409,7 @@ func newVotesCommit(height int64, round int, blockID BlockID, commitSigs [][]Com
 func CommitToVoteSet(chainID string, seenCommit SeenCommit, vals *ValidatorSet) (*PrecommitSet, error) {
 	commit, ok := seenCommit.(*VotesCommit)
 	if !ok {
-		return nil, fmt.Errorf("seenCommit of incorrect type: Expected VotesCommit, got %T", seenCommit)
+		return nil, fmt.Errorf("seenCommit of incorrect type: Require VotesCommit, got %T", seenCommit)
 	}
 	voteSet := NewPrecommitSet(chainID, commit.Height, commit.Round, vals)
 	var err error
