@@ -86,7 +86,7 @@ func newBlockchainReactor(
 	sm.SaveState(db, state)
 
 	// let's add some blocks in
-	lastCommit := types.NewCommit(0, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(0, 0, types.BlockID{}, nil)
 	for blockHeight := int64(1); blockHeight <= maxBlockHeight; blockHeight++ {
 		thisBlock := makeBlock(blockHeight, state, lastCommit)
 
@@ -109,7 +109,7 @@ func newBlockchainReactor(
 		if err != nil {
 			panic(err)
 		}
-		lastCommit = types.NewCommit(vote.Height, vote.Round, blockID, [][]types.CommitSig{{vote.CommitSig()}})
+		lastCommit = types.NewBlockCommit(vote.Height, vote.Round, blockID, [][]types.CommitSigVote{{vote.CommitSig()}})
 		blockStore.SaveBlock(thisBlock, thisParts, lastCommit)
 	}
 
@@ -342,7 +342,7 @@ func makeTxs(height int64) (txs []types.Tx) {
 	return txs
 }
 
-func makeBlock(height int64, state sm.State, lastCommit *types.Commit) *types.Block {
+func makeBlock(height int64, state sm.State, lastCommit *types.BlockCommit) *types.Block {
 	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, nil, state.Validators.GetProposer().Address)
 	return block
 }

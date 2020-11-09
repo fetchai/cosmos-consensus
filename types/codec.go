@@ -15,6 +15,7 @@ func init() {
 func RegisterBlockAmino(cdc *amino.Codec) {
 	cryptoamino.RegisterAmino(cdc)
 	RegisterEvidences(cdc)
+	RegisterCommits(cdc)
 }
 
 // GetCodec returns a codec used by the package. For testing purposes only.

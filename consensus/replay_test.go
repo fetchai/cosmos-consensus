@@ -290,7 +290,7 @@ type testSim struct {
 	GenesisState sm.State
 	Config       *cfg.Config
 	Chain        []*types.Block
-	Commits      []*types.Commit
+	Commits      []types.SeenCommit
 	CleanupFunc  cleanupFunc
 }
 
@@ -516,10 +516,10 @@ func TestSimulateValidatorsChange(t *testing.T) {
 	ensureNewRound(newRoundCh, height+1, 0)
 
 	sim.Chain = make([]*types.Block, 0)
-	sim.Commits = make([]*types.Commit, 0)
+	sim.Commits = make([]types.SeenCommit, 0)
 	for i := 1; i <= numBlocks; i++ {
 		sim.Chain = append(sim.Chain, css[0].blockStore.LoadBlock(int64(i)))
-		sim.Commits = append(sim.Commits, css[0].blockStore.LoadBlockCommit(int64(i)))
+		sim.Commits = append(sim.Commits, css[0].blockStore.LoadSeenCommit(int64(i)))
 	}
 }
 
@@ -632,7 +632,7 @@ func tempWALWithData(data []byte) string {
 // Then restart the app and sync it up with the remaining blocks
 func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uint, testValidatorsChange bool) {
 	var chain []*types.Block
-	var commits []*types.Commit
+	var commits []types.SeenCommit
 	var store *mockBlockStore
 	var stateDB dbm.DB
 	var genisisState sm.State
@@ -643,6 +643,7 @@ func testHandshakeReplay(t *testing.T, config *cfg.Config, nBlocks int, mode uin
 		genisisState = sim.GenesisState
 		config = sim.Config
 		chain = append([]*types.Block{}, sim.Chain...) // copy chain
+
 		commits = sim.Commits
 		store = newMockBlockStore(config, genisisState.ConsensusParams)
 	} else { //test single node
@@ -929,7 +930,7 @@ func makeBlocks(n int, state *sm.State, privVal types.PrivValidator) []*types.Bl
 func makeBlock(state sm.State, lastBlock *types.Block, lastBlockMeta *types.BlockMeta,
 	privVal types.PrivValidator, height int64) (*types.Block, *types.PartSet) {
 
-	lastCommit := types.NewCommit(height-1, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(height-1, 0, types.BlockID{}, nil)
 	if height > 1 {
 		vote, _ := types.MakeVote(
 			lastBlock.Header.Height,
@@ -938,8 +939,8 @@ func makeBlock(state sm.State, lastBlock *types.Block, lastBlockMeta *types.Bloc
 			privVal,
 			lastBlock.Header.ChainID,
 			time.Now())
-		lastCommit = types.NewCommit(vote.Height, vote.Round,
-			lastBlockMeta.BlockID, [][]types.CommitSig{{vote.CommitSig()}})
+		lastCommit = types.NewBlockCommit(vote.Height, vote.Round,
+			lastBlockMeta.BlockID, [][]types.CommitSigVote{{vote.CommitSig()}})
 	}
 
 	return state.MakeBlock(height, []types.Tx{}, lastCommit, nil, state.Validators.GetProposer().Address)
@@ -970,7 +971,7 @@ func (app *badApp) Commit() abci.ResponseCommit {
 //--------------------------
 // utils for making blocks
 
-func makeBlockchainFromWAL(wal WAL) ([]*types.Block, []*types.Commit, error) {
+func makeBlockchainFromWAL(wal WAL) ([]*types.Block, []types.SeenCommit, error) {
 	var height int64
 
 	// Search for height marker
@@ -987,9 +988,9 @@ func makeBlockchainFromWAL(wal WAL) ([]*types.Block, []*types.Commit, error) {
 
 	var (
 		blocks          []*types.Block
-		commits         []*types.Commit
+		commits         []types.SeenCommit
 		thisBlockParts  *types.PartSet
-		thisBlockCommit *types.Commit
+		thisBlockCommit *types.BlockCommit
 	)
 
 	dec := NewWALDecoder(gr)
@@ -1035,8 +1036,8 @@ func makeBlockchainFromWAL(wal WAL) ([]*types.Block, []*types.Commit, error) {
 			}
 		case *types.Vote:
 			if p.Type == types.PrecommitType {
-				thisBlockCommit = types.NewCommit(p.Height, p.Round,
-					p.BlockID, [][]types.CommitSig{{p.CommitSig()}})
+				thisBlockCommit = types.NewBlockCommit(p.Height, p.Round,
+					p.BlockID, [][]types.CommitSigVote{{p.CommitSig()}})
 			}
 		}
 	}
@@ -1097,7 +1098,7 @@ type mockBlockStore struct {
 	config  *cfg.Config
 	params  types.ConsensusParams
 	chain   []*types.Block
-	commits []*types.Commit
+	commits []types.SeenCommit
 	base    int64
 }
 
@@ -1121,12 +1122,20 @@ func (bs *mockBlockStore) LoadBlockMeta(height int64) *types.BlockMeta {
 	}
 }
 func (bs *mockBlockStore) LoadBlockPart(height int64, index int) *types.Part { return nil }
-func (bs *mockBlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, seenCommit *types.Commit) {
+func (bs *mockBlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, seenCommit types.SeenCommit) {
 }
-func (bs *mockBlockStore) LoadBlockCommit(height int64) *types.Commit {
-	return bs.commits[height-1]
+func (bs *mockBlockStore) LoadBlockCommit(height int64) *types.BlockCommit {
+	seenCommit := bs.commits[height-1]
+	switch commit := seenCommit.(type) {
+	case *types.BlockCommit:
+		return commit
+	case *types.VotesCommit:
+		return types.VotesToBlockCommit(commit)
+	default:
+		return nil
+	}
 }
-func (bs *mockBlockStore) LoadSeenCommit(height int64) *types.Commit {
+func (bs *mockBlockStore) LoadSeenCommit(height int64) types.SeenCommit {
 	return bs.commits[height-1]
 }
 

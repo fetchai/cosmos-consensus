@@ -139,7 +139,7 @@ func (state State) IsEmpty() bool {
 func (state State) MakeBlock(
 	height int64,
 	txs []types.Tx,
-	commit *types.Commit,
+	commit *types.BlockCommit,
 	evidence []types.Evidence,
 	proposerAddress []byte,
 ) (*types.Block, *types.PartSet) {
@@ -171,12 +171,11 @@ func (state State) MakeBlock(
 // corresponding validator set. The computed time is always between timestamps of
 // the votes sent by honest processes, i.e., a faulty processes can not arbitrarily increase or decrease the
 // computed value.
-func MedianTime(commit *types.Commit, validators *types.ValidatorSet) time.Time {
+func MedianTime(commit *types.BlockCommit, validators *types.ValidatorSet) time.Time {
 	weightedTimes := make([]*tmtime.WeightedTime, len(commit.Signatures))
 	totalVotingPower := int64(0)
 
-	for i, commitSigs := range commit.Signatures {
-		commitSig := commitSigs[0]
+	for i, commitSig := range commit.Signatures {
 		if commitSig.Absent() {
 			continue
 		}

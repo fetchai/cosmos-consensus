@@ -1528,12 +1528,11 @@ func TestStartNextHeightCorrectly(t *testing.T) {
 	// add precommits
 	signAddVotes(cs1, types.PrecommitType, nil, types.PartSetHeader{}, vs2)
 	signAddVotes(cs1, types.PrecommitType, theBlockHash, theBlockParts, vs3)
-	time.Sleep(5 * time.Millisecond)
+	assert.Eventually(t, func() bool {
+		rs = cs1.GetRoundState()
+		return rs.TriggeredTimeoutPrecommit
+	}, 20*time.Millisecond, 1*time.Millisecond)
 	signAddVotes(cs1, types.PrecommitType, theBlockHash, theBlockParts, vs4)
-
-	rs = cs1.GetRoundState()
-	assert.True(t, rs.TriggeredTimeoutPrecommit)
-
 	ensureNewBlockHeader(newBlockHeader, height, theBlockHash)
 
 	cs1.txNotifier.(*fakeTxNotifier).Notify()
@@ -1912,11 +1911,8 @@ func TestStatePrevoteVerifyBlockTimestamps(t *testing.T) {
 		expectedPrevote bool
 	}{
 		{"No modification", func(*types.Block) {}, true},
-		{"Too many commit sigs in block", func(block *types.Block) {
-			block.LastCommit.Signatures[0] = append(block.LastCommit.Signatures[0], types.CommitSig{})
-		}, false},
 		{"Unknown commit timestamp", func(block *types.Block) {
-			block.LastCommit.Signatures[0][0].Timestamp = tmtime.Now()
+			block.LastCommit.Signatures[0].Timestamp = tmtime.Now()
 		}, false},
 	}
 

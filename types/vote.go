@@ -63,9 +63,9 @@ type Vote struct {
 }
 
 // CommitSig converts the Vote to a CommitSig.
-func (vote *Vote) CommitSig() CommitSig {
+func (vote *Vote) CommitSig() CommitSigVote {
 	if vote == nil {
-		return NewCommitSigAbsent()
+		return NewCommitSigVoteAbsent()
 	}
 
 	var blockIDFlag BlockIDFlag
@@ -78,7 +78,7 @@ func (vote *Vote) CommitSig() CommitSig {
 		panic(fmt.Sprintf("Invalid vote %v - expected BlockID to be either empty or complete", vote))
 	}
 
-	return CommitSig{
+	return CommitSigVote{
 		BlockIDFlag:        blockIDFlag,
 		ValidatorAddress:   vote.ValidatorAddress,
 		Timestamp:          vote.Timestamp,

@@ -69,7 +69,7 @@ func (ml *mockBlockStore) LoadBlock(height int64) *types.Block {
 	return ml.blocks[height]
 }
 
-func (ml *mockBlockStore) SaveBlock(block *types.Block, part *types.PartSet, commit *types.Commit) {
+func (ml *mockBlockStore) SaveBlock(block *types.Block, part *types.PartSet, commit types.SeenCommit) {
 	ml.blocks[block.Height] = block
 }
 
@@ -437,7 +437,7 @@ func makeTxs(height int64) (txs []types.Tx) {
 	return txs
 }
 
-func makeBlock(height int64, state sm.State, lastCommit *types.Commit) *types.Block {
+func makeBlock(height int64, state sm.State, lastCommit *types.BlockCommit) *types.Block {
 	block, _ := state.MakeBlock(height, makeTxs(height), lastCommit, nil, state.Validators.GetProposer().Address)
 	return block
 }
@@ -498,7 +498,7 @@ func newReactorStore(
 	sm.SaveState(db, state)
 
 	// add blocks in
-	lastCommit := types.NewCommit(0, 0, types.BlockID{}, nil)
+	lastCommit := types.NewBlockCommit(0, 0, types.BlockID{}, nil)
 	for blockHeight := int64(1); blockHeight <= maxBlockHeight; blockHeight++ {
 		thisBlock := makeBlock(blockHeight, state, lastCommit)
 
@@ -521,7 +521,7 @@ func newReactorStore(
 		if err != nil {
 			panic(err)
 		}
-		lastCommit = types.NewCommit(vote.Height, vote.Round, blockID, [][]types.CommitSig{{vote.CommitSig()}})
+		lastCommit = types.NewBlockCommit(vote.Height, vote.Round, blockID, [][]types.CommitSigVote{{vote.CommitSig()}})
 
 		blockStore.SaveBlock(thisBlock, thisParts, lastCommit)
 	}

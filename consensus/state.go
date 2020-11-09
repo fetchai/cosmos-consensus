@@ -305,7 +305,7 @@ func (cs *State) SetTimeoutTicker(timeoutTicker TimeoutTicker) {
 }
 
 // LoadCommit loads the commit for a given height.
-func (cs *State) LoadCommit(height int64) *types.Commit {
+func (cs *State) LoadCommit(height int64) types.SeenCommit {
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
 	if height == cs.blockStore.Height() {
@@ -527,16 +527,27 @@ func (cs *State) reconstructLastCommit(state sm.State) {
 	if state.LastBlockHeight == 0 {
 		return
 	}
+	// LoadSeenCommit either returns a VotesCommit, if we were running consensus for the last block,
+	// or BlockCommit, if we obtained the last block from syncing. Either way, it should not be
+	// nil
 	seenCommit := cs.blockStore.LoadSeenCommit(state.LastBlockHeight)
 	if seenCommit == nil {
 		panic(fmt.Sprintf("Failed to reconstruct LastCommit: seen commit for height %v not found",
 			state.LastBlockHeight))
 	}
-	lastPrecommits, _ := types.CommitToVoteSet(state.ChainID, seenCommit, state.LastValidators)
-	if !lastPrecommits.HasTwoThirdsMajority() {
-		panic("Failed to reconstruct LastCommit: Does not have +2/3 maj")
+	switch commit := seenCommit.(type) {
+	case *types.VotesCommit:
+		lastPrecommits, _ := types.CommitToVoteSet(state.ChainID, commit, state.LastValidators)
+		if !lastPrecommits.HasTwoThirdsMajority() {
+			panic("Failed to reconstruct LastCommit: Does not have +2/3 maj")
+		}
+		cs.LastCommit = lastPrecommits
+	case *types.BlockCommit:
+		cs.LastCommit = commit
+	default:
+		panic(fmt.Sprintf("Reconstruct LastCommit obtained invalid LastCommit type %T", commit))
 	}
-	cs.LastCommit = lastPrecommits
+
 }
 
 // Updates State and increments height to match that of state.
@@ -1330,15 +1341,15 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 	timer := tmtimer.NewFunctionTimer(50, "createProposalBlock", cs.Logger)
 	defer timer.Finish()
 
-	var commit *types.Commit
+	var commit *types.BlockCommit
 	switch {
 	case cs.Height == 1:
 		// We're creating a proposal for the first block.
 		// The commit is empty, but not nil.
-		commit = types.NewCommit(0, 0, types.BlockID{}, nil)
+		commit = types.NewBlockCommit(0, 0, types.BlockID{}, nil)
 	case cs.LastCommit.HasTwoThirdsMajority():
 		// Make the commit from LastCommit
-		commit = cs.LastCommit.MakeCommit()
+		commit = cs.LastCommit.MakeBlockCommit()
 	default: // This shouldn't happen.
 		cs.Logger.Error("enterPropose: Cannot propose anything: No commit for the previous block")
 		return
@@ -1437,13 +1448,7 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 
 	// Validate timestamps in block match those we have seen. If we have not seen it then vote
 	// for nil
-	for index, commitSigs := range cs.ProposalBlock.LastCommit.Signatures {
-		if len(commitSigs) != 1 {
-			logger.Error("enterPrevote: timestamp verification", "err", types.NewErrInvalidCommitSigLength(index, len(commitSigs)))
-			cs.signAddVote(types.PrevoteType, nil, types.PartSetHeader{})
-			return false
-		}
-		commitSig := commitSigs[0]
+	for index, commitSig := range cs.ProposalBlock.LastCommit.Signatures {
 		if commitSig.Absent() {
 			continue
 		}
@@ -1451,6 +1456,19 @@ func (cs *State) defaultDoPrevote(height int64, round int) bool {
 		matchedTimestamp := false
 		for _, timestamp := range timestamps {
 			if timestamp.Equal(commitSig.Timestamp) {
+				vote := cs.LastCommit.GetByIndex(index, timestamp)
+				if vote == nil {
+					logger.Error(fmt.Sprintf("enterPrevote: missing vote for validator index %v timestamp %s", index, types.CanonicalTime(timestamp)))
+					break
+				}
+				// Check that the commit sig added into the block corresponds to the vote message
+				// seen locally (this is important for checking nil votes in block, which are not captured
+				// by the combined signature)
+				checkCommit := vote.CommitSig()
+				if checkCommit.BlockIDFlag != commitSig.BlockIDFlag || !bytes.Equal(checkCommit.ValidatorAddress, commitSig.ValidatorAddress) {
+					logger.Error(fmt.Sprintf("enterPrevote: local vote for validator index %v does not match vote in block", index))
+					break
+				}
 				matchedTimestamp = true
 				break
 			}
@@ -1784,7 +1802,7 @@ func (cs *State) finalizeCommit(height int64) {
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(cs.CommitRound)
-		seenCommit := precommits.MakeCommit()
+		seenCommit := precommits.MakeVotesCommit()
 		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
@@ -1912,7 +1930,7 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 		}
 
 		for i, val := range cs.LastValidators.Validators {
-			commitSig := block.LastCommit.Signatures[i][0]
+			commitSig := block.LastCommit.Signatures[i]
 			if commitSig.Absent() {
 				missingValidators++
 				missingValidatorsPower += val.VotingPower

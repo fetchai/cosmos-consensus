@@ -3,7 +3,7 @@ package types
 import (
 	// it is ok to use math/rand here: we do not need a cryptographically secure random
 	// number generator here and we can run the tests a bit faster
-	"bytes"
+
 	"crypto/rand"
 	"encoding/hex"
 	"math"
@@ -18,10 +18,8 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	"github.com/tendermint/tendermint/libs/bits"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
-	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
 )
 
@@ -44,7 +42,7 @@ func TestBlockAddEvidence(t *testing.T) {
 	ev := NewMockEvidence(h, time.Now(), 0, valSet.Validators[0].Address)
 	evList := []Evidence{ev}
 
-	block := MakeBlock(h, txs, commit, evList)
+	block := MakeBlock(h, txs, VotesToBlockCommit(commit), evList)
 	require.NotNil(t, block)
 	require.Equal(t, 1, len(block.Evidence.Evidence))
 	require.NotNil(t, block.EvidenceHash)
@@ -73,7 +71,7 @@ func TestBlockValidateBasic(t *testing.T) {
 		{"Make Block w/ proposer Addr", func(blk *Block) { blk.ProposerAddress = valSet.GetProposer().Address }, false},
 		{"Negative Height", func(blk *Block) { blk.Height = -1 }, true},
 		{"Remove 1/2 the commits", func(blk *Block) {
-			blk.LastCommit.Signatures = commit.Signatures[:commit.Size()/2]
+			blk.LastCommit.Signatures = blk.LastCommit.Signatures[:blk.LastCommit.Size()/2]
 			blk.LastCommit.hash = nil // clear hash or change wont be noticed
 		}, true},
 		{"Remove LastCommitHash", func(blk *Block) { blk.LastCommitHash = []byte("something else") }, true},
@@ -96,7 +94,7 @@ func TestBlockValidateBasic(t *testing.T) {
 		tc := tc
 		i := i
 		t.Run(tc.testName, func(t *testing.T) {
-			block := MakeBlock(h, txs, commit, evList)
+			block := MakeBlock(h, txs, VotesToBlockCommit(commit), evList)
 			block.ProposerAddress = valSet.GetProposer().Address
 			tc.malleateBlock(block)
 			err = block.ValidateBasic()
@@ -131,9 +129,9 @@ func TestBlockMakePartSetWithEvidence(t *testing.T) {
 	ev := NewMockEvidence(h, time.Now(), 0, valSet.Validators[0].Address)
 	evList := []Evidence{ev}
 
-	partSet := MakeBlock(h, []Tx{Tx("Hello World")}, commit, evList).MakePartSet(512)
+	partSet := MakeBlock(h, []Tx{Tx("Hello World")}, VotesToBlockCommit(commit), evList).MakePartSet(512)
 	assert.NotNil(t, partSet)
-	assert.Equal(t, 4, partSet.Total())
+	assert.Equal(t, 2, partSet.Total())
 }
 
 func TestBlockHashesTo(t *testing.T) {
@@ -148,7 +146,7 @@ func TestBlockHashesTo(t *testing.T) {
 	ev := NewMockEvidence(h, time.Now(), 0, valSet.Validators[0].Address)
 	evList := []Evidence{ev}
 
-	block := MakeBlock(h, []Tx{Tx("Hello World")}, commit, evList)
+	block := MakeBlock(h, []Tx{Tx("Hello World")}, VotesToBlockCommit(commit), evList)
 	block.ValidatorsHash = valSet.Hash()
 	assert.False(t, block.HashesTo([]byte{}))
 	assert.False(t, block.HashesTo([]byte("something else")))
@@ -209,49 +207,6 @@ func TestNilHeaderHashDoesntCrash(t *testing.T) {
 func TestNilDataHashDoesntCrash(t *testing.T) {
 	assert.Equal(t, []byte((*Data)(nil).Hash()), nilBytes)
 	assert.Equal(t, []byte(new(Data).Hash()), nilBytes)
-}
-
-func TestCommit(t *testing.T) {
-	lastID := makeBlockIDRandom()
-	h := int64(3)
-	voteSet, _, vals := randPrecommitSet(h-1, 1, 10, 1)
-	commit, err := MakeCommit(lastID, h-1, 1, voteSet, vals, time.Now())
-	require.NoError(t, err)
-
-	assert.Equal(t, h-1, commit.Height)
-	assert.Equal(t, 1, commit.Round)
-	assert.Equal(t, PrecommitType, SignedMsgType(commit.Type()))
-	if commit.Size() <= 0 {
-		t.Fatalf("commit %v has a zero or negative size: %d", commit, commit.Size())
-	}
-
-	require.NotNil(t, commit.BitArray())
-	assert.Equal(t, bits.NewBitArray(10).Size(), commit.BitArray().Size())
-
-	vote := voteSet.GetByIndex(0, voteSet.GetVoteTimestamps(0)[0])
-	assert.Equal(t, vote, commit.GetByIndex(0))
-	assert.True(t, commit.IsCommit())
-}
-
-func TestCommitValidateBasic(t *testing.T) {
-	testCases := []struct {
-		testName       string
-		malleateCommit func(*Commit)
-		expectErr      bool
-	}{
-		{"Random Commit", func(com *Commit) {}, false},
-		{"Incorrect signature", func(com *Commit) { com.Signatures[0][0].Signature = []byte{0} }, false},
-		{"Incorrect height", func(com *Commit) { com.Height = int64(-100) }, true},
-		{"Incorrect round", func(com *Commit) { com.Round = -100 }, true},
-	}
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.testName, func(t *testing.T) {
-			com := randCommit(time.Now())
-			tc.malleateCommit(com)
-			assert.Equal(t, tc.expectErr, com.ValidateBasic() != nil, "Validate Basic had an unexpected result")
-		})
-	}
 }
 
 func TestHeaderHash(t *testing.T) {
@@ -355,7 +310,7 @@ func TestMaxHeaderBytes(t *testing.T) {
 	assert.EqualValues(t, MaxHeaderBytes, int64(len(bz)))
 }
 
-func randCommit(now time.Time) *Commit {
+func randBlockCommit(now time.Time) *BlockCommit {
 	lastID := makeBlockIDRandom()
 	h := int64(3)
 	voteSet, _, vals := randPrecommitSet(h-1, 1, 10, 1)
@@ -363,7 +318,7 @@ func randCommit(now time.Time) *Commit {
 	if err != nil {
 		panic(err)
 	}
-	return commit
+	return NewBlockCommit(commit.Height, commit.Round, commit.BlockID, commit.Signatures)
 }
 
 func hexBytesFromString(s string) tmbytes.HexBytes {
@@ -433,126 +388,8 @@ func TestBlockMaxDataBytesUnknownEvidence(t *testing.T) {
 	}
 }
 
-func TestCommitToVoteSet(t *testing.T) {
-	lastID := makeBlockIDRandom()
-	h := int64(3)
-
-	voteSet, valSet, vals := randPrecommitSet(h-1, 1, 10, 1)
-	commit, err := MakeCommit(lastID, h-1, 1, voteSet, vals, time.Now())
-	assert.NoError(t, err)
-
-	chainID := voteSet.ChainID()
-	voteSet2, _ := CommitToVoteSet(chainID, commit, valSet)
-
-	for i := 0; i < len(vals); i++ {
-		vote1 := voteSet.GetByIndex(i, voteSet.GetVoteTimestamps(i)[0])
-		vote2 := voteSet2.GetByIndex(i, voteSet2.GetVoteTimestamps(i)[0])
-		vote3 := commit.GetVote(i, 0)
-
-		vote1bz := cdc.MustMarshalBinaryBare(vote1)
-		vote2bz := cdc.MustMarshalBinaryBare(vote2)
-		vote3bz := cdc.MustMarshalBinaryBare(vote3)
-		assert.Equal(t, vote1bz, vote2bz)
-		assert.Equal(t, vote1bz, vote3bz)
-	}
-}
-
-func TestCommitToVoteSetWithNilTimestampSigs(t *testing.T) {
-	lastID := makeBlockIDRandom()
-	h := int64(3)
-
-	voteSet, valSet, vals := randPrecommitSet(h-1, 1, 10, 1)
-	commit, err := MakeCommit(lastID, h-1, 1, voteSet, vals, time.Now())
-	assert.NoError(t, err)
-
-	// Copy commit and remove timestamp sigs
-	commit2 := *commit
-	commit2.Signatures = make([][]CommitSig, len(commit2.Signatures))
-	for index := range commit2.Signatures {
-		commit2.Signatures[index] = make([]CommitSig, 1)
-		commit2.Signatures[index][0] = commit.Signatures[index][0]
-		commit2.Signatures[index][0].TimestampSignature = nil
-	}
-
-	var voteSet2 *PrecommitSet
-	chainID := voteSet.ChainID()
-	assert.NotPanics(t, func() {
-		voteSet2, _ = CommitToVoteSet(chainID, &commit2, valSet)
-	})
-	assert.NotNil(t, voteSet2)
-
-	for i := 0; i < len(vals); i++ {
-		vote1 := commit.GetVote(i, 0)
-		vote2 := voteSet2.GetByIndex(i, voteSet2.GetVoteTimestamps(i)[0])
-
-		assert.NotNil(t, vote1)
-		assert.NotNil(t, vote2)
-
-		assert.True(t, bytes.Equal(vote1.Signature, vote2.Signature))
-		assert.Equal(t, vote1.Timestamp, vote2.Timestamp)
-		assert.NotNil(t, vote1.TimestampSignature)
-		assert.Nil(t, vote2.TimestampSignature)
-	}
-}
-
-func TestCommitToVoteSetWithVotesForNilBlock(t *testing.T) {
-	blockID := makeBlockID([]byte("blockhash"), 1000, []byte("partshash"))
-
-	const (
-		height = int64(3)
-		round  = 0
-	)
-
-	type commitVoteTest struct {
-		blockIDs      []BlockID
-		numVotes      []int // must sum to numValidators
-		numValidators int
-		valid         bool
-	}
-
-	testCases := []commitVoteTest{
-		{[]BlockID{blockID, {}}, []int{67, 33}, 100, true},
-	}
-
-	for _, tc := range testCases {
-		voteSet, valSet, vals := randPrecommitSet(height-1, round, tc.numValidators, 1)
-
-		vi := 0
-		for n := range tc.blockIDs {
-			for i := 0; i < tc.numVotes[n]; i++ {
-				pubKey, err := vals[vi].GetPubKey()
-				require.NoError(t, err)
-				vote := &Vote{
-					ValidatorAddress: pubKey.Address(),
-					ValidatorIndex:   vi,
-					Height:           height - 1,
-					Round:            round,
-					Type:             PrecommitType,
-					BlockID:          tc.blockIDs[n],
-					Timestamp:        tmtime.Now(),
-				}
-
-				added, err := signAddVote(vals[vi], vote, voteSet)
-				assert.NoError(t, err)
-				assert.True(t, added)
-
-				vi++
-			}
-		}
-
-		if tc.valid {
-			commit := voteSet.MakeCommit() // panics without > 2/3 valid votes
-			assert.NotNil(t, commit)
-			err := valSet.VerifyCommit(voteSet.ChainID(), blockID, height-1, commit)
-			assert.Nil(t, err)
-		} else {
-			assert.Panics(t, func() { voteSet.MakeCommit() })
-		}
-	}
-}
-
 func TestSignedHeaderValidateBasic(t *testing.T) {
-	commit := randCommit(time.Now())
+	commit := randBlockCommit(time.Now())
 	chainID := "𠜎"
 	timestamp := time.Date(math.MaxInt64, 0, 0, 0, 0, 0, math.MaxInt64, time.UTC)
 	h := Header{
@@ -579,7 +416,7 @@ func TestSignedHeaderValidateBasic(t *testing.T) {
 	testCases := []struct {
 		testName  string
 		shHeader  *Header
-		shCommit  *Commit
+		shCommit  *BlockCommit
 		expectErr bool
 	}{
 		{"Valid Signed Header", validSignedHeader.Header, validSignedHeader.Commit, false},
@@ -724,7 +561,7 @@ func TestBlockIDProtoBuf(t *testing.T) {
 }
 
 func TestSignedHeaderProtoBuf(t *testing.T) {
-	commit := randCommit(time.Now())
+	commit := randBlockCommit(time.Now())
 	h := makeRandHeader()
 
 	sh := SignedHeader{Header: &h, Commit: commit}
@@ -753,23 +590,23 @@ func TestSignedHeaderProtoBuf(t *testing.T) {
 }
 
 func TestCommitProtoBuf(t *testing.T) {
-	commit := randCommit(time.Now())
+	commit := randBlockCommit(time.Now())
 
 	testCases := []struct {
 		msg     string
-		c1      *Commit
+		c1      *BlockCommit
 		expPass bool
 	}{
 		{"success", commit, true},
 		// Empty value sets signatures to nil, signatures should not be nillable
-		{"empty commit", &Commit{Signatures: [][]CommitSig{}}, true},
+		{"empty commit", &BlockCommit{Signatures: []CommitSigBlock{}}, true},
 		{"fail Commit nil", nil, false},
 	}
 	for _, tc := range testCases {
 		tc := tc
 		protoCommit := tc.c1.ToProto()
 
-		c, err := CommitFromProto(protoCommit)
+		c, err := BlockCommitFromProto(protoCommit)
 
 		if tc.expPass {
 			require.NoError(t, err, tc.msg)
