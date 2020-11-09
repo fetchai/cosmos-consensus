@@ -83,12 +83,9 @@ func (privKey PrivKeyBls) Bytes() []byte {
 
 // PubKey can be inferred from the private key
 func (privKey PrivKeyBls) PubKey() crypto.PubKey {
-	//pubKeyWithPoP := mcl_cpp.PubKeyFromPrivateWithPoP(privKey.String())
-	//pubKey := pubKeyWithPoP.GetFirst()
-	//pop := pubKeyWithPoP.GetSecond()
-
-	pubKey := mcl_cpp.PubKeyFromPrivate(privKey.String())
-	pop := []byte{}
+	pubKeyWithPoP := mcl_cpp.PubKeyFromPrivateWithPoP(privKey.String())
+	pubKey := pubKeyWithPoP.GetFirst()
+	pop := pubKeyWithPoP.GetSecond()
 
 	newKey := PubKeyBls{}
 
@@ -101,8 +98,9 @@ func (privKey PrivKeyBls) PubKey() crypto.PubKey {
 	}
 
 	// Combine the two
-	copy(newKey[0:PubKeyBlsSize-1], pubKey[:])
-	copy(newKey[PubKeyBlsSize:], pop[:])
+	copy(newKey[0:PubKeyBlsSize], pubKey[:])
+	copy(newKey[PubKeyBlsSize+1:], pop[:])
+	//copy(newKey[:], pubKey[:])
 
 	return newKey
 }
@@ -147,14 +145,13 @@ func GenPrivKeyBls(secret []byte) (ret PrivKeyBls) {
 
 var _ crypto.PubKey = PubKeyBls{}
 
-// PubKeyBlsSize is comprised of 192 bytes for the public key (not including PoP)
-const PubKeyBlsSize      = 192
-const PopBlsSize         = 0
+// PubKeyBlsSize is comprised of 32 bytes for the public key plus one id byte (0)
+const PubKeyBlsSize = 192
+const PopBlsSize = 96
 const TotalPubKeyBlsSize = PubKeyBlsSize + PopBlsSize
 
 // PubKeyBls implements crypto.PubKey.
 type PubKeyBls [TotalPubKeyBlsSize]byte
-
 // Convenience functions to get the pub key and pop
 func (pubKey PubKeyBls) splitPubKey() (ret [PubKeyBlsSize]byte) {
 	copy(ret[:], pubKey[:PubKeyBlsSize-1])
@@ -200,8 +197,8 @@ func (pubKey PubKeyBls) Bytes() []byte {
 }
 
 func (pubKey PubKeyBls) RawString() (ret string) {
-	pubK := pubKey.splitPubKey()
-	return string(pubK[:])
+	ret = string(pubKey[:PubKeyBlsSize])
+	return
 }
 
 func (pubKey PubKeyBls) String() string {
