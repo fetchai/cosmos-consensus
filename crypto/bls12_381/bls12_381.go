@@ -148,7 +148,7 @@ var _ crypto.PubKey = PubKeyBls{}
 
 // PubKeyBlsSize is comprised of 192 bytes for the public key (not including PoP)
 const PubKeyBlsSize      = 192
-const PopBlsSize         = 192
+const PopBlsSize         = 96
 const TotalPubKeyBlsSize = PubKeyBlsSize + PopBlsSize
 
 // PubKeyBls implements crypto.PubKey.
