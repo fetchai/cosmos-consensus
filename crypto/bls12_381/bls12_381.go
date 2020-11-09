@@ -199,9 +199,8 @@ func (pubKey PubKeyBls) Bytes() []byte {
 }
 
 func (pubKey PubKeyBls) RawString() (ret string) {
-	asByte := [TotalPubKeyBlsSize]byte(pubKey)
-	ret = string(asByte[:])
-	return
+	pubK := pubKey.splitPubKey()
+	return string(pubK[:])
 }
 
 func (pubKey PubKeyBls) String() string {
