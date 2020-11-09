@@ -100,8 +100,8 @@ func (privKey PrivKeyBls) PubKey() crypto.PubKey {
 	// Combine the two
 	//pubKey = append(pubKey, pop)
 
-	copy(newKey[0:PubKeyBlsSize], pubKey[:])
-	copy(newKey[PubKeyBlsSize+1:], pop[:])
+	copy(newKey[0:PubKeyBlsSize-1], pubKey[:])
+	copy(newKey[PubKeyBlsSize:], pop[:])
 
 	return newKey
 }
@@ -153,6 +153,25 @@ const TotalPubKeyBlsSize = PubKeyBlsSize + PopBlsSize
 
 // PubKeyBls implements crypto.PubKey.
 type PubKeyBls [TotalPubKeyBlsSize]byte
+
+// Convenience functions to get the pub key and pop
+func (pubKey PubKeyBls) splitPubKey() (ret [PubKeyBlsSize]byte) {
+	copy(ret[:], pubKey[:PubKeyBlsSize-1])
+	return
+}
+
+func (pubKey PubKeyBls) splitPop() (ret [PubKeyBlsSize]byte) {
+	copy(ret[:], pubKey[PubKeyBlsSize:])
+	return
+}
+
+// One peculiarity of this scheme is the need to verify that the public key is a valid one
+func (pubKey PubKeyBls) VerifyPubKey() bool {
+	pubKeyOnly := pubKey.splitPubKey()
+	popOnly := pubKey.splitPop()
+
+	return mcl_cpp.PairingVerify(string(pubKeyOnly[:]), string(popOnly[:]), string(pubKeyOnly[:]))
+}
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
 	result := mcl_cpp.PairingVerify(string(msg), string(sig), pubKey.RawString())
