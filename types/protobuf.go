@@ -268,9 +268,9 @@ func (pb2tm) PubKey(pubKey abci.PubKey) (crypto.PubKey, error) {
 		copy(pk[:], pubKey.Data)
 		return pk, nil
 	case ABCIPubKeyTypeBls12_381:
-		if len(pubKey.Data) != bls12_381.PubKeyBlsSize {
+		if len(pubKey.Data) != bls12_381.TotalPubKeyBlsSize {
 			return nil, fmt.Errorf("invalid size for PubKeyBls12_381. Got %d, expected %d",
-				len(pubKey.Data), bls12_381.PubKeyBlsSize)
+				len(pubKey.Data), bls12_381.TotalPubKeyBlsSize)
 		}
 		var pk bls12_381.PubKeyBls
 		copy(pk[:], pubKey.Data)

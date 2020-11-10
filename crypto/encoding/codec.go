@@ -50,9 +50,9 @@ func PubKeyFromProto(k *pc.PublicKey) (crypto.PubKey, error) {
 		copy(pk[:], k.Ed25519)
 		return pk, nil
 	case *pc.PublicKey_Bls12_381:
-		if len(k.Bls12_381) != bls12_381.PubKeyBlsSize {
+		if len(k.Bls12_381) != bls12_381.TotalPubKeyBlsSize {
 			return nil, fmt.Errorf("invalid size for PubKeyBls. Got %d, expected %d",
-				len(k.Bls12_381), bls12_381.PubKeyBlsSize)
+				len(k.Bls12_381), bls12_381.TotalPubKeyBlsSize)
 		}
 		var pk bls12_381.PubKeyBls
 		copy(pk[:], k.Bls12_381)

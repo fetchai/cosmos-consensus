@@ -83,14 +83,26 @@ func (privKey PrivKeyBls) Bytes() []byte {
 
 // PubKey can be inferred from the private key
 func (privKey PrivKeyBls) PubKey() crypto.PubKey {
-	pubKey := mcl_cpp.PubKeyFromPrivate(privKey.String())
+	pubKeyWithPoP := mcl_cpp.PubKeyFromPrivateWithPoP(privKey.String())
+	pubKey := pubKeyWithPoP.GetFirst()
+	pop := pubKeyWithPoP.GetSecond()
+
 	newKey := PubKeyBls{}
 
 	if len(pubKey) != PubKeyBlsSize {
 		panic(fmt.Sprintf("Didn't get a pub key of the correct size! Got: %v, Expected %v\n", len(pubKey), PubKeyBlsSize))
 	}
 
-	copy(newKey[:], pubKey[:])
+	if len(pop) != PopBlsSize {
+		panic(fmt.Sprintf("Didn't get a bls PoP of the correct size! Got: %v, Expected %v\n", len(pop), PopBlsSize))
+	}
+
+	pubKeyBytes := []byte(pubKey)
+	popBytes := []byte(pop)
+
+	// Combine the two
+	pubKeyBytes = append(pubKeyBytes, popBytes...)
+	copy(newKey[:], pubKeyBytes[:])
 
 	return newKey
 }
@@ -137,9 +149,31 @@ var _ crypto.PubKey = PubKeyBls{}
 
 // PubKeyBlsSize is comprised of 32 bytes for the public key plus one id byte (0)
 const PubKeyBlsSize = 192
+const PopBlsSize = 96
+const TotalPubKeyBlsSize = PubKeyBlsSize + PopBlsSize
 
 // PubKeyBls implements crypto.PubKey.
-type PubKeyBls [PubKeyBlsSize]byte
+type PubKeyBls [TotalPubKeyBlsSize]byte
+// Convenience functions to get the pub key and pop
+func (pubKey PubKeyBls) splitPubKey() (ret [PubKeyBlsSize]byte) {
+	copy(ret[:], pubKey[:PubKeyBlsSize])
+	return
+}
+
+func (pubKey PubKeyBls) splitPop() (ret [PopBlsSize]byte) {
+	copy(ret[:], pubKey[PubKeyBlsSize:])
+	return
+}
+
+// One peculiarity of this scheme is the need to verify that the public key is a valid one
+func (pubKey PubKeyBls) VerifyPubKey() bool {
+	pubKeyOnly := pubKey.splitPubKey()
+	popOnly := pubKey.splitPop()
+
+	result := mcl_cpp.PairingVerify(string(pubKeyOnly[:]), string(popOnly[:]), string(pubKeyOnly[:]))
+
+	return result
+}
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
 	result := mcl_cpp.PairingVerify(string(msg), string(sig), pubKey.RawString())
@@ -167,8 +201,7 @@ func (pubKey PubKeyBls) Bytes() []byte {
 }
 
 func (pubKey PubKeyBls) RawString() (ret string) {
-	asByte := [PubKeyBlsSize]byte(pubKey)
-	ret = string(asByte[:])
+	ret = string(pubKey[:PubKeyBlsSize])
 	return
 }
 
