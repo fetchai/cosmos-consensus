@@ -100,7 +100,6 @@ func (privKey PrivKeyBls) PubKey() crypto.PubKey {
 	// Combine the two
 	copy(newKey[0:PubKeyBlsSize], pubKey[:])
 	copy(newKey[PubKeyBlsSize+1:], pop[:])
-	//copy(newKey[:], pubKey[:])
 
 	return newKey
 }
@@ -158,8 +157,8 @@ func (pubKey PubKeyBls) splitPubKey() (ret [PubKeyBlsSize]byte) {
 	return
 }
 
-func (pubKey PubKeyBls) splitPop() (ret [PubKeyBlsSize]byte) {
-	copy(ret[:], pubKey[PubKeyBlsSize:])
+func (pubKey PubKeyBls) splitPop() (ret [PopBlsSize]byte) {
+	copy(ret[:], pubKey[PopBlsSize:])
 	return
 }
 
