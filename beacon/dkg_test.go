@@ -177,37 +177,37 @@ func TestDKGScenarios(t *testing.T) {
 		completionSize int
 	}{
 		{"All honest", func([]*testNode) {}, false, 4, 0, 4, 4},
-		//{"With sentry", func([]*testNode) {}, false, 4, 1, 4, 4},
-		//{"Duplicate messages", func([]*testNode) {}, true, 4, 0, 4, 4},
-		//{"Bad coefficient", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badCoefficient)
-		//}, false, 5, 0, 4, 4},
-		//{"Bad share", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
-		//}, false, 5, 0, 5, 5},
-		//{"False qual complaint", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, falseQualComplaint)
-		//}, false, 5, 0, 5, 5},
-		//{"Bad share and no answer", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, emptyComplaintAnswer)
-		//}, false, 5, 0, 4, 4},
-		//{"Messages with invalid index", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, messagesWithInvalidIndex)
-		//}, false, 5, 0, 5, 5},
-		//{"Messages with invalid crypto", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, messagesWithInvalidCrypto)
-		//}, false, 5, 0, 4, 4},
-		//{"Qual messages with invalid crypto", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, qualMessagesWithInvalidCrypto)
-		//}, false, 5, 0, 5, 4},
-		//{"Mutate data", func(nodes []*testNode) {
-		//	nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, mutateData)
-		//}, false, 5, 0, 4, 4},
-		//{"Restart DKG", func(nodes []*testNode) {
-		//	nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badShare)
-		//	nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, emptyComplaintAnswer)
-		//}, false, 2, 1, 2, 2},
+		{"With sentry", func([]*testNode) {}, false, 4, 1, 4, 4},
+		{"Duplicate messages", func([]*testNode) {}, true, 4, 0, 4, 4},
+		{"Bad coefficient", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badCoefficient)
+		}, false, 5, 0, 4, 4},
+		{"Bad share", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
+		}, false, 5, 0, 5, 5},
+		{"False qual complaint", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, falseQualComplaint)
+		}, false, 5, 0, 5, 5},
+		{"Bad share and no answer", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, badShare)
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, emptyComplaintAnswer)
+		}, false, 5, 0, 4, 4},
+		{"Messages with invalid index", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, messagesWithInvalidIndex)
+		}, false, 5, 0, 5, 5},
+		{"Messages with invalid crypto", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, messagesWithInvalidCrypto)
+		}, false, 5, 0, 4, 4},
+		{"Qual messages with invalid crypto", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, qualMessagesWithInvalidCrypto)
+		}, false, 5, 0, 5, 4},
+		{"Mutate data", func(nodes []*testNode) {
+			nodes[len(nodes)-1].failures = append(nodes[len(nodes)-1].failures, mutateData)
+		}, false, 5, 0, 4, 4},
+		{"Restart DKG", func(nodes []*testNode) {
+			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, badShare)
+			nodes[len(nodes)-2].failures = append(nodes[len(nodes)-2].failures, emptyComplaintAnswer)
+		}, false, 2, 1, 2, 2},
 	}
 	for _, tc := range testCases {
 
