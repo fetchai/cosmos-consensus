@@ -97,9 +97,12 @@ func (privKey PrivKeyBls) PubKey() crypto.PubKey {
 		panic(fmt.Sprintf("Didn't get a bls PoP of the correct size! Got: %v, Expected %v\n", len(pop), PopBlsSize))
 	}
 
+	pubKeyBytes := []byte(pubKey)
+	popBytes := []byte(pop)
+
 	// Combine the two
-	copy(newKey[0:PubKeyBlsSize], pubKey[:])
-	copy(newKey[PubKeyBlsSize+1:], pop[:])
+	pubKeyBytes = append(pubKeyBytes, popBytes...)
+	copy(newKey[:], pubKeyBytes[:])
 
 	return newKey
 }
@@ -153,12 +156,12 @@ const TotalPubKeyBlsSize = PubKeyBlsSize + PopBlsSize
 type PubKeyBls [TotalPubKeyBlsSize]byte
 // Convenience functions to get the pub key and pop
 func (pubKey PubKeyBls) splitPubKey() (ret [PubKeyBlsSize]byte) {
-	copy(ret[:], pubKey[:PubKeyBlsSize-1])
+	copy(ret[:], pubKey[:PubKeyBlsSize])
 	return
 }
 
 func (pubKey PubKeyBls) splitPop() (ret [PopBlsSize]byte) {
-	copy(ret[:], pubKey[PopBlsSize:])
+	copy(ret[:], pubKey[PubKeyBlsSize:])
 	return
 }
 
@@ -167,7 +170,9 @@ func (pubKey PubKeyBls) VerifyPubKey() bool {
 	pubKeyOnly := pubKey.splitPubKey()
 	popOnly := pubKey.splitPop()
 
-	return mcl_cpp.PairingVerify(string(pubKeyOnly[:]), string(popOnly[:]), string(pubKeyOnly[:]))
+	result := mcl_cpp.PairingVerify(string(pubKeyOnly[:]), string(popOnly[:]), string(pubKeyOnly[:]))
+
+	return result
 }
 
 func (pubKey PubKeyBls) VerifyBytes(msg []byte, sig []byte) bool {
