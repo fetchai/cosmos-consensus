@@ -87,6 +87,12 @@ test_integrations:
 	#make test_p2p_ipv6
 .PHONY: test_integrations
 
+test_native:
+	@cmake -G 'Unix Makefiles' -S . -B build-cpp
+	@make --no-print-directory -C build-cpp
+	@make --no-print-directory -C build-cpp test
+.PHONY: test_native
+
 test_release:
 	@go test -tags release $(PACKAGES)
 .PHONY: test_release
