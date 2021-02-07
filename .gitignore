@@ -4,6 +4,7 @@
 *.bak
 .DS_Store
 build/*
+build-cpp/
 rpc/test/.tendermint
 .tendermint
 remote_dump

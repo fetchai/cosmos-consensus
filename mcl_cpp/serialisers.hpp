@@ -29,6 +29,7 @@ std::string Serialise(std::vector<std::string> const &coeff);
 std::string Serialise(std::pair<std::string, std::string> const &share);
 std::string Serialise(std::set<uint32_t> const &complaints);
 std::string Serialise(std::unordered_map<uint32_t, std::pair<std::string, std::string>> const &shares);
+
 bool Deserialise(std::string const &msg, std::vector<std::string> &coeff);
 bool Deserialise(std::string const &msg, std::pair<std::string, std::string> &shares);
 bool Deserialise(std::string const &msg, std::set<uint32_t> &complaints);
