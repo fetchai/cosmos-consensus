@@ -228,9 +228,12 @@ func (entropyGenerator *EntropyGenerator) SetNextAeonDetails(aeon *aeonDetails) 
 	} else if numNextAeons > 0 {
 		previousAeon = entropyGenerator.nextAeons[numNextAeons-1]
 	}
+
 	if previousAeon != nil && previousAeon.End > aeon.End {
-		entropyGenerator.Logger.Error(fmt.Sprintf("SetNextAeonsDetails: received aeon end %v less than aeon end from last element in queue %v",
-			aeon.End, previousAeon.End))
+		if !aeon.IsKeyless() {
+			entropyGenerator.Logger.Error(fmt.Sprintf("SetNextAeonsDetails: received aeon end %v less than aeon end from last element in queue %v",
+				aeon.End, previousAeon.End))
+		}
 		return
 	}
 
