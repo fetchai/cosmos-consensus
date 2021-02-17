@@ -29,7 +29,7 @@ jobs:
 
     - name: Install system dependencies
       shell: bash
-      run: sudo apt-get install -y swig libboost-all-dev libgmp-dev git wget cmake
+      run: sudo apt-get install -y swig libgmp-dev git wget cmake
 
     - name: Install mcl
       run: |
