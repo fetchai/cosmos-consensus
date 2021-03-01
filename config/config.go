@@ -1066,7 +1066,7 @@ func DefaultBeaconConfig() *BeaconConfig {
 		EntropyChannelCapacity:      3,
 		ComputeEntropySleepDuration: 50 * time.Millisecond,
 		RunDKG:                      true,
-		StrictTxFiltering:           true,
+		StrictTxFiltering:           false,
 	}
 }
 
