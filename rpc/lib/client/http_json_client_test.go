@@ -7,7 +7,7 @@ import (
 )
 
 func TestHTTPClientMakeHTTPDialer(t *testing.T) {
-	remote := []string{"https://foo-bar.com:80", "http://foo-bar.net:80", "https://user:pass@foo-bar.net:80"}
+	remote := []string{"https://google.com:80"}
 
 	for _, f := range remote {
 		u, err := newParsedURL(f)
@@ -19,5 +19,4 @@ func TestHTTPClientMakeHTTPDialer(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, addr)
 	}
-
 }
