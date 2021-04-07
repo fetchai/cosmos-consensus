@@ -46,3 +46,6 @@ terraform.tfstate.d
 .vscode
 
 profile\.out
+
+beacon/build
+dist/
