@@ -1,53 +1,73 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
+set -euo pipefail
 
-# Get the version from the environment, or try to figure it out.
-if [ -z $VERSION ]; then
-	VERSION=$(awk -F\" 'TMCoreSemVer =/ { print $2; exit }' < version/version.go)
+MAIN_BRANCH="master"
+git checkout "${MAIN_BRANCH}"
+
+git fetch
+git pull origin "${MAIN_BRANCH}"
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+ROOTDIR="${DIR}/.."
+
+read -r -p "Enter new release version (current: $(git describe)): " version
+[[ "${version}" =~ ^v([0-9]+\.){2}[0-9]+$ ]] || (echo "invalid version \"${version}\""; exit 1)
+
+if git tag | grep -q "${version}"; then
+   echo "Tag \"${version}\" already exists. Please provide a new version or delete existing tag."
+   exit 1
 fi
-if [ -z "$VERSION" ]; then
-    echo "Please specify a version."
-    exit 1
+
+# Update TMBaselineSemVer in version.go to match the new version
+CURRENT_CORE_VERSION=$(grep -P "TMCoreSemVer\s+=\s+\".*\"" "${ROOTDIR}/version/version.go" |  cut -d'=' -f2 | tr -d '" ') 
+echo "Current TMCoreSemVer: ${CURRENT_CORE_VERSION}"
+if [ "${CURRENT_CORE_VERSION}" != "${version//v}" ]; then
+   read -r -p "Do you want to update TMCoreSemVer to \"${version//v}\" in version/version.go ? [Y/n] " input
+   case $input in
+      [nN])
+   ;;
+      *)
+      sed -i "/TMCoreSemVer/s/\"${CURRENT_CORE_VERSION}\"/\"${version//v}\"/" "${ROOTDIR}/version/version.go"
+      git add "${ROOTDIR}/version/version.go"
+      git commit -m "chores: bump TMCoreSemVer to ${version//v}"
+      git push origin "${MAIN_BRANCH}"
+      echo "Updated TMCoreSemVer to ${version//v} in version/version.go"
+   ;;
+   esac
 fi
-echo "==> Releasing version $VERSION..."
 
-# Get the parent directory of where this script is.
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
-DIR="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
+git tag -a "${version}" -m "${version}"
+git push origin "${version}"
 
-# Change into that dir because we expect that.
-cd "$DIR"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-# Building binaries
-sh -c "'$DIR/scripts/dist.sh'"
+HEADER=""
+read -r -p "Do you want to edit release note header? [y/N] " input
+case $input in
+    [yY])
+    TMP=$(mktemp)
+    echo "${HEADER}" > "${TMP}"
+    ${EDITOR} "${TMP}"
+    HEADER=$(cat "${TMP}")
+    rm "${TMP}"
+ ;;
+    *)
+ ;;
+esac
 
-# Pushing binaries to S3
-sh -c "'$DIR/scripts/publish.sh'"
+FOOTER=$(bash -c "${DIR}/release_notes/gen_footer.sh")
+read -r -p "Do you want to edit release note footer? [y/N] " input
+case $input in
+    [yY])
+    TMP=$(mktemp)
+    echo "${FOOTER}" > "${TMP}"
+    ${EDITOR} "${TMP}"
+    FOOTER=$(cat "${TMP}")
+    rm "${TMP}"
+ ;;
+    *)
+ ;;
+esac
 
-# echo "==> Crafting a Github release"
-# today=$(date +"%B-%d-%Y")
-# ghr -b "https://github.com/tendermint/tendermint/blob/master/CHANGELOG.md#${VERSION//.}-${today,}" "v$VERSION" "$DIR/build/dist"
-
-# Build and push Docker image
-
-## Get SHA256SUM of the linux archive
-SHA256SUM=$(shasum -a256 "${DIR}/build/dist/tendermint_${VERSION}_linux_amd64.zip" | awk '{print $1;}')
-
-## Replace TM_VERSION and TM_SHA256SUM with the new values
-sed -i -e "s/TM_VERSION .*/TM_VERSION $VERSION/g" "$DIR/DOCKER/Dockerfile"
-sed -i -e "s/TM_SHA256SUM .*/TM_SHA256SUM $SHA256SUM/g" "$DIR/DOCKER/Dockerfile"
-git commit -m "update Dockerfile" -a "$DIR/DOCKER/Dockerfile"
-echo "==> TODO: update DOCKER/README.md (latest Dockerfile's hash is $(git rev-parse HEAD)) and copy it's content to https://store.docker.com/community/images/tendermint/tendermint"
-
-pushd "$DIR/DOCKER"
-
-## Build Docker image
-TAG=$VERSION sh -c "'./build.sh'"
-
-## Push Docker image
-TAG=$VERSION sh -c "'./push.sh'"
-
-popd
-
-exit 0
+go install github.com/goreleaser/goreleaser@v0.162.0
+goreleaser release --rm-dist --release-header <(echo "${HEADER}") --release-footer <(echo "${FOOTER}")
