@@ -7,13 +7,16 @@ package client
 
 import (
 	"fmt"
+	"math/rand"
+	"net/url"
+	"time"
 
 	log "github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/lite"
-	lerr "github.com/tendermint/tendermint/lite/errors"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -102,22 +105,79 @@ func (p *provider) ValidatorSet(chainID string, height int64) (valset *types.Val
 	return p.getValidatorSet(chainID, height)
 }
 
-func (p *provider) getValidatorSet(chainID string, height int64) (valset *types.ValidatorSet, err error) {
+func (p *provider) getValidatorSet(chainID string, height int64) (*types.ValidatorSet, error) {
 	if chainID != p.chainID {
-		err = fmt.Errorf("expected chainID %s, got %s", p.chainID, chainID)
-		return
+		return nil, fmt.Errorf("expected chainID %s, got %s", p.chainID, chainID)
 	}
 	if height < 1 {
-		err = fmt.Errorf("expected height >= 1, got height %v", height)
-		return
+		return nil, fmt.Errorf("expected height >= 1, got height %v", height)
 	}
-	res, err := p.client.Validators(&height, 0, 0)
-	if err != nil {
-		// TODO pass through other types of errors.
-		return nil, lerr.ErrUnknownValidators(chainID, height)
+
+	// iterate through all validator pages up to 10000 validators.
+	// ported from v0.40.x fix at https://github.com/tendermint/tendermint/blob/20610be98cef42c663169e3aae7f3a65ac5336bc/light/provider/http/http.go#L162
+	const maxPages = 100
+	const maxRetryAttempts = 5
+	var (
+		perPage = 100
+		vals    = []*types.Validator{}
+		page    = 1
+		total   = -1
+	)
+
+	for len(vals) != total && page <= maxPages {
+		attempt := uint16(0)
+		for {
+			res, err := p.client.Validators(&height, page, perPage)
+			if err != nil {
+				switch e := err.(type) {
+				case *url.Error:
+					if e.Timeout() {
+						// if we have exceeded retry attempts then return a no response error
+						if attempt == maxRetryAttempts {
+							return nil, fmt.Errorf("client failed to respond after %d attempts", attempt)
+						}
+						attempt++
+						// request timed out: we wait and try again with exponential backoff
+						time.Sleep(backoffTimeout(attempt))
+						continue
+					}
+					return nil, fmt.Errorf("client provided bad signed header: %v", e)
+				case *rpctypes.RPCError:
+					// process the rpc error and return the corresponding error to the light client
+					return nil, fmt.Errorf("rpc error: %v", e)
+				default:
+					// If we don't know the error then by default we return an unreliable provider error and
+					// terminate the connection with the peer.
+					return nil, fmt.Errorf("client deemed unreliable: %v", e)
+				}
+			}
+
+			if len(res.Validators) == 0 {
+				return nil, fmt.Errorf(
+					"validator set is empty (height: %d, page: %d, per_page: %d)",
+					height,
+					page,
+					perPage,
+				)
+			}
+			if res.Total <= 0 {
+				return nil, fmt.Errorf(
+					"total number of vals is <= 0: %d (height: %d, page: %d, per_page: %d)",
+					res.Total,
+					height,
+					page,
+					perPage,
+				)
+			}
+
+			total = res.Total
+			vals = append(vals, res.Validators...)
+			page++
+			break
+		}
 	}
-	valset = types.NewValidatorSet(res.Validators)
-	return
+
+	return types.NewValidatorSet(vals), nil
 }
 
 // This does no validation.
@@ -136,4 +196,11 @@ func (p *provider) fillFullCommit(signedHeader types.SignedHeader) (fc lite.Full
 	}
 
 	return lite.NewFullCommit(signedHeader, valset, nextValset), nil
+}
+
+// exponential backoff (with jitter)
+// 0.5s -> 2s -> 4.5s -> 8s -> 12.5 with 1s variation
+func backoffTimeout(attempt uint16) time.Duration {
+	// nolint:gosec // G404: Use of weak random number generator
+	return time.Duration(500*attempt*attempt)*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
 }
