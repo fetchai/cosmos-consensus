@@ -7,10 +7,6 @@ on:
       - release/*
       - collaborative-learning
   pull_request:
-    branches:
-      - master
-      - release/*
-      - collaborative-learning
 
 jobs:
 
